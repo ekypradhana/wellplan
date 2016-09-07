@@ -1,0 +1,250 @@
+﻿<div style="width:1020px;margin:0px auto;" data-bind="with: model.WaterfallFilter">
+    <div style="width:1020px;float:left;display:block">
+        <div class="mini-nav bordered-mini-nav" style="width: 950px; margin: 0px;">
+            <div class="col-md-6">
+                <div class="each-nav">
+                    Show:
+                    <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                        <option value="Days">Days</option>
+                        <option value="Cost">Cost</option>
+                    </select>
+                </div>
+                <div class="each-nav">
+                    Breakdown by:
+                    <select data-bind="value:GroupBy" style="margin-right: 5px;">
+                        <option value="Classification">Classification</option>
+                        <option value="Theme">Theme</option>
+                        <option value="Title">Idea</option>
+                        <option value="PerformanceUnit">Performance Unit</option>
+                        <option value="ActionParty">Action Party (PIC)</option>
+                        <option value="WellName">Well Name</option>
+                        <option value="RigName">Rig Name</option>
+                    </select>
+                </div>
+                <div class="each-nav no-border-nav">
+                    Base OP:
+                    <select data-bind="value:BaseOP,options:model.OPs()" style="margin-right: 5px;"></select>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="each-nav checkbox-nav">
+                    <div>
+                        <input type="checkbox" data-bind="checked:IncludeZero" />
+                    </div>
+                    <div>Include 0 value data point</div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="each-nav checkbox-nav">
+                    <div>
+                        <input type="checkbox" data-bind="checked:IncludeGaps" />
+                    </div>
+                    <div>Include Gap</div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="each-nav checkbox-nav">
+                    <div>
+                        <input type="checkbox" data-bind="checked:Scaled" />
+                    </div>
+                    <div>Autoscale</div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="each-nav checkbox-nav">
+                    <div>
+                        <input type="checkbox" data-bind="checked:ShellShare" />
+                    </div>
+                    <div>Calc Shell Share</div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="each-nav checkbox-nav">
+                    <div>
+                        <input type="checkbox" data-bind="checked:Firm" />
+                    </div>
+                    <div>Firm</div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="each-nav checkbox-nav">
+                    <div>
+                        <input type="checkbox" data-bind="checked:Option" />
+                    </div>
+                    <div>Option</div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="each-nav checkbox-nav">
+                    <div>
+                        <input type="checkbox" data-bind="checked:Blank" />
+                    </div>
+                    <div>Blank</div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="each-nav checkbox-nav no-border-nav">
+                    <div>
+                        <input type="checkbox" data-bind="checked:ValidLSOnly" />
+                    </div>
+                    <div>Valid LS Only</div>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+
+        <div style="text-align: center; font-weight: bold; font-size: 14px;" id="waterfall-chart-realized-title"></div>
+    </div>
+    <div style="width:1020px;float:left;display:block">
+        <div id="waterfall-chart-realized-tq" style="width:510px;height:400px;display:none;float:left;"></div>
+        <div id="waterfall-chart-realized-le" style="width:1020px;height:400px;display:inline;float:left;"></div>
+    </div>
+    <div style="text-align:center">
+        <label style="background-color:#8AAAE0; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">OP</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A0C065; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Realized</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#C25654; width: 20px; ">&nbsp;</label>
+        <label style="font-weight:normal">Unrealized</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#888279; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Gap</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#373737; width: 20px; ">&nbsp;</label>
+        <label style="font-weight:normal">TQ/Agreed Target</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A48EC1; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">LE</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#E2A037; width: 20px; height: 1px;">&nbsp;</label>
+        <label style="font-weight:normal">AFE</label>
+    </div>
+</div>
+
+<script>
+    model.LastUpdateLs = ko.observable("@ViewBag.LatestLS");
+    model.GenerateWaterfallByRealized = function (data) {
+        //var actDt = moment(data.LastLS).toDate();
+        //var dt = "";
+        //if (actDt > new Date(2000, 0, 1))
+        //    model.LastUpdateLs('Latest Sequence : ' + moment(data.LastLS).format("DD-MMM-YYYY"));
+        //else
+        //    model.LastUpdateLs("No LS Loaded!");
+
+        //model.LastUpdateLs('Last Loaded LS : ' + dt);
+        if (model.WaterfallFilter.GroupBy() == "Classification") {
+            $("#waterfall-chart-realized-title").html('Waterfall - Breakdown By ' + model.WaterfallFilter.GroupBy() + ' (' + model.WaterfallFilter.DayOrCost() + ')' +
+                '<div style="font-size: 12px;font-weight: normal;font-style: italic;">This chart includes additional banked savings from MLE Report</div>');
+            //'<div style="font-size: 12px;font-weight: normal;font-style: italic;">Last Loaded LS : ' + dt + '</div>'
+        } else {
+            $("#waterfall-chart-realized-title").html('Waterfall - Breakdown By ' + model.WaterfallFilter.GroupBy() + ' (' + model.WaterfallFilter.DayOrCost() + ')');
+            //'<div style="font-size: 12px;font-weight: normal;font-style: italic;">Last Loaded LS : ' + dt + '</div>');
+        }
+        model.RenderWaterfallRealized($("#waterfall-chart-realized-le"), data.DataLE, data.MaxHeight);
+        model.RenderWaterfallRealized($("#waterfall-chart-realized-tq"), data.DataTQ, data.MaxHeight);
+            
+            
+    };
+
+    model.TemplateWaterfallRealizedColor = function (point) {
+        var pallet = "";
+        if (point.category.indexOf("OP") != -1) {
+            pallet = "OP";
+        } else {
+            pallet = point.category;
+        }
+        switch (pallet) {
+        case "OP":
+            return "#8AAAE0";
+            break;
+
+        case "Gap":
+        case "Gap to LE":
+            return "#888279";
+            break;
+
+        case "TQ":
+        case "TQ / Target":
+        case "TQ / Agreed Target":
+        case "TQ/Target":
+        case "TQ/Agreed Target":
+            return "#373737";
+            break;
+
+        case "LE":
+        case "Last Estimate":
+            return "#A48EC1";
+            break;
+
+        case "Unrisked Upside":
+            return "#333";
+            break;
+
+        default:
+            if (point.category.split('').reverse()[0] == ' ') {
+                return "#C25654";
+            } else {
+                return "#A0C065";
+            }
+            break;
+        }
+    };
+
+    model.RenderWaterfallRealized = function ($chart, data, maxHeight) {
+        var config = {
+            dataSource: { data: data },
+            seriesDefaults: {
+                type: "column",
+                overlay: {
+                    gradient: "none"
+                },
+                border: {
+                    opacity: 0.4
+                }
+            },
+            series: [
+                {
+                    type: "waterfall",
+                    field: "Value",
+                    categoryField: "Category",
+                    summaryField: "Summary",
+                    color: model.TemplateWaterfallRealizedColor,
+                    line: { visible: false, width: 0 },
+                    labels: { visible: true, font: "9px verdana", format: "N1", position: "outsideEnd" },
+                    tooltip: { visible: true, template: '#: category #: #: kendo.format("{0:N1}", value) #' }
+                },
+                {
+                    type: "line", name: "AFE", color: "#E2A037", field: "TrendLines[0]", markers: { visible: false }, width: 1,
+                    tooltip: { visible: true, template: 'AFE: #: kendo.format("{0:N1}", value) #' }
+                }
+            ],
+            legend: { visible: false, position: "bottom" },
+            valueAxis: {
+                min: 0,
+                max: maxHeight,
+                labels: { font: "9px verdana", format: "N1" },
+                majorGridLines: { visible: false }
+            },
+            categoryAxis: {
+                labels: { font: "9px verdana", rotation: 90, template: '#= TrimIfGreaterThan(value, 25) #' },
+                majorGridLines: { visible: false }
+            }
+        };
+
+        if (!model.WaterfallFilter.Scaled()) {
+            config.valueAxis.max = maxHeight;
+        } else {
+            $chart.height(400);
+        }
+
+        $chart.kendoChart(config);
+
+        if (!model.WaterfallFilter.IncludeGaps()) {
+            var allGapsData = _.filter(data, function (e) { return (e.Category.toLowerCase().indexOf("gap") > -1) });
+            _.each(allGapsData, function (e) {
+                var gapsData = e;
+                var gapsIndex = data.indexOf(gapsData);
+
+                $chart.find("tspan:contains('" + gapsData.Title + "')").closest("g").hide();
+                $chart.find("svg > g:eq(0) > g[opacity]:eq(" + gapsIndex + ")").hide();
+                $chart.find("svg > g:eq(0) > g:eq(0) > g[clip-path] > g:eq(" + gapsIndex + ")").hide();
+            });
+        }
+    };
+</script>

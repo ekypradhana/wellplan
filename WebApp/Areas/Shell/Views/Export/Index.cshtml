@@ -1,0 +1,177 @@
+﻿@{
+    ViewBag.Title = "Template builder for exporting datas to CSV ";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<style>
+    .container { margin-bottom: 15px; }
+    .form-control { font-size: 9pt; }
+    #form-wrapper div { padding-bottom: 3px; }
+    #form-wrapper div label { line-height: 23px; }
+    #form-wrapper .col-md-4 { padding: 0px; text-align: right; }
+    input[type='text'] { line-height: 20px; }
+    [data-field="CreateDate"], [data-field="none"] { text-align: center !important; }
+</style>
+
+<script>
+    model.PageId("Data Extractor");
+    model.IsProcessing = ko.observable(false);
+    model.Mode = ko.observable("");
+    model.isRO = ko.observable('@ViewBag.isRO');
+
+    model.RenderGrid = function () {
+
+        var columnPhases = [];
+        var isRO = "@ViewBag.isRO";
+        if (isRO != "1") {
+            columnPhases.push(
+                { field: "none", title: "Action", width: 180, attributes: { style: "text-align: center;" }, template: "<button class='btn btn-custom btn-xs btn-warning' onclick='model.Download(\"#: _id #\")'><span class='glyphicon glyphicon-download-alt'></span> Download</button>&nbsp;&nbsp;&nbsp;<button class='btn btn-custom btn-xs btn-danger' onclick='model.Delete(\"#: _id #\")'><span class='glyphicon glyphicon-remove'></span> Delete</button>" }
+             
+                );
+        }
+        columnPhases.push(
+            { field: "Name", title: "Title", template: "<a style='cursor:pointer' onclick='model.Edit(\"#: _id #\")'>#: Name #</a>" },
+            { field: "DataPoint", title: "Data Point" },
+            { field: "Columns", title: "Columns", template: "#= (Columns === null ? '' : Columns.join(', ')) #" },
+            { field: "Rows", title: "Rows", template: "#= (Rows === null ? '' : Rows.join(', ')) #" },
+            { field: "Orientation", title: "Orientation" },
+            { field: "OwnerName", title: "Owner" },
+            { field: "CreateDate", title: "Create Date", type: "date", template: "#: jsonDateStr(CreateDate) #" }
+        );
+
+        $("#grid").kendoGrid({
+            columns: columnPhases,
+            pageable: true,
+            sortable: true,
+            dataSource: {
+                pageSize: 10,
+                schema: {
+                    data: "Data",
+                    model: {
+                        id: "_id",
+                        fields: {
+                            Name: { validation: { required: true } },
+                            CollectioName: { type: "string" },
+                            OutputPath: { type: "string" },
+                            Query: { type: "string" }
+                        }
+                    }
+                }
+            }
+        });
+    };
+
+    model.RefreshGrid = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        var url = "@Url.Action("Search", "Export")";
+        var param = { CreateDate: $('#dtSearch').val(), ListName: $('#TxtSearch').val() };
+
+        ajaxPost(url, param, function (res) {
+            model.IsProcessing(false);
+
+            var ds = new kendo.data.DataSource({ data: res.Data, pageSize: 10 });
+            $("#grid").data("kendoGrid").setDataSource(ds);
+        }, function () {
+            model.IsProcessing(false);
+            alert("Error occured when exporting data");
+        });
+    }
+    
+    model.Delete = function Delete(t) {
+        if (!confirm("Are you sure you want to delete")) return;
+
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        var url = "@Url.Action("Delete", "Export")";
+        var param = { id: t };
+
+        ajaxPost(url, param, function (res) {
+            model.IsProcessing(false);
+            model.RefreshGrid();
+        }, function () {
+            model.IsProcessing(false);
+            alert("Error occured when deleting data");
+        });
+    }
+    
+    model.CreateNew = function () {
+        $(".hidDiv #tbId").val(0);
+
+        $('#btMin').trigger("click");
+
+        $("#tbTitle").val("");
+        $("#tbQuery").val("");
+        $("#tbPath").val("");
+        $("#tbFields").data("kendoMultiSelect").setDataSource([]);
+        $("#tbFields").data("kendoMultiSelect").value([]);
+        $("#tbCollection").data("kendoDropDownList").value(" ");
+
+        $("#myModal").modal('show');
+        $('#grid').data('kendoGrid').refresh();
+        $('#grid').data('kendoGrid').dataSource.read();
+    }
+
+    model.Download = function (id) {
+        var selector = "#download_" + id;
+        var url = '@Url.Action("ExcelExport", "Export")' + "?id=" + id;
+        $(selector).html("Downloading...");
+        document.location.href = url;
+        $(selector).html("<a class='k-button k-button- k-grid-edit'  style='cursor:pointer' onclick='Download(\"" + id + "\")'> Download </a>");
+    };
+
+    $(document).ready(function () {
+        input2datePicker($("#dtSearch"));
+        model.RenderGrid();
+        model.RefreshGrid();
+    });
+</script>
+
+<div class="col-md-12" data-bind="visible: model.Mode() != 'Insert'">
+
+    <div class="form-group col-md-12 filter" id="form-wrapper" style="margin-bottom: 5px;">
+        <div class="col-md-4">
+            <label class="col-md-4">Title:</label>
+            <div class="col-md-8" style="padding-bottom: 0px !important">
+                <input id="TxtSearch" type="text" class="text" placeholder="Type title here ...">
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <label class="col-md-4">Create Date:</label>
+            <div class="col-md-8" style="padding-bottom: 0px !important">
+                <input id="dtSearch" type="text" placeholder="Pick date" style="width: 100%;" data-role="datepicker">
+            </div>
+        </div>
+
+        <div class="col-md-4" style="text-align: left; padding-left: 6px; margin-top: -2px;">
+            <button class="btn btn-custom btn-sm btn-primary do-filter" onclick="model.RefreshGrid()">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div style="clear:both;"></div>
+
+    <div style="text-align: left; padding-bottom: 6px;">
+        <a id="NewData" class="btn btn-primary btn-custom btn-sm" onclick="model.Insert();" data-bind="visible:!model.isRO()=='1'">
+            <span class="glyphicon glyphicon-plus"></span>
+            Add New
+        </a>
+    </div>
+
+    <div style="clear:both;"></div>
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible: !model.IsProcessing()">
+        <div id="grid"></div>
+    </div>
+
+</div>
+
+@Html.Partial("Insert2");

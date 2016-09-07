@@ -1,0 +1,622 @@
+﻿ 
+@{
+    ViewBag.Title = "Edit Well Sequence Info";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+<script>
+    model.PageId("Data Viewer");
+
+    var model_edit = {
+        RigNames: ko.observableArray([]),
+        WellNames: ko.observableArray([]),
+        getRigNames: ko.observable(""),
+        getWellNames: ko.observable("")
+    };
+    model_edit.getRigNames = function () {
+        var url = "@Url.Content("GetRigNames")";
+        var parm = {};
+        ajaxPost(url,parm, function (respondse) {
+            var arr = respondse.Data;
+            console.log(arr);
+
+            model_edit.RigNames([]);
+            //model_edit.RigNames.push({ id: "", title: "" });
+            for (var i in arr) {
+                model_edit.RigNames.push({ id: arr[i]._id, title: arr[i]._id});
+            }
+            $("#RigName").data("kendoDropDownList").setDataSource(model_edit.RigNames());
+        });
+    }
+
+    model_edit.getRigNames = function () {
+        var url = "@Url.Content("GetRigNames")";
+        var parm = {};
+        ajaxPost(url,parm, function (respondse) {
+            var arr = respondse.Data;
+            //console.log(arr);
+
+            model_edit.RigNames([]);
+            //model_edit.RigNames.push({ id: "", title: "" });
+            for (var i in arr) {
+                model_edit.RigNames.push({ id: arr[i]._id, title: arr[i]._id});
+            }
+            $("#RigName").data("kendoDropDownList").setDataSource(model_edit.RigNames());
+        });
+    }
+
+    model_edit.getWellNames = function () {
+        var url = "@Url.Content("GetWellNames")";
+        var parm = {};
+        ajaxPost(url,parm, function (respondse) {
+            var arr = respondse.Data;
+            //console.log(arr);
+
+            model_edit.WellNames([]);
+            for (var i in arr) {
+                model_edit.WellNames.push({ id: arr[i]._id, title: arr[i]._id });
+            }
+            $("#WellName").data("kendoDropDownList").setDataSource(model_edit.WellNames());
+        });
+    }
+
+</script>
+
+<style>
+    #form-wrapper div {
+        padding-bottom: 3px;
+    }
+
+        #form-wrapper div label {
+            line-height: 23px;
+        }
+
+    .form-control {
+        font-size: 9pt;
+    }
+
+    input[type='text'] {
+        line-height: 20px;
+    }
+</style>
+<div id="menu_container" class="col-md-12" data-bind="with:model_edit">
+    @*<div data-bind="visible:processing()">@Html.Partial("_processing")</div>*@
+    
+    <div class="form-group col-md-6" id="form-wrapper" data-bind="">
+        <div class="row">
+            <label class="col-md-3">RigName</label>
+            <div class="col-md-5">
+                @*<input class="combo_single" style="width:100%;" data-bind="value:RigNames" id="RigName">*@
+                <input type="text" style="width:100%;" id="RigName">
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">WellName</label>
+            <div class="col-md-5">
+                @*<input class="combo_single" style="width:100%;" data-bind="value:WellNames" id="WellName">*@
+                <input readonly="readonly" type="text" style="width:100%;" id="WellName">
+            </div>
+        </div>
+
+        <div class="row">
+            <label class="col-md-3">OP Start</label>
+            <div class="col-md-5">
+                <input type="text" style="width:100%;" id="OPStart" data-role="datepicker">
+            </div>
+        </div>
+
+        <div class="row">
+            <label class="col-md-3">Plan Start</label>
+            <div class="col-md-5">
+                <input type="text" style="width:100%;" id="PlanStart" data-role="datepicker">
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group col-md-6" id="form-wrapper" data-bind="">
+        <div class="row">
+            <label class="col-md-3">Sequence No</label>
+            <div class="col-md-5">
+                <input readonly="readonly" type="text" style="width:100%;" id="SequenceNo">
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Engineer</label>
+            <div class="col-md-5">
+                <input type="text" style="width:100%;" id="Engineer">
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">OP Finish</label>
+            <div class="col-md-5">
+                <input type="text" style="width:100%;" id="OPFinish" data-role="datepicker">
+            </div>
+        </div>
+
+        <div class="row">
+            <label class="col-md-3">Plan Finish</label>
+            <div class="col-md-5">
+                @*<input type="text" style="width:100%;" id="PlanFinish">*@
+                <input id="PlanFinish" class="k-input" data-role="datepicker" type="text" style="width: 100%;">
+            </div>
+        </div>
+    </div>
+
+    <div style="clear:both;"></div>
+    <h3>Activities</h3>
+    <button class="btn btn-success" onclick="openModal();">Add Phase</button>
+    <div style="clear: both;"></div>
+    <div id="grid_wrapper" style="margin-top: 10px;"></div>
+    <div style="clear:both;"></div>
+    <div class="form-group col-md-12" style="margin-top:20px;text-align:center;">
+        <div class="row">
+            <button class="btn btn-primary" onclick="sendData();">Save</button>&nbsp;
+            <a href="@Url.Action("browser")">
+                <button class="btn btn-warning">Back to Browser</button>
+            </a>
+        </div>
+    </div>
+
+
+    <!-- Modal -->
+    <div class="modal fade myModal" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title">New Phase</h4>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form_new_phase">
+                            <div class="form-group">
+                                <div class="col-md-3">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Phase Name:</label>
+                                </div>
+                                <div class="col-md-9">
+                                    <input type="text" class="form-control" id="newphase_name">
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-3">
+                                    <label style="text-align:right; font-weight:bold;" class="control-label">Period Start:</label>
+                                </div>
+                                <div class="col-md-9">
+                                    <input type="text" class="form-control" style=" width:200px;" id="newphase_periodstart">
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-3">
+                                    <label style="text-align:right; font-weight:bold;" class="control-label">Period Finish:</label>
+                                </div>
+                                <div class="col-md-9">
+                                    <input type="text" style=" width:200px;" class="form-control" id="newphase_periodfinish">
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="saveNewPhase();">Save New Phase</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+<script>
+
+    $(document).ready(function () {
+        select(@ViewBag.id);
+        input2datePicker($("#OPStart"));
+        input2datePicker($("#OPFinish"));
+        input2datePicker($("#PlanStart"));
+        input2datePicker($("#PlanFinish"));
+        input2datePicker($("#newphase_periodstart"));
+        input2datePicker($("#newphase_periodfinish"));
+    });
+
+    function openModal(){
+        $("#myModal").modal('show');
+        $("#newphase_name").val("");
+        $("#newphase_periodstart").val("");
+        $("#newphase_periodfinish").val("");
+    }
+
+    function select(id) {
+        var url = "@Url.Action("select")";
+        ajaxPost(url, { id: id },
+            function (data) {
+                //console.log(data);
+                $("#RigName").val(data.Data.RigName);
+                $("#WellName").val(data.Data.WellName);
+                $("#PlanStart").val(jsonDateStr(data.Data.PsSchedule.Start));
+                $("#PlanFinish").val(jsonDateStr(data.Data.PsSchedule.Finish));
+                $("#OPStart").val(jsonDateStr(data.Data.OpsSchedule.Start));
+                $("#OPFinish").val(jsonDateStr(data.Data.OpsSchedule.Finish));
+                $("#SequenceNo").val(data.Data.UARigSequenceId);
+                //grid_phase(@ViewBag.id);
+                grid_phase(data.Data);
+            },
+            function (err) {
+                alert(err.responseText)
+            });
+    }
+
+    function grid_phase(data) {
+        console.log(data);
+        var url = "@Url.Action("select")";
+        $("#grid_wrapper").html("");
+        var $grid = $("#grid_wrapper");
+        //var source = new kendo.data.DataSource({
+        //    data: data,
+        //    pageSize: 10
+        //});
+        var source = new kendo.data.DataSource({
+            pageSize: 5,
+            data : data.Phases,
+            //transport: {
+            //    read: {
+            //        data: { id: id },
+            //        url: url,
+            //        type: 'POST'
+            //    },
+            //    create: {
+            //        url: url_update,
+            //        dataType: "jsonp"
+            //    },
+            //    update: {
+            //        url: url_update,
+            //        dataType: "json",
+            //        //contentType: 'application/json',
+            //        data: { id: id },
+            //        type: 'POST',
+            //        complete: function (e) {
+            //            //$("#grid_wrapper").data("kendoGrid").dataSource.read();
+            //            alert("data sent");
+            //            console.log(e.responseText);
+            //        }
+            //    }
+            //},
+            schema: {
+                //data: "Phases",
+                model: {
+                    id: "PhaseNo",
+                    fields: {
+                        "ActivityType": { type: "string", editable: false },
+                        "ActivityDescEst": { type: "string", editable: false },
+                        "PhSchedule.Start": { type: "date" },
+                        "PhSchedule.Finish": { type: "date" },
+                        "PhSchedule.Days": { type: "number", editable:false },
+                        "OP.Days": { type: "number", editable: false },
+                        "AFE.Days": { type: "number" },
+                        "AFE.Cost": { type: "number" },
+                        "Actual.Cost": { type: "number", editable:false },
+                        "Actual.Days": { type: "number", editable:false },
+                        "LWE.Cost": { type: "number", editable:false },
+                        "LWE.Days": { type: "number", editable:false },
+                        "LE.Cost": { type: "number", editable:false },
+                        "LE.Days": { type: "number", editable:false },
+                        "TQ.Cost": { type: "number" },
+                        "TQ.Days": { type: "number" },
+                        "M1.Cost": { type: "number" },
+                        "M1.Days": { type: "number" },
+                        "M2.Cost": { type: "number" },
+                        "M2.Days": { type: "number" },
+                        "M3.Cost": { type: "number" },
+                        "M3.Days": { type: "number" },
+                        "PhaseNo": { type: "number", editable: false },
+                    }
+                },
+            },
+            batch: true,
+        });
+
+        $grid.kendoGrid({
+            dataSource: source,
+            pageable: {
+                //pageSizes: true,
+                buttonCount: 10
+            },
+            height: 350,
+            navigatable: true,
+            editable: true,
+            //toolbar: ["create", "cancel"],
+            sortable: true,
+            filterable: false,
+            columns: [
+                {
+                    title: "Phases", field: "ActivityType", width: 100,
+                    locked: true,
+                    lockable: false,
+                },
+                {
+                    title: "Start", field: 'PhSchedule.Start', template: "#: jsonDateStr(PhSchedule.Start) #", width: 100,
+                    locked: true,
+                    lockable: false,
+                },
+                {
+                    title: "Finish", field: 'PhSchedule.Finish', template: "#: jsonDateStr(PhSchedule.Finish) #", width: 100,
+                    locked: true,
+                    lockable: false,
+                },
+                {
+                    title: "Days", field: 'PhSchedule.Days', width: 100,
+                    locked: true,
+                    lockable: false,
+                    template: "<div style='text-align: center'>#=kendo.toString(PhSchedule.Days, 'N0')#</div>"
+                },
+                //{ title: "Budget<br>Cost", field: '' },
+                { title: "Days", field: 'AFE.Days', width: 100, template: "<div style='text-align: center'>#=kendo.toString(AFE.Days, 'N0')#</div>" },
+                { title: "Cost", field: 'AFE.Cost', width: 100, template: "<div style='text-align: center'>#=kendo.toString(AFE.Cost, 'N0')#</div>" },
+                { title: "Days", field: 'Actual.Days', width: 100, template: "<div style='text-align: center'>#=kendo.toString(Actual.Days, 'N0')#</div>", editable:false },
+                { title: "Cost", field: 'Actual.Cost', width: 100, template: "<div style='text-align: center'>#=kendo.toString(Actual.Cost, 'N0')#</div>", editable:false },
+                { title: "Days", field: 'LWE.Days', width: 100, template: "<div style='text-align: center'>#=kendo.toString(LWE.Days, 'N0')#</div>", editable:false },
+                { title: "Cost", field: 'LWE.Cost', width: 100, template: "<div style='text-align: center'>#=kendo.toString(LWE.Cost, 'N0')#</div>", editable:false },
+                { title: "Days", field: 'LE.Days', width: 100, template: "<div style='text-align: center'>#=kendo.toString(LE.Days, 'N0')#</div>", editable:false},
+                { title: "Cost", field: 'LE.Cost', width: 100, template: "<div style='text-align: center'>#=kendo.toString(LE.Cost, 'N0')#</div>", editable:false },
+                { title: "Days", field: 'TQ.Days', width: 100, template: "<div style='text-align: center'>#=kendo.toString(TQ.Days, 'N0')#</div>" },
+                { title: "Cost", field: 'TQ.Cost', width: 100, template: "<div style='text-align: center'>#=kendo.toString(TQ.Cost, 'N0')#</div>"},
+                { title: "Days", field: 'M1.Days', width: 100, template: "<div style='text-align: center'>#=kendo.toString(M1.Days, 'N0')#</div>" },
+                { title: "Cost", field: 'M1.Cost', width: 100, template: "<div style='text-align: center'>#=kendo.toString(M1.Cost, 'N0')#</div>" },
+                { title: "Days", field: 'M2.Days', width: 100, template: "<div style='text-align: center'>#=kendo.toString(M2.Days, 'N0')#</div>" },
+                { title: "Cost", field: 'M2.Cost', width: 100, template: "<div style='text-align: center'>#=kendo.toString(M2.Cost, 'N0')#</div>" },
+                { title: "Days", field: 'M3.Days', width: 100, template: "<div style='text-align: center'>#=kendo.toString(M3.Days, 'N0')#</div>" },
+                { title: "Cost", field: 'M3.Cost', width: 100, template: "<div style='text-align: center'>#=kendo.toString(M3.Cost, 'N0')#</div>" },
+                { title: "AFE No", field: '', width: 100 },
+                { title: "Phase No", field: 'PhaseNo', width: 100, template: "<div style='text-align: center'>#=kendo.toString(PhaseNo, 'N0')#</div>" },
+                { title: "Delete", field: 'PhaseNo', width: 100, template: "<div style='text-align: center'><button onclick='delete_phase(\"#=PhaseNo#\")' class='btn btn-danger btn-xs'>Delete</button></div>" },
+            ]
+        });
+        prependGridHeader();
+
+        var $grid = $("#grid_wrapper");
+
+        //$grid.html("Loading Data ...");
+        $grid.removeClass("k-widget");
+        function prependGridHeader() {
+            var $thead1, $thead2, rowBuilder, $tr1, $tr, $trPrev,
+                transferRecommendationInterval;
+
+            rowBuilder = function (title, colspan) {
+                var $th = $('<th />');
+                $th.attr('colspan', colspan);
+                $th.addClass('k-header k-with-icon k-filterable k-parentheader');
+                $th.html(title);
+                $th.appendTo($tr);
+                $th.css({
+                    "text-align": "center",
+                    "border-bottom": "1px solid #dadada",
+                    "font-weight": "bold"
+                });
+
+                return $th;
+            }
+
+            rowBuilder1 = function (title, colspan) {
+                var $th = $('<th />');
+                $th.attr('colspan', colspan);
+                $th.addClass('k-header k-with-icon k-filterable k-parentheader');
+                $th.html(title);
+                $th.appendTo($tr1);
+                $th.css({
+                    "text-align": "center",
+                    "border-bottom": "1px solid #dadada",
+                    "font-weight": "bold"
+                });
+
+                return $th;
+            }
+
+            transferRecommendationInterval = setInterval(function () {
+
+                clearInterval(transferRecommendationInterval);
+                $thead1 = $('.k-grid-header-locked').find('thead');
+
+                var $tb1 = $thead1.find('[data-field=ActivityType]');
+                
+                $tr1 = $('<tr />');
+                $tr1.prependTo($thead1);
+
+                $tb1
+                    .css({"vertical-align":"middle","text-align":"center","font-weight":"bold",'color':'#a8a8a8'})
+                    .attr('rowspan', 2)
+                    .appendTo($tr1);
+
+                //rowBuilder1('', 1).appendTo($tr1);
+                rowBuilder1('Budget', 3).appendTo($tr1);
+
+                var aaa = $('.k-grid-header-locked').find('th');
+                aaa
+                    .css({"border-left":"solid 1px #e5e5e5","text-align":"center",'color':'#a8a8a8'});
+
+                /** unfreezed table*/
+
+                
+                $thead = $grid.find('table thead');
+
+                if ($thead.size() == 0) return;
+
+                $tr = $('<tr />').attr('role', 'row');
+                $tr.prependTo($thead);
+                $trPrev = $tr;
+
+
+                //if ($grid.hasClass('grid-nrt-analysis-shop'))
+                //    rowBuilder('Store', 2).appendTo($tr);
+
+                //rowBuilder('Budget', 3).appendTo($tr);
+                rowBuilder('AFE', 2).appendTo($tr);
+                rowBuilder('Actual', 2).appendTo($tr);
+                rowBuilder('Previous LE', 2).appendTo($tr);
+                rowBuilder('LE', 2).appendTo($tr);
+                rowBuilder('TQ/Agreed Target', 2).appendTo($tr);
+                rowBuilder('M1', 2).appendTo($tr);
+                rowBuilder('M2', 2).appendTo($tr);
+                rowBuilder('M3', 2).appendTo($tr);
+                
+                $thead
+                    .find('[role=columnheader][data-index=20]')
+                    .attr('rowspan', 2)
+                    .css({'vertical-align':'middle','font-weight':'bold','color':'#a8a8a8'})
+                    .appendTo($tr);
+                
+                
+                $thead
+                    .find('[role=columnheader][data-field=PhaseNo]')
+                    .attr('rowspan', 2)
+                    .css({'vertical-align':'middle','font-weight':'bold','color':'#a8a8a8'})
+                    .appendTo($tr);
+                
+                $('.k-grid-header-wrap').find('th').css({"text-align":"center",'color':'#a8a8a8'});
+            }, 100);
+        }
+    }
+</script>
+
+<script>
+    
+    function delete_phase(PhaseNo){
+        //alert(PhaseNo);
+        var konf = confirm("Are you sure you want to delete this phase?");
+        if(konf == true){
+            var data = {};
+            data.id = @ViewBag.id;
+            data.PhaseNo = PhaseNo;
+            ajaxPost("@Url.Action("DeletePhase")", data, function (response) {
+                console.log(response);
+                //$("#grid_wrapper").data("kendoGrid").dataSource.read();
+                select(@ViewBag.id);
+            },
+            function (err) {
+                //alert(err.responseText)
+            });
+        }else{
+            return;
+        }
+
+    }
+
+    function saveNewPhase(){
+        var name = $("#newphase_name").val();
+        var period_start = $("#newphase_periodstart").val();
+        var period_finish = $("#newphase_periodfinish").val();
+
+        if(name == "" || period_start == "" || period_finish == ""){
+            alert("fields can not be empty!");
+            return;
+        }else{
+            //alert("save access!");
+            var data = {};
+            data.WellName = $("#WellName").val();
+            data.PhStart = moment(period_start).toDate();
+            data.PhFinish = moment(period_finish).toDate();
+            data.ActivityType = name;
+
+            ajaxPost("@Url.Action("SaveNewPhase")", data, function (response) {
+                console.log(response);
+                //$("#grid_wrapper").data("kendoGrid").dataSource.read();
+                select(@ViewBag.id);
+                $("#myModal").modal('hide');
+            },
+            function (err) {
+                //alert(err.responseText)
+            });
+        }
+
+    }
+
+    function sendData() {
+        //var grid = $("#grid_wrapper").data("kendoGrid"),
+        //    parameterMap = grid.dataSource.transport.parameterMap;
+        //console.log(grid);
+        //console.log(parameterMap);
+        //get the new and the updated records
+        //var currentData = grid.dataSource.data();
+        //var updatedRecords = [];
+        //var newRecords = [];
+        //for (var i = 0; i < currentData.length; i++) {
+        //    if (currentData[i].isNew()) {
+        //        //this record is new
+        //        newRecords.push(currentData[i].toJSON());
+        //    } else if (currentData[i].dirty) {
+        //        //alert(currentData[i]);
+        //        updatedRecords.push(currentData[i].toJSON());
+        //    }
+        //}
+
+        var g = $("#grid_wrapper");
+        var updatedRecords = [];
+
+        var gridData = g.data("kendoGrid").dataSource._data;
+        gridData.forEach(function (f) {
+            if (f.dirty) updatedRecords.push(f);
+        });
+
+
+        //console.log(updatedRecords);
+
+        var data = {};
+        data.id = @ViewBag.id;
+        data.updated = updatedRecords;
+        //$.extend(data, parameterMap({ updated: updatedRecords }));
+
+        //console.log(data);
+        for (var a = 0; a < data.updated.length; a++) {
+            var b = data.updated[a];
+            for (i in b) if (b.hasOwnProperty(i)) {
+                    //console.log(i);
+                    if (i.indexOf(".") > -1) {
+                        delete data.updated[a][i];
+                    }
+            }
+
+            var phstart = data.updated[a].PhSchedule.Start;
+            console.log(phstart);
+            if (phstart instanceof Date) {
+                //alert("found");
+                data.updated[a].PhSchedule.Start = phstart;
+            } else {
+                data.updated[a].PhSchedule.Start = jsonDateStr(phstart);
+            }
+
+            var phfinish = data.updated[a].PhSchedule.Finish;
+            if (phfinish instanceof Date) {
+                //alert("found2");
+                data.updated[a].PhSchedule.Finish = phfinish;
+            } else {
+                data.updated[a].PhSchedule.Finish = jsonDateStr(phfinish);
+            }
+        }
+
+        data.WellEngineer = $("#Engineer").val();
+        data.WellName = $("#WellName").val();
+        data.RigName = $("#RigName").val();
+        data.OPStart = moment($("#OPStart").val()).toDate();
+        //data.OPStart = moment.utc(OPStart).format();
+        
+        data.OPFinish = moment($("#OPFinish").val()).toDate();
+        data.PlanStart = moment($("#PlanStart").val()).toDate();
+        data.PlanFinish = moment($("#PlanFinish").val()).toDate();
+        console.log(data);
+        
+        ajaxPost("@Url.Action("UpdatePhase")", data, function (response) {
+                console.log(response);
+                //$("#grid_wrapper").data("kendoGrid").dataSource.read();
+                select(@ViewBag.id);
+            },
+            function (err) {
+                //alert(err.responseText)
+            });
+    }
+
+
+
+</script>
+
+
+

@@ -1,0 +1,156 @@
+﻿<script>
+    model.cumulativeDatas = ko.observableArray([]);
+    model.showDataType = ko.observable("Total");
+    model.yearOptions = ko.observableArray(["All Years", String(new Date().getFullYear())]);
+    model.yearSelected = ko.observable(model.yearOptions()[1]);
+</script>
+
+<div>
+    <div id="chart-cumulative-panel" style="width:1020px; margin: 0px auto;">
+        <div class="mini-nav bordered-mini-nav" style="width: 365px; margin: 0px;">
+            <div class="each-nav">
+                Select Data Type:
+                <select data-bind="value:showDataType">
+                    <option value="Total">Improvement + Risk</option>
+                    <option value="Improvement">Improvement</option>
+                    <option value="Risk">Risk</option>
+                </select>
+            </div>
+            <div class="each-nav no-border-nav">
+                View:
+                <select data-bind="options: $root.yearOptions, value: $root.yearSelected"></select>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+        <div id="chart-cumulative-cost" style="width:1000px;height:200px"></div>
+        <br/><br/>
+        <div id="chart-cumulative-day" style="width:1000px;height:200px"></div>
+    </div>
+</div>
+<script>
+    function createCumulative(wfmodel) {
+        var url = "@Url.Action("GetCumulativeData")";
+        var param = wfmodel;
+        param.year = (function (r) { return isNaN(r) ? -1 : r; }(parseInt(model.yearSelected(), 10)));
+
+        ajaxPost(url,param,
+            function (data) {
+                if (data.Result != "OK") {
+                    showErr(data.Message + data.Trace);
+                    return;
+                }
+
+                var max = 0;
+
+                _.each(data.Data.Data, function (e) {
+                    var _max = 0;
+
+                    for (var f in e) {
+                        if (e.hasOwnProperty(f)) {
+                            var fValue = parseFloat(e[f]);
+                            if (!isNaN(fValue) && (String(f).toLowerCase().indexOf("period") < 0)) {
+                                if (fValue > _max) {
+                                    _max = fValue;
+                                }
+                            }
+                        }
+                    }
+
+                    if (_max > max)
+                        max = _max;
+                });
+
+                (function (years, yearSelected) {
+                    if (years.indexOf(yearSelected) < 0)
+                        years = _.sortBy(years.concat(yearSelected)).reverse();
+
+                    model.yearOptions(years);
+                    model.yearSelected(yearSelected);
+                }(['All Years'].concat(_.sortBy(data.Data.Years).reverse()), String(model.yearSelected())));
+
+                assignObservableArray(model.cumulativeDatas, data.Data.Data);
+                drawCumulativeChart("cost", data.Data, max);
+                drawCumulativeChart("day", data.Data, max);
+            },
+            showErr)
+    }
+
+    function drawCumulativeChart(dayOrCost, data, max) {
+        var chart = $("#chart-cumulative-" + dayOrCost);
+
+        var chartSetting = {
+            dataSource: ({
+                data: data.Data,
+                sort: { field: "PeriodId" }
+            }),
+            legend: {
+                position: "bottom"
+            },
+            seriesDefaults:{
+                labels: {
+                    visible: true,
+                    font:"9px arial",
+                    format: "{0:N1}",
+                    background: "transparent"
+                }
+            },
+            series: [
+                
+            ],
+            valueAxis: {
+                labels: {
+                    font: "9px arial"
+                },
+                max: (max * 1.2)
+            },
+            categoryAxis: {
+                field: "PeriodName",
+                labels: { font: "9px arial" },
+                rotation:90,
+                majorGridLines: { visible: false }
+            },
+            chartArea: {
+                width: 1000,
+                height: 200
+            }
+        };
+
+        switch(model.showDataType()){
+            case "Total":
+                if (dayOrCost == "day") {
+                    chartSetting.series.push({ field: "Days", name: "Cumulative Days of Improvement and Risk", color: "#FF0005", labels: { position: "insideBase", format: "{0:N1}" } });
+                    chartSetting.series.push({ type: "line", name: "Cumulative Last Estimation Days of Improvement and Risk", field: "LEDays", markers: { visible: true }, width: 2, format: "{0:N1}", color: "aqua" });
+                } else {
+                    chartSetting.series.push({ field: "Cost", name: "Cumulative Cost of Improvement and Risk", color: "#FFD132", labels: { position: "insideBase", format: "{0:N1}" } });
+                    chartSetting.series.push({ type: "line", name: "Cumulative Last Estimation Days of Improvement and Risk", field: "LECost", markers: { visible: true }, width: 2, format: "{0:N1}", color: "aqua" });
+                    //chartSetting.categoryAxis.labels.visible = false;
+                }
+                break;
+
+            case "Improvement":
+                if (dayOrCost == "day") {
+                    chartSetting.series.push({ field: "DaysImprovement", name: "Cumulative Days of Improvement", color: "#FF0005", labels: { position: "insideBase", format: "{0:N1}" } });
+                    chartSetting.series.push({ type: "line", name: "Cumulative Last Estimation Days of Improvement and Risk", field: "LEDays", markers: { visible: true }, width: 2, format: "{0:N1}", color: "aqua" });
+                } else {
+                    chartSetting.series.push({ field: "CostImprovement", name: "Cumulative Cost of Improvement", color: "#FFD132", labels: { position: "insideBase", format: "{0:N1}" } });
+                    chartSetting.series.push({ type: "line", name: "Cumulative Last Estimation Days of Improvement and Risk", field: "LECost", markers: { visible: true }, width: 2, format: "{0:N1}", color: "aqua" });
+                    //chartSetting.categoryAxis.labels.visible = false;
+                }
+                break;
+
+            case "Risk":
+                if (dayOrCost == "day") {
+                    chartSetting.series.push({ field: "DaysRisk", name: "Cumulative Days of Risk", color: "#FF0005", labels: { position: "insideBase", format: "{0:N1}" } });
+                    chartSetting.series.push({ type: "line", name: "Cumulative Last Estimation Days of Improvement and Risk", field: "LEDays", markers: { visible: true }, width: 2, format: "{0:N1}", color: "aqua" });
+                } else {
+                    chartSetting.series.push({ field: "CostRisk", name: "Cumulative Cost of Risk", color: "#FFD132", labels: { position: "insideBase", format: "{0:N1}" } });
+                    chartSetting.series.push({ type: "line", name: "Cumulative Last Estimation Days of Improvement and Risk", field: "LECost", markers: { visible: true }, width: 2, format: "{0:N1}", color: "aqua" });
+                    //chartSetting.categoryAxis.labels.visible = false;
+                }
+                break;
+        }  
+
+        chart.html("");
+        chart.kendoChart(chartSetting);
+    }
+</script>

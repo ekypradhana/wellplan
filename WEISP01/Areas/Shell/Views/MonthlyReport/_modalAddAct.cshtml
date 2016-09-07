@@ -1,0 +1,183 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<script>
+    model.wrmodel().AdditionalData = ko.observableArray([]);
+    model.wrmodel().modalProcessing = ko.observable(false);
+    model.wrmodel().openModelAddAct = function () {
+        $("#modalAddAct").modal("show");
+    };
+
+    model.wrmodel().WellNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISWellNames", Query.NE("IsVirtualWell", true))
+            .Select(d=>d.GetString("_id")).OrderBy(d=>d))));
+
+    model.wrmodel().Activities = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate<WellActivity>("WEISWellActivities")
+        .SelectMany(d => d.Phases).GroupBy(d => d.ActivityType).Select(d => d.Key).OrderBy(d => (d.Equals("n/a") ? "" : d)))));
+
+    model.wrmodel().SearchAddNew = function () {
+        var x = model.wrmodel();
+        var data = {
+            WellNames: $("#WellNames").data("kendoMultiSelect").value(),
+            WellActivityIds: $("#Activities").data("kendoMultiSelect").value(),
+            SearchDate: $("#dateWork").val()
+        };
+        if (data.WellNames.length == 0 && data.WellActivityIds.length == 0) {
+            alert("Please select at least one well or one activity");
+            return;
+        }
+        x.modalProcessing(true);
+        ajaxPost("@Url.Action("GetAddActList")", data, function (data) {
+            x.modalProcessing(false);
+            if (data.Data != null) {
+                x.AdditionalData([]);
+                for (var i = 0; i < data.Data.length; i++) {
+                    x.AdditionalData.push(data.Data[i]);
+                }
+
+                var ds = new kendo.data.DataSource({
+                    data: data.Data,
+                    pageSize: 10
+                });
+
+                $("#gridAdd").data("kendoGrid").setDataSource(ds);
+            }
+        });
+    };
+
+    model.wrmodel().addToList = function () {
+        var x = model.wrmodel();
+        var AddData = x.AdditionalData();
+        var cbAddPhases = $("#gridAdd").find("input.cb-addphase:checked");
+        var ids = [];
+        $.each(cbAddPhases, function (idx, obj) {
+            var cbObj = $(obj);
+            ids.push(cbObj.val());
+        });
+        console.log(ids);
+
+        for (var i = 0; i < AddData.length; i++) {
+            if(ids.indexOf(AddData[i]._id) > -1)
+            x.DataGridWork.push(AddData[i]);
+        }
+        var ds = new kendo.data.DataSource({
+            data: x.DataGridWork()
+        });
+
+        var url = "@Url.Action("WFStart")";
+        var param = {
+            StartDate: "01-" + $("#dateWork").val(), StartComment: $("#CommentTxt").val(),
+            StartComment: "",
+            WellActivityIds: ids,
+            isSendEmail: false
+        };
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                return;
+            }
+
+            $("#gridwork").data("kendoGrid").setDataSource(ds);
+            $("#modalAddAct").modal("hide");
+            model.wrmodel().refresh();
+        });
+    };
+
+</script>
+
+<script>
+    var gridColumnsAdd = [
+                {
+                    width: 30,
+                    field: "", title: "",
+                    template: "<input value='#: _id #'  type='checkbox' class='checkbox cb-addphase' ></input>",
+                    headerTemplate: "<input value='#: _id #'  type='checkbox' class='checkall' id='cb-addphase'  onchange='toggleCheckbox(\"cb-addphase\")' ></input>",
+                },
+                //{
+                //    field: "_id", title: "id",
+                //},
+                //{
+                //    field: "Phases[0].PhaseNo", title: "PhaseNo",
+                //},
+                {
+                    field: "WellName", title: "Well",
+                },
+                {
+                    field: "UARigSequenceId", title: "Rig Sequence", width: 50,
+                    attributes: { style: "text-align:right" }
+                },
+                { field: "RigName", title: "Rig" },
+                { field: "AssetName", title: "Asset" },
+                { field: "ActivityType", title: "Activity" },
+                {
+                    field: "PhSchedule.Start",
+                    title: "OP Start", width: 90,
+                    template: "#: jsonDateStr(PhSchedule.Start) #"
+                },
+                {
+                    field: "PhSchedule.Finish", title: "OP Finish", width: 90,
+                    template: "#: jsonDateStr(PhSchedule.Finish) #"
+                }
+    ];
+</script>
+
+<style>
+    #modalAddAct .modal-dialog {
+        width: 750px;
+    }
+</style>
+
+<!-- Modal Add Act -->
+<div class="modal fade myModal" id="modalAddAct" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                <h4 class="modal-title" id="myModalLabel" data-bind="">Add Activity Phase to List</h4>
+            </div>
+            <div class="modal-body" data-bind="visible: model.IsProcessing()">
+                @Html.Partial("_processing")
+            </div>
+            <div class="modal-body" data-bind="visible: !model.IsProcessing()">
+
+                <!-- Add new Act Phase -->
+                <div class="ec-panel">
+                    <div class="col-md-12 row" style="margin-bottom:20px;">
+                        <!-- by wellname -->
+                        <div class="col-md-6">
+                            <div class="col-md-12">
+                                <select id="WellNames" data-placeholder="Select wells ..."></select>
+                            </div>
+                        </div>
+
+                        <!-- by activities -->
+                        <div class="col-md-6">
+                            <div class="col-md-12">
+                                <select id="Activities" data-model="" data-placeholder="Select activities ..."></select><br />
+                                <button class="btn btn-custom btn-sm btn-primary" onclick="model.wrmodel().SearchAddNew()">
+                                    <span class="glyphicon glyphicon-refresh"></span> Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="clearfix"></div>
+                    <div data-bind="visible:model.wrmodel().modalProcessing()==true">
+                        @Html.Partial("_processing")
+                    </div>
+                    <div data-bind="visible:!model.wrmodel().modalProcessing()==true">
+                        <div id="gridAdd" data-bind="kendoGrid:{data:[],columns:gridColumnsAdd,pageable:true,sortable:true,filterable:true}"></div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="model.wrmodel().addToList()">Add to List</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Modal Add Act -->

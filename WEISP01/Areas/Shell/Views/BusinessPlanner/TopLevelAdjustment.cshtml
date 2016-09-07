@@ -1,0 +1,188 @@
+﻿@{
+    ViewBag.Title = "Business Plan Simulation";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    //model.PageId("Administration");
+  
+    model.IsProcessing = ko.observable(false);
+    model.bpmodel = ko.observable({
+        mode : ko.observable(""),
+        changeMode: function (mode) {
+            if (mode == '') pageTitle = "Businnes Planner";
+            model.bpmodel().mode(mode);
+            setPageTitle(pageTitle);
+            
+        },
+        
+        save_notification:function(){
+            $("#modal-save").modal("show");
+        },
+        btn_close: function () {
+            
+            $('#modal-save').modal('hide');
+        },
+        SpreadrateColumns: [
+                    { field: "Content",title:""},
+                    { field: "Current", title: "Current Id" },
+                    { field: "Adjustment", title: "Adjustment" },
+                    { field: "Delta", title: "Delta" },
+                    { field: "Current2", title: "Current Id" },
+                    { field: "Adjustment2", title: "Adjustment" },
+                    { field: "Delta2", title: "Delta" },
+                    { field: "Current3", title: "Current Id" },
+                    { field: "Adjustment3", title: "Adjustment" },
+                    { field: "Delta3", title: "Delta" },
+                    { field: "Current4", title: "Current Id" },
+                    { field: "Adjustment4", title: "Adjustment" },
+                    { field: "Delta4", title: "Delta" },
+                    { field: "Current5", title: "Current Id" },
+                    { field: "Adjustment5", title: "Adjustment" },
+                    { field: "Delta5", title: "Delta" },
+                    { field: "Current6", title: "Current Id" },
+                    { field: "Adjustment6", title: "Adjustment" },
+                    { field: "Delta6", title: "Delta" }
+        ],
+        sampleDataSpreadrate: [
+           { Content: "OPEX", Current: "", Adjustment: "", Delta: "", Current2: "", Adjustment2: "", Delta2: "", Current3: "", Adjustment3: "", Delta3: "", Current4: "", Adjustment4: "", Delta4: "", Current5: "", Adjustment5: "", Delta5: "", Current6: "", Adjustment6: "", Delta6: "" },
+           { Content: "CAPEX", Current: "", Adjustment: "", Delta: "", Current2: "", Adjustment2: "", Delta2: "", Current3: "", Adjustment3: "", Delta3: "", Current4: "", Adjustment4: "", Delta4: "", Current5: "", Adjustment5: "", Delta5: "", Current6: "", Adjustment6: "", Delta6: "" },
+           { Content: "ABEX", Current: "", Adjustment: "", Delta: "", Current2: "", Adjustment2: "", Delta2: "", Current3: "", Adjustment3: "", Delta3: "", Current4: "", Adjustment4: "", Delta4: "", Current5: "", Adjustment5: "", Delta5: "", Current6: "", Adjustment6: "", Delta6: "" },
+           { Content: "EXPEX", Current: "", Adjustment: "", Delta: "", Current2: "", Adjustment2: "", Delta2: "", Current3: "", Adjustment3: "", Delta3: "", Current4: "", Adjustment4: "", Delta4: "", Current5: "", Adjustment5: "", Delta5: "", Current6: "", Adjustment6: "", Delta6: "" },
+           { Content: "LLI", Current: "", Adjustment: "", Delta: "", Current2: "", Adjustment2: "", Delta2: "", Current3: "", Adjustment3: "", Delta3: "", Current4: "", Adjustment4: "", Delta4: "", Current5: "", Adjustment5: "", Delta5: "", Current6: "", Adjustment6: "", Delta6: "" },
+           { Content: "New Prod Days", Current: "", Adjustment: "", Delta: "", Current2: "", Adjustment2: "", Delta2: "", Current3: "", Adjustment3: "", Delta3: "", Current4: "", Adjustment4: "", Delta4: "", Current5: "", Adjustment5: "", Delta5: "", Current6: "", Adjustment6: "", Delta6: "" },
+        ],
+        sampleFy: [
+            {fy: "FY14" }, { fy: "FY15" }, { fy: "FY16" }, { fy: "FY17" }, { fy: "FY18" }, { fy: "FY19" }, { fy: "FY20" }
+        ]
+    });
+
+    model.fy;
+    
+</script>
+<style>
+
+    .menu > .nav > li > a {
+        color: #fff;
+        background-color: #0094ff;
+    }
+    
+    .nav-pills > li.active > a, .nav-pills > li.active > a:hover, .nav-pills > li.active > a:focus {
+        background-color: #e74c3c;
+        color: #fff;
+    }
+    
+     
+</style>
+@Html.Partial("_menuBusPlan")
+
+<script>
+    model.MenuBP().ActiveMenu("Top Level Adjustment");
+</script>
+<div style="padding: 0px 15px 15px;">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+    <div class="row business-plan-container">
+        @Html.Partial("Filter")
+        <div class="col-md-12 no-padding">
+            <div class="modal fade" id="modal-save" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog" style="width: 200px;">
+                    <div class="modal-content">
+
+                        <div class="modal-header" style="text-align:center">     
+                            <label>Are you sure?</label>                   
+                            <div class="clearfix"></div>
+                            <button class="btn btn-warning" data-bind="click:model.bpmodel().btn_close">Yes</button>
+                            <button class="btn btn-warning" data-bind="click:model.bpmodel().btn_close" style="margin-left:10px">No</button>
+                        </div>
+  
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <ul class="nav nav-stacked" style="margin-bottom:10px">
+                    <li class="stacked" style="border: none; padding: 10px; color: #fff; background-color: #2D6CA2">Please select one of the following options to display the table</li>
+                </ul>
+                <div class="clearfix"></div>
+            </div>
+        </div>
+        
+        <div class="col-md-12 no-padding">
+            <div class="col-md-2">
+                    <div class="ec-panel" id="menu">
+                            <ul class="menu nav nav-pills nav-stacked">
+                                <li class="active"><a href="#spread" id="" data-toggle="pill">Spread Rate</a></li>
+                                <li ><a href="#tangibel" data-toggle="pill" id="" >Tangibles</a></li>
+                                <li ><a href="#npt" data-toggle="pill" id="" >NPT Days</a></li>
+                                <li ><a href="#tecop" data-toggle="pill" id="" >TECOP Days</a></li>
+                                <li ><a href="#free" data-toggle="pill" id="" >Trouble Free Days</a></li>
+                                <li ><a href="#mean" data-toggle="pill" id="" >Mean Days</a></li>
+                                <li ><a href="#display" data-toggle="pill" id="" >Display Factors Not = 100%</a></li>
+                            </ul>
+                    </div>               
+            </div>
+            <div class="col-md-10">
+                <div class="col-md-12 no-padding">
+                    <div class="tab-content">
+                        <div class="tab-pane active" id="spread" style="overflow-y:auto;">
+                                @Html.Partial("_tableSpreadrate")                            
+                        </div>
+                        <div class="tab-pane" id="tangibel" style="overflow-y:auto;">
+                                @Html.Partial("_tableTangibles")                            
+                        </div>
+                        <div class="tab-pane active" id="npt" style="overflow-y:auto;">
+                            <div class="col-md-12">
+                                
+                            </div>
+                        </div>
+                        <div class="tab-pane" id="tecop" style="overflow-y:auto;">
+                            <div class="col-md-12">
+                                
+                            </div>
+                        </div>
+                        <div class="tab-pane active" id="free" style="overflow-y:auto;">
+                            <div class="col-md-12">
+                                
+                            </div>
+                        </div>
+                        <div class="tab-pane" id="mean" style="overflow-y:auto;">
+                            <div class="col-md-12">
+                                
+                            </div>
+                        </div>
+                        <div class="tab-pane active" id="display" style="overflow-y:auto;">
+                            <div class="col-md-12">
+                                
+                            </div>
+                        </div>
+                        <div class="tab-pane" id="tangibel" style="overflow-y:auto;">
+                            <div class="col-md-12">
+                                
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                
+            </div>
+        </div>
+        </div>
+ 
+</div>
+
+<script>
+    $(document).ready(function () {
+        
+        model.bpmodel().mode('tableSpreadrate');
+        model.FilterVisibility.Regions(true);
+        model.FilterVisibility.OperatingUnits(true);
+        model.FilterVisibility.RigTypes(true);
+        model.FilterVisibility.RigNames(true);
+        model.FilterVisibility.ProjectNames(true);
+        model.FilterVisibility.WellNames(true);
+        model.FilterVisibility.Date(true);
+        model.FilterVisibility.Date2(true);
+    });
+</script>

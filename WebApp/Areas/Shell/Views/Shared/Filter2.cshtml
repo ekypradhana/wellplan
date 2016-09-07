@@ -1,0 +1,118 @@
+﻿<style>
+    .filter { margin-top: 10px; margin-bottom: 10px; }
+    .filter .col-md-3, .filter .col-md-4 { padding: 0px; margin: 0px; }
+    .filter .col-md-4 { text-align: right; height: 27px; }
+    .filter .col-md-4 label { padding-top: 4px; } 
+    .filter .col-md-8 { padding-left: 6px; padding-right: 6px; text-align: left; }
+    .filter .col-md-8 .text { height: 24px; border-radius: 3px; border: 1px solid #efefef; padding: 0px 4px; width: 100%; }
+    .filter .floated { text-align: right; margin-top: 5px; padding-right: 6px; height: 35px; }
+    .filter .not-floated { text-align: left; margin-top: -3px !important; padding-right: 6px; height: 35px; }
+    .filter .not-floated button { margin-left: 10px; }
+    .filter .col-md-checkbox { width: 170px; float: left; }
+    .filter .col-md-checkbox .col-md-4 { width: 120px; }
+    .filter .col-md-checkbox .col-md-8 { width: 28px; }
+</style>
+
+<div class="col-md-12 row filter" data-bind="with: $root.FilterVisibility">
+
+    <!-- by rigname -->
+    <div class="col-md-4" data-bind="visible: RigName">
+        <div class="col-md-4">
+            <label>Rig Name: </label>
+        </div>
+        <div class="col-md-8">
+            <input class="text" data-bind="value:$root.RigName" placeholder="Type rig name ..." />
+        </div>
+    </div>
+
+    <!-- by projectname -->
+    <div class="col-md-4" data-bind="visible: ProjectName">
+        <div class="col-md-4">
+            <label>Project Name: </label>
+        </div>
+        <div class="col-md-8">
+            <input class="text" data-bind="value:$root.ProjectName" placeholder="Type project name ..." />
+        </div>
+    </div>
+
+    <!-- by wellname -->
+    <div class="col-md-4" data-bind="visible: WellName">
+        <div class="col-md-4">
+            <label>Well Name: </label>
+        </div>
+        <div class="col-md-8">
+            <input class="text"  data-bind="value:$root.WellName" placeholder="Type well name ..." />
+        </div>
+    </div>
+
+    <!-- by show matched value -->
+    <div class="col-md-checkbox" data-bind="visible: EDMOnly">
+        <div class="col-md-4">
+            <label>Show only filled EDM: </label>
+        </div>
+        <div class="col-md-8">
+            <input type="checkbox" data-model="EDMOnly" data-bind="checked:$root.EDMOnly" style="margin-top: 6px;">
+        </div>
+    </div>
+
+    <!-- button reload filter -->
+    <div data-bind="css: { 'col-md-12 floated': FloatedButton(), 'col-md-4 not-floated': !FloatedButton() }">
+        <button class="btn-primary btn-custom btn-sm do-filter">
+            <span class="glyphicon glyphicon-refresh"></span> Refresh
+        </button>
+    </div>
+
+</div>
+
+<script>
+    // set kendo datasource
+    (function () {
+        model.FilterVisibility = {
+            RigName     : ko.observable(true),
+            ProjectName : ko.observable(true),
+            WellName    : ko.observable(true),
+            EDMOnly     : ko.observable(false),
+            FloatedButton : ko.observable(true),
+        };
+
+        model.ProjectName = ko.observable("");
+        model.RigName   = ko.observable("");
+        model.WellName  = ko.observable("");
+        model.EDMOnly   = ko.observable(false);
+
+        // return params of filter
+        model.getFilterValues = function () {
+            return {
+                projectName : model.ProjectName(),
+                rigName     : model.RigName(),
+                wellName    : model.WellName(),
+                edmOnly     : model.EDMOnly()
+            }
+        }
+
+        // detect is filter implemented
+        model.validateFilterImplementation = function() {
+            if (typeof model.reloadData !== 'undefined') return true;
+
+            //console.error('Filter2.cshtml is used but model.reloadData() not yet implemented. model.reloadData() function required for filter action!');
+            return false;
+        }
+
+        //console.log('use model.getFilterValues() to get filter values');
+    }());
+
+    // prepare filters
+    $(function () {
+
+        // filter action
+        $('.filter').find('.do-filter').on('click', function () {
+            if (model.validateFilterImplementation())
+                model.reloadData();
+        });
+
+    });
+
+    $(function () {
+        model.validateFilterImplementation();
+    })
+</script>

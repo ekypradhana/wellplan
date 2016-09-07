@@ -1,0 +1,1111 @@
+﻿
+@{
+    ViewBag.Title = "Planning Tool Report Overview";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+    var PerformanceUnits = new List<string>();
+    var elements = DataHelper.Populate("WEISPerformanceUnits").Select(x => BsonHelper.GetString(x, "_id"));
+    PerformanceUnits = elements.ToList();
+
+    var CaseNameSel = DataHelper.Populate("WEISPalantirCapex").Select(x => BsonHelper.GetString(x, "CaseName")).Distinct().ToList<string>();
+}
+
+<script>
+    
+    model.DefaultOP = ko.observable("@ViewBag.DefaultOP");
+    model.SelectedActivityTemplate = { "_id": null, "Region": null, "RigType": null, "RigName": null, "OperatingUnit": null, "ProjectName": null, "AssetName": null, "WellName": null, "NonOP":false, "WorkingInterest": 0, "FirmOrOption": null, "UARigSequenceId": null, "UARigDescription": null, "Targets": { "M0": { "Identifier": null, "Days": 0, "Cost": 0 }, "M1": { "Identifier": null, "Days": 0, "Cost": 0 }, "M2": { "Identifier": null, "Days": 0, "Cost": 0 }, "M3": { "Identifier": null, "Days": 0, "Cost": 0 }, "M4": { "Identifier": null, "Days": 0, "Cost": 0 } }, "OpsDuration": 0, "OpsSchedule": { "Start": null, "Finish": null }, "PsSchedule": { "Start": null, "Finish": null },
+        "PerformanceUnit": null, "EXType":null, "Activity" : null, "VirtualPhase" : null, "ShiftFutureEventDate" : null,"AssignTOOPs" :null,"FundingType":null};
+    model.PageId("Administration");
+    model.ShowBrowser = ko.observable(true);
+    model.ShowEditForm = ko.observable(false);
+    model.ShowPhaseInfo = ko.observable(false);
+    model.ShowInsertActivityForm = ko.observable(false);
+    model.selectedWellId = ko.observable();
+    model.selectedWellName = ko.observable();
+    model.selectedRigName = ko.observable();
+    model.IsProcessing = ko.observable(false);
+    model.SelectedActivity = ko.mapping.fromJS(model.SelectedActivityTemplate);
+    model.IsEditMode = ko.observable(false);
+    model.DataCompareOP = ko.observable(false);
+    model.PhaseData = ko.observableArray([])
+    model.SetActivity = function (activityUnparsed) {
+        var template = ko.mapping.toJS(model.SelectedActivityTemplate),
+            activity = {};
+        console.log(template);
+        for (var i in template) if (template.hasOwnProperty(i)) activity[i] = activityUnparsed[i];
+        ko.mapping.fromJS(activity, model.SelectedActivity);
+    };
+    model.DetailOP = ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellActivityPhaseInfo()))));
+    //model.IsGenerateCapex = ko.observable(false);
+</script>
+
+<style>
+    .grids .grid {
+        height: 100%;
+        width: 100%;
+    }
+
+    .grids {
+        margin-top: 15px;
+    }
+
+    .grids {
+        padding: 0px 15px 0px 0px !important;
+    }
+
+        .grids .cell-number {
+            text-align: right;
+        }
+
+        .grids .cell-date {
+            text-align: center;
+        }
+
+        .grids .k-grid .k-grid-content {
+            min-height: 100px;
+            /*max-height: 600px;*/
+        }
+
+
+
+        .grids .k-header.k-grid-toolbar {
+            /*background-color: #F9F9FB;*/
+        }
+
+        .grids .k-header[role=columnheader] {
+            vertical-align: middle;
+        }
+
+            .grids .k-header[role=columnheader][data-colspan] {
+                text-align: center;
+                font-weight: bold;
+                color: #a8a8a8;
+            }
+
+        .grids [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+            text-align: center;
+            vertical-align: top;
+        }
+
+    .k-grid .k-grid-content-locked {
+        height: auto !important;
+    }
+
+
+
+</style>
+
+<div class="col-md-12" style="margin-bottom: 10px;" data-bind="visible:ShowBrowser">
+    <!-- filters -->
+    @*@Html.Partial("Filter")*@
+    @Html.Partial("FilterForWaterfall")
+
+    <script>
+        model.FilterVisibility.ExType(true);
+        model.FilterVisibility.Activities(true);
+        model.FilterVisibility.PerformanceUnits(false);
+        model.FilterVisibility.Date(true);
+        model.FilterVisibility.Date2(true);
+        model.FilterVisibility.PeriodBase(false);
+        model.FilterVisibility.PeriodView(true);
+        model.FilterVisibility.PeriodRelation(true);
+        model.FilterVisibility.OPs(true);
+        model.FilterVisibility.OpRelation(true);
+        model.FilterVisibility.firmoption(true);
+        model.FilterVisibility.lsresource(false);
+
+        model.FilterVisibility.MoneyType(true);
+        model.FilterVisibility.Currency(true);
+        model.FilterVisibility.SSorTG(true);
+        model.FilterVisibility.isInPlan(true);
+        model.options = {
+            regions: model.regions(),
+            operatingUnits: model.operatingUnits(),
+            rigTypes: model.rigTypes(),
+            rigNames: model.rigNames(),
+            projectNames: model.projectNames(),
+            wellNames: model.wellNames(),
+            assetNames: @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISAssetNames").Select(d=>d.GetString("_id")).OrderBy(d=>d))),
+            performanceUnits: @MvcHtmlString.Create(JsonConvert.SerializeObject(PerformanceUnits)),
+            firmOrOptions: ["Firm", "Option"],
+            EXType: @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISFundingTypes").Select(d => d.GetString("_id")).OrderBy(d => d))),
+            AlreadyAssignTo :model.AlreadyAssignTo(),
+            lsresource:model.lsresource(),
+        };
+        model.sement = ko.observableArray([]);
+        model.workbook = ko.observable();
+        model.ShowNoticeProrate = ko.observable("");
+    </script>
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    @*<div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden') }">
+        <div class="clearfix"></div>
+        <div class="col-md-2">
+            <input type="checkbox" checked="checked" id="column_toggle" onchange="showHideColumn();" /> Show Extra Columns
+        </div>
+        <div class="col-md-5 col-md-offset-3">
+            <div style="font-style:italic;" data-bind="text:model.ShowNoticeProrate()"></div>
+        </div>
+        <div class="clearfix"></div>
+        <div class="col-md-12 no-padding">
+            <div id="grid"></div>
+        </div>
+
+        <div style="clear: both;"></div>
+    </div>*@
+
+    <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden'), height: (!model.IsProcessing() ? '' : '0px'), overflow: (!model.IsProcessing() ? '' : 'hidden') }">
+
+        <div class="col-md-12">
+            <!-- Nav tabs -->
+            <ul class="nav nav-tabs" role="tablist">
+                @*<li role="presentation" style="visibility:hidden">
+                    <a href="#uio-p1-report" role="tab" data-toggle="tab">UIO P1 Report</a>
+                </li>*@
+                <li role="presentation" class="active">
+                    <a href="#capex-report" role="tab" data-toggle="tab">CAPEX Report</a>
+                </li>
+                <li role="presentation">
+                    <a href="#standar-pmaster-report" role="tab" data-toggle="tab">Standard Pmaster Report </a>
+                </li>
+                <li role="presentation">
+                    <a href="#monthly-pmaster-report" role="tab" data-toggle="tab">Monthly Pmaster Report</a>
+                </li>
+            </ul></div>
+
+            <!-- Tab panes -->
+            <div class="tab-content">
+                @*<div role="tabpanel" class="tab-pane" id="uio-p1-report">
+                    <div class="col-md-12 grids by-uio">
+                        <div id="grid_uio" class="grid"></div>
+                    </div>
+                </div>*@
+                <div role="tabpanel" class="tab-pane active" id="capex-report">
+                    <div class="col-md-12 grids by-capex">
+                        @*<div class="row">
+                    <div class="col_md-12">
+
+                    </div>
+                </div>*@
+                        <div style="margin-bottom:10px">
+                            <button class="btn btn-custom btn-sm btn-danger" data-bind="click: deleteaggrcapex">
+                                <span class="glyphicon glyphicon-trash"></span> Delete Record
+                            </button>
+                            <label>Case Name: </label>
+                            <select data-model="CaseNameSelect" data-placeholder="Select Case Name ..."></select>
+                            
+                            <button class="btn btn-custom btn-sm btn-danger" data-bind="click: deletemapcapex">
+                                <span class="glyphicon glyphicon-trash"></span> Delete Map
+                            </button>
+                            <button class="btn btn-custom btn-sm btn-primary" data-bind="click: generatemapcapex">
+                                <span class="glyphicon glyphicon-refresh"></span> Generate
+                            </button>
+                        </div>
+                        <div id="grid_capex" class="grid"></div>
+                    </div>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="standar-pmaster-report">
+                    <div class="col-md-12 grids by-standarpm">
+                        <div style="margin-bottom:10px">
+                            <button class="btn btn-custom btn-sm btn-danger" data-bind="click: deleteaggrmpmaster">
+                                <span class="glyphicon glyphicon-trash"></span> Delete Record
+                            </button>
+                            
+                            @*<button class="btn btn-custom btn-sm btn-danger" data-bind="click: deletemapmpmaster">
+                                <span class="glyphicon glyphicon-trash"></span> Delete Map
+                            </button>*@
+                            <button class="btn btn-custom btn-sm btn-primary" data-bind="click: generatemappmaster">
+                                <span class="glyphicon glyphicon-refresh"></span> Generate
+                            </button>
+                        </div>
+                        <div id="grid_standard" class="grid"></div>
+                    </div>
+                </div> </div>
+                <div role="tabpanel" class="tab-pane" id="monthly-pmaster-report">
+                    <div class="col-md-12 grids by-monthlypm">
+                        <div style="margin-bottom:10px">
+                            <button class="btn btn-custom btn-sm btn-danger" data-bind="click: deleteaggrmpmaster">
+                                <span class="glyphicon glyphicon-trash"></span> Delete Record
+                            </button>
+                            @*<label>Case Name: </label>
+                            <select data-model="CaseNameSelect" data-placeholder="Select Case Name ..."></select>*@
+
+                            <button class="btn btn-custom btn-sm btn-danger" data-bind="click: deletemapmpmaster">
+                                <span class="glyphicon glyphicon-trash"></span> Delete Map
+                            </button>
+                            <button class="btn btn-custom btn-sm btn-primary" data-bind="click: generatemappmaster">
+                                <span class="glyphicon glyphicon-refresh"></span> Generate
+                            </button>
+                        </div>
+                        <div id="grid_monthly" class="grid"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="clear: both;"></div>
+    </div>
+
+    @*<div data-bind="visible: model.IsGenerateCapex">
+        @Html.Partial("GenerateCapex")
+    </div>*@
+
+    <div class="modal fade" id="ModalUpdate" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"> @*data-bind="with: UpdateCapex">*@
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">Edit Record</h4>
+                </div>
+                <div class="modal-body">
+                    @*<div class="row" id="rec" data-bind="with: record">
+
+                        <div class="col-md-12 mgn-bot-10">
+                            <label class="col-md-3">Title</label>
+                            <div class="col-md-9">
+                                <input type="text" name="Title" required class="form-control" data-bind="value: Title" />
+                            </div>
+                        </div>
+
+                        <div class="col-md-12 mgn-bot-10">
+                            <label class="col-md-3">RigName</label>
+                            <div class="col-md-9">
+                                <input type="text" name="Rig Name" required class="form-control" data-bind="value: RigName" disabled />
+                            </div>
+                        </div>
+
+                        <div class="col-md-12 mgn-bot-10">
+                            <label class="col-md-3">Provider</label>
+                            <div class="col-md-9">
+                                <input type="text" name="Provider" required class="form-control" data-bind="value: Provider" />
+                            </div>
+                        </div>
+
+                        <div class="col-md-12 mgn-bot-10">
+                            <label class="col-md-3">Streamer</label>
+                            <div class="col-md-9">
+                                <input type="text" name="Streamer" required class="form-control" data-bind="value: Streamer" />
+                            </div>
+                        </div>
+
+                        <div class="col-md-12 mgn-bot-10">
+                            <label class="col-md-3">File</label>
+                            <div class="col-md-9">
+                                <input type="text" name="File Name" required class="form-control" data-bind="value: File" />
+                            </div>
+                        </div>
+
+                    </div>*@
+                </div>
+                <div class="modal-footer">
+                    @*<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" data-bind="click: save">Save changes</button>*@
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    @*var exportuioreportUrl = "@Url.Content("~/palantir/palantir/exportuioreport")";
+    var exportcapexreportUrl = "@Url.Content("~/palantir/palantir/exportcapexreport")";
+    var exportstandardpmasterreportUrl= "@Url.Content("~/palantir/palantir/exportstandardpmasterreport")";
+    var exportmonthlypmasterreportUrl = "@Url.Content("~/palantir/palantir/exportmonthlypmasterreport")";
+
+    ajaxPost(exportmonthlypmasterreportUrl, {}, function (respondse) {
+        if (respondse.success == false) {
+            alert(respondse.message);
+        }
+    });*@
+    
+    model.CaseNameSelnew = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(CaseNameSel)));
+    
+    $(document).ready(function () {
+        CaseNameSelect: ko.observable(false)
+        $('[data-model="CaseNameSelect"]').kendoDropDownList({
+            dataSource: model.CaseNameSelnew(),
+            value: model.CaseNameSelnew().length == 0?[]:[model.CaseNameSelnew()[0]]
+        });
+
+        model.reloadData();
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            var target = $(e.target).attr("href") // activated tab
+            if(target=="#uio-p1-report"){
+                $("#grid_uio").data("kendoGrid").refresh();
+            } else if(target=="#standar-pmaster-report"){
+                $("#grid_standard").data("kendoGrid").refresh();
+            } else if(target=="#monthly-pmaster-report"){
+                $("#grid_monthly").data("kendoGrid").refresh();
+            }
+        });
+    });
+
+    model.reloadData = function() {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        @*model.GetDataReport("@Url.Action("GetUIOPReport")", "grid_uio");
+        model.GetDataReport("@Url.Action("GetStandardReport")", "grid_standard");
+        model.GetDataReport("@Url.Action("GetMonthlyReport")", "grid_monthly");*@
+        
+        model.GetDataReport("@Url.Action("GetPMasterStandardReport")", "grid_standard");
+        model.GetDataReport("@Url.Action("GetPMasterMonthlyReport")", "grid_monthly");
+        model.GetDataReport("@Url.Action("GetCAPEXReport")", "grid_capex");
+    }
+    model.reloadDataCapex = function() {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        model.GetDataReport("@Url.Action("GetCAPEXReport")", "grid_capex");
+    }
+
+    model.GetDataReport = function (url, divgrid) {
+        var param = model.getFilterValues();
+        ajaxPost(url, param, function (res) {
+            model.IsProcessing(false);
+            if (res.Result != "OK") {
+                alert(res.Message);
+                return;
+            }
+
+            if (res.Data.length > 0) {
+                renderGridUsingData(res.Data, divgrid);
+            }
+            //var checker = $("#column_toggle");
+            //checker.prop("checked",true);
+        }, function (res) {
+            model.IsProcessing(false);
+            alert(res);
+        });
+    }
+
+    var uniqueArray = function(a) {
+        return a.reduce(function(p, c) {
+            if (p.indexOf(c) < 0) p.push(c);
+            return p;
+        }, []);
+    };
+
+    //function toggleCheck(sender, gridid) {
+    //    var s = $(sender);
+    //    var cbxs = s.closest("#" + grid + ".k-grid").find("input[type='checkbox'].checkme");
+    //    cbxs.prop("checked", s.prop("checked"));
+    //}
+
+    function toggleCheckCapex(sender) {
+        var s = $(sender);
+        var cbxs = s.closest("#grid_capex.k-grid").find("input[type='checkbox'].checkme");
+        cbxs.prop("checked", s.prop("checked"));
+    }
+    function toggleCheckMonthly(sender) {
+        var s = $(sender);
+        var cbxs = s.closest("#grid_monthly.k-grid").find("input[type='checkbox'].checkme");
+        cbxs.prop("checked", s.prop("checked"));
+    }
+
+    model.renderGridColumnsUIOP = function(data) {
+        var gridColumns = [];
+        gridColumns.push({
+            field: "ProjectName",
+            title: "Project Name",
+            width: 80,
+            locked: true,
+            lockable: false
+        },
+        //{
+        //    field: "PMasterAEName",
+        //    title: "PMaster AE Name",
+        //    width: 80,
+        //    locked: true
+        //},
+        //{
+        //    field: "Hub",
+        //    title: "Hub",
+        //    width: 80,
+        //    locked: true
+        //},
+        //{
+        //    field: "Field",
+        //    title: "Field",
+        //    width: 80,
+        //    locked: true
+        //}, {
+        //    field: "EquityAcreage",
+        //    title: "SS Equity Acreage",
+        //    width: 80,
+        //    locked: true
+        //}, {
+        //    field: "ORSNumber",
+        //    title: "ORS Number",
+        //    width: 80,
+        //    locked: true
+        //}, {
+        //    field: "LineItemType",
+        //    title: "Line Item Type",
+        //    width: 80,
+        //    locked: true
+        //}, {
+        {
+            field: "WellName",
+            title: "Well Name",
+            width: 80,
+            locked: true
+        }, {
+            field: "WellType",
+            title: "Well Type",
+            width: 80,
+            locked: true
+        }, {
+            field: "WellDuration",
+            title: "Well Duration",
+            width: 80,
+            template: "#: jsonDateStr(WellDuration) #",
+            locked: true
+        }, {
+            field: "WellStartDate",
+            title: "Well StartDate",
+            width: 80,
+            template: "#: jsonDateStr(WellStartDate) #",
+            locked: true
+        }, {
+            field: "ETSD",
+            title: "ETSD",
+            width: 80,
+            locked: true
+        }, {
+            field: "RigName",
+            title: "Rig Name",
+            width: 80,
+            locked: true
+        }, {
+            field: "RigContractStartDate",
+            title: "Rig Contract StartDate",
+            template:"#: jsonDateStr(RigContractStartDate) #",
+            width: 80,
+            locked: true
+        }, {
+            field: "RigContractEndDate",
+            title: "Rig Contract EndDate",
+            template:"#: jsonDateStr(RigContractEndDate) #",
+            width: 80,
+            locked: true
+        }, {
+            field: "Unit",
+            title: "Unit",
+            width: 80,
+            locked: true
+        }, {
+            field: "CostCategory",
+            title: "Cost Category",
+            width: 80,
+            locked: true
+        });
+
+        //for (var i = 0; i < data.length; i++) {
+        //    JSON.stringify(data[0].Monthly[0].year)
+        //}
+        //console.log(data[0].UIOMonthly);
+        //for (var i = 0; i < data[0].UIOMonthly.length; i++) {
+        //    var dasuChild = [];
+        //    for (var j = 0; j < data[0].UIOMonthly[i].month.length; j++) {
+        //        //resultDynm = { field: "OPList[" + i + "].OPSchedule.Start", template: "#: jsonDateStr(OPList[" + i + "].OPSchedule.Start) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },;
+        //        dasuChild.push({ field: "UIOMonthly[" + i + "].MonthValue[" + j + "]", title: data[0].UIOMonthly[i].month[j], width: 60, attributes: { style: 'text-align: center;' } });
+        //        //dasuChild[j] = "{dsadsd}";
+        //    }
+        //    gridColumns.push({ title: data[0].UIOMonthly[i].TopHeader, columns: dasuChild });
+        //}
+
+        //for (var i = 0; i < data[0].UIOAnnual.length; i++) {
+        //    if (i == 4) {
+        //        gridColumns.push({ field: "UIOAnnual[" + i + "].value", title: data[0].UIOAnnual[i].year.toString(), width: 50, lockable: false });
+        //    } else {
+        //        gridColumns.push({ field: "UIOAnnual[" + i + "].value", title: data[0].UIOAnnual[i].year.toString(), width: 50 });
+        //    }
+        //}
+
+
+
+        var transMonthly = [];
+        var yearMonthly = [];
+        var recordMonthly = data[0].UIOMonthly;
+        var iMonthly = 0;
+        for (var key in recordMonthly) {
+            if (recordMonthly.hasOwnProperty(key)) {
+                for (var keyitem in recordMonthly[key]) {
+                    yearMonthly.push(keyitem.split('_')[2]);
+                    transMonthly.push({ field: ("UIOMonthly[" + iMonthly + "]." + keyitem), title: keyitem.split('_')[1], width: 50, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+                }
+                iMonthly++;
+            }
+        }
+
+        var yearMonthlyUnique = uniqueArray(yearMonthly);
+        for (var j = 0; j < yearMonthlyUnique.length; j++) {
+            var tempyearMonthly = [];
+            for (var i = 0; i < transMonthly.length; i++) {
+                if (yearMonthlyUnique[j] == transMonthly[i].field.split('.')[1].split('_')[2]) {
+                    tempyearMonthly.push(transMonthly[i]);
+                }
+            }
+            gridColumns.push({ title: yearMonthlyUnique[j], columns: tempyearMonthly });
+        }
+
+        var recordAnnual = data[0].UIOAnnual;
+        var iAnnual = 0;
+        for (var key in recordAnnual) {
+            if (recordAnnual.hasOwnProperty(key)) {
+                //alert(key + " -> " + data[0].UIDummyYear[key]);
+                for (var keyitem in recordAnnual[key]) {
+                    gridColumns.push({ field: ("UIOAnnual[" + iAnnual + "]." + keyitem), title: keyitem.split('_')[1], width: 70, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+                }
+                iAnnual++;
+            }
+        }
+
+        return gridColumns;
+    }
+
+    model.renderGridColumnsStandard = function(data) {
+        var gridColumns = [];
+        gridColumns.push({
+            field: "ReportEntitiy",
+            title: "Reporting Entity",
+            width: 120,
+            locked: true,
+            lockable: false
+        },
+        {
+            field: "PlanningEntity",
+            title: "Planning Entity",
+            width: 120,
+            locked: true
+        }, {
+            field: "PlanningEntityID",
+            title: "Planning Entity ID",
+            width: 70,
+            locked: true
+        }, {
+            field: "ActivityEntity",
+            title: "Activity Entity",
+            width: 120,
+            locked: false
+        },{
+            field:"Prob",
+            title:"Prob. Of Success",
+            width:60
+        },{
+            field:"AvgShellShare",
+            title:"Avg ShellShare",
+            width:80
+        },{
+            field:"unit",
+            title:"Unit",
+            width:80
+        },{
+            field:"PMasterField",
+            title:"PMaster Field",
+            width:220
+        },{
+            field:"PMasterRef",
+            title:"PMaster Ref",
+            width:80
+        });
+        if(_.size(data.StandardDetails)>0){
+            data[0].StandardDetails.forEach(function (f) {
+                gridColumns.push(
+                    {  
+                        title: f.DateId, columns: [
+                            { field: f.value, title: "Start", width: 90, attributes: { style: 'text-align: center;' } },
+                        ] 
+                    }
+                )
+            });
+        }
+        return gridColumns;
+    }
+
+    model.renderGridColumnsMonthly = function(data) {
+        var gridColumns = [];
+        gridColumns.push({
+            width: 30,
+            template: "<input type='checkbox' class='checkme' value='#: _id #'>",
+            headerTemplate: "<input type='checkbox' class='check_toggle' onchange='javascript:toggleCheckMonthly(this)'>",
+            locked: true,
+            lockable: false
+        }, {
+            field: "reportEntity",
+            title: "Reporting Entity",
+            width: 120,
+            locked: true
+        },
+        {
+            field: "planningEntity",
+            title: "Planning Entity",
+            width: 120,
+            locked: true
+        }, {
+            field: "planningEntityID",
+            title: "Planning Entity ID",
+            width: 120,
+            locked: true
+        }, {
+            field: "activityEntity",
+            title: "Activity Entity",
+            width: 120,
+            locked: true
+        }, {
+            field: "activityEntityID",
+            title: "Activity Entity ID",
+            width: 120,
+            locked: true
+        }, {
+            field: "probabilityofSuccess",
+            title: "Probability Of Success",
+            width: 120,
+            format: "{0:N} %",
+            locked: true
+        }, {
+            field: "averageShellShare",
+            title: "Average Shell Share",
+            width: 80,
+            locked: true
+        }, {
+            field: "unit",
+            title: "Unit",
+            width: 80,
+            locked: true
+        }, {
+            field: "pMasterField",
+            title: "PMaster Field",
+            width: 80,
+            locked: true
+        }, {
+            field: "pMatserRef",
+            title: "PMaster Reference",
+            width: 80,
+            locked: true
+        }
+        );
+
+        //for (var i = 0; i < data[0].UIOMonthly.length; i++) {
+        //    var dasuChild = [];
+        //    for (var j = 0; j < data[0].UIOMonthly[i].month.length; j++) {
+        //        //resultDynm = { field: "OPList[" + i + "].OPSchedule.Start", template: "#: jsonDateStr(OPList[" + i + "].OPSchedule.Start) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },;
+        //        dasuChild.push({ field: "UIOMonthly[" + i + "].MonthValue[" + j + "]", title: data[0].UIOMonthly[i].month[j], width: 60, format: "{0:N1}", attributes: { style: 'text-align: right;' } });
+        //        //dasuChild[j] = "{dsadsd}";
+        //    }
+        //    gridColumns.push({ title: data[0].UIOMonthly[i].TopHeader, columns: dasuChild });
+        //}
+
+        //for (var i = 0; i < data[0].UIOAnnual.length; i++) {
+        //    gridColumns.push({ field: "UIOAnnual[" + i + "].value", title: data[0].UIOAnnual[i].year.toString(), width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+        //}
+
+        //var record = data[0].UIDummyYear;
+        //for (var key in record) {
+        //    if (record.hasOwnProperty(key)) {
+        //        //alert(key + " -> " + data[0].UIDummyYear[key]);
+        //        gridColumns.push({ field: ("UIDummyYear." + key), title: key.replace(/_/g, " "), width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+        //    }
+        //}
+
+
+        var transMonthly = [];
+        var yearMonthly = [];
+        var recordMonthly = data[0].Monthly;
+        var iMonthly = 0;
+        for (var key in recordMonthly) {
+            if (recordMonthly.hasOwnProperty(key)) {
+                for (var keyitem in recordMonthly[key]) {
+                    yearMonthly.push(keyitem.split('_')[2]);
+                    transMonthly.push({ field: ("Monthly[" + iMonthly + "]." + keyitem), title: keyitem.split('_')[1], width: 50, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+                }
+                iMonthly++;
+            }
+        }
+
+        var yearMonthlyUnique = uniqueArray(yearMonthly);
+        for (var j = 0; j < yearMonthlyUnique.length; j++) {
+            var tempyearMonthly = [];
+            for (var i = 0; i < transMonthly.length; i++) {
+                if (yearMonthlyUnique[j] == transMonthly[i].field.split('.')[1].split('_')[2]) {
+                    tempyearMonthly.push(transMonthly[i]);
+                }
+            }
+            gridColumns.push({ title: yearMonthlyUnique[j], columns: tempyearMonthly });
+        }
+
+        var recordAnnual = data[0].Annual;
+        var iAnnual = 0;
+        for (var key in recordAnnual) {
+            if (recordAnnual.hasOwnProperty(key)) {
+                //alert(key + " -> " + data[0].UIDummyYear[key]);
+                for (var keyitem in recordAnnual[key]) {
+                    gridColumns.push({ field: ("Annual[" + iAnnual + "]." + keyitem), title: keyitem.split('_')[1], width: 70, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+                }
+                iAnnual++;
+            }
+        }
+        return gridColumns;
+    }
+
+    model.renderGridColumnsCapex = function(data) {
+        var gridColumns = [];
+        //gridColumns.push(
+        //    { field: "_id",  width: 150, title: "Action", template: "<div style='text-align: center'><button onclick='model.delete(\"#= _id #\")' class='btn btn-custom btn-danger btn-xs'><span class='glyphicon glyphicon-remove-circle'></span> Delete</button>&nbsp"+
+        //        "<button onclick='model.update(\"#= _id #\")' class='btn btn-custom btn-primary btn-xs'><span class='glyphicon glyphicon-remove-circle'></span> Edit</button>"+
+        //        "</div>" },
+        //    { title: "Case Name", field: "CaseName", width: 150 },
+        //    { title: "Date", field: "Date", width: 150 },
+        //    { title: "Capital Drilling PDDev Tangible", field: "CapitalDrillingPDDevTangible", width: 150 },
+        //    { title: "Capital Drilling PDDev Intangible", field: "CapitalDrillingPDDevIntangible", width: 150 },
+        //    { title: "ExpexDrillingB2ExplTangible", field: "ExpexDrillingB2ExplTangible", width: 150 },
+        //    { title: "ExpexDrillingB2ExplTangible", field: "ExpexDrillingB2ExplTangible", width: 150 },
+        //    { title: "CapitalCompletionPDDevTangible", field: "CapitalCompletionPDDevTangible", width: 150 },
+        //    { title: "CapitalCompletionPDDevIntangible", field: "CapitalCompletionPDDevIntangible", width: 150 },
+        //    { title: "CapitalExpenditureD_RDVAWells", field: "CapitalExpenditureD_RDVAWells", width: 150 },
+        //    { title: "CapitalExpenditureD_RSubseaWells", field: "CapitalExpenditureD_RSubseaWells", width: 150 },
+        //    { title: "OpcostsIdleRig", field: "OpcostsIdleRig", width: 150 },
+        //    { title: "ContingencyTangibleWells", field: "ContingencyTangibleWells", width: 150 },
+        //    { title: "ContingencyIntangibleWells", field: "ContingencyIntangibleWells", width: 150 }
+        //);
+
+        //gridColumns.push( { field: "_id",  width: 130, title: "Action", template: "<div style='text-align: center'><button onclick='model.delete(\"#= _id #\")' class='btn btn-custom btn-danger btn-xs'><span class='glyphicon glyphicon-remove-circle'></span> Delete</button>&nbsp"+
+        //"<button onclick='model.update(\"#= _id #\")' class='btn btn-custom btn-primary btn-xs'><span class='glyphicon glyphicon-remove-circle'></span> Edit</button>"+
+        //"</div>" },
+        gridColumns.push(
+        //    { field: "_id",  width: 100, title: "Action", template: "<div style='text-align: center'><button onclick='model.update(\"#= _id #\")' class='btn btn-custom btn-primary btn-xs'><span class='glyphicon glyphicon-remove-circle'></span> Edit</button>"+
+        //"</div>", 
+        //    locked: true,
+        //    lockable: false }, 
+        {
+            width: 30,
+            template: "<input type='checkbox' class='checkme' value='#: _id #'>",
+            headerTemplate: "<input type='checkbox' class='check_toggle' onchange='javascript:toggleCheckCapex(this)'>",
+            locked: true
+        },
+        {
+            field: "CaseName",
+            title: "Case Name",
+            width: 100,
+            locked: true
+        }, {
+            field: "MonthId",
+            title: "Month Id",
+            width: 60,
+            locked: true
+        });
+
+        var capexSum = data[0].CapexSummary;
+        var titleHeader = [];
+        var subTitleHeader = [];
+        for (var key in capexSum) {
+            if (capexSum.hasOwnProperty(key)) {
+                for (var keyitem in capexSum[key]) {
+                    titleHeader.push(key);
+                    //subTitleHeader.push({ field: ("CapexSummary." + key + "." + keyitem), title: keyitem, width: 70, attributes: { style: 'text-align:center;' } });
+                    
+                    var titheHeaderUpdate;
+                    if (subTitleHeader[i] == "CapitalCompletionPDDevInTang"){
+                        titheHeaderUpdate = "Capital Completion <br/>PD Dev In Tang";
+
+                    } else if (key == "CapitalCompletionPDDevTang"){
+                        titheHeaderUpdate = "Capital Completion <br/>PD Dev Tang";
+
+                    } else if (key == "CapitalDrillingPDDevInTang"){
+                        titheHeaderUpdate = "Capital Drilling <br/>PD Dev In Tang";
+
+                    } else if (key == "CapitalDrillingPDDevTang"){
+                        titheHeaderUpdate = "Capital Drilling <br/>PD Dev Tang";
+
+                    } else if (key == "CapitalExpenDRDVAWells"){
+                        titheHeaderUpdate = "Capital Expen <br/>DRDVA Wells";
+
+                    } else if (key == "CapitalExpenDRSubSeaWells"){
+                        titheHeaderUpdate = "Capital Expen <br/>DR Sub Sea Wells";
+
+                    } else if (key == "ContigencyInTangWells"){
+                        titheHeaderUpdate = "Contigency <br/>In Tang Wells";
+
+                    } else if (key == "ContigencyTangWells"){
+                        titheHeaderUpdate = "Contigency <br/>Tang Wells";
+
+                    } else if (key == "EPEXCompletionB2ExplInTang"){
+                        titheHeaderUpdate = "EPEX Completion <br/>B2Expl In Tang";
+
+                    } else if (key == "EPEXCompletionB2ExplTang"){
+                        titheHeaderUpdate = "EPEX Completion <br/>B2 Expl Tang";
+                        
+                    } else if (key == "EPEXDrillingB2ExplInTang"){
+                        titheHeaderUpdate = "EPEX Drilling <br/>B2 Expl In Tang";
+                    } else if (key == "EPEXDrillingB2ExplTang"){
+                        titheHeaderUpdate = "EPEX Drilling <br/>B2 Expl Tang";
+
+                    } else if (key == "OPCostIdleRig"){
+                        titheHeaderUpdate = "OP Cost Idle Rig";
+                    } 
+                    subTitleHeader.push({ field: ("CapexSummary." + key + "." + keyitem), title: titheHeaderUpdate, width: 110, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+                }
+            }
+        }
+
+        var titleHeaderUnique = uniqueArray(titleHeader);
+        for (var j = 0; j < titleHeaderUnique.length; j++) {
+            //var tempsubTitle = [];
+            for (var i = 0; i < subTitleHeader.length; i++) {
+                if ((titleHeaderUnique[j] == subTitleHeader[i].field.split('.')[1]) && (subTitleHeader[i].field.split('.')[2] == "EDM")) {
+                    //tempsubTitle.push(subTitleHeader[i]);
+                    //console.log(subTitleHeader[i]);
+                    
+                    //alert(titheHeaderUpdate);
+                    //console.log(subTitleHeader[i]);
+                    //gridColumns.push(subTitleHeader[i]);
+                    gridColumns.push(subTitleHeader[i]);
+                }
+            }
+            //gridColumns.push({ title: titleHeader[j], columns: tempsubTitle });
+        }
+
+        //var recCapexSum = data[0].CapexSummary;
+        ////var iAnnual = 0;
+        //for (var key in recCapexSum) {
+        //    if (recCapexSum.hasOwnProperty(key)) {
+        //        //alert(key + " -> " + data[0].UIDummyYear[key]);
+        //        console.log(key);
+        //        gridColumns.push({ field: ("CapexSummary." + key + ".EDM"), title: key, width: 70, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+
+        //        //for (var keyitem in recCapexSum[key]) {
+        //        //    gridColumns.push({ field: ("UIOAnnual[" + iAnnual + "]." + keyitem), title: keyitem.split('_')[1], width: 70, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+        //        //}
+        //        //iAnnual++;
+        //    }
+        //}
+        
+        return gridColumns;
+    }
+
+
+    //$("#grid_capex").delegate("tbody>tr", "dblclick", function () {
+    //    console.log("helodsads");
+    //    //if (!$(this).hasClass('k-grid-edit-row')) {
+    //    //    $("#grid").data("kendoGrid").editRow($(this));
+    //    //}
+ 
+    //});
+
+    model.update = function(id) {
+        @*var x = model.Stream();
+        var y = ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WEISStream())));
+        x.record(y);
+        var c = x.record();
+        c.RigName(id);*@
+
+        $("#ModalUpdate").modal("show");
+    }
+
+    function renderGridUsingData(data, divgrid) {
+        //alert(JSON.stringify(data[0].Monthly[0].month));
+        //var $grids = $('.grids.optoop-variance-by-well');
+        //$grids.find('.grid').replaceWith($('<div />').addClass('grid'));
+        var nameEx;
+        var gridColumns;
+        if (divgrid == "grid_uio") {
+            nameEx = "Data UIOReport";
+            gridColumns = model.renderGridColumnsUIOP(data);
+        } else if (divgrid == "grid_standard") {
+            //$('#grid_standard').replaceWith($('<div />').attr('id', 'grid_standard'));
+            nameEx = "Data Standard";
+            gridColumns = model.renderGridColumnsStandard(data);
+        } else if (divgrid == "grid_monthly") {
+            //$('#grid_monthly').replaceWith($('<div />').attr('id', 'grid_monthly'));
+            nameEx = "Data Monthly";
+            gridColumns = model.renderGridColumnsMonthly(data);
+        } else if (divgrid == "grid_capex") {
+            nameEx = "Data Capex_"+Date.now();
+            gridColumns = model.renderGridColumnsCapex(data);
+        }
+
+        $('#' + divgrid).replaceWith($('<div />').attr('id', divgrid));
+        $('#' + divgrid).kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { filename: nameEx + ".pdf" },
+            excel: { fileName: nameEx + ".xlsx", allPages: true, filterable: true },
+            dataSource: {
+                //schema: {
+                //    model: {
+                //        _id:'int',
+                //        //PhStart: 'date',
+                //        //PhFinish: 'date',
+                //        //OpsStart: 'date',
+                //        //OpsFinish: 'date',
+                //        fields: {
+                //            //"VirtualPhase": { type: "boolean", editable: false },
+                //            "WellDuration": { type: "string" }
+                //        }
+                //    }
+                //},
+                //aggregate: aggs,
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+            editable: "popup",
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: gridColumns,
+            //excelExport: function (e) {
+            //    e.preventDefault()
+            //    ExportToExcel();
+            //    return false;
+            //}
+            excelExport: function(e) {
+                var sheet = e.workbook.sheets[0];
+                for (var rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
+                    //if (rowIndex % 2 == 0) {
+                        var row = sheet.rows[rowIndex];
+                        for (var cellIndex = 0; cellIndex < row.cells.length; cellIndex ++) {
+                            if (rowIndex == 0) {
+                                //row.cells[cellIndex].background = "#aabbcc";
+                                row.cells[cellIndex].value = row.cells[cellIndex].value.replace("<br/>","");
+                            }
+                        }
+                    //}
+                }
+            }
+        });
+
+    }
+
+
+    @*function ExportToExcel(){
+        IDs = Array()
+
+        if(model.sement() != null){
+            $.each(model.sement(),function(index,data){
+                IDs.push(parseInt(data._id));
+            })
+        }
+        var param = { ID: IDs, OPs: model.getFilterValues().OPs, opRelation: model.getFilterValues().opRelation, wbs: model.getFilterValues() }
+        var url ="@Url.Action("Export")";
+        ajaxPost(url,param,function(data){
+            url = "@Url.Action("DownloadBrowserFile", "Palantir")"+"?stringName="+data.Path+"&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss");
+            location.href = url;
+        },function(err){alert(err)})
+
+    }*@
+    model.deleteaggrcapex = function() {
+        var conf = confirm("Are you sure want to delete?");
+        if(conf){
+            model.deleteaggr("grid_capex", "capex");
+        }
+    }
+    model.deleteaggrspmaster = function() {
+        var conf = confirm("Are you sure want to delete?");
+        if(conf){
+            model.deleteaggr("grid_standard", "pmasterStandart");
+        }
+    }
+    model.deleteaggrmpmaster = function() {
+        var conf = confirm("Are you sure want to delete?");
+        if(conf){
+            model.deleteaggr("grid_monthly", "pmasterMonthly");
+        }
+    }
+ 
+    model.deleteaggr = function(idgrid, report) {
+        var ids = $("#"+idgrid).find("input.checkme:checked");
+        var idValues = $.map(ids, function (obj, idx) {
+            var $obj = $(obj);
+            return $obj.val();
+        });
+        if (idValues.length == 0) {
+            alert("Please select record Report to be reminded");
+            return;
+        }
+        //if (!confirm('Are you sure want to delete this record?'))
+        //    return;
+        //console.log(report);
+
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("DeleteAggr")", { ids: idValues, report: report }, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadDataCapex();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    model.deletemapcapex = function(){
+        var conf = confirm("Are you sure want to delete?");
+        if(conf){
+            model.deletemap("capex");
+        }
+    }
+    model.deletemapspmaster = function(){
+        model.deletemap("pmasterStandart");
+    }
+    model.deletemapmpmaster = function(){
+        model.deletemap("pmasterMonthly");
+    }
+
+    model.deletemap = function(report) {
+        var casename = $('[data-model="CaseNameSelect"]').data('kendoDropDownList').value();
+        if (!confirm('Are you sure want to delete this map?'))
+            return;
+        
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("DeleteMap")", { caseName: casename, report: report }, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadDataCapex();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    model.generatemappmaster = function() {
+        var url = "@Url.Action("GeneratePMaster")";
+        location.href = url;
+    }
+
+    model.generatemapcapex = function() {
+        //model.IsGenerateCapex(true);
+        var url = "@Url.Action("GenerateCapex")";
+        location.href = url;
+        @*var param = model.getFilterValues();
+        ajaxPost("@Url.Action("GenerateMappingCapex")", param, function (res) {
+            if (res.Result == "OK") {
+                alert(res.Message);
+                model.IsProcessing(false);
+                return;
+            }
+
+            model.IsProcessing(false);
+            renderGridUsingData(res.Data, "grid_capex");
+            //model.IsEdited(false);
+            //model.Refresh();
+        });*@
+    }
+
+    model.Refresh = function () {
+
+    };
+</script>

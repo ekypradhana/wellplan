@@ -1,0 +1,718 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+@{
+    ViewBag.Title = "Macro Data";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+    //var dBaseOP = MacroEconomic.Populate<MacroEconomic>().GroupBy(d => d.BaseOP).Select(d => d.Key).OrderBy(d => d);
+}
+
+<style>
+    .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .control {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+    .cell-right {
+        text-align: right;
+    }
+
+    .cell-center {
+        text-align: center;
+    }
+
+    .modal .modal-body .form-group {
+        min-height: 27px;
+        margin-bottom: 4px;
+    }
+
+        .modal .modal-body .form-group input,
+        .modal .modal-body .form-group textarea {
+            border-color: #EFEFEF;
+        }
+
+        .modal .modal-body .form-group .col-md-4 {
+            text-align: right;
+            padding-top: 5px;
+            padding-right: 0px;
+        }
+</style>
+
+<script>
+    model.PageId("Administration");
+    model.MacroInformation = {};
+    model.MacroInformation.IsProcessing = ko.observable(false);
+    model.MacroInformation.IsEdited = ko.observable(false);
+    model.MacroInformation.Data = ko.observable(@MvcTools.Obj2HtmlStr(new MacroEconomic()));
+    model.MacroInformation.Country = ko.observable("");
+    model.MacroInformation.BaseOP = ko.observableArray([]),
+    model.MacroInformation.BaseOPValue = ko.observable(),
+    model.MacroInformation.Alpha = ko.observable();
+    model.MacroInformation.AlphaIndex = ko.observable("A");
+    model.MacroInformation.AddItem = {};
+    model.MacroInformation.AddItem.Year = ko.observable(0);
+    model.MacroInformation.AddItem.Value = ko.observable(0);
+    model.MacroInformation.AddItem.Source = ko.observable("");
+    model.MacroInformation.AddItem.Desc = ko.observable("");
+    model.MacroInformation.AddItem.ID = ko.observable("");
+    model.MacroInformation.AddItem.Type = ko.observable("GDP");
+    model.MacroInformation.AddItem.InterestRatesType = ko.observable("short");
+    model.Year = [2000.1995, 1996];
+    model.MacroInformation.PrepareUploadForm = function () {
+        $("#upload .grid").kendoUpload({
+            async: {
+                saveUrl: '@Url.Action("Upload")',
+                removeUrl: "remove",
+                autoUpload: false
+            },
+            complete: function (e) {
+                model.MacroInformation.Refresh();
+            },
+            select: function (e) {
+                $.each(e.files, function (index, value) {
+                    var ok = value.extension == ".xlsx" || value.extension == ".xls"
+
+                    if (!ok) {
+                        e.preventDefault();
+                        alert("Please upload only Excel (xls, xlsx) files");
+                    }
+                });
+            }
+        });
+    };
+    model.MacroInformation.Refresh = function () {
+        var url = "@Url.Action("GetData")";
+        var param = { country: model.MacroInformation.Country(), baseop: model.MacroInformation.BaseOPValue(), alphabet: model.MacroInformation.AlphaIndex() };
+
+        model.MacroInformation.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                model.MacroInformation.IsProcessing(false);
+                return;
+            }
+
+            model.MacroInformation.IsProcessing(false);
+            model.MacroInformation.Data(res.Data);
+            model.MacroInformation.RenderGridGDP();
+            model.MacroInformation.RenderGridInflation();
+            model.MacroInformation.RenderGridExchangeRate();
+            model.MacroInformation.RenderGridInterestRateShort();
+            model.MacroInformation.RenderGridInterestRateLong();
+
+            $(".tab-content .tab-pane:not(.active) .grid").css("visibility", "hidden");
+
+            //if (callback != undefined) {
+            //    callback();
+            //}
+        });
+    };
+    model.MacroInformation.CheckBaseOP = function () {
+        var url = "@Url.Action("GetBaseOP")";
+        var param = {};
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "OK") {
+                    model.MacroInformation.BaseOP(res.Data);
+                    model.MacroInformation.BaseOPValue(model.MacroInformation.BaseOP()[0]);
+            }
+        });
+    }
+
+    model.MacroInformation.GridSave = function () {
+        var updates = [];
+        var keys = [];
+
+        $(".grid").each(function (i, e) {
+            var data = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true });
+
+            data.forEach(function (f) {
+                var update = _.find(updates, { _id: f._id });
+
+                if (update == undefined) {
+                    for (var k in f) {
+                        if (f.hasOwnProperty(k) && k.indexOf(".") > -1) {
+                            delete f[k];
+                        }
+                    }
+                    updates.push(f);
+
+                    return;
+                }
+
+                if ($(e).parent().attr("id") == "grid-gdp")
+                    update.GDP = f.GDP;
+                else if ($(e).parent().attr("id") == "grid-inflation")
+                    update.Inflation = f.Inflation;
+                else if ($(e).parent().attr("id") == "grid-exchange-rate")
+                    update.ExchangeRate = f.ExchangeRate;
+                else if ($(e).parent().attr("id") == "grid-interest-rate-short")
+                    update.InterestRateShort = f.InterestRateShort;
+                else if ($(e).parent().attr("id") == "grid-interest-rate-long")
+                    update.InterestRateLong = f.InterestRateLong;
+            });
+        });
+
+        var url = "@Url.Action("UpdateInline")";
+        var param = { updates: updates,baseop:model.MacroInformation.BaseOPValue() };
+
+        model.MacroInformation.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                model.MacroInformation.IsProcessing(false);
+                return;
+            }
+
+            model.MacroInformation.IsProcessing(false);
+            model.MacroInformation.IsEdited(false);
+            model.MacroInformation.Refresh();
+        });
+    };
+    model.MacroInformation.GridReset = function () {
+        $(".grid").each(function (i, e) {
+            $(e).data("kendoGrid").dataSource.read();
+        });
+        model.MacroInformation.CheckGrid();
+    };
+    model.MacroInformation.CheckGrid = function () {
+        var isDirty = false;
+        var Dirty = [];
+        $(".grid").each(function (i, e) {
+            if (isDirty) return;
+            isDirty = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true }).length > 0;
+            Dirty.push(isDirty);
+            //if (isDirty) model.MacroInformation.IsEdited(true);
+        });
+        var CheckDirty = _.contains(Dirty, true);
+        model.MacroInformation.IsEdited(true);
+        //if (!isDirty) {
+        //    model.MacroInformation.IsEdited(false);
+        //}
+    };
+    model.MacroInformation.KendoNumericTextBoxEditor = function (container, option) {
+        var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+        input.appendTo(container);
+        input.kendoNumericTextBox({
+            change: function () {
+                model.MacroInformation.CheckGrid();
+            }
+        });
+    };
+    model.MacroInformation.ShowAddItem = function (o, id) {
+        var gridID = $(o).closest("[id]").attr("id");
+        var data = $(o).closest(".k-grid").data("kendoGrid").dataSource.data();
+        var year = moment(new Date()).year();
+
+        if (gridID == "grid-gdp") {
+            model.MacroInformation.AddItem.Type("GDP");
+            if (data.length > 0) {
+                year = _.max(data[0].GDP.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-inflation") {
+            model.MacroInformation.AddItem.Type("inflation");
+            if (data.length > 0) {
+                year = _.max(data[0].Inflation.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-exchange-rate") {
+            model.MacroInformation.AddItem.Type("exchangerates");
+            if (data.length > 0) {
+                year = _.max(data[0].ExchangeRate.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-interest-rate-short") {
+            model.MacroInformation.AddItem.Type("interestrates");
+            if (data.length > 0) {
+                year = _.max(data[0].InterestRateShort.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-interest-rate-long") {
+            model.MacroInformation.AddItem.Type("interestrates");
+            model.MacroInformation.AddItem.InterestRatesType("long");
+            if (data.length > 0) {
+                year = _.max(data[0].InterestRateLong.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        }
+
+        model.MacroInformation.AddItem.ID(id);
+        model.MacroInformation.AddItem.Value(0);
+        model.MacroInformation.AddItem.Year(year);
+
+        $("#modal-add-item").modal("show");
+    }
+
+    model.MacroInformation.GetYear = function () {
+        var url = "@Url.Action("GetYear")"
+        var param = {};
+        ajaxPost(url, param, function (res) {
+            //console.log(res);
+            return res.Data;
+        });
+    }
+    model.MacroInformation.SaveItem = function () {
+        var url = "@Url.Action("AddAnnualValues")";
+        var param = {
+            id: model.MacroInformation.AddItem.ID(),
+            Year: model.MacroInformation.AddItem.Year(),
+            Value: model.MacroInformation.AddItem.Value(),
+            Type: model.MacroInformation.AddItem.Type(),
+            Source: model.MacroInformation.AddItem.Source(),
+            Desc: model.MacroInformation.AddItem.Desc(),
+            InterestRatesType: model.MacroInformation.AddItem.InterestRatesType()
+        };
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                return;
+            }
+
+            model.MacroInformation.Refresh(function () {
+                $("#modal-add-item").modal("hide");
+            });
+        });
+    };
+    model.MacroInformation.BuildGridConfig = function (data, columns, editableFields, interest) {
+        var width = $(".nav-tabs").closest(".col-md-12").width();
+        var schema = {};
+        var addItem = {
+            locked: true,
+            width: 40,
+            attributes: { class: "ec-center" },
+            template: function (dataItem) {
+                return "<button class='btn btn-xs btn-custom btn-primary' onclick='model.MacroInformation.ShowAddItem(this, \"" + dataItem._id + "\")'><span class='glyphicon glyphicon-plus'></span></button>"
+            }
+        };
+
+        if (interest != undefined) {
+            schema = {
+                model: {
+                    fields: {
+                        Country: { editable: false },
+                        Title: { editable: false },
+                    }
+                }
+            };
+
+            schema.model.fields[interest + ".SeasonallyAdjusted"] = { type: "boolean" };
+            schema.model.fields[interest + ".DateOfLastUpdate"] = { type: "date" };
+            editableFields.forEach(function (e) {
+                schema.model.fields[e] = { type: "number" };
+            });
+
+            columns = [addItem].concat(columns).concat([
+            //columns = columns.concat([
+                { field: interest + ".Source", title: "Source", width: 240 },
+                { field: interest + ".SeasonallyAdjusted", title: "Seasonally Adjusted", attributes: { class: "cell-center" }, width: 120 },
+                { field: interest + ".BaseYearPrice", title: "Base Year Price", attributes: { class: "cell-right" }, width: 120 },
+                { field: interest + ".BaseYearIndex", title: "Base Year Index", attributes: { class: "cell-right" }, width: 120 },
+                { field: interest + ".HistoricalEndYear", title: "Historical End Year", attributes: { class: "cell-right" }, width: 120 },
+                { field: interest + ".HistoricalEndQuarter", title: "Historical End Quarter", attributes: { class: "cell-right" }, width: 140 },
+                { field: interest + ".DateOfLastUpdate", title: "Date Of Last Update", width: 120, format: "{0:dd-MMM-yyyy}", template: "#: jsonDateStr(" + interest + ".DateOfLastUpdate" + ") #" },
+                { field: interest + ".SourceDetail", title: "Source Detail", width: 160 },
+                { field: interest + ".AdditionalSourceDetail", title: "Additional Source Detail", width: 200 },
+                { field: interest + ".Location", title: "Location Code", width: 120 },
+                { field: interest + ".IndicatorCode", title: "Indicator Code", width: 120 }
+            ]);
+        } else {
+            schema = {
+                model: {
+                    fields: {
+                        Country: { editable: false },
+                        Currency: { editable: false },
+                        SwiftCode: { editable: false },
+                        Category: { editable: false },
+                        Continent: { editable: false },
+                        MajorCountry: { editable: false },
+                    }
+                }
+            };
+
+            editableFields.forEach(function (e) {
+                schema.model.fields[e] = { type: "number" };
+            });
+
+            columns = [
+                addItem,
+                { field: "Country", locked: true, width: 100 },
+                { field: "Currency", locked: true, width: 140 },
+                { field: "SwiftCode", title: "Swift Code", locked: true, width: 100 },
+                { field: "Category", locked: true, width: 100 },
+                { field: "Continent", locked: true, width: 100 },
+                { field: "MajorCountry", title: "Major Country",  width: 100 }
+            ].concat(columns);
+        }
+
+        return {
+            chartArea: {
+                width: width
+            },
+            dataSource: {
+                data: data,
+                schema: schema,
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            filterable: false,
+            editable: true,
+            columns: columns
+        };
+    };
+    model.MacroInformation.RenderGridGDP = function () {
+        var data = model.MacroInformation.Data();
+        var columns = [];
+        var editableFields = [];
+
+        if (data.length > 0) {
+            columns.push({
+                //field: "GDP.GDPLevel.Value",
+                field: "GDP.GDPLevel",
+                title: "GDP level",
+                width: 90,
+                format: "{0:N2}",
+                attributes: { class: "cell-right" },
+                editor: model.MacroInformation.KendoNumericTextBoxEditor,
+            });
+            editableFields.push("GDP.GDPLevel");
+
+            data[0].GDP.AnnualValues.forEach(function (e, i) {
+                columns.push({
+                    field: "GDP.AnnualValues[" + i + "].Value",
+                    title: String(e.Year),
+                    width: 80,
+                    format: "{0:N2}",
+                    attributes: { class: "cell-right" },
+                    editor: model.MacroInformation.KendoNumericTextBoxEditor,
+                });
+                editableFields.push("GDP.AnnualValues[" + i + "].Value");
+            });
+        }
+
+        var config = model.MacroInformation.BuildGridConfig(data, columns, editableFields);
+
+        $("#grid-gdp .grid").replaceWith('<div class="grid"></div>');
+        $("#grid-gdp .grid").kendoGrid(config);
+        $("#grid-gdp .grid").on("change", function () {
+            model.MacroInformation.CheckGrid();
+        });
+    };
+    model.MacroInformation.RenderGridInflation = function () {
+        var data = model.MacroInformation.Data();
+        var columns = [];
+        var editableFields = [];
+
+        if (data.length > 0) {
+            data[0].Inflation.AnnualValues.forEach(function (e, i) {
+                columns.push({
+                    field: "Inflation.AnnualValues[" + i + "].Value",
+                    title: String(e.Year),
+                    width: 80,
+                    format: "{0:P4}",
+                    attributes: { class: "cell-right" },
+                    editor: model.MacroInformation.KendoNumericTextBoxEditor,
+                });
+
+                editableFields.push("Inflation.AnnualValues[" + i + "].Value");
+            });
+        }
+
+        var config = model.MacroInformation.BuildGridConfig(data, columns, editableFields);
+
+        $("#grid-inflation .grid").replaceWith('<div class="grid"></div>');
+        $("#grid-inflation .grid").kendoGrid(config);
+        $("#grid-inflation .grid").on("change", function () {
+            model.MacroInformation.CheckGrid();
+        });
+
+    };
+    model.MacroInformation.RenderGridExchangeRate = function () {
+        var Year = 1995;
+        var data = model.MacroInformation.Data();
+        var columns = [];
+        var editableFields = [];
+
+        if (data.length > 0) {
+
+            data[0].ExchangeRate.AnnualValues.forEach(function (e, i) {
+                for (var j = 0; j < model.Year.length; j++) {
+                    if (j > 0) {
+                        columns.push({
+                            title: String(e.Year), columns: [
+                                { title: "Value", width: 67, field: "ExchangeRate.AnnualValues[" + i + "].Value" },
+                                { title: "Desc", width: 200, field: "ExchangeRate.AnnualValues[" + i + "].Desc" },
+                                { title: "Source", width: 200, field: "ExchangeRate.AnnualValues[" + i + "].Source" }
+                            ],
+                            width: 80,
+                            format: "{0:N2}",
+                            attributes: { class: "cell-right" },
+                            editor: model.MacroInformation.KendoNumericTextBoxEditor
+                        });
+                    }
+
+                }
+
+
+                editableFields.push("ExchangeRate.AnnualValues[" + i + "].Value");
+                editableFields.push("ExchangeRate.AnnualValues[" + i + "].Value");
+
+            });
+        }
+
+        var config = model.MacroInformation.BuildGridConfig(data, columns, editableFields);
+
+        $("#grid-exchange-rate .grid").replaceWith('<div class="grid"></div>');
+        $("#grid-exchange-rate .grid").kendoGrid(config);
+        $("#grid-exchange-rate .grid").on("change", function () {
+            model.MacroInformation.CheckGrid();
+        });
+    };
+    model.MacroInformation.RenderGridInterestRateShort = function () {
+        var data = _.filter(model.MacroInformation.Data(), function (e) {
+            try {
+                return e.InterestRateShort.AnnualValues.length > 0;
+            } catch (err) {
+                return false;
+            }
+        });
+        var columns = [
+            { field: "Country", locked: true, width: 100 },
+            { field: "Title", locked: true, width: 200 },
+        ];
+        var editableFields = [];
+
+        if (data.length > 0) {
+            data[0].InterestRateShort.AnnualValues.forEach(function (e, i) {
+                columns.push({
+                    field: "InterestRateShort.AnnualValues[" + i + "].Value",
+                    title: String(e.Year),
+                    width: 80,
+                    format: "{0:N2}",
+                    attributes: { class: "cell-right" },
+                    editor: model.MacroInformation.KendoNumericTextBoxEditor,
+                });
+                editableFields.push("InterestRateShort.AnnualValues[" + i + "].Value");
+            });
+        }
+
+        var config = model.MacroInformation.BuildGridConfig(data, columns, editableFields, "InterestRateShort");
+
+        $("#grid-interest-rate .grid:eq(0)").replaceWith('<div class="grid"></div>');
+        $("#grid-interest-rate .grid:eq(0)").kendoGrid(config);
+        $("#grid-interest-rate .grid:eq(0)").on("change", function () {
+            model.MacroInformation.CheckGrid();
+        });
+    };
+    model.MacroInformation.RenderGridInterestRateLong = function () {
+        var data = _.filter(model.MacroInformation.Data(), function (e) {
+            try {
+                return e.InterestRateLong.AnnualValues.length > 0;
+            } catch (err) {
+                return false;
+            }
+        });
+        var columns = [
+            { field: "Country", locked: true, width: 100 },
+            { field: "Title", locked: true, width: 200 },
+        ];
+        var editableFields = [];
+
+        if (data.length > 0) {
+            data[0].InterestRateLong.AnnualValues.forEach(function (e, i) {
+                columns.push({
+                    field: "InterestRateLong.AnnualValues[" + i + "].Value",
+                    title: String(e.Year),
+                    width: 80,
+                    format: "{0:N2}",
+                    attributes: { class: "cell-right" },
+                    editor: model.MacroInformation.KendoNumericTextBoxEditor,
+                });
+                editableFields.push("InterestRateLong.AnnualValues[" + i + "].Value");
+            });
+        }
+
+        var config = model.MacroInformation.BuildGridConfig(data, columns, editableFields, "InterestRateLong");
+
+        $("#grid-interest-rate .grid:eq(1)").replaceWith('<div class="grid"></div>');
+        $("#grid-interest-rate .grid:eq(1)").kendoGrid(config);
+        $("#grid-interest-rate .grid:eq(1)").on("change", function () {
+            model.MacroInformation.CheckGrid();
+        });
+    };
+    model.MacroInformation.Prepare = function () {
+        $(".nav-tabs a").on("click", function (e) {
+            $($(e.currentTarget).attr("href") + " .grid").each(function (i, e) {
+                var $grid = $(e);
+
+                if ($grid.css("visibility") != "hidden") {
+                    return;
+                }
+
+                setTimeout(function () {
+                    $grid.data("kendoGrid").dataSource.read();
+                    $grid.css("visibility", "visible");
+                }, 100);
+            });
+        });
+    };
+
+    model.MacroInformation.alphabet = function () {
+        var url = "@Url.Action("getAlphabet")";
+        var param = {};
+        ajaxPost(url, param, function (res) {
+            model.MacroInformation.Alpha(res.Data);
+        });
+    }
+    model.MacroInformation.filterAlphabet = function (index,data) {
+        return function () {
+            $(".btn.btn-info.index").removeClass("btn-danger");
+            $(".btn.btn-info.index.alpha" + index).addClass("btn-danger");
+            model.MacroInformation.AlphaIndex(data);
+            model.MacroInformation.Refresh();
+        }
+    }
+
+    $(function () {
+        model.MacroInformation.alphabet();
+        model.MacroInformation.CheckBaseOP();
+        model.MacroInformation.Prepare();
+        setTimeout(function () {
+            $('.search').on('keyup', function (e) {
+                if (e.keyCode != 13) return;
+                model.MacroInformation.Refresh();
+                $(".search").focus();
+            });
+            model.MacroInformation.Refresh();
+        }, 100);
+        
+    });
+</script>
+
+<script type="text/html" id="grid-control-template">
+    <div class="row" style="margin-bottom:10px" data-bind="with:model.MacroInformation">
+
+        <div class="col-md-12">
+            <label style="margin-right:5px">Search :</label>
+            <input type="text" class="search" data-bind="value: Country, attr: { placeholder: 'Type Country' + ' here ...' }" style="width:200px;" />
+            <input id="baseop" data-bind="kendoDropDownList:{data: BaseOP,value:BaseOPValue}" />
+            <button class="btn-sm btn btn-custom btn-primary" data-bind="enable: !IsEdited(), click: Refresh">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+            <button class="btn-sm btn btn-custom btn-success" data-bind="enable: IsEdited(), click: GridSave">
+                <span class="glyphicon glyphicon-save"></span> Save
+            </button>
+            <button class="btn-sm btn btn-custom btn-warning" data-bind="enable: IsEdited(), click: GridReset">
+                <span class="glyphicon glyphicon-remove"></span> Reset
+            </button>
+            <div data-bind="foreach:Alpha" style="text-align:center;margin-top:20px">
+                <button data-bind="text:$data,click:model.MacroInformation.filterAlphabet($index(),$data),attr:{id:'alpha'+$index(),class:'btn btn-info index alpha'+$index()}"></button>
+            </div>
+        </div>
+    </div>
+</script>
+
+<div class="col-md-12" data-bind="visible: model.MacroInformation.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+
+<div class="col-md-12" data-bind="with: model.MacroInformation, style: { 'visibility': model.MacroInformation.IsProcessing() ? 'hidden' : 'visible' }">
+
+    <ul class="nav nav-tabs">
+        <li class="active"><a href="#grid-gdp" data-toggle="tab">GDP</a></li>
+        <li><a href="#grid-inflation" data-toggle="tab">Inflation</a></li>
+        <li><a href="#grid-exchange-rate" data-toggle="tab">Exchange Rates</a></li>
+        <li><a href="#grid-interest-rate" data-toggle="tab">Interest Rates</a></li>
+    </ul>
+    <div class="tab-content">
+        <div class="tab-pane active" id="grid-gdp">
+            <div class="control" data-bind="template: { name: 'grid-control-template' }"></div>
+            <div class="grid"></div>
+        </div>
+        <div class="tab-pane" id="grid-inflation">
+            <div class="control" data-bind="template: { name: 'grid-control-template' }"></div>
+            <div class="grid"></div>
+        </div>
+        <div class="tab-pane" id="grid-exchange-rate">
+            <div class="control" data-bind="template: { name: 'grid-control-template' }"></div>
+            <div class="grid"></div>
+        </div>
+        <div class="tab-pane" id="grid-interest-rate">
+            <div class="control" data-bind="template: { name: 'grid-control-template' }"></div>
+
+            <div id="grid-interest-rate-short">
+                <h3>Short term rates (annual average, 3-months rate - see description in column AS)</h3>
+                <div class="grid"></div>
+            </div>
+
+            <div id="grid-interest-rate-long">
+                <h3>Long term rates (annual average, 10 years rate - see description in column AS)</h3>
+                <div class="grid grid-interest-rate-long"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-add-item" data-bind="with: model.MacroInformation">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title">Add Item</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <div class="col-md-4">
+                            <label>Year</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px" data-bind="kendoNumericTextBox: { format: '#', value: AddItem.Year }" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-md-4">
+                            <label>Value</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px" data-bind="kendoNumericTextBox: { format: '{0:N2}', decimals: 2, value: AddItem.Value }" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="visible: false">
+                        <div class="col-md-4">
+                            <label>Source</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px; min-height: 27px;" data-bind="value: AddItem.Source" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="visible: false">
+                        <div class="col-md-4">
+                            <label>Desc</label>
+                        </div>
+                        <div class="col-md-8">
+                            <textarea style="width: 200px; min-height: 50px;" data-bind="value: AddItem.Desc"></textarea>
+                        </div>
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-custom btn-warning" data-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-primary" data-bind="click: SaveItem">
+                        <span class="glyphicon glyphicon-refresh"></span> Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

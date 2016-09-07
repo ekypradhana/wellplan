@@ -1,0 +1,95 @@
+﻿@{
+    ViewBag.Title = "Economic Inflation";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<script>
+    model.Yo = {}; var y = model.Yo;
+
+    y.Value = ko.observable(0.0);
+    y.DetailVisibility = ko.observable(false);
+
+    y.Refresh = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        model.Processing(true);
+        y.DetailVisibility(false);
+
+        var url = "@Url.Action("GetEconomicInflationData")";
+        var param = y.GetParam({});
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            model.Processing(false);
+            y.DetailVisibility(true);
+            y.Value(res.Data);
+        });
+    };
+    y.SaveUpdate = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        model.Processing(true);
+
+        var url = "@Url.Action("SaveEconomicInflationData")";
+        var param = y.GetParam({ Value: y.Value() });
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+</script>
+
+<div class="col-md-12" data-bind="with: model.Yo">
+    <div class="controls">
+        @Html.Partial("_Filter")
+
+        <div class="filter">
+            <div class="form-group">
+                <div class="col-md-1"></div>
+                <div class="col-md-11">
+                    <button class="btn btn-sm btn-custom btn-primary" data-bind="click: Refresh">
+                        <span class="glyphicon glyphicon-refresh"></span> Refresh
+                    </button>
+                    <button class="btn btn-sm btn-custom btn-success" data-bind="click: SaveUpdate, visible: DetailVisibility()">
+                        <span class="glyphicon glyphicon-save"></span> Save Changes
+                    </button>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form col-md-12" data-bind="visible: DetailVisibility()">
+        <label>Economic Inflation Factor :</label>
+        <input type="text" data-bind="kendoNumericTextBox: { format: '{0:N2}', value: Value }" />
+    </div>
+</div>
+
+<style>
+    .form {
+        width: 500px;
+        margin-top: 10px;
+    }
+
+    .no-padding {
+        padding: 0px;
+    }
+</style>

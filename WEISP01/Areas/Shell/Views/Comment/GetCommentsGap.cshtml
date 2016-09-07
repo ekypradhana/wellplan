@@ -1,0 +1,239 @@
+﻿@{
+    ViewBag.Title = "Comment No Longer Associated";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+<script>
+    model.PageId("Performance Improvement Plan");
+    model.Comment = ko.observable({
+        FilterDate: ko.observable(),
+        Users: ko.observableArray([]),
+        Activities: ko.observableArray([]),
+        WellNames: ko.observableArray([]),
+        PIPClassifications: ko.observableArray([]),
+        PIPThemes: ko.observableArray([]),
+        FilterUsers: ko.observableArray([]),
+        FilterActivities: ko.observableArray([]),
+        FilterWellNames: ko.observableArray([]),
+        FilterPIPClass: ko.observableArray([]),
+        FilterPIPThemes: ko.observableArray([]),
+        FilterKeywords: ko.observable(""),
+        isRO: ko.observable(true),
+        isAdmin: ko.observable(true),
+        isAppSupport: ko.observable(true),
+        isAdministrator: ko.observable(true),
+        ShowHideFilter: function(){
+            if ($("#CommentFilter").is(":visible")) {
+                $("#CommentFilter").hide();
+            } else {
+                $("#CommentFilter").show();
+            }
+        },
+        SetFilterValues: function () {
+            var x = model.Comment();
+            ajaxPost("@Url.Action("GetFilterValueForComments", "Comment")", {}, function (data) {
+                console.log(data);
+                x.WellNames(data.WellNames);
+                x.Activities(data.Activities);
+                x.PIPClassifications(data.PIPClass);
+                x.PIPThemes(data.PIPThemes);
+            }, function (data) {
+                console.log(data);
+            });
+            ajaxPost("@Url.Action("PopulateUsers", "Comment")", {}, function (data) {
+                //console.log(data);
+                x.Users(data.Data);
+            }, function (data) {
+                console.log(data);
+            });
+        },
+        GetFilterValues: function () {
+            var x = model.Comment();
+            var param = {
+                Date: x.FilterDate(),
+                Users: x.FilterUsers(),
+                WellNames: x.FilterWellNames(),
+                Activities: x.FilterActivities(),
+                PIPClass: x.FilterPIPClass(),
+                PIPThemes: x.FilterPIPThemes(),
+                Keywords: x.FilterKeywords()
+            }
+            //console.log(param);
+            return param;
+        },
+        ResetFilter: function () {
+            var x = model.Comment();
+            x.FilterDate(null);
+            x.FilterUsers([]);
+            x.FilterWellNames([]);
+            x.FilterActivities([]);
+            x.FilterPIPClass([]);
+            x.FilterPIPThemes([]);
+            x.FilterKeywords("");
+
+        },
+        SetUserRole: function () {
+            var x = model.Comment();
+            ajaxPost("@Url.Action("CheckUserRole", "Comment")", {}, function (data) {
+                //console.log(data);
+                x.isRO(data.isReadOnly);
+                x.isAdmin(data.isAdmin);
+                x.isAdministrator(data.isAdministrator);
+                x.isAppSupport(data.isAppSupport);
+            }, function (data) {
+                console.log(data);
+            });
+        }
+    });
+    var dataCommentTest = [
+        { id: 1, readed: true, name: "", email: "", at: "27th February 2015 14:23", message: "", well: "" }
+    ];
+
+    model.sharedCommentProcessing = ko.observable(true);
+    model.CommentsNotification = ko.mapping.fromJS(dataCommentTest);
+    model.ChangeStatusOfComment = function (id) {
+        var allComments = ko.mapping.toJS(model.CommentsNotification);
+        var commendIndex = allComments.indexOf(_.find(allComments, { id: id }));
+
+        try {
+            model.CommentsNotification()[commendIndex].readed(true);
+        } catch (err) {
+
+        }
+    };
+    model.OpenComment = function (id) {
+        return function () {
+            //alert("open comment id " + id);
+            model.ChangeStatusOfComment(id);
+            model.Comment().Comments(id);
+        };
+    };
+    function GenerateGridComment() {
+        var x = model.Comment();
+        var self = this;
+        $("#grid").replaceWith($('<div />').attr('id', 'grid'));
+        var $grid = $("#grid");
+        var column = [];
+        var fieldData = "";
+        var fieldTotal = "";
+        self.GridConfig = {
+            dataSource: {
+                transport: {
+
+                    read: function (options) {
+                        var param = x.GetFilterValues();
+                        param.take = options.data.take;
+                        param.skip = options.data.skip;
+                        param.sorts = options.data.sort;
+
+                        ajaxPost("@Url.Action("GetCommentsGapData", "Comment")", param, function (result) {
+                            options.success(result);
+                        }, function (data) {
+                            options.error(result);
+                        });
+
+
+
+                    },
+                },
+                schema: {
+                    data: "Data.Data",
+                    total: "Data.Total"
+                },
+                pageSize: 10,
+                serverPaging: true, // enable server paging
+                serverSorting: true,
+            },
+            resizable: true,
+            scrollable: true,
+            sortable: true,
+            pageable: {
+                refresh: false,
+                pageSizes: 10,
+                buttonCount: 5
+            },
+            columns: [
+                { field: "name", title: "User Name",width:150 },
+                { field: "email", title: "Email",width:170 },
+                { field: "message", title: "Comment" },
+                { field: "referencetype", title: "Reference Type", width: 150, sortable: false },
+                { field: "reference1", title: "Reference ID", width: 150, sortable: false },
+                { field: "reference2", title: "Reference 2", width: 150, sortable: false },
+                { field: "at", title: "Date Time", template: "#= jsonDateStr(at,'dd-MMM-yyyy HH:mm:ss')#", width: 100 },
+                //{ field: "id", title: "View Detail",sortable:false, template: "<button class='btn btn-primary btn-sm' onclick='model.Comment().Comments(#:id#)'>Detail</button>", width: 100 },
+            ],
+        };
+
+        self.Prepare = function () {
+            $grid.kendoGrid(self.GridConfig);
+        }
+    }
+
+
+    $(document).ready(function () {
+        input2datePicker($("#CommentFilterDate"));
+        model.Comment().SetFilterValues();
+        model.Comment().SetUserRole();
+        new GenerateGridComment().Prepare();
+    });
+
+    function Back() {
+        window.location.href = "@Url.Action("Index")";
+    }
+</script>
+
+<div style="padding: 0px 15px 15px 15px;">
+    <div data-bind="visible: model.Processing()">
+        @Html.Partial("_processing")
+    </div>
+    <div class="col-sm-3">
+        <button class="btn btn-sm btn-info" onclick="Back()"><span class="glyphicon glyphicon-backward"></span> Back</button>
+        <br />
+        <br />
+    </div>
+
+    <div class="ec-panel" data-bind="visible: !model.Processing()">
+        <div class="row" style="" data-bind="visible:false">
+            <div id="CommentFilter" class="form-group form-group-sm col-md-12" data-bind="with:model.Comment" style="">
+
+                <div class="col-sm-3">
+                    <label>Comment Date:</label><br />
+                    <input type="text" class="" placeholder="" id="CommentFilterDate" data-bind="value:FilterDate" />
+                </div>
+                <div class="col-sm-3">
+                    <label>Users:</label><br />
+                    <input type="text" class="" placeholder="Users" id="CommentFilterUsers" data-bind="kendoMultiSelect: { data: Users, dataTextField:'FullName', dataValueField:'UserName', value: FilterUsers, optionLabels: 'Users' }" />
+                </div>
+                <div class="col-sm-3">
+                    <label>Activities:</label><br />
+                    <input type="text" class="" placeholder="Activities" id="CommentFilterActivities" data-bind="kendoMultiSelect: { data: Activities, value:FilterActivities, optionLabels: 'Activities' }" />
+                </div>
+                <div class="col-sm-3">
+                    <label>Well Names:</label><br />
+                    <input type="text" class="" placeholder="WellNames" id="CommentFilterWellNames" data-bind="kendoMultiSelect: { data: WellNames, value:FilterWellNames, optionLabels: 'WellNames' }" />
+                </div>
+                <div class="clearfix" style="margin-top:20px;">&nbsp;</div>
+                <div class="col-sm-3">
+                    <label>PIP Classifications:</label><br />
+                    <input type="text" class="" placeholder="PIP Classification" id="CommentFilterPIPClass" data-bind="kendoMultiSelect: { data: PIPClassifications, value:FilterPIPClass, optionLabels: 'PIP Classifications' }" />
+                </div>
+                <div class="col-sm-3">
+                    <label>PIP Themes:</label><br />
+                    <input type="text" class="" placeholder="PIP Themes" id="CommentFilterPIPThemes" data-bind="kendoMultiSelect: { data: PIPThemes, value:FilterPIPThemes }" />
+                </div>
+                <div class="col-sm-3">
+                    <label>Keywords:</label><br />
+                    <input type="text" class="form-control" placeholder="Keywords" id="CommentFilterKeywords" data-bind="value:FilterKeywords" />
+                </div>
+                <div class="col-sm-3">
+                    <label></label><br />
+                    <button class="btn btn-sm btn-warning" onclick="new GenerateGridComment().Prepare()"><span class="glyphicon glyphicon-refresh"></span> Refresh</button>
+                </div>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+        <div class="col-md-12 no-padding">
+            <div class="grid" id="grid" data-bind="kendoGrid: { data: [], columns: [], pageable: true, sortable: true, filterable: true, editable: true }"></div>
+        </div>
+    </div>
+</div>
+@*@Html.Partial("_commentDetail")*@

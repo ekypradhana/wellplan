@@ -1,0 +1,66 @@
+﻿
+<div>
+    <div id="chart-cumulative-panel" style="width:1020px; margin: 0px auto; ">
+        <div class="mini-nav bordered-mini-nav" style="width: 800px; margin: 0px;">
+            <div class="each-nav">
+                Select Data Type:
+                <select data-bind="value:model.WaterfallFilter.CumulativeDataType">
+                    <option value="Total">Improvement + Risk</option>
+                    <option value="Improvement">Improvement</option>
+                    <option value="Risk">Risk</option>
+                </select>
+            </div>
+            <div class="each-nav">
+                View:
+                <select data-bind="options: model.YearOptions, value: model.WaterfallFilter.AllocationYear"></select>
+            </div>
+            <div class="each-nav">
+                Base OP:
+                <select data-bind="value:$root.WaterfallFilter.BaseOP,options:model.OPs()" style="margin-right: 5px;"></select>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:$root.WaterfallFilter.ShellShare" />
+                </div>
+                <div>Calc Shell Share</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:$root.WaterfallFilter.Firm" />
+                </div>
+                <div>Firm</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:$root.WaterfallFilter.Option" />
+                </div>
+                <div>Option</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:$root.WaterfallFilter.Blank" />
+                </div>
+                <div>Blank</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav no-border-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:$root.WaterfallFilter.ValidLSOnly" />
+                </div>
+                <div>Valid LS Only</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+</div>
+   
+<div style="padding: 0px 30px 20px;" class="grid">
+    <h6>Cumulative Days of <span class="cumulative-title"></span></h6>
+    <div class="grid-cumulative-days"></div>
+    <h6>Cumulative Last Estimate Days</h6>
+    <div class="grid-cumulative-le-days"></div>
+</div>

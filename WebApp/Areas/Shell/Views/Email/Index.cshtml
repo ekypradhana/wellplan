@@ -1,0 +1,217 @@
+﻿@using ECIS.Core
+@using ECIS.Client.WEIS
+@{
+    ViewBag.Title = "Email Configuration";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+
+    model.uimodel = ko.observable({
+        mode: ko.observable(""),
+        record: ko.observable(ko.mapping.fromJS(@MvcTools.Obj2HtmlStr(new Email()))),
+        save: function () {
+            if (model.IsProcessing()) return;
+            model.IsProcessing(true);
+
+            var r = ko.mapping.toJS(model.uimodel().record());
+            var url = "@Url.Action("save")";
+
+            var frm = $("#frm");
+            if (frm.data("kendoValidator") == undefined) {
+                frm.kendoValidator();
+            }
+            if (frm.data("kendoValidator").validate() == false) {
+                model.IsProcessing(false);
+                return;
+            }
+            ajaxPost(url, {Email:r, IsNew:model.uimodel().mode()=="New"},
+                function (data) {
+                    if (data.Result != "OK") {
+                        showErr(data.Message + data.Trace);
+                        model.IsProcessing(false);
+                        return;
+                    }
+
+                    model.IsProcessing(false);
+
+                    model.uimodel().mode("");
+                    model.populate();
+                },
+                function () {
+                    model.IsProcessing(false);
+                    return showErr;
+                })
+        },
+        select: function (id) {
+            if (model.IsProcessing()) return;
+            model.IsProcessing(true);
+
+            var url = "@Url.Action("get")";
+            ajaxPost(url, { id: id },
+                function (data) {
+                    if (data.Result != "OK") return showErr(data.Message + data.Trace);
+                    model.uimodel().record(ko.mapping.fromJS(data.Data));
+                    model.uimodel().mode("Edit");
+
+                    model.IsProcessing(false);
+                },
+                function () {
+                    model.IsProcessing(false);
+                    return showErr;
+                });
+        },
+        cancel: function () {
+            model.uimodel().mode("");
+        },
+        add: function () {
+            model.uimodel().mode("New")
+            var r = ko.mapping.fromJS(@MvcTools.Obj2HtmlStr(new Email()));
+            model.uimodel().record(r);
+        },
+        remove: function () {
+            model.uimodel().mode("");
+            model.populate();
+        }
+    });
+
+    gridColumns = [
+        {
+            title: "", width: 30,
+            template: "<input type='checkbox' class='cbx' value='#: _id #'>"
+        },
+        {
+            field: "_id", title: "ID", width: 200,
+            template: "<a style=\"cursor:pointer\" onclick=\"model.uimodel().select('#: _id #')\">#: _id #</a>"
+        },
+        { field: "Title" },
+        { field: "Subject" },
+        { field: "SMTPConfig", title: "Config", width: 150 }
+    ];
+
+    model.parmSearch = ko.observable("");
+    model.populate = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        var url = "@Url.Action("search")";
+        var grid = $("#grid-email");
+        if (grid.data("kendoGrid") == undefined) {
+            grid.kendoGrid({
+                columns:gridColumns
+            });
+        }
+
+        ajaxPost(url, { search: model.parmSearch() },
+            function (data) {
+                if (data.Result != "OK") {
+                    showErr(data.Message + data.Trace);
+                    model.IsProcessing(false);
+                    return;
+                }
+
+                $grid = grid.data("kendoGrid");
+                $grid.setDataSource(new kendo.data.DataSource({ data: data.Data }));
+
+                model.IsProcessing(false);
+            },
+            function () {
+                model.IsProcessing(false);
+                return showErr;
+            });
+    }
+</script>
+
+<div>
+    <div class="ec-panel form-horizontal" data-bind="visible: uimodel().mode()==''">
+        <div class="form-group form-group-sm" style="width:600px;margin-bottom:10px;">
+            <label class="col-md-2">Search</label>
+            <div class="col-md-6">
+                <div class="input-group">
+                    <input type="text" class="input-sm form-control" data-bind="value:$root.parmSearch" />
+                    <div class="input-group-btn">
+                        <button class="btn btn-primary btn-sm btn-custom" data-bind="click:$root.populate">
+                            <span class="glyphicon glyphicon-search"></span> Search
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-primary btn-custom btn-sm" data-bind="click:uimodel().add()">
+                    <span class="glyphicon glyphicon-plus"></span> Add
+                </button>
+                <button class="btn btn-danger btn-custom btn-sm" data-bind="click:uimodel().remove()">
+                    <span class="glyphicon glyphicon-remove-circle"></span> Delete
+                </button>
+            </div>
+        </div>
+
+        <div data-bind="visible: model.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div data-bind="visible: !model.IsProcessing()">
+            <div id="grid-email"></div>
+        </div>
+    </div>
+
+    <div class="ec-panel form-horizontal" data-bind="visible: ['New','Edit'].indexOf(uimodel().mode())>=0" id="frm">
+        <div class="ec-toolbar">
+            <button class="btn btn-warning btn-sm" data-bind="click:uimodel().cancel">Back to List</button>
+            <button class="btn btn-primary btn-sm" data-bind="click:uimodel().save">Save</button>
+        </div>
+        <div class="ec-panel form-horizontal" data-bind="with:uimodel().record" style="width:96%;margin-left:2%">
+            <div class="form-group">
+                <label class="col-md-2">ID</label>
+                <div class="col-md-4">
+                    <input type="text" required name="ID" 
+                           class="full" data-bind="value:_id, enable:$root.uimodel().mode()=='New'" />
+                </div>
+                <label class="col-md-2">Title</label>
+                <div class="col-md-4">
+                    <input type="text" required name="Title" 
+                           class="full" data-bind="value:Title" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-md-2">Subject</label>
+                <div class="col-md-10">
+                    <input type="text" name="Subject" required class="full" data-bind="value:Subject" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-md-2">Body</label>
+                <div class="col-md-10">
+                    <textarea class="full" name="Body" required style="height:200px" data-bind="value:Body"></textarea>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-10 col-md-offset-2">
+                    <b>LEGENDS</b>
+                    <br/><br/>
+                    <b>{WellName}</b> Name of the well
+                    <br/>
+                    <b>{ActivityType}</b> Name of the activity / event
+                    <br />
+                    <b>{FullName}</b> Full Name of recipient
+                    <br />
+                    <b>{Email}</b> Email of recipient
+                    <br />
+                    <b>{DueDate}</b> Due Date
+                    <br />
+                    <b>{FullName}</b> Full Name of recipient
+                    <br />
+                    <b>{list: Activities}</b> List of selected event / activitiess
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        model.populate();
+    });
+</script>

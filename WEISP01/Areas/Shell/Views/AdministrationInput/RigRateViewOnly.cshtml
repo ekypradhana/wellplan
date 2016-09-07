@@ -1,0 +1,63 @@
+﻿<div class="col-md-12" data-content="rig-rate">
+    <div>
+        <div class="pull-left" style="margin-bottom: 10px;">
+            <label>Show by Type: </label>
+            <select data-bind="kendoDropDownList: { data: self.GetType, value: model.FilterTypeViewOnly }"></select>
+
+            <button class="btn btn-sm btn-custom btn-primary" data-bind="click: self.Refresh" style="margin-left: 20px;">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+        </div>
+        <div class="clearfix" style="margin-bottom: 10px;"></div>
+        <div class="grid-view"></div>
+    </div>
+</div>
+
+<script>
+    model.RenderGridViewOnly = function (data) {
+        var columns = [{
+            field: "Title",
+            width: 150,
+            locked: true
+        }];
+
+        for (var i = data.YearMin; i <= data.YearMax; i++) {
+            columns.push({
+                field: "Year_" + i,
+                title: "Year " + i,
+                attributes: { style: "text-align: right;" },
+                format: "{0:N2}",
+                width: 100
+            });
+        }
+
+        var config = {
+            dataSource: {
+                data: data.Items,
+                pageSize: 10
+            },
+            columns: columns,
+            filterable: false,
+            pageable: true,
+            resizable: false,
+            sortable: true
+        };
+
+        $(".grid-view").kendoGrid(config);
+    };
+    model.RefreshViewOnly = function () {
+        $(".grid-view").replaceWith("<div class='grid-view'></div>");
+
+        var url = "@Url.Action("GetProrateAllocation")";
+        var param = { Type: model.FilterTypeViewOnly() };
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+            }
+
+            model.RenderGridViewOnly(res.Data);
+        });
+    };
+    model.FilterTypeViewOnly = ko.observable("ACTIVE");
+</script>

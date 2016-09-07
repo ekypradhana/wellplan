@@ -1,0 +1,40 @@
+﻿<style></style>
+
+<div style="padding: 0px 15px 15px;">
+    <div class="ec-panel">
+        <div class="col-md-12" style="text-align:center">
+
+            <ul class="nav nav-stacked" style="margin-bottom:10px">
+                <li class="stacked" style="background-color: #23be23; border: none; padding: 10px; color: #ffffff">Market Escalation Factor</li>
+            </ul>
+        </div>
+        <div class="clearfix"></div>
+
+        <div class="col-md-12" style="margin-top:15px;">
+            <div class="col-md-6">
+                <label>Select Escalation. If CP has no Insights Please select Global Market Escalation</label>
+            </div>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="ec-panel">
+        
+        <div class="col-md-12 no-padding" style="margin-top:20px;">
+            <ul class="nav nav-tabs">
+                <li class="active"><a href="#marketescalation" id="" data-toggle="tab">Market Escalation</a></li>
+                <li><a href="#globalmarketescalation" data-toggle="tab" id="">Global Market Escalation</a></li>
+            </ul>
+            <div class="tab-content" style="padding-top:10px;">
+                <div class="tab-pane active" id="marketescalation" style="overflow-y:auto;">
+                    @Html.Partial("_marketEscalationTab")
+                </div>
+                <div class="tab-pane" id="globalmarketescalation" style="overflow-y:auto;">
+                    <div class="col-md-12">
+                        @Html.Partial("_globalMarketEscalationTab")
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

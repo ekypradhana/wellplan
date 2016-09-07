@@ -1,0 +1,56 @@
+﻿<script>
+    model.wrmodel().GridRigColumns = [
+        { field: "Title", title: "Idea", width: 200 },
+        { field: "Completion", title: "Realized", width: 67, attributes: { class: "cell-checkbox" } },
+
+        { field: "DaysPlanImprovement", title: "Plan Days", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, template: "#: DaysPlanImprovement + DaysPlanRisk #", headerTemplate: headerTemplate("<br />Plan Days", "days"), footerTemplate: footerTemplate("DaysPlanImprovementTotal_CR") },
+        { field: "DaysLastWeekImprovement", title: "Prev. LE Days<br />Improvement", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("Prev. LE Days<br />Improvement", "days"), footerTemplate: footerTemplate("DaysLastWeekImprovementTotal_CR") },
+        { field: "DaysActualImprovement", title: "Actual Days<br />Improvement", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, editor: numberEditor(0, "max", "CRElements"), headerTemplate: headerTemplate("Actual Days<br />Improvement", "days"), footerTemplate: footerTemplate("DaysActualImprovementTotal_CR") },
+        { field: "DaysCurrentWeekImprovement", title: "LE Days<br />Improvement", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, editor: numberEditor(0, "max", "CRElements"), headerTemplate: headerTemplate("LE Days<br />Improvement", "days"), footerTemplate: footerTemplate("DaysCurrentWeekImprovementTotal_CR") },
+
+        { field: "DaysLastWeekRisk", title: "Prev. LE Days<br />Risk", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("Prev. LE Days<br />Risk", "days"), footerTemplate: footerTemplate("DaysLastWeekRiskTotal_CR") },
+        { field: "DaysActualRisk", title: "Actual Days<br />Risk", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, editor: numberEditor(0, "min", "CRElements"), headerTemplate: headerTemplate("Actual Days<br />Risk", "days"), footerTemplate: footerTemplate("DaysActualRiskTotal_CR") },
+        { field: "DaysCurrentWeekRisk", title: "LE Days<br />Risk", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, editor: numberEditor(0, "min", "CRElements"), headerTemplate: headerTemplate("LE Days<br />Risk", "days"), footerTemplate: footerTemplate("DaysCurrentWeekRiskTotal_CR") },
+
+        { field: "CostPlanImprovement", title: "Plan Cost", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, template: "#: CostPlanImprovement + CostPlanRisk #", headerTemplate: headerTemplate("<br />Plan Cost", "$ mln"), footerTemplate: footerTemplate("CostPlanImprovementTotal_CR") },
+        { field: "CostLastWeekImprovement", title: "Prev. LE Cost<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("Prev. LE Cost<br />Improvement", "$ mln"), footerTemplate: footerTemplate("CostLastWeekImprovementTotal_CR") },
+        { field: "CostActualImprovement", title: "Actual Cost<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "max", "CRElements"), headerTemplate: headerTemplate("Actual Cost<br />Improvement", "$ mln"), footerTemplate: footerTemplate("CostActualImprovementTotal_CR") },
+        { field: "CostCurrentWeekImprovement", title: "LE Cost<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "max", "CRElements"), headerTemplate: headerTemplate("LE Cost<br />Improvement", "$ mln"), footerTemplate: footerTemplate("CostCurrentWeekImprovementTotal_CR") },
+
+        { field: "CostLastWeekRisk", title: "Prev. LE Cost<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("Prev. LE Cost<br />Risk", "$ mln"), footerTemplate: footerTemplate("CostLastWeekRiskTotal_CR") },
+        { field: "CostActualRisk", title: "Actual Cost<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "min", "CRElements"), headerTemplate: headerTemplate("Actual Cost<br />Risk", "$ mln"), footerTemplate: footerTemplate("CostActualRiskTotal_CR") },
+        { field: "CostCurrentWeekRisk", title: "LE Cost<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "min", "CRElements"), headerTemplate: headerTemplate("LE Cost<br />Risk", "$ mln"), footerTemplate: footerTemplate("CostCurrentWeekRiskTotal_CR") },
+
+        { field: "CostAvoidance", title: "Cost<br />Avoidance", width: 90, format: "{0:N2}", attributes: { class: "cell-checkbox", style: "background-color: white !important; pointer-events: none;" }, template: '<input type="checkbox" #= CostAvoidance ? checked="checked" : "" # disabled />' },
+        {
+            field: "_id", headerTemplate: "", filterable: false, width: 90, attributes: { style: "text-align: center;" }, template: function (dataItem) {
+                return '<span style="cursor:pointer;" class="glyphicon glyphicon-time" title="Click To Allocate" onclick="gridAllocate(\'grid-well-pip\', ' + dataItem.ElementId + ')"></span>&nbsp;<span style="cursor:pointer;" class="glyphicon glyphicon-comment" title="Click to Add Comments" onclick="model.wrmodel().Comments(model.wrmodel().record()._id(), ' + dataItem.ElementId + ')()" data-auid="' + model.wrmodel().record()._id() + '" data-eid="' + dataItem.ElementId + '"><b class="comment-counter">0</b></span>';
+            }
+        }
+    ];
+
+    
+//    <td>
+//        <input type="checkbox" data-bind="enable:model.wrmodel().record().Status() == 'In-Progress', checked: CostAvoidance">
+//    </td>
+//    <td>
+//        <span style="cursor:pointer;" class="glyphicon glyphicon-time" title="Click To Allocate" data-bind="click:model.wrmodel().openAllocationModal"></span>
+//        &nbsp;
+//    <span style="cursor:pointer" class="glyphicon glyphicon-trash" title="Click To Delete" data-bind="click: model.wrmodel().DeleteElement($parent._id(), ElementId()),visible:model.wrmodel().DetailStatus() == 'In-Progress'"></span>
+//    &nbsp;
+//    <span style="cursor:pointer;" class="glyphicon glyphicon-comment" title="Click to Add Comments"
+//    data-bind="click: model.wrmodel().Comments($parent._id(), ElementId()), attr: { 'data-auid': $parent._id(), 'data-eid': ElementId() }">
+//  <b class="comment-counter">0</b>
+//</span>
+//</td>
+</script>
+
+<table class="table pip-data ecTableCommentary">
+    <thead>
+        <tr>
+            <td colspan="18">Performance Improvement Plan (RIG)</td>
+        </tr>
+    </thead>
+</table>
+
+<div class="wr-el-grid grid-rig-pip" data-bind="kendoGrid: { data:model.wrmodel().record().CRElements,dataSource:model.wrmodel().GridWellDataSource,columns:model.wrmodel().GridRigColumns,pageable:false,sortable:true,filterable:false,editable:false,dataBound:model.wrmodel().GridWellDataBound() }"></div>

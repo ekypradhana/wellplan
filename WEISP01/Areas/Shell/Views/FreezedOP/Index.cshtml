@@ -1,0 +1,130 @@
+﻿@{
+    ViewBag.Title = "Freezed OP";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<div class="form-horizontal" style="width:700px;margin:0px auto" data-bind="">
+    <div class="form-group">
+        <div class="col-sm-12">
+            <label>Freeze OP:</label>
+            <select style="margin-left:10px;" id="OPs"></select>
+            <button class="btn btn-primary btn-sm btn-custom" style="margin-left:10px;" onclick="model.FreezedOP.Freeze()">
+                <span class="glyphicon glyphicon-lock"></span> Freeze OP!
+            </button>
+        </div>
+    </div>
+
+    <h3>List of Freezed OPs For Business Plan</h3>
+    <div id="grid" style="" data-bind=""></div>
+</div>
+
+
+<script>
+    model.PageId("Administration");
+    model.FreezedOP = {
+        ListOPs: ko.observableArray([]),
+        FreezedOPs: ko.observableArray([]),
+        Columns: function(){
+            return [
+                { field: "_id", title: "OP" },
+                { field: "_id", title: "Action", template: "<button class='btn btn-xs btn-danger' onclick='model.FreezedOP.Unfreeze(\"#: _id #\")'><span class='fa fa-unlock-alt'></span> Unfreeze</button>" },
+            ];
+        }
+    };
+    var y = model.FreezedOP;
+
+    y.Reload = function () {
+        var url = "@Url.Action("Populate")";
+        var param = {};
+
+        ajaxPost(url, param, function (data) {
+            if (data.Result == "OK") {
+                var res = data.Data;
+                generateGrid(res.FreezedOPs);
+                model.FreezedOP.ListOPs(res.MasterOPs);
+                $("#OPs").kendoDropDownList({
+                    dataSource: model.FreezedOP.ListOPs()
+                })
+            } else {
+                alert(data.Message);
+            }
+        });
+    };
+
+    y.Freeze = function () {
+        var url = "@Url.Action("Freeze")";
+        var param = {
+            OP: $("#OPs").data("kendoDropDownList").value()
+        };
+
+        ajaxPost(url, param, function (data) {
+            if (data.Result == "OK") {
+                alert(param.OP+" has been freezed!");
+                y.Reload();
+            }
+            else {
+                alert(data.Message + data.Trace);
+            }
+        });
+    };
+    
+    y.Unfreeze = function (OP) {
+        var url = "@Url.Action("UnFreeze")";
+        var param = {
+            OP: OP
+        };
+
+        ajaxPost(url, param, function (data) {
+            if (data.Result == "OK") {
+                alert(param.OP+" has been UnFreezed!");
+                y.Reload();
+            }
+            else {
+                alert(data.Message + data.Trace);
+            }
+        });
+    };
+
+    function generateGrid(data) {
+        $grid = $("#grid");
+        var dataSource = new kendo.data.DataSource({
+            data: data,
+            pageSize: 10,
+            selectable: true
+        });
+
+        $grid.kendoGrid({
+            columns: model.FreezedOP.Columns(),
+            pageable: false,
+            sortable: false,
+            resizable: true,
+            scrollable: true,
+            dataSource: dataSource,
+        });
+    }
+
+    $(document).ready(function () {
+        
+        y.Reload();
+
+    });
+</script>
+<style>
+    .form-horizontal h3 {
+        text-align: left;
+        border-bottom: 1px solid #ECECEC;
+        font-weight: bold;
+    }
+
+    .no-padding {
+        padding: 0px;
+    }
+
+    .form-group .col-sm-4:first-child {
+        text-align: right;
+    }
+
+    .form-horizontal .form-group .col-sm-4:first-child label {
+        margin-top: 3px;
+    }
+</style>

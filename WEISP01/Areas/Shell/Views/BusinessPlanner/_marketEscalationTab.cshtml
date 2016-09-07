@@ -1,0 +1,23 @@
+﻿<div class="col-md-12">
+    <label id="labelRegionalGuidance">View Regional Guidance:</label>
+    <input type="text" data-bind="kendoDropDownList:{data:['Australia','Indonesia', 'Singapore']}" />
+    <button type="button" class="btn btn-primary btn-sm" style="width:100px">Submit</button>
+</div>
+<div class="clearfix"></div>
+<div class="col-md-12">
+    <div class="grid" id="gridmarketescalation" style="margin-top:10px;" data-bind="kendoGrid: { data: model.bpmodel().DataMarketEscalation, columns: model.bpmodel().ColumnsMarketEscalation, pageable: false, sortable: false, filterable: false, editable: false, scrollabel:false} "></div>
+</div>
+<div class="clearfix"></div>
+<div class="col-md-6" style="margin-top:10px;">
+    <label style="width:100px;">Add Year:</label>
+    <button class="btn btn-sm btn-success" style="display:inline-block;width:20px;padding:5px">+</button>
+</div>
+<div class="clearfix"></div>
+<div class="col-md-6" style="margin-top:10px;">
+    <label style="width:100px;">Remove Year:</label>
+    <button class="btn btn-sm btn-success" style="display:inline-block;width:20px;padding:5px">-</button>
+</div>
+<div class="clearfix"></div>
+<div class="col-md-12" style="text-align: right;margin-top:20px;">
+    <button class="btn btn-primary btn-sm btn-custom" style="width:100px;">Refresh</button>
+</div>

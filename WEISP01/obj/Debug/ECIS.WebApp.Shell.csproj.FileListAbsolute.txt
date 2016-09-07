@@ -1,0 +1,77 @@
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\ECIS.AppServer.dll.config
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\ECIS.AppServer.dll
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\ECIS.AppServer.pdb
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\Aspose.Cells.dll
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\Aspose.Pdf.dll
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\ECIS.Client.WEIS.dll
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\ECIS.Core.dll
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\Microsoft.Web.Infrastructure.dll
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\MongoDB.Bson.dll
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\MongoDB.Driver.dll
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\Newtonsoft.Json.dll
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\Oracle.ManagedDataAccess.dll
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\ECIS.Client.WEIS.pdb
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\ECIS.Core.pdb
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\ECIS.CoreExtender.MVC.pdb
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\MongoDB.Bson.xml
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\MongoDB.Driver.xml
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\Newtonsoft.Json.xml
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\Microsoft.Web.Infrastructure.xml
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\obj\Debug\ECIS.WebApp.Shell.csprojResolveAssemblyReference.cache
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\obj\Debug\ECIS.AppServer.dll
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\obj\Debug\ECIS.AppServer.pdb
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\ECIS.AppServer.dll.config
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\ECIS.AppServer.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\ECIS.AppServer.pdb
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Antlr3.Runtime.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Aspose.Cells.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\ECIS.Client.WEIS.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\ECIS.Core.DataSerializer.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\ECIS.Core.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.AspNet.Identity.Core.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.AspNet.Identity.Owin.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Host.SystemWeb.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.Cookies.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.Facebook.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.Google.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.MicrosoftAccount.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.OAuth.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.Twitter.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Web.Infrastructure.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Newtonsoft.Json.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Owin.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.Helpers.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.Mvc.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.Optimization.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.Razor.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.WebPages.Deployment.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.WebPages.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.WebPages.Razor.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\WebGrease.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\ECIS.Client.WEIS.pdb
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\ECIS.Core.DataSerializer.pdb
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.AspNet.Identity.Core.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.AspNet.Identity.Owin.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.Cookies.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.OAuth.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.Helpers.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.Mvc.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.Optimization.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.Razor.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.WebPages.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.WebPages.Deployment.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\System.Web.WebPages.Razor.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Antlr3.Runtime.pdb
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Host.SystemWeb.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.Facebook.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.Google.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.Twitter.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\bin\Microsoft.Owin.Security.MicrosoftAccount.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\obj\Debug\ECIS.WebApp.Shell.csprojResolveAssemblyReference.cache
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\obj\Debug\ECIS.AppServer.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\WebApp\obj\Debug\ECIS.AppServer.pdb
+C:\Users\ariefdarmawan\Documents\SVNRepo\Semeru\Web\WEIS\WebApp\bin\ECIS.CoreExtender.MVC.dll

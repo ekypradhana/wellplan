@@ -1,0 +1,506 @@
+﻿
+@{
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+<style>
+    .k-dropzone {
+        padding-left: 15px;
+    }
+
+    .k-upload-selected {
+        margin-left: 15px;
+    }
+    .modal .modal-body .form-group {
+        min-height: 27px;
+        margin-bottom: 4px;
+    }
+
+        .modal .modal-body .form-group input,
+        .modal .modal-body .form-group textarea {
+            border-color: #EFEFEF;
+        }
+
+        .modal .modal-body .form-group .col-md-4 {
+            text-align: right;
+            padding-top: 5px;
+            padding-right: 0px;
+        }
+</style>
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.mode = ko.observable("upload");
+    model.PageTitle = ko.observable("Generate Planning Report Map (StandardPMaster)");
+    model.fileType = ko.observable("filteredData");
+    model.changeMode = function (mode) {
+    }
+
+    model.ReportingEntity = ko.observable("");
+    model.PlanningEntity = ko.observable("");
+    model.PlanningEntityId = ko.observable("");
+    model.ActivityEntity = ko.observable("");
+    model.ActivityEntityId = ko.observable("");
+    model.ProbabilityOfSuccess = ko.observable("");
+
+    model.MapNameInput = ko.observable("");
+    model.isUpload = ko.observable(false);
+
+    var uniqueArray = function (a) {
+        return a.reduce(function (p, c) {
+            if (p.indexOf(c) < 0) p.push(c);
+            return p;
+        }, []);
+    };
+
+    model.renderGridColumnsStandard = function (data) {
+        var gridColumns = [];
+        gridColumns.push({
+            field: "ReportEntity",
+            title: "Reporting Entity",
+            width: 110
+        },
+        {
+            field: "PlanningEntity",
+            title: "Planning Entity",
+            width: 110
+        }, {
+            field: "PlanningEntityID",
+            title: "Planning<br/> Entity ID",
+            width: 90,
+            format: "{0:N0}",
+            attributes: { "style": "text-align:right" }
+        }, {
+            field: "ActivityEntity",
+            title: "Activity Entity",
+            width: 110
+        }, {
+            field: "ActivityEntityID",
+            title: "Activity<br/> Entity ID",
+            width: 90,
+            format: "{0:N0}",
+            attributes: { "style": "text-align:right" }
+        }, {
+            field: "Prob",
+            title: "Probability<br/> Of Success",
+            width: 90,
+            format: "{0} %",
+            attributes: { "style": "text-align:right" }
+        }, {
+            field: "ActivityCategory",
+            title: "Activity Category",
+            width: 90
+        }, {
+            field: "ActivityType",
+            title: "Activity Type",
+            width: 90
+        }, {
+            field: "BaseOP",
+            title: "Base OP",
+            width: 90
+        }, {
+            field: "FirmOption",
+            title: "Planning Classification",
+            width: 90
+        }, {
+            field: "FundingType",
+            title: "Funding Type",
+            width: 90
+        }, {
+            field: "RigName",
+            title: "Rig Name",
+            width: 90
+        }, {
+            field: "WellName",
+            title: "Well Name",
+            width: 90
+        }, {
+            field: "UARigSequenceId",
+            title: "Sequence Id",
+            width: 90
+        });
+
+        //var recordAnnual = data[0].Annual;
+        //var iAnnual = 0;
+        //for (var key in recordAnnual) {
+        //    if (recordAnnual.hasOwnProperty(key)) {
+        //        for (var keyitem in recordAnnual[key]) {
+        //            gridColumns.push({ field: ("Annual[" + iAnnual + "]." + keyitem), title: keyitem.split('_')[1], width: 70, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+        //        }
+        //        iAnnual++;
+        //    }
+        //}
+        return gridColumns;
+    }
+
+    function renderGridUsingData(data) {
+        var fieldCol = {};
+        var gridCol = model.renderGridColumnsStandard(data);
+        gridCol.forEach(function (xx) {
+            if (xx.field == "ReportEntity" || xx.field == "PlanningEntity" || xx.field == "ActivityEntity") {
+                fieldCol[xx.field] = { type: "string", editable: true };
+            } else if (xx.field == "PlanningEntityID" || xx.field == "ActivityEntityID") {
+                fieldCol[xx.field] = { type: "number", min: 0, editable: true };
+            } else if (xx.field == "Prob") {
+                fieldCol[xx.field] = { type: "number", min: 0, max: 100, editable: true };
+            } else {
+                fieldCol[xx.field] = { type: "string", editable: false };
+            }
+        });
+
+        var excelName = "DataStandardMap_" + moment(new Date()).format("DD-MMM-YYYY_HH:mm:ss") + ".xlsx";
+
+        $('#grid_spmaster').replaceWith($('<div />').attr('id', 'grid_spmaster'));
+        $('#grid_spmaster').kendoGrid({
+            toolbar: ["excel"],
+            excel: { fileName: excelName, allPages: true, filterable: true },
+            dataSource: {
+                schema: {
+                    model: {
+                        fields: fieldCol
+                    }
+                },
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+            editable: true,
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: gridCol,
+            excelExport: function (e) {
+                var sheet = e.workbook.sheets[0];
+                for (var rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
+                    var row = sheet.rows[rowIndex];
+                    for (var cellIndex = 0; cellIndex < row.cells.length; cellIndex++) {
+                        if (rowIndex == 0) {
+                            row.cells[cellIndex].value = row.cells[cellIndex].value.replace("<br/>", "");
+                        } else {
+                            if (cellIndex == 2 || cellIndex == 4) {
+                                row.cells[cellIndex].format = '0';
+                                row.cells[cellIndex].value = row.cells[cellIndex].value / 1;
+                            }
+                            if (cellIndex == 5) {
+                                row.cells[cellIndex].format = '0%';
+                                row.cells[cellIndex].value = row.cells[cellIndex].value / 100;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+    }
+</script>
+
+<h4 data-bind="text:model.PageTitle"></h4>
+
+<div>
+    <div style="padding: 0px 15px 15px;">
+        <div class="ec-toolbar">
+            <button onclick="model.backpalantir()" class="btn btn-sm btn-warning"><span class="glyphicon glyphicon-arrow-left"></span> Back</button>
+        </div>
+        <div class="panel-group" id="accordion">
+            <div class="panel panel-default">
+                <div class="panel-heading" data-toggle="collapse" data-parent="#accordion" href="#collapse1" style="cursor: pointer;">
+                    <span class="panel-title">
+                        <a data-toggle="collapse" data-parent="#accordion" href="#collapse1">Filter</a>
+                    </span>
+                </div>
+                <div id="collapse1" class="panel-collapse collapse in">
+                    <div class="panel-body">
+                        @*@Html.Partial("FilterForWaterfall")
+                        @Html.Partial("FilterForPalantir")*@
+                        @Html.Partial("FilterForWaterfallRev")
+                        <div class="col-md-12" style="">
+                            <button class="btn btn-success btn-sm" style="margin-right: 10px; float: right" onclick="SaveMapPMaster()"><span class="glyphicon glyphicon-download"></span> Save</button>
+                            <button class="btn btn-primary btn-sm" style="margin-right: 10px; float: right" onclick="GenerateMap()"><span class="glyphicon glyphicon-list"></span> Create Planning Map</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div data-bind="visible:!model.IsProcessing()">
+            <div class="demo-section k-header"><input name="UploadedFile" id="files" type="file" /></div>
+            <div id="grid_spmaster" class="grid"></div>
+
+            <div style="clear: both;"></div>
+        </div>
+    </div>
+    <div data-bind="visible:model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+</div>
+
+<div class="modal fade" id="modal-add-item">
+    @*data-bind="with: model.GenerateTransformation">*@
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title">Save Map for STANDARD PMaster Mapping</h4>
+                </div>
+                <div class="modal-body">
+                    <div data-bind="visible:model.savingMapProcessing()" id="savingMapProcessing">
+                        @Html.Partial("_processing")
+                    </div>
+                    <div class="form-group" id="savingMapProcessing" data-bind="visible:!model.savingMapProcessing()">
+                        <div class="col-md-4">
+                            <label style=" padding-top: 4px;">Map File: </label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" id="mapnameinput" data-bind="value:MapNameInput" />
+                        </div>
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-custom btn-warning" data-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: SaveMap,enable:!model.savingMapProcessing()">
+                        <span class="glyphicon glyphicon-download"></span> OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    model.backpalantir = function(){
+    var url = "@Url.Action("Index", "PMasterStandard")";
+
+        location.href = url;
+    }
+
+    model.FilterVisibility.PerformanceUnits(false);
+    model.FilterVisibility.MonthlySequence(false);
+    //model.FilterVisibility.YearsCalc(true);
+
+    model.FilterVisibility.Activities(true);
+    model.FilterVisibility.OPs(true);
+    model.FilterVisibility.OpRelation(true);
+    model.FilterVisibility.Date(true);
+    model.FilterVisibility.Date2(true);
+    model.FilterVisibility.PeriodBase(false);
+    model.FilterVisibility.PeriodView(true);
+    model.FilterVisibility.PeriodRelation(false);
+    model.FilterVisibility.inlastuploadls(true);
+
+    //replace
+    model.FilterVisibility.ExType(true);
+    model.FilterVisibility.Asset(true);
+    model.FilterVisibility.showLabelLSFilter(true);
+    model.FilterVisibility.LineOfBusiness(true);
+
+    //model.FilterVisibilityPalantir.LineOfBusiness(true);
+    //model.FilterVisibilityPalantir.Asset(true);
+    //model.FilterVisibilityPalantir.FundingType(true);
+    //model.FilterVisibilityPalantir.WellNames(false);
+    //model.FilterVisibilityPalantir.ProjectNames(false);
+
+    model.savingMapProcessing = ko.observable(false);
+
+    function SaveMapPMaster() {
+
+        if ($("#grid_spmaster").data("kendoGrid") == undefined) {
+            alert("There is nothing to save!");
+            return;
+        }
+        model.MapNameInput("");
+        $("#modal-add-item").modal("show");
+    }
+
+    function CounterSaveMap(TotalLoop, Counter) {
+        if (Counter >= TotalLoop) {
+            model.IsProcessing(false);
+            model.savingMapProcessing(false);
+            alert("Planning Report Map for PMaster Standard has been Saved!");
+        }
+    }
+
+
+
+    function SaveMap() {
+        if (model.MapNameInput() != "") {
+            
+            model.savingMapProcessing(true);
+            model.IsProcessing(true);
+            $("#modal-add-item").modal("hide");
+
+
+            var ivl = setTimeout(function () {
+
+                var grid = $("#grid_spmaster").data("kendoGrid");
+                var data = grid.dataSource.data();
+                //data.forEach(function(e) {
+                //    delete e.CapexSummary;
+                //});
+
+
+                var param = model.getFilterValues();
+
+                var totalLoop = Math.ceil(data.length / 50);
+                var counter = 0;
+                var take = 50;
+                var skip = 0;
+                for (var i = 0; i < totalLoop; i++) {
+                    var dataToThrow = Enumerable.From(data).Skip(skip).Take(take).ToArray();
+                    ajaxPost("@Url.Action("SavePlanPmasterStandard")",{ pq: param, list: dataToThrow, mapnames: model.MapNameInput(), isUpload: model.isUpload() }, function (res) {
+                        //if (res.Result == "OK") {
+                        //    counter++;
+                        //}
+                    counter++;
+                    CounterSaveMap(totalLoop,counter);
+                    }, function() {
+                        counter++;
+                        CounterSaveMap(totalLoop, counter);
+                    });
+                    skip = skip + take;
+                }
+            }, 300);
+
+
+        } else {
+            alert("Please Input Map Name");
+        }
+    }
+
+    function jsonObjConvDate2(e, dateOrStr) {
+        if (dateOrStr == undefined) dateOrStr = "date";
+        var keys = getObjectProperties(e);
+        keys.forEach(function (k) {
+            if (typeof e[k] == "string" && e[k] != null && e[k] != undefined) {
+                if (e[k].indexOf("/Date") >= 0) {
+                    var dt = dateOrStr == "str" ? jsonDateStr(e[k]) : jsonDate(e[k]);
+                    e[k] = dt;
+                }
+            }
+            else if (typeof e[k] == "object") {
+                e[k] = jsonObjConvDate2(e[k]);
+            }
+        });
+        return e;
+    }
+
+    function GenerateMap() {
+        //$("#modal-add-item").modal("show");
+
+        var param = model.getFilterValues();
+        //param.reportingEntity = model.ReportingEntity();
+        //param.planningEntity = model.PlanningEntity();
+        //param.plannEntityID = model.PlanningEntityId();
+        //param.activityEntity = model.ActivityEntity();
+        //param.activityEntityID = model.ActivityEntityId();
+        //param.probabilityofSuccess = model.ProbabilityOfSuccess();
+        param.report = "pmasterstandard";
+        //var paramPmaster = model.getFilterValuesPalantir();
+
+        model.IsProcessing(true);
+        var url = "@Url.Action("GenerateMapPMaster", "PMasterStandard")";
+        //ajaxPost(url, { wb: param, pq: paramPmaster }, function (data) {
+        ajaxPost(url, { wb: param }, function (data) {
+            model.IsProcessing(false);
+            if (data.Data.Status == "NOK") {
+                alert(data.Data.Message);
+                return;
+            }
+            model.isUpload(false);
+            renderGridUsingData(jsonObjConvDate2(data.Data));
+        }, function (err) {
+            model.IsProcessing(false);
+            alert(err)
+        });
+    }
+
+    function RunTransformation() {
+        if (model.ReportingEntity() == "" || model.PlanningEntity() == "" || model.PlanningEntityId() == "" || model.ActivityEntity() == "" || model.ActivityEntityId() == "" || model.ProbabilityOfSuccess() == "") {
+            alert("Please define all!");
+            return;
+        }
+
+        $("#modal-add-item").modal("hide");
+        var param = model.getFilterValues();
+        param.reportingEntity = model.ReportingEntity();
+        param.planningEntity = model.PlanningEntity();
+        param.plannEntityID = model.PlanningEntityId();
+        param.activityEntity = model.ActivityEntity();
+        param.activityEntityID = model.ActivityEntityId();
+        param.probabilityofSuccess = model.ProbabilityOfSuccess();
+        param.report = "pmasterstandard";
+
+        model.IsProcessing(true);
+        var url = "@Url.Action("GenerateMapPMaster", "Palantir")";
+        ajaxPost(url, param, function (data) {
+            model.IsProcessing(false);
+            if (data.Data.Status == "NOK") {
+                alert(data.Data.Message);
+                return;
+            }
+            renderGridUsingData(data.Data);
+        }, function (err) {
+            model.IsProcessing(false);
+            alert(err)
+        });
+    }
+
+    function onComplete(e) {
+        // model.LoadDataGrid();
+    }
+
+    function onSelect(e) {
+        $(".k-upload-files.k-reset").remove();
+        $.each(e.files, function (index, value) {
+            //alert(value.extension);
+            var ok = value.extension == ".xlsx"
+                     || value.extension == ".xls"
+
+            if (!ok) {
+                e.preventDefault();
+                alert("Please upload only Excel (xls, xlsx) files");
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        $('[data-model="OPs"]').data("kendoMultiSelect").value("OP16");
+
+        $(".do-filter").hide();
+        $(".do-filterpalantir").hide();
+        $("#files").kendoUpload({
+            async: {
+                saveUrl: '@Url.Action("UploadMap", "PMasterStandard")',
+                //removeUrl: "remove",
+                autoUpload: false
+            },
+            localization: {
+                select: 'Import Map File',
+                remove: '',
+                cancel: ''
+            },
+            complete: onComplete,
+            select: onSelect,
+            success: function (e) {
+                var res = e.response;
+                console.log(res);
+                if (res.Result != "OK") {
+                    alert(res.Message);
+                    return;
+                }
+
+                alert("Upload Success!");
+                model.isUpload(true);
+                renderGridUsingData(res.Data);
+            }
+        });
+    });
+
+</script>
+
+

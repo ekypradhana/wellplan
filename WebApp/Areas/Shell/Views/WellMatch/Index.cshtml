@@ -1,0 +1,352 @@
+﻿@{
+    ViewBag.Title = "Well Match";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+
+<style>
+    .text { height: auto !important; padding: 0px 4px !important; margin: 0px 12px 0px 3px; }
+    .k-grid-header tr th:nth-child(3) { text-align: center; }
+</style>
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.MiniIsProcessing = ko.observable(false);
+
+    model.Master = {
+        Title: ko.observable("Well Name"),
+        WellName: ko.observable(""),
+        EDMOnly: ko.observable(false),
+        Name: ko.observable(""),
+        Add: function () {
+            model.Master.Name("");
+            $("#modal").modal("show");
+        },
+        Import: function () {
+            model.IsProcessing(true);
+
+            if (confirm("Are you sure to Import EDM Well to WEIS?") == true) {
+                model.IsProcessing(true);
+
+                ajaxPost("@Url.Action("Import")", "", function (data) {
+                    model.IsProcessing(false);
+
+                    if (data.Success == true) {
+                        alert('EDM Wells have been Imported');
+                        console.log(data.CountLoaded);
+                    } else {
+                        alert('Import Failed \n' + data.Message);
+                    }
+                }, function () {
+                    model.IsProcessing(false);
+                });
+            }
+
+
+        },
+        Save: function () {
+            var form = $("#form").kendoValidator().data("kendoValidator");
+
+            if (!form.validate())
+                return;
+
+            model.MiniIsProcessing(true);
+
+            ajaxPost("@Url.Action("SaveWell")", { Name: model.Master.Name() }, function (data) {
+                model.MiniIsProcessing(false);
+
+                if (data.Success == true) {
+                    $("#modal").modal("hide");
+                    model.Master.Refresh();
+                } else {
+                    alert(data.Message);
+                }
+            }, function () {
+                model.MiniIsProcessing(false);
+            });
+        },
+        Update: function () {
+            var updated = model.Master.GetUpdatedData();
+
+            if (updated.length == 0) {
+                alert('No data updated');
+                return;
+            }
+            model.IsProcessing(true);
+
+            ajaxPost("@Url.Action("UpdateWell")", { updated: updated }, function (data) {
+                model.IsProcessing(false);
+
+                if (data.Success == true) {
+                    model.Master.Refresh();
+                    alert('Data updated');
+                } else {
+                    model.Master.Refresh();
+                    alert(data.Message);
+                }
+            }, function () {
+                model.IsProcessing(false);
+            });
+        },
+        Delete: function (id) {
+            if (confirm("Are you sure you want to delete this data ?") == true) {
+                model.IsProcessing(true);
+
+                ajaxPost("@Url.Action("DeleteWell")", { _id: id }, function (data) {
+                    model.IsProcessing(false);
+
+                    if (data.Success == true) {
+                        model.Master.Refresh();
+                        alert('Data deleted');
+                    } else {
+                        alert(data.Message);
+                    }
+                }, function () {
+                    model.IsProcessing(false);
+                });
+            }
+        },
+        RenderGrid: function (data) {
+            var shellWellDropDown = function (container, options) {
+                $('<input class="well-autocomplete" data-bind="value:' + options.field + '" data-our-well-id="' + options.model.WellId + '" />')
+                    .appendTo(container)
+                    .keyup(function () {
+                        if ($.trim($(this).val()).length > 0) return;
+                        $(this).blur();
+
+                        model.IsProcessing(true);
+
+                        ajaxPost("@Url.Action("DeleteJunction")", { OurWellId: $(this).attr('data-our-well-id') }, function (res) {
+                            model.IsProcessing(false);
+                            $('.grid').data('kendoGrid').refresh();
+                        }, function (a, b, c) {
+                            console.log(a);
+                            console.log(b);
+                            console.log(c);
+                            model.IsProcessing(false);
+                        });
+                    })
+                    .kendoAutoComplete({
+                        dataSource: {
+                            serverFiltering: true,
+                            transport: {
+                                read: {
+                                    url: "@Url.Action("SearchJunction")",
+                                    dataType: "json"
+                                }
+                            }
+                        },
+                        select: function (e) {
+                            var dataItem = this.dataItem(e.item.index());
+                            var param = {
+                                OurWellId: options.model.WellId,
+                                ShellWellId: dataItem.WellId,
+                                ShellWellName: dataItem.WellName
+                            };
+
+                            model.IsProcessing(true);
+                            ajaxPost("@Url.Action("SaveJunction")", param, function (res) {
+                                model.IsProcessing(false);
+                                $('.grid').data('kendoGrid').refresh();
+                            }, function (a, b, c) {
+                                console.log(a);
+                                console.log(b);
+                                console.log(c);
+                                model.IsProcessing(false);
+                            });
+                        },
+                        dataTextField: "WellName",
+                        dataValueField: "WellId",
+                        minLength: 3,
+                        filter: "contains",
+                        placeholder: "Select well name...",
+                    })
+                };
+
+            var firstOilDatePicker = function (container, options) {
+                $('<input class="first-oil-date" data-bind="value:' + options.field + '" />')
+                    .appendTo(container)
+                    .kendoDatePicker({
+                        format: "dd-MMM-yyyy",
+                        change: function (e) {
+                            var param = {
+                                WellId: options.model.WellId,
+                                FirstOilDate: this.value()
+                            };
+
+                            model.IsProcessing(true);
+                            ajaxPost("@Url.Action("SaveFirstOilDate")", param, function (res) {
+                                $('.grid').data('kendoGrid').refresh();
+                                model.IsProcessing(false);
+                            }, function (a, b, c) {
+                                console.log(a);
+                                console.log(b);
+                                console.log(c);
+                                model.IsProcessing(false);
+                            });
+                        }
+                    });
+                };
+
+                $(".grid").kendoGrid({
+                    dataSource: {
+                        pageSize: 15,
+                        data: data
+                    },
+                    pageable: true,
+                    editable: true,
+                    schema: {
+                        data: "Data",
+                        model: {
+                            id: "WellId",
+                            fields: {
+                                ShellWellName: { defaultValue: { WellId: -1, WellId: "" }, type: "string" },
+                                FirstOilDate: { type: "date" }
+                            }
+                        }
+                    },
+                    columns: [
+                        { field: "WellId", title: "OP Well ID" },
+                        { field: "ShellWellName", title: "EDM Well ID", editor: shellWellDropDown },
+                        { field: "FirstOilDate", title: "First Oil Date", editor: firstOilDatePicker, width: 130, format: "{0:dd-MMM-yyyy}", template: "#: jsonDateStr(FirstOilDate) #" },
+                        { field: "WellId", title: "Delete", editable: false, filterable: false, attributes: { style: "text-align: center" }, width: 110, template: "<button type='button' class='btn btn-danger btn-custom btn-xs' onclick='model.Master.Delete(\"#: WellId #\")'><span class='glyphicon glyphicon-remove-circle'></span> Delete</button>" }
+                    ]
+                });
+            },
+            Refresh: function () {
+                if (model.IsProcessing()) return;
+                model.IsProcessing(true);
+
+                ajaxPost("@Url.Action("Data")", model.Master.GetFilterValues(), function (res) {
+                if (!$('.grid').hasClass('k-grid')) {
+                    model.Master.RenderGrid(res.Data);
+
+                    model.IsProcessing(false);
+                    return;
+                }
+
+                $('.grid').data('kendoGrid').setDataSource(new kendo.data.DataSource({
+                    pageSize: 15,
+                    data: res.Data
+                }));
+
+                model.IsProcessing(false);
+            }, function (a, b, c) {
+                console.log(a);
+                console.log(b);
+                console.log(c);
+                model.IsProcessing(false);
+            });
+        },
+        GetFilterValues: function () {
+            return {
+                wellName: model.Master.WellName(),
+                edmOnly: model.Master.EDMOnly()
+            };
+        },
+        GetUpdatedData: function () {
+            var updatedRecords = [];
+
+            $(".grid").data("kendoGrid").dataSource._data.forEach(function (f) {
+                if (f.WellId !== f.WellName) updatedRecords.push(f);
+            });
+
+            var updated = updatedRecords;
+
+            for (var a = 0; a < updated.length; a++) {
+                var b = updated[a];
+                for (i in b) if (b.hasOwnProperty(i)) {
+                    if (i.indexOf(".") > -1) {
+                        delete updated[a][i];
+                    }
+                }
+            }
+
+            return updated;
+        }
+    }
+
+    $(document).ready(function () {
+        model.Master.Refresh();
+    });
+</script>
+
+<div style="padding: 0px 15px 15px;">
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing()">
+        <div class="ec-toolbar" style="margin-left:15px">
+            <div class="col-md-6 row">
+                <button class="btn btn-warning btn-sm btn-custom" onclick="model.Master.Import()">
+                    <span class="glyphicon glyphicon-new-window"></span> Import EDM Well
+                </button>
+                <button class="btn btn-success btn-sm btn-custom" onclick="model.Master.Add()">
+                    <span class="glyphicon glyphicon-plus"></span> Add New
+                </button>
+                <button class="btn btn-primary btn-sm btn-custom" onclick="model.Master.Update()">
+                    <span class="glyphicon glyphicon-ok"></span> Save Changes
+                </button>
+                (inline editing is enabled)
+            </div>
+            <div class="col-md-4 row">
+                <label>Search :</label>
+                <input type="text" class="text search" placeholder="Type well name here ..." data-bind="value: model.Master.WellName" />
+                <label>Show only filled EDM: </label>
+                <input type="checkbox" data-model="EDMOnly" style="margin-top: 6px;" data-bind="checked: model.Master.EDMOnly, click: model.Master.Refresh()" />
+            </div>
+            <div class="col-md-2" style="text-align:left">
+                <button class="btn btn-primary btn-sm btn-custom" onclick="model.Master.Refresh()">
+                    <span class="glyphicon glyphicon-refresh"></span> Refresh
+                </button>
+                
+            </div>
+            
+
+                <div class="clearfix"></div>
+            </div>
+        <div class="col-md-12 no-padding">
+            <div class="grid"></div>
+        </div>
+    </div>
+
+    <div data-bind="with: Master" class="modal fade myModal" id="modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div data-bind="visible: model.MiniIsProcessing()">
+                    @Html.Partial("_processing")
+                </div>
+                <div data-bind="visible: !model.MiniIsProcessing()">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title" id="myModalLabel">Add New Well Name</h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group form-group-sm form-wrapper" id="form">
+                            <div class="row">
+                                <label class="col-md-3">Name</label>
+                                <div class="col-md-8">
+                                    <input type="text" style="width:100%;" id="Name" name="Name" required="required" data-bind="value: Name, attr: { placeholder: 'Type ' + Title() + ' here ...' }" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-custom btn-warning" data-dismiss="modal">
+                            <span class="glyphicon glyphicon-remove-circle"></span> Close
+                        </button>
+                        <button type="button" class="btn btn-custom btn-primary" onclick="model.Master.Save()">
+                            <span class="glyphicon glyphicon-ok"></span> Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

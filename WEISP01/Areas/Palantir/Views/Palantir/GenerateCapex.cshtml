@@ -1,0 +1,900 @@
+﻿@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver.Builders;
+@using MongoDB.Bson;
+@using Newtonsoft.Json;
+@{
+    var lst = new List<string>();
+    lst.Add("");
+    
+    var mapnamesdel = PCapex.Populate<PCapex>(Query.EQ("IsAggregate", false)).Select(x => x.MapName).Distinct().ToList();
+    foreach (var item in mapnamesdel)
+    {
+        lst.Add(item);
+    }
+}
+<style>
+    .k-dropzone {
+        padding-left: 15px;
+    }
+    .k-upload-selected {
+        margin-left: 15px;
+    }
+    .panel-heading {
+        padding: 5px 15px;
+        border-bottom: 1px solid transparent;
+        border-top-left-radius: 3px;
+        border-top-right-radius: 3px;
+    }
+
+    .grids .by-planningmap {
+        margin-left:5px;
+        margin-right:5px;
+    }
+
+    .grids .grid {
+        height: 100%;
+        width: 100%;
+    }
+
+    .grids {
+        margin-top: 15px;
+    }
+
+    .grids {
+        padding: 0px 15px 0px 0px !important;
+    }
+
+        .grids .cell-number {
+            text-align: right;
+        }
+
+        .grids .cell-date {
+            text-align: center;
+        }
+
+        .grids .k-grid .k-grid-content {
+            min-height: 100px;
+            /*max-height: 600px;*/
+        }
+
+
+
+        .grids .k-header.k-grid-toolbar {
+            /*background-color: #F9F9FB;*/
+        }
+
+        .grids .k-header[role=columnheader] {
+            vertical-align: middle;
+        }
+
+            .grids .k-header[role=columnheader][data-colspan] {
+                text-align: center;
+                font-weight: bold;
+                color: #a8a8a8;
+            }
+
+        .grids [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+            text-align: center;
+            vertical-align: top;
+        }
+
+    .k-grid .k-grid-content-locked {
+        height: auto !important;
+    }
+
+
+    .modal .modal-body .form-group {
+        min-height: 27px;
+        margin-bottom: 4px;
+    }
+
+        .modal .modal-body .form-group input,
+        .modal .modal-body .form-group textarea {
+            border-color: #EFEFEF;
+        }
+
+        .modal .modal-body .form-group .col-md-4 {
+            text-align: right;
+            padding-top: 5px;
+            padding-right: 0px;
+        }
+
+    .listaggrmp {
+        margin-top: 5px;
+        margin-bottom: 10px;
+    }
+
+        .listaggrmp .col-md-3, .deletemp .col-md-4 {
+            padding: 0px;
+            margin: 0px;
+        }
+
+        .listaggrmp .col-md-4 {
+            text-align: right;
+            min-height: 28px;
+        }
+
+            .listaggrmp .col-md-4 label {
+                padding-top: 4px;
+            }
+
+        .listaggrmp .col-md-8 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+</style>
+<script>
+    model.PalantirActivityTypes = [{ ActivityText: "DRILLING", ActivityValue: "DRILLING" }, { ActivityText: "COMPLETION", ActivityValue: "COMPLETION" }, { ActivityText: "ABANDONMENT", ActivityValue: "ABANDONMENT" }, { ActivityText: "RIG", ActivityValue: "RIG" }];
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.mode = ko.observable("upload");
+    model.PageTitle = ko.observable("Generate Planning Report Map");
+    model.fileType = ko.observable("filteredData");
+    model.changeMode = function (mode) {
+    }
+    model.CaseName = ko.observable("");
+
+    model.MapNameInput = ko.observable("");
+    //model.MapNameUpload = ko.observable("");
+    //model.IsMapNameUpload = ko.observable(false);
+    model.IsUploadcpx = ko.observable(true);
+    //model.isUpload = ko.observable(false);
+    @*var dtmapNameAggrts = [];
+    dtmapNameAggrts.push("");
+    var Mapaggrts = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(mapnamesdel)));
+    for (var i = 0; i < Mapaggrts.length; i++) {
+        dtmapNameAggrts.push(Mapaggrts[i]);
+    }
+    console.log(Mapaggrts);
+    console.log(dtmapNameAggrts);*@
+    model.MapNamesAggrts = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(mapnamesdel)));
+
+    var uniqueArray = function (a) {
+        return a.reduce(function (p, c) {
+            if (p.indexOf(c) < 0) p.push(c);
+            return p;
+        }, []);
+    };
+
+    var updateHeaderColumn = function (key) {
+        var titheHeaderUpdate;
+        if (key == "CapitalCompletionPDDevInTang") {
+            titheHeaderUpdate = "Capital Completion <br/>PD Dev In Tang";
+
+        } else if (key == "CapitalCompletionPDDevTang") {
+            titheHeaderUpdate = "Capital Completion <br/>PD Dev Tang";
+
+        } else if (key == "CapitalDrillingPDDevInTang") {
+            titheHeaderUpdate = "Capital Drilling <br/>PD Dev In Tang";
+
+        } else if (key == "CapitalDrillingPDDevTang") {
+            titheHeaderUpdate = "Capital Drilling <br/>PD Dev Tang";
+
+        } else if (key == "CapitalExpenDRDVAWells") {
+            titheHeaderUpdate = "Capital Expen <br/>DRDVA Wells";
+
+        } else if (key == "CapitalExpenDRSubSeaWells") {
+            titheHeaderUpdate = "Capital Expen <br/>DR Sub Sea Wells";
+
+        } else if (key == "ContigencyInTangWells") {
+            titheHeaderUpdate = "Contigency <br/>In Tang Wells";
+
+        } else if (key == "ContigencyTangWells") {
+            titheHeaderUpdate = "Contigency <br/>Tang Wells";
+
+        } else if (key == "EPEXCompletionB2ExplInTang") {
+            titheHeaderUpdate = "EPEX Completion <br/>B2Expl In Tang";
+
+        } else if (key == "EPEXCompletionB2ExplTang") {
+            titheHeaderUpdate = "EPEX Completion <br/>B2 Expl Tang";
+
+        } else if (key == "EPEXDrillingB2ExplInTang") {
+            titheHeaderUpdate = "EPEX Drilling <br/>B2 Expl In Tang";
+        } else if (key == "EPEXDrillingB2ExplTang") {
+            titheHeaderUpdate = "EPEX Drilling <br/>B2 Expl Tang";
+
+        } else if (key == "OPCostIdleRig") {
+            titheHeaderUpdate = "OP Cost Idle Rig";
+        }
+        return titheHeaderUpdate;
+    };
+
+    model.renderGridColumnsCapex = function (data) {
+        var gridColumns = [];
+        gridColumns.push(
+        {
+            field: "CaseName",
+            title: "Case Name",
+            width: 90
+        },
+         {
+            field: "ActivityCategory",
+            title: "Activity Category",
+            width: 150
+        },
+        //{
+        //    field: "ActivityCategory",
+        //    title: "Activity Category",
+        //    width: 150,
+        //    template: "#= ActivityTypes(ActivityCategory) #",
+        //    editor: function (container, options) {
+        //        $("<input type='text' data-bind='value : " + options.field + "'/>")
+        //                .appendTo(container)
+        //                .kendoDropDownList({
+        //                    autoBind: false,
+        //                    dataSource: new kendo.data.DataSource({
+        //                        data: model.PalantirActivityTypes
+        //                    }),
+        //                    dataTextField: "ActivityText",
+        //                    dataValueField: "ActivityValue",
+        //                    optionLabel: ""
+        //                });
+        //    }
+        //},
+        {
+            field: "WellName",
+            title: "Well Name",
+            width: 150
+        }, {
+            field: "ActivityType",
+            title: "Activity Type",
+            width: 150
+        }, {
+            field: "FundingType",
+            title: "Funding Type",
+            width: 60
+        }, {
+            field: "FirmOption",
+            title: "Planning<br/> Classification",
+            width: 80
+        },
+        //{
+        //    field: "ProjectName",
+        //    title: "Project Name",
+        //    width: 90,
+        //    locked: true
+        //}, 
+        {
+            field: "RigName",
+            title: "Rig Name",
+            width: 90
+        }, {
+            field: "UARigSequenceId",
+            title: "UARigSequenceId",
+            width: 60,
+            //locked: true
+        }
+        //, {
+        //    field: "AssetName",
+        //    title: "Asset Name",
+        //    width: 90,
+        //    locked: true
+        //}, {
+        //    field: "IsInPlan",
+        //    title: "Is In Plan",
+        //    width: 70,
+        //    locked: true
+        //}
+        );
+
+        //var transSumm = [];
+        //var titleHeader = [];
+        //var recordSummary = data[0].CapexSummary;
+        //var iMonthly = 0;
+        //for (var key in recordSummary) {
+        //    if (recordSummary.hasOwnProperty(key)) {
+        //        for (var keyitem in recordSummary[key]) {
+        //            if ((keyitem == "EDM") || (keyitem == "EDMSS")) {
+        //                titleHeader.push(key);
+        //                transSumm.push({ field: ("CapexSummary." + key + "." + keyitem), title: updateHeaderColumn(key) + " (" + keyitem + ") ", width: 150, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+        //            }
+        //        }
+        //    }
+        //}
+
+        //var titleHeaderUnique = uniqueArray(titleHeader);
+        //for (var j = 0; j < titleHeaderUnique.length; j++) {
+        //    //var temptitleHeader = [];
+        //    for (var i = 0; i < transSumm.length; i++) {
+        //        if (titleHeaderUnique[j] == transSumm[i].field.split('.')[1]) {
+        //            //temptitleHeader.push(transSumm[i]);
+        //            gridColumns.push(transSumm[i]);
+        //        }
+        //    }
+        //    //gridColumns.push({ title: updateHeaderColumn(titleHeaderUnique[j]), columns: temptitleHeader });
+        //}
+
+
+        //var capexSum = data[0].CapexSummary;
+        //var titleHeader = [];
+        //var subTitleHeader = [];
+        //for (var key in capexSum) {
+        //    if (capexSum.hasOwnProperty(key)) {
+        //        for (var keyitem in capexSum[key]) {
+        //            titleHeader.push(key);
+        //            //subTitleHeader.push({ field: ("CapexSummary." + key + "." + keyitem), title: keyitem, width: 70, attributes: { style: 'text-align:center;' } });
+        //            subTitleHeader.push({ field: ("CapexSummary." + key + "." + keyitem), title: updateHeaderColumn(key), width: 110, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+        //        }
+        //    }
+        //}
+
+        //var titleHeaderUnique = uniqueArray(titleHeader);
+        //for (var j = 0; j < titleHeaderUnique.length; j++) {
+        //    for (var i = 0; i < subTitleHeader.length; i++) {
+        //        if ((titleHeaderUnique[j] == subTitleHeader[i].field.split('.')[1]) && (subTitleHeader[i].field.split('.')[2] == "EDM")) {
+        //            gridColumns.push(subTitleHeader[i]);
+        //        }
+        //    }
+        //}
+
+        return gridColumns;
+    }
+
+    function ActivityTypes(ActivityCategory) {
+        for (var i = 0; i < model.PalantirActivityTypes.length; i++) {
+            if (model.PalantirActivityTypes[i].ActivityValue == ActivityCategory) {
+                return model.PalantirActivityTypes[i].ActivityValue;
+            }
+        }
+    }
+
+    function renderGridUsingData(data) {
+        var fieldCol = {};
+        var gridCol = model.renderGridColumnsCapex(data);
+        gridCol.forEach(function(xx) {
+            if (xx.field == "CaseName" || xx.field == "ActivityCategory")
+                fieldCol[xx.field] = { type: "string", editable: true };
+            else
+                fieldCol[xx.field] = { type: "string", editable: false };
+        });
+        var excelName = "DataCapexMap_" + moment(new Date()).format("DD-MMM-YYYY_HH:mm:ss") + ".xlsx";
+
+        $('#grid_capex').replaceWith($('<div />').attr('id', 'grid_capex'));
+        $('#grid_capex').kendoGrid({
+            //toolbar: ["excel", {
+            //    template: ' <label id="lblMapNameUpload" style="margin-left:50px;margin-right:20px;padding-top:4px;color:black;">Map Name: </label>' +
+            //    '<input type="text" id="mapnameupload" style="color:black" data-bind="value:MapNameUpload"/>'
+            //}],
+            toolbar: ["excel"],
+            excel: { fileName: excelName, allPages: true, filterable: true },
+            dataSource: {
+                schema: {
+                    model: {
+                        fields: fieldCol
+                    }
+                },
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+            editable: true,
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: gridCol,
+            excelExport: function (e) {
+                var sheet = e.workbook.sheets[0];
+                for (var rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
+                    var row = sheet.rows[rowIndex];
+                    for (var cellIndex = 0; cellIndex < row.cells.length; cellIndex++) {
+                        if (rowIndex == 0) {
+                            row.cells[cellIndex].value = row.cells[cellIndex].value.replace("<br/>", "");
+                        }
+                    }
+                }
+            }
+        });
+
+    }
+
+    function renderGridUsingDataIsaggrt(data) {
+        var gridCol = model.renderGridColumnsCapex(data);
+        
+        $('#grid_capexaggrts').replaceWith($('<div />').attr('id', 'grid_capexaggrts'));
+        $('#grid_capexaggrts').kendoGrid({
+            dataSource: {
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: gridCol
+        });
+
+    }
+</script>
+
+<h4 data-bind="text:model.PageTitle"></h4>
+
+<div>
+    <div style="padding: 0px 15px 15px;">   
+        <div class="ec-toolbar">
+            <button onclick="model.backpalantir()" class="btn btn-sm btn-warning"><span class="glyphicon glyphicon-arrow-left"></span> Back</button>
+        </div>
+
+        <div class="col-md-12">
+            <!-- Nav tabs -->
+            <ul class="nav nav-tabs" role="tablist">
+                <li role="presentation" class="active">
+                    <a href="#planning-map" role="tab" data-toggle="tab">New Capex Mapping</a>
+                </li>
+                @*<li role="presentation">
+                    <a href="#list-mapping" role="tab" data-toggle="tab">List Mapping </a>
+                </li>*@
+            </ul>
+        </div>
+
+        <!-- Tab panes -->
+        <div class="tab-content">
+            <div role="tabpanel" class="tab-pane active" id="planning-map">
+                <div class="col-md-12 grids by-planningmap">
+                    <div class="col-md-12" id="accordion">
+                        <div class="panel panel-default">
+                            <div class="panel-heading" data-toggle="collapse" data-parent="#accordion" href="#collapse1" style="cursor: pointer;">
+                                <span class="panel-title">
+                                    <a data-toggle="collapse" data-parent="#accordion" href="#collapse1">Filter</a>
+                                </span>
+                            </div>
+                            <div id="collapse1" class="panel-collapse collapse in">
+                                <div class="panel-body">
+                                    @*@Html.Partial("FilterForWaterfall")
+                                    @Html.Partial("FilterForCapex")*@
+                                    @Html.Partial("FilterForWaterfallRev")
+                                    <div class="col-md-12" style="">
+                                        <button class="btn btn-success btn-sm" style="margin-right: 10px; float: right" onclick="SaveMapCapex()"><span class="glyphicon glyphicon-download"></span> Save</button>
+                                        <button class="btn btn-primary btn-sm" style="margin-right: 10px; float: right" onclick="GenerateMap()"><span class="glyphicon glyphicon-list"></span> Create New Mapping</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div data-bind="visible: !model.IsProcessing()">
+
+                        <div class="col-md-12">
+                            <div class="demo-section k-header" data-bind="visible: model.IsUploadcpx"><input name="UploadedFile" id="files" type="file" /></div>
+                            @*<div class="row">
+                                <div class="col-md-9">
+                                    <div class="demo-section k-header"><input name="UploadedFile" id="files" type="file" /></div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="col-md-4">
+                                        <label id="" style=" padding-top: 4px">Map Name: </label>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <input type="text" id="mapnameupload" style="color:black" />
+                                    </div>
+                                </div>
+                            </div>*@
+                            <div id="grid_capex" class="grid"></div>
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+                </div>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="list-mapping">
+                <div class="col-md-12 grids by-listmapping">
+                    <div class="col-md-12 listaggrmp">
+                        <div class="col-md-3">
+                            <div class="col-md-4">
+                                <label style="min-height: 28px;text-align:right">Map Name: </label>
+                            </div>
+                            <div class="col-md-6">
+                                <select id="MapNamesAggrt" data-placeholder="Select map names ..."></select>
+                            </div>
+                        </div>
+                        <div class="col-md-9" style="background-color:none">
+                            <button class="btn btn-custom btn-sm btn-success" data-bind="click: saveplancapexaggrts">
+                                <span class="glyphicon glyphicon-play"></span> Run
+                            </button>
+                        </div>
+                    </div>
+
+                    <div data-bind="visible: !model.IsProcessing()">
+                        <div class="col-md-12">
+                            <div id="grid_capexaggrts" class="grid"></div>
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
+
+        @*<div class="col-md-12">
+                <div class="">
+                    <div class="col-md-12">
+
+                    </div>
+                    <div style="float:right">
+                        <div class="col-md-12">
+                            <div class="col-md-6">
+                                <div class="col-md-6">
+                                    <label style=" padding-top: 4px;">Case Name: </label>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="text" id="casename" data-bind="value:CaseName" />
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+            </div>*@
+    </div>
+    <div data-bind="visible:model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+</div>
+
+<div class="modal fade" id="modal-add-item">
+    @*data-bind="with: model.GenerateTransformation">*@
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title">Save Map Capex</h4>
+                </div>
+                <div class="modal-body">
+                    <div data-bind="visible:model.savingMapProcessing()" id="savingMapProcessing">
+                        @Html.Partial("_processing")
+                    </div>
+                    <div class="form-group" id="savingMapProcessing" data-bind="visible:!model.savingMapProcessing()">
+                        <div class="col-md-4">
+                            <label style=" padding-top: 4px;">Map Name: </label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" id="mapnameinput" data-bind="value:MapNameInput" />
+                        </div>
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-custom btn-warning" data-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-success" id="button_save_map" data-bind="click: SaveMap,enable:!model.savingMapProcessing()">
+                        <span class="glyphicon glyphicon-download"></span> OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    model.backpalantir = function () {
+        var url = "@Url.Action("ReportCapex", "palantir")";
+
+        location.href = url;
+    }
+
+    model.FilterVisibility.PerformanceUnits(false);
+    model.FilterVisibility.MonthlySequence(false);
+    //model.FilterVisibility.YearsCalc(true);
+
+    model.FilterVisibility.Activities(true);
+    model.FilterVisibility.OPs(true);
+    model.FilterVisibility.OpRelation(true);
+    model.FilterVisibility.Date(true);
+    model.FilterVisibility.Date2(true);
+    model.FilterVisibility.PeriodBase(false);
+    model.FilterVisibility.PeriodView(true);
+    model.FilterVisibility.PeriodRelation(false);
+    model.FilterVisibility.inlastuploadls(true);
+
+    //replace
+    model.FilterVisibility.ExType(true);
+    model.FilterVisibility.Asset(true);
+    model.FilterVisibility.showLabelLSFilter(true);
+    model.FilterVisibility.LineOfBusiness(true);
+
+    //model.FilterVisibilityCapex.LineOfBusiness(true);
+    //model.FilterVisibilityCapex.Asset(true);
+    //model.FilterVisibilityCapex.FundingType(true);
+
+    model.savingMapProcessing = ko.observable(false);
+
+    function SaveMapCapex() {
+        model.MapNameInput("");
+        $("#modal-add-item").modal("show");
+    }
+
+    function jsonObjConvDate2(e, dateOrStr) {
+        if (dateOrStr == undefined) dateOrStr = "date";
+        var keys = getObjectProperties(e);
+        keys.forEach(function (k) {
+            if (typeof e[k] == "string" && e[k] != null && e[k] != undefined) {
+                if (e[k].indexOf("/Date") >= 0) {
+                    var dt = dateOrStr == "str" ? jsonDateStr(e[k]) : jsonDate(e[k]);
+                    e[k] = dt;
+                }
+            }
+            else if (typeof e[k] == "object") {
+                e[k] = jsonObjConvDate2(e[k]);
+            }
+        });
+        return e;
+    }
+
+
+    function GenerateMap() {
+        var param = model.getFilterValues();
+        //var paramCpx = model.getFilterValuesCapex();
+
+        model.IsProcessing(true);
+        var url = "@Url.Action("GenerateMapCapex", "Palantir")";
+        //ajaxPost(url, { wb: param, pq: paramCpx, CaseName: "" }, function (data) {
+        ajaxPost(url, { wb: param }, function (data) {
+            model.IsProcessing(false);
+            if (data.Data.Status == "NOK") {
+                alert(data.Data.Message);
+                return;
+            }
+            //model.IsUploadcpx(true);
+            renderGridUsingData(jsonObjConvDate2(data.Data));
+        }, function (err) {
+            model.IsProcessing(false);
+            alert(err)
+        });
+    }
+
+    function CounterSaveMap(TotalLoop, Counter) {
+        if (Counter >= TotalLoop) {
+            model.IsProcessing(false);
+            model.savingMapProcessing(false);
+            alert("Planning Report Map for CAPEX has been Saved!");
+            //model.isUpload(false);
+        }
+    }
+
+    function SaveMap() {
+        model.savingMapProcessing(true);
+        model.IsProcessing(true);
+        if (model.MapNameInput() != "") {
+            $("#modal-add-item").modal("hide");
+            setTimeout(function () {
+                var grid = $("#grid_capex").data("kendoGrid");
+                if (typeof grid !== 'undefined') {
+                    var data = grid.dataSource.data();
+                    data.forEach(function (e) {
+                        delete e.Estimate;
+                        delete e.Allocation;
+                        delete e.CapexDetails;
+                    });
+                    ///devide data and take per 50.
+                    var take = 50;
+                    var totalLoop = Math.ceil(data.length / take);
+                    var counter = 0;
+                    var skip = 0;
+                    for (var i = 0; i < totalLoop; i++) {
+                        var dataToThrow = Enumerable.From(data).Skip(skip).Take(take).ToArray();
+                        ajaxPost("@Url.Action("SaveMapName")", { list: dataToThrow, mapnames: model.MapNameInput() }, function (res) {
+                            //if (res.Result == "OK") {
+                            //    counter++;
+                            //}
+                            counter++;
+                            CounterSaveMap(totalLoop, counter);
+                        }, function () {
+                            counter++;
+                            CounterSaveMap(totalLoop, counter);
+                        });
+                        skip = skip + take;
+                    }
+                } else {
+                    alert("Please Generate New Mapping");
+                    model.savingMapProcessing(false);
+                    model.IsProcessing(false);
+                }
+            }, 300);
+        } else {
+            alert("Please Input Map Name");
+            model.savingMapProcessing(false);
+            model.IsProcessing(false);
+        }
+    }
+
+    function LoadPartial(data, mapname) {
+        ajaxPost("@Url.Action("SaveMapName")", { list: data, mapnames: mapname, isEdited: false }, function (res) {
+            if (res.Result == "NOK") {
+                model.savingMapProcessing(false);
+                alert(res.Message);
+                return;
+            }
+
+            var ddlMapaagrts = $('#MapNamesAggrt').data("kendoDropDownList");
+            ddlMapaagrts.setDataSource(res.Data.LMapName);
+            ddlMapaagrts.refresh();
+
+            alert("Map Capex Generated");
+            $("#modal-add-item").modal("hide");
+            model.savingMapProcessing(false);
+        }, function () {
+            model.savingMapProcessing(false);
+        });
+    }
+
+
+    function ExportToExcel(listaggr) {
+        var param = listaggr;
+        console.log(listaggr);
+        var url = "@Url.Action("ExportAgg")";
+        ajaxPost(url, param, function (data) {
+            url = "@Url.Action("DownloadCapexAggFile", "palantir")" + "?stringName=" + data.Path + "&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss");
+            location.href = url;
+        }, function (err) { alert(err) })
+
+    }
+
+    model.saveplancapexaggrts = function () {
+        var grid = $("#grid_capexaggrts").data("kendoGrid");
+        var data = grid.dataSource.data();
+        data.forEach(function (e) {
+            delete e.CapexSummary;
+        });
+        var mapNameAggrts = $('#MapNamesAggrt').data('kendoDropDownList').value();
+        ajaxPost("@Url.Action("SavePlanCapex")", { list: data, mapname: mapNameAggrts }, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                return;
+            }
+
+            if (res.Data.Status == "NOK") {
+                alert(res.Data.Message);
+                return;
+            }
+            var ddlMapaagrts = $('#MapNamesAggrt').data("kendoDropDownList");
+            ddlMapaagrts.setDataSource(res.Data.LMapName);
+            ddlMapaagrts.refresh();
+            //if (res.Data.LMapName.length > 0) {
+            //    console.log("haloo");
+            //    console.log(res.Data.LMapName[0]);
+            //    //GetListMap(res.Data.LMapName[0]);
+            //}
+
+            alert("Aggregate Map Capex Success. Process Export to excel ");
+            ExportToExcel(res.Data.listAgg);
+        }, function () {
+
+        });
+
+    }
+
+    function GetListMap(param) {
+        model.IsProcessing(true);
+        var url = "@Url.Action("GetListCapexMapping", "Palantir")";
+        ajaxPost(url, { mapname: param }, function (data) {
+            model.IsProcessing(false);
+            if (data.Data.Status == "NOK") {
+                alert(data.Data.Message);
+                return;
+            }
+            renderGridUsingDataIsaggrt(data.Data);
+        }, function (err) {
+            model.IsProcessing(false);
+            alert(err)
+        })
+    }
+
+    function onComplete(e) {
+        // model.LoadDataGrid();
+    }
+
+    function onSelect(e) {
+        $(".k-upload-files.k-reset").remove();
+        $.each(e.files, function (index, value) {
+            //alert(value.extension);
+            var ok = value.extension == ".xlsx"
+                     || value.extension == ".xls"
+
+            if (!ok) {
+                e.preventDefault();
+                alert("Please upload only Excel (xls, xlsx) files");
+            }
+        });
+    }
+
+    @*function UploadMapFromExcel(param) {
+        //model.IsProcessing(true);
+        var url ="@Url.Action("UploadMapCapex", "Palantir")";
+        ajaxPost(url, { mapname: param }, function (data) {
+            //model.IsProcessing(false);
+            if (data.Data.Status == "NOK") {
+                alert(data.Data.Message);
+                return;
+            }
+            //renderGridUsingDataIsaggrt(data.Data);
+        }, function (err) {
+            //model.IsProcessing(false);
+            alert(err)
+        })
+    }*@
+
+    $(document).ready(function () {
+        //$("#lblMapNameUpload").hide();
+        //$("#mapnameupload").hide();
+        //$(".mapnameupload").text("haldsdso");
+        //model.MapNameUpload("dasdsdasd");
+        $('[data-model="OPs"]').data("kendoMultiSelect").value("OP16");
+
+        $(".do-filter").hide();
+        $(".do-filtercpx").hide();
+        $("#MapNamesAggrt").kendoDropDownList({
+            dataSource: model.MapNamesAggrts(),
+            select: function (e) {
+                var dataItem = this.dataItem(e.item);
+                if (typeof dataItem !== 'undefined') {
+                    GetListMap(dataItem);
+                }
+            }
+        });
+
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            var target = $(e.target).attr("href") // activated tab
+            if (target == "#planning-map") {
+                //$("#grid_uio").data("kendoGrid").refresh();
+            } else if (target == "#list-mapping") {
+                $("#MapNamesAggrt").data("kendoDropDownList").trigger("select");
+                //$("#grid_capexaggrts").data("kendoGrid").refresh();
+            }
+        });
+
+        $("#files").kendoUpload({
+            async: {
+                saveUrl: '@Url.Action("UploadMapCapex", "palantir")',
+                //removeUrl: "remove",
+                autoUpload: false
+            },
+            localization: {
+                select: 'Import Map File',
+                remove: '',
+                cancel: ''
+            },
+            complete: onComplete,
+            select: onSelect,
+            success: function (e) {
+                var res = e.response;
+                //model.isUpload(true);
+                //console.log(res);
+                if (res.Result == "NOK") {
+                    alert(res.Message);
+                    return;
+                    //model.loaddatagrid();
+                    //alert("file refuse to upload");
+                    //var a = '<li class="k-file k-file-success" style="height: 150px; overflow-x: auto;">';
+                    //if (res.data.length > 0) {
+                    //    res.data.foreach(function (hh) {
+                    //        a = a + "<div>" + hh + "</div>";
+                    //    });
+                    //}
+                    //a = a + "</li>";
+                    //$(a).appendto($(".k-upload-files.k-reset"));
+                    //$(".k-upload-pct").html("failed!");
+                    //return;
+                }
+                if (res.Data.Success == false) {
+                    alert(res.Data.Message);
+                    return;
+                }
+
+                alert("Upload Success!");
+                //console.log(res.Data.listMap);
+
+                renderGridUsingData(res.Data.listMap);
+            }
+        });
+    });
+
+</script>

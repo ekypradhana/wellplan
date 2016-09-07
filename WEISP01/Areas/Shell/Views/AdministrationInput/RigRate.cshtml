@@ -1,0 +1,505 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+@{
+    ViewBag.Title = "Rig Rate";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    model.RigRate = {}; var self = model.RigRate;
+    self.Data = ko.observableArray([]);
+    self.MaxYear = ko.observable(moment(new Date()).year());
+    self.MinYear = ko.observable(moment(new Date()).year());
+    self.Mode = ko.observable('');
+    self.AddTitle = ko.observable('');
+    self.RigNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+            DataHelper.Populate("WEISRigNames").Select(d => d.GetString("_id")).OrderBy(d => d)
+    )));
+    self.GetType = ko.observableArray(["ACTIVE", "IDLE"]);
+    self.GetPeriod = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigRates2").Select(d => d.Values))));
+    self.RigTitle = ko.observable("");
+    self.id = ko.observable("");
+    self.Type = ko.observable("");
+    self.PeriodeStart = ko.observableArray([]);
+    self.PeriodeFinish = ko.observableArray([]);
+    self.GetData = function (callback) {
+        var url = "@Url.Action("GetProrateAllocation")";
+        var param = { Type: self.FilterType(), Keyword: self.FilterKeyword() };
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+            }
+
+            self.Data(res.Data.Items);
+            model.Processing(false);
+            callback(res.Data);
+        });
+    };
+    self.Delete = function (id) {
+        var cnf = confirm("Are you sure want to delete " + id.replace('T','') + "?");
+        if(cnf==false) return false;
+        var url = "@Url.Action("DeleteRigRate")";
+        var param = { id: id };
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+            }
+            
+            self.Refresh();
+            model.Processing(false);
+        });
+    };
+
+    self.GenerateColumns = function (data) {
+        var columns = [{
+            field: "Title",
+            width: 150,
+            locked: true
+        }, {
+            title: "Type",
+            field:self.FilterType(),
+            headerTemplate: '<a class="k-link" href="#">Type</a>',
+            template: self.FilterType(),
+            locked: true,
+            width: 80,
+        }, {
+            title: "",
+            width: 80,
+            locked: true,
+            attributes: { style: 'text-align: center' },
+            template: function (dataItem) {
+                return "<button class='btn-xs btn btn-custom btn-primary' onclick='self.Edit(\"" + dataItem._id + "\")'><span class='glyphicon glyphicon-edit'></span> Edit</button>";//&nbsp;&nbsp;&nbsp;<button class='btn-xs btn btn-custom btn-danger' onclick='self.Delete(\"" + dataItem._id + "\")'><span class='glyphicon glyphicon-remove'></span> Delete</button>";
+            }
+        }];
+
+        for (var i = data.YearMin; i <= data.YearMax; i++) {
+            columns.push({
+                field: "Year_" + i,
+                title: "Year " + i,
+                attributes: { style: "text-align: right;" },
+                format: "{0:N2}",
+                width: 100
+            });
+        }
+
+        return columns;
+    };
+    self.RenderGrid = function (res) {
+        var config = {
+            toolbar: [ "excel"],
+            excel: { fileName: "Rigrate.xlsx",allPages: true,filterable : true },
+            columns: [{
+                field: self.FilterType()
+            }],
+            dataSource: {
+                data: self.Data(),
+                pageSize: 10
+            },
+            columns: self.GenerateColumns(res),
+            filterable: false,
+            pageable: true,
+            resizable: false,
+            //editable: true,
+            sortable: true,
+            excelExport: function(e) {      
+                var sheet = e.workbook.sheets[0];
+                var chkColumns = sheet.columns.length;
+                for (var rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
+                    var row = sheet.rows[rowIndex];
+                    var numericFormat = "#,##0.00;";
+                    for (var cellIndex = 0; cellIndex < row.cells.length; cellIndex++) {
+                        var cell = row.cells[cellIndex];
+                        console.log(sheet.rows[0].cells[cellIndex].value );
+                        if (row.type === "data") {
+                            if (sheet.rows[0].cells[cellIndex].value == "Type") {// like this
+                                cell.value = self.FilterType(),cell.hAlign = "left";
+                            }
+                            else if(sheet.rows[0].cells[cellIndex].value == "Title") {
+                                cell.hAlign = "left";
+                            }
+                            else if (chkColumns>2) {// like this
+                                cell.format = numericFormat;
+                                cell.hAlign = "right";
+                            } 
+                        }
+                    }      
+                }      
+            }
+        };
+        //console.log(config);
+
+        $(".grid").replaceWith("<div class='grid'></div>");
+        $(".grid").kendoGrid(config);
+    };
+    self.AddRig = function () {
+        self.Mode('Add');
+        
+        var data = ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new RigRatesNew())))
+        ko.mapping.fromJS(data, self.RigInfo);
+        self.AddMorePeriod();
+    };
+    
+    self.BackToMain = function () {
+        self.Mode('');
+        $("[data-content='rig-rate'] .grid").data("kendoGrid").refresh();
+    };
+    
+    self.FilterKeyword = ko.observable('');
+    self.FilterType = ko.observable(self.GetType()[0]);
+    self.ValueTypes = ko.observableArray(["ABSOLUTE"]);
+    self.RigInfo = ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new RigRatesNew())))
+    self.Edit = function (id) {
+        self.Mode('Edit');
+        var url = "@Url.Action("ViewEditRate2")";
+        var param = {id:id};
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+            }
+            
+            model.Processing(false);
+            $('[data-type="' + self.FilterType() + '"] a').tab("show");
+
+            res.Data.Values.forEach(function(e) {
+                e.Period.Start = jsonDateStr(e.Period.Start);
+                e.Period.Finish = jsonDateStr(e.Period.Finish);
+            });
+
+            ko.mapping.fromJS(res.Data, self.RigInfo);
+        });
+    }
+    self.IsInputValid = function () {
+        var isGood = true;
+
+        ko.mapping.toJS(self.RigInfo.Values).forEach(function (e) {
+            if (!isGood)
+                return;
+
+            if (e.Type == "" || e.Period.Start == "" || e.Period.Finish == "")
+                isGood = false;
+        });
+
+        $('[data-role="datepicker"]').each(function (i, e) {
+            if (!isGood)
+                return;
+
+            if (e.value == "")
+                isGood = false;
+        });
+
+        return isGood;
+    }
+    self.Save = function () {
+        if (!self.IsInputValid()) {
+            alert("Some input is invalid");
+            return;
+        }
+
+        model.Processing(true);
+
+        var rigInfo = ko.mapping.toJS(self.RigInfo);
+        if (rigInfo.Values != undefined) {
+            rigInfo.Values.forEach(function (e) {
+                e.Period.Start = jsonDateStr(e.Period.Start);
+                e.Period.Finish = jsonDateStr(e.Period.Finish);
+                //if (!(e.Period.Start instanceof Date)) {
+                //    //e.Period.Start = moment(jsonDateStr(e.Period.Start)).toDate();
+                //    e.Period.Start = jsonDateStr(e.Period.Start);
+                //}
+                //if (!(e.Period.Finish instanceof Date)) {
+                //    //e.Period.Finish = moment(jsonDateStr(e.Period.Finish)).toDate();
+                //    e.Period.Finish = jsonDateStr(e.Period.Finish);
+                //}
+            });
+        }
+        //console.log(rigInfo);
+        var url = "@Url.Action("SaveRigRate")";
+        var param = { IsNewData: (self.Mode() == 'Add'), RigRate: rigInfo };
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            self.Mode('');
+            self.Refresh();
+        });
+    };
+    self.RemovePeriod = function (id, index, o) {
+        return function (e, f) {
+            //console.log(id, index, o);
+            if ($(o).closest(".form-group").find(".period-value").size() == 1) {
+                alert("Cannot delete the only left period");
+                return;
+            }
+
+            var confirmation = confirm("Are you sure want to delete this period?");
+            if (confirmation != true)
+                return;
+
+            self.RigInfo.Values.splice(index, 1);
+            self.RigInfo.Values(self.RigInfo.Values());
+        };
+    };
+    self.AddMorePeriod = function () {
+        var rigInfo = ko.mapping.toJS(self.RigInfo);
+        var type = $("[data-type].active").data("type");
+
+        var nextDate = new Date(new Date().getFullYear() -1, 0, 1);
+        if ((_.filter(rigInfo.Values, { Type: type })).length > 0) {
+            var nextDate = moment(_.last(_.filter(rigInfo.Values, { Type: type })).Period.Finish).add(1, "days").toDate();
+        }
+
+        var yo = @MvcHtmlString.Create(JsonConvert.SerializeObject(new RigRateValue() { Period = new DateRange(), ValueType = "Absolute", Value = 0 }));
+        yo.Type = type;
+        yo.Period.Start = nextDate;
+
+        var maxDate = new Date(2030, 11, 1);
+        yo.Period.Finish = (nextDate > maxDate ? nextDate : maxDate);
+
+        rigInfo.Values.push(yo);
+        ko.mapping.fromJS(rigInfo, self.RigInfo);
+    };
+    self.ChangeFilterType = function (data) {
+        return function () {
+            self.FilterType(data);
+            self.Refresh();
+        };
+    }
+
+    self.Refresh = function () {
+        self.GetData(function (res) {
+            self.RenderGrid(res);
+        });
+        //model.RefreshViewOnly();
+    };
+
+    $(function () {
+        self.Refresh();
+
+        $('.keyword').on("keypress", function (e) {
+            if (e.keyCode == 13) {
+                self.Refresh();
+            }
+        });
+    });
+</script>
+
+@Html.Partial("_BusPlanCalculationNotifier")
+
+<script type="text/template" id="add-form-input">
+    <div class="form-group">
+            <div class="col-md-4">
+            <span class="year"></span>
+        </div>
+        <div class="col-md-8">
+            <input class="value" type="text" style="width: 100%;" />
+        </div>
+    </div>
+</script>
+
+<div class="col-md-12" data-bind="with: model.RigRate" data-content="rig-rate">
+    <div data-bind="visible: (Mode() == '')">
+        <div class="pull-left">
+            <label>Keyword: </label>
+            <input class="keyword" type="text" data-bind="value: FilterKeyword, valueUpdate: 'keypress'" style="margin-right: 10px;" />
+            <label>Show Rig Rates by Type: </label>
+            <div class="btn-group" data-bind="foreach: self.GetType">
+                <button class="btn btn-custom btn-sm" data-bind="css: { 'btn-success active': ($data == self.FilterType()), 'btn-info': ($data != self.FilterType())  }, click: self.ChangeFilterType($data)">
+                    <span class="glyphicon-ok glyphicon" data-bind="visible: ($data == self.FilterType())"></span>
+                    <span data-bind="text: $data"></span>
+                </button>
+            </div>
+
+            <button class="btn btn-sm btn-custom btn-primary" data-bind="click: Refresh" style="margin-left: 20px;">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+    @*&nbsp;
+    <button class="btn btn-sm btn-custom btn-warning" data-bind="click: AddRig">
+        <span class="glyphicon glyphicon-plus"></span> Add Rig
+    </button>*@
+        </div>
+        <div class="pull-right" style="padding-top: 8px;">
+            * All values in US$ 
+        </div>
+        <div class="clearfix" style="margin-bottom: 10px;"></div>
+        <div class="grid"></div>
+    </div>
+
+    @*<div data-bind="visible: (Mode() == 'Add')">
+        <div class="controls">
+            <button class="btn btn-sm btn-custom btn-primary" data-bind="click: BackToMain">
+                <span class="glyphicon glyphicon-chevron-left"></span> Back to Grid
+            </button>
+            <button class="btn btn-sm btn-custom btn-success" data-bind="click: Save">
+                <span class="glyphicon glyphicon-save"></span> Save Changes
+            </button>
+            <div class="clearfix"></div>
+        </div>
+        <form class="form-add">
+            <div class="form-group">
+                <div class="col-md-4">
+                    <span>Rig Name</span>
+                </div>
+                <div class="col-md-8">
+                    <input id="rig-names" type="text" style="width: 100%;" data-bind="kendoAutoComplete:{data:RigNames, value:AddTitle}" />
+                </div>
+            </div>
+        </form>
+    </div>*@
+    <div data-bind="visible:(Mode()!=''), with: self.RigInfo">
+        <div class="controls">
+            <button class="btn btn-sm btn-custom btn-primary" data-bind="click: self.BackToMain">
+                <span class="glyphicon glyphicon-chevron-left"></span> Back to Grid
+            </button>
+            &nbsp;
+            <button class="btn btn-sm btn-custom btn-success" data-bind="click: self.Save, enable: !model.BisPlanRecalculateStatus()">
+                <span class="glyphicon glyphicon-save"></span> Save Changes
+            </button>
+            <button class="btn btn-sm btn-custom btn-warning" data-bind="click: self.AddMorePeriod, enable: !model.BisPlanRecalculateStatus()">
+                <span class="glyphicon glyphicon-plus"></span> Add Period
+            </button>
+            <div class="clearfix"></div>
+        </div>
+
+        <form class="form-edit">
+            <h3 data-bind="text: 'Rig : ' + (Title() == null ? '' : Title())"></h3>
+
+            <div>
+                <ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
+                    <li data-type="ACTIVE" class="active"><a href="#tab1" data-toggle="tab">ACTIVE</a></li>
+                    <li data-type="IDLE"><a href="#tab2" data-toggle="tab">IDLE</a></li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane active" id="tab1">
+
+                        <div data-bind="foreach: Values">
+                            <!-- ko if: 'ACTIVE' == Type() -->
+                            <div class="form-group period-value">
+                                <div class="col-md-5">
+                                    <label>Period :</label>
+                                    <input type="text" data-bind="kendoDatePicker: { value: Period.Start, format: 'dd-MMM-yyyy' }" />
+                                    -
+                                    <input type="text" data-bind="kendoDatePicker: { value: Period.Finish, format: 'dd-MMM-yyyy' }" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label>Value :</label>
+                                    <input type="text" data-bind="kendoNumericTextBox: { value: Value, format: '{0:N2}' }" />
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-danger btn-custom btn-sm" data-bind="click: self.RemovePeriod($parent._id(), $index(), self)">
+                                        <span class="glyphicon glyphicon-remove"></span>
+                                    </button>
+                                </div>
+                                <div class="clearfix"></div>
+                            </div>
+                            <!-- /ko -->
+                        </div>
+                        <div class="clearfix"></div>
+
+                    </div>
+                    <div class="tab-pane" id="tab2">
+
+                        <div data-bind="foreach: Values">
+                            <!-- ko if: 'IDLE' == Type() -->
+                            <div class="form-group period-value">
+                                <div class="col-md-5">
+                                    <label>Period :</label>
+                                    <input type="text" data-bind="kendoDatePicker: { value: Period.Start, format: 'dd-MMM-yyyy' }" />
+                                    -
+                                    <input type="text" data-bind="kendoDatePicker: { value: Period.Finish, format: 'dd-MMM-yyyy' }" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label>Value :</label>
+                                    <input type="text" data-bind="kendoNumericTextBox: { value: Value, format: '{0:N2}' }" />
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-danger btn-custom btn-sm" data-bind="click: self.RemovePeriod($parent._id(), $index(), self)">
+                                        <span class="glyphicon glyphicon-remove"></span>
+                                    </button>
+                                </div>
+                                <div class="clearfix"></div>
+                            </div>
+                            <!-- /ko -->
+                        </div>
+                        <div class="clearfix"></div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="clearfix"></div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .k-grid-content-locked {
+        height: auto !important;
+    }
+    .form-add {
+        width: 400px;
+    }
+    .form-add .form-group {
+        height: 14px;
+    }
+    .form-add .form-group .col-md-4 {
+        padding-top: 5px;
+    }
+    .form-edit .form-group {
+        margin-bottom: 5px;
+    }
+    .form-edit .form-group label {
+        width: 70px;
+    }
+    .controls {
+        margin-bottom: 10px;
+    }
+    .grid {
+        margin-bottom: 10px;
+    }
+    .tab-content {
+        padding-top: 10px;
+    }
+    .form-edit h3 {
+        text-align: left;
+        border-bottom: none;
+        font-weight: bold;
+    }
+    .form-edit .btn-danger {
+        padding-bottom: 3px;
+    }
+    .keyword {
+        margin-right: 10px;
+        padding: 0px 5px;
+    }
+    /*.tab-pane .form-group:first-child button.btn-danger {
+        display: none;
+    }*/
+</style>

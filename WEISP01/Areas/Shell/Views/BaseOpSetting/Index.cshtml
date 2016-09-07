@@ -1,0 +1,92 @@
+﻿
+@{
+    ViewBag.Title = "Base OP Setting";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+    var GetOP = new List<string>();
+    GetOP = DataHelper.Populate("WEISOPs").Select(x => BsonHelper.GetString(x, "_id")).ToList<string>();
+}
+<div class="form-horizontal" style="width:700px;margin:0px auto" data-bind="with: model.BaseOP">
+    <div class="form-group">
+        <div class="col-sm-12">
+            <button class="btn btn-primary btn-sm btn-custom" data-bind="click: Save">
+                <span class="glyphicon glyphicon-ok"></span> Save Changes
+            </button>
+        </div>
+    </div>
+
+    <h3>Base OP Setting</h3>
+
+    <div class="form-group">
+        <div class="col-sm-4 no-padding">
+            <label>Base OP Default :</label>
+        </div>
+        <div class="col-s   m-4">
+            <input data-bind="kendoDropDownList: { data: y.SelectOP,value: y.OPValue}" />
+        </div>
+        <div class="clearfix"></div>
+    </div>
+</div>
+
+
+<script>
+        
+    model.BaseOP = {}; var y = model.BaseOP;
+    y.SelectOP = ko.observableArray();
+    y.OPValue = ko.observableArray();
+    y.SelectOP = @MvcHtmlString.Create(JsonConvert.SerializeObject(GetOP));
+    y.Reload = function () {
+        var url = "@Url.Action("GetBaseOPConfig")";
+        var param = {};
+
+        ajaxPost(url, param, function (data) {
+            y.OPValue(data.Data.BaseOPConfig);
+        });
+    };
+
+
+    y.Save = function () {
+        var url = "@Url.Action("SaveBaseOPConfig")";
+        var param = {            
+            BaseOP : y.OPValue
+        };
+
+        ajaxPost(url, param, function (data) {
+            if (data.Result == "OK") {
+                alert("Changes has been saved");
+            }
+            else {
+                alert(data.Message + data.Trace);
+            }
+        });
+    };
+
+    $(document).ready(function () {        
+        y.Reload();
+    });
+</script>
+
+<style>
+    .form-horizontal h3 {
+        text-align: left;
+        border-bottom: 1px solid #ECECEC;
+        font-weight: bold;
+    }
+
+    .no-padding {
+        padding: 0px;
+    }
+
+    .form-group .col-sm-4:first-child {
+        text-align: right;
+    }
+
+    .form-horizontal .form-group .col-sm-4:first-child label {
+        margin-top: 3px;
+    }
+</style>

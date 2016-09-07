@@ -1,0 +1,121 @@
+﻿<div class="col-md-12 no-padding">
+    
+        <div class="section content">
+            <div class="col-md-3"></div>
+            <div class="col-md-6">
+                <span style="background-color: #EE6B24; padding: 5px; color: #ffffff; ">Increase By</span>
+                <input type="text" placeholder="%" autofocus=""/>
+                <span style="background-color: #EE6B24; padding: 5px; color: #ffffff; margin-left: 20px; ">Decrease By</span>
+                <input type="text" placeholder="%" autofocus="" />
+            </div>
+            <div class="col-md-3" style="margin-left:-20px">
+                <button class="btn btn-xs btn-primary">
+                    Calculate
+                </button>
+            </div>
+            
+            <div class="row data-container no-space">
+                
+                <div class="each" style="margin-left:20px">
+                    <h4>Effected Area Comparison</h4>
+                    <table class="table">
+                        <tr>
+                            <td rowspan="2" class="title"><span></span></td>
+                        </tr>
+                        <tr data-bind="foreach: {data:model.bpmodel().sampleFy}">
+                             
+                            <td colspan="3" class="title" align="center">
+                                <span class="h-status summary" data-bind="text: fy"></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th rowspan="3"></th>
+                        </tr>
+                        <tr data-bind="foreach: {data:model.bpmodel().sampleFy}">
+                            <th width="50" style="vertical-align: middle; text-align: center;">Current</th>
+                            <th width="50" style="vertical-align: middle; text-align: center;">Adjusted</th>
+                            <th width="50" style="vertical-align: middle; text-align: right;">Delta</th>
+                        </tr>
+                        <tbody data-bind="foreach: {data:model.bpmodel().sampleDataSpreadrate}">
+                            <tr>
+                                <td data-bind="text:Content">1</td>
+                                <td data-bind="text:Current">2</td>
+                                <td data-bind="text:Adjustment">2</td>
+                                <td data-bind="text:Delta">2</td>
+                                <td data-bind="text:Current2">2</td>
+                                <td data-bind="text:Adjustment2">2</td>
+                                <td data-bind="text:Delta2">2</td>
+                                <td data-bind="text:Current3">2</td>
+                                <td data-bind="text:Adjustment3">2</td>
+                                <td data-bind="text:Delta3">2</td>
+                                <td data-bind="text:Current4">2</td>
+                                <td data-bind="text:Adjustment4">2</td>
+                                <td data-bind="text:Delta4">2</td>
+                                <td data-bind="text:Current5">2</td>
+                                <td data-bind="text:Adjustment5">2</td>
+                                <td data-bind="text:Delta5">2</td>
+                                <td data-bind="text:Current6">2</td>
+                                <td data-bind="text:Adjustment6">2</td>
+                                <td data-bind="text:Delta6">2</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+</div>
+<div class="col-md-12 no-padding">
+    <div class="col-md-8">
+        <br />
+        <span class="label" style="padding: 9px; font-size: 10px; background-color: #EE6B24;display:inline-block;width:80px">Add Year</span>
+        <span class="label" style="padding: 9px; font-size: 10px; background-color: #FFD800; display: inline-block; width: 80px; ">Select Years</span>
+        <button class="btn btn-sm btn-success" style="display:inline-block;width:20px;padding:5px">+</button>
+        <div style="margin-top:4px"></div>
+  
+        <table>
+            <tr>
+                <td><span class="label" style="padding: 9px; font-size: 10px; background-color: #EE6B24; display: inline-block; width: 80px">Remove Year</span></td>
+                <td><input id="removeYear" data-bind="kendoMultiSelect:{data:['FY14','FY15','FY16','FY17','FY18','FY19','FY20']}" data-placeholder="Select Years ..." style="width: 200px; margin-left: 5px"/></td>
+                <td><button class="btn btn-sm btn-success" style="display: inline-block; width: 20px; padding: 5px;">-</button></td>
+            </tr>
+        </table>       
+    </div>
+    
+    <div class="col-md-4" style="text-align:right">
+        <br />
+        <button class="btn btn-sm btn-primary">Graph</button>
+        <button class="btn btn-sm btn-primary">Export</button>
+        <button class="save-button btn btn-sm btn-primary" data-bind="click:model.bpmodel().save_notification">Save and play to plan</button>
+    </div>
+</div>    
+    
+    <script>
+
+        $(document).ready(function () {
+            var $window = $(window);
+            var $header = $(".header");
+            var $content = $(".content");
+            var $headerDataContainer = $header.find(".data-container");
+
+            $window.on("resize", function () {
+                var self = $(this);
+                var otherHeight = 200;
+                var navHeight = (function (d) { return (d === 0 ? 30 : d); }($(".navbar-header").height()));
+                $(".content").height($(this).height() - otherHeight - navHeight);
+            });
+
+            setTimeout(function () { $window.trigger("resize"); }, 0);
+            setTimeout(function () { $window.trigger("resize"); }, 500);
+
+            $content.on("scroll", function () {
+                $headerDataContainer.css("margin-left", -1 * $content.scrollLeft());
+            });
+             
+
+        });
+
+
+        
+
+    </script>

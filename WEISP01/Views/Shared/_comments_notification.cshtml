@@ -1,0 +1,321 @@
+﻿<style>
+    .comments-background {
+        position: fixed;
+        left: 0px;
+        top: 0px;
+        right: 0px;
+        bottom: 0px;
+        /*-webkit-filter: grayscale(0.5) blur(400px);*/
+        background-color: rgba(255,255,255,0.6);
+    }
+    .comments-container {
+        /*width: 315px;*/
+        position: absolute;
+        right: 0px;
+        top: 0px;
+        bottom: 0px;
+        margin: 0px !important;
+        padding: 0px !important;
+        background-color: white;
+        -webkit-box-shadow: 0px 0px 6px 2px rgba(196,196,196,0.98);
+        -moz-box-shadow: 0px 0px 6px 2px rgba(196,196,196,0.98);
+        box-shadow: 0px 0px 6px 2px rgba(196,196,196,0.98);
+        /*overflow: scroll;*/
+        /*overflow-x: hidden;*/
+    }
+    .comments-container h3 {
+        background-color: #393939;
+        border-bottom: 0px;
+        padding: 15px 15px 14px;
+        text-align: left;
+        color: white;
+    }
+        .comments-container .comment-the {
+            margin: 4px;
+            padding: 8px;
+            border: 1px solid #E9E9E9;
+            /*background-color: #F9F9F9;*/
+            background-color: lightcyan;
+            cursor: pointer;
+            /*width: 290px;*/
+        }
+    .comments-container .comment-the:hover {
+        border: 1px solid #FCCB07;
+        background-color: #FFFFFF;
+    }
+    .comments-container .comment-the .name {
+        font-weight: bold;
+    }
+    .comments-container .comment-the .email {
+        font-style: italic;
+        color: #DD3333;
+    }
+        .comments-container .comment-the div:nth-child(2) {
+            color: chocolate;
+            font-size:9px;
+        }
+    .comments-container .comment-the div:nth-child(3) {
+        font-size: 10px;
+        font-style: italic;
+        color: #909090;
+        margin-bottom: 10px;
+    }
+    .comments-counter {
+        font-size: 8px;
+        position: absolute;
+        top: -3px;
+        right: -13px;
+        color: white;
+        background-color: #DD3333;
+        width: 12px;
+        height: 12px;
+        border-radius: 6px;
+        text-align: center;
+        padding-top: 1px;
+    }
+    .comments-trigger {
+        text-align: right;
+        font-size: 12px;
+        margin-top: 10px;
+        position: absolute;
+        right: 200px;
+        top: 0px;
+        cursor: pointer;
+    }
+    .comments-trigger:hover {
+        color: #2a6496;
+        text-decoration: none;
+    }
+    .comment-the.comments-readed {
+        border: 1px solid white;
+        background-color: white;
+        opacity: 0.8;
+        /*cursor: inherit;*/
+        /*pointer-events: none;*/
+    }
+    .form-group > div{
+        margin-top:10px;
+    }
+</style>
+
+<script>
+    var dataCommentTest = [
+        { id: 1, readed: true, name: "", email: "", at: "27th February 2015 14:23", message: "", well:"" }
+    ];
+
+    model.sharedCommentProcessing = ko.observable(true);
+    model.CommentsNotification = ko.mapping.fromJS(dataCommentTest);
+    model.ChangeStatusOfComment = function (id) {
+        var allComments = ko.mapping.toJS(model.CommentsNotification);
+        var commendIndex = allComments.indexOf(_.find(allComments, { id: id }));
+
+        try {
+            model.CommentsNotification()[commendIndex].readed(true);
+        } catch (err) {
+
+        }
+    };
+    model.OpenComment = function (id) {
+        return function () {
+            //alert("open comment id " + id);
+            model.ChangeStatusOfComment(id);
+            model.sharedComment().Comments(id);
+        };
+    };
+    model.DismissNotificationModal = function () {
+        model.sharedComment().ResetFilter();
+        model.RefreshComment();
+        model.ToggleComment();
+    };
+    model.ToggleComment = function () {
+        var $background = $(".comments-background");
+        var $container = $(".comments-container");
+
+        var duration = 300;
+        var right = -315;
+
+        if ($background.is(":visible")) {
+            $background.animate({ opacity: 0 }, duration, function () {
+                $background.hide();
+            });
+
+            $container.animate({ right: right }, duration, function () {
+                $container.hide();
+            });
+        } else {
+            $background.css("opacity", 0);
+            $background.show();
+            $background.animate({ opacity: 1 }, duration);
+
+            $container.css("right", right);
+            $container.show();
+            $container.animate({ right: 0 }, duration);
+        }
+    };
+    model.UnreadComments = ko.computed(function () {
+        return _.filter(ko.mapping.toJS(model.CommentsNotification), { readed: false }).length;
+    }, model);
+
+    model.RefreshComment = function () {
+        model.sharedCommentProcessing(true);
+        var param = model.sharedComment().GetFilterValues();
+        ajaxPost("@Url.Action("GetAllComments", "Comment")", param, function (data) {
+            ko.mapping.fromJS(data.Data, model.CommentsNotification);
+            model.sharedCommentProcessing(false);
+        }, function (data) {
+            model.sharedCommentProcessing(false);
+            console.log(data);
+        });
+    }
+
+    model.sharedComment = ko.observable({
+        FilterDate: ko.observable(),
+        Users: ko.observableArray([]),
+        Activities: ko.observableArray([]),
+        WellNames: ko.observableArray([]),
+        PIPClassifications: ko.observableArray([]),
+        PIPThemes: ko.observableArray([]),
+        FilterUsers: ko.observableArray([]),
+        FilterActivities: ko.observableArray([]),
+        FilterWellNames: ko.observableArray([]),
+        FilterPIPClass: ko.observableArray([]),
+        FilterPIPThemes: ko.observableArray([]),
+        FilterKeywords: ko.observable(""),
+        isRO: ko.observable(true),
+        isAdmin: ko.observable(true),
+        isAppSupport: ko.observable(true),
+        isAdministrator: ko.observable(true),
+        ShowHideFilter: function(){
+            if ($("#sharedCommentFilter").is(":visible")) {
+                $("#sharedCommentFilter").hide();
+            } else {
+                $("#sharedCommentFilter").show();
+            }
+        },
+        SetFilterValues: function () {
+            var x = model.sharedComment();
+            ajaxPost("@Url.Action("GetFilterValueForComments", "Comment")", {}, function (data) {
+                console.log(data);
+                x.WellNames(data.WellNames);
+                x.Activities(data.Activities);
+                x.PIPClassifications(data.PIPClass);
+                x.PIPThemes(data.PIPThemes);
+            }, function (data) {
+                console.log(data);
+            });
+            ajaxPost("@Url.Action("PopulateUsers", "Comment")", {}, function (data) {
+                //console.log(data);
+                x.Users(data.Data);
+            }, function (data) {
+                console.log(data);
+            });
+        },
+        GetFilterValues: function () {
+            var x = model.sharedComment();
+            var param = {
+                Date: x.FilterDate(),
+                Users: x.FilterUsers(),
+                WellNames: x.FilterWellNames(),
+                Activities: x.FilterActivities(),
+                PIPClass: x.FilterPIPClass(),
+                PIPThemes: x.FilterPIPThemes(),
+                Keywords: x.FilterKeywords()
+            }
+            //console.log(param);
+            return param;
+        },
+        ResetFilter: function () {
+            var x = model.sharedComment();
+            x.FilterDate(null);
+            x.FilterUsers([]);
+            x.FilterWellNames([]);
+            x.FilterActivities([]);
+            x.FilterPIPClass([]);
+            x.FilterPIPThemes([]);
+            x.FilterKeywords("");
+
+        },
+        SetUserRole: function () {
+            var x = model.sharedComment();
+            ajaxPost("@Url.Action("CheckUserRole", "Comment")", {}, function (data) {
+                //console.log(data);
+                x.isRO(data.isReadOnly);
+                x.isAdmin(data.isAdmin);
+                x.isAdministrator(data.isAdministrator);
+                x.isAppSupport(data.isAppSupport);
+            }, function (data) {
+                console.log(data);
+            });
+        }
+    });
+
+    $(document).ready(function () {
+        input2datePicker($("#CommentFilterDate"));
+        model.sharedComment().SetFilterValues();
+        model.sharedComment().SetUserRole();
+        model.RefreshComment();
+    });
+</script>
+
+<a class="comments-trigger" data-bind="click: model.ToggleComment, attr: { title: model.UnreadComments() + ' unread comments' }">
+    <i class="fa fa-comments"></i> Show Comments <span class="comments-counter" data-bind="text: model.UnreadComments"></span>
+</a>
+
+<div class="comments-background" style="display: none;" data-bind="click: model.DismissNotificationModal"></div>
+
+<div class="comments-container col-md-5" style="display: none; z-index:1000; overflow-y:auto;">
+    <h3><i class="fa fa-comments-o"></i> Latest Comments</h3>
+    <div class="col-md-12" style="padding: 5px; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc;">
+        <span style="font-size:10px;color:blue;cursor:pointer;" onclick="model.sharedComment().ShowHideFilter()">Show / Hide Filter</span>
+        <div id="sharedCommentFilter" class="form-group form-group-sm" data-bind="with:model.sharedComment" style="display:none;">
+            <div class="col-sm-6">
+                <label>Comment Date:</label><br />
+                <input type="text" class="" placeholder="" id="CommentFilterDate" data-bind="value:FilterDate" />
+            </div>
+            <div class="col-sm-6">
+                <label>Users:</label><br />
+                <input type="text" class="" placeholder="Users" id="CommentFilterUsers" data-bind="kendoMultiSelect: { data: Users, dataTextField:'FullName', dataValueField:'UserName', value: FilterUsers, optionLabels: 'Users' }" />
+            </div>
+            <div class="clearfix"></div>
+            <div class="col-sm-6">
+                <label>Activities:</label><br />
+                <input type="text" class="" placeholder="Activities" id="CommentFilterActivities" data-bind="kendoMultiSelect: { data: Activities, value:FilterActivities, optionLabels: 'Activities' }" />
+            </div>
+            <div class="col-sm-6">
+                <label>Well Names:</label><br />
+                <input type="text" class="" placeholder="WellNames" id="CommentFilterWellNames" data-bind="kendoMultiSelect: { data: WellNames, value:FilterWellNames, optionLabels: 'WellNames' }" />
+            </div>
+            <div class="clearfix"></div>
+            <div class="col-sm-6">
+                <label>PIP Classifications:</label><br />
+                <input type="text" class="" placeholder="PIP Classification" id="CommentFilterPIPClass" data-bind="kendoMultiSelect: { data: PIPClassifications, value:FilterPIPClass, optionLabels: 'PIP Classifications' }" />
+            </div>
+            <div class="col-sm-6">
+                <label>PIP Themes:</label><br />
+                <input type="text" class="" placeholder="PIP Themes" id="CommentFilterPIPThemes" data-bind="kendoMultiSelect: { data: PIPThemes, value:FilterPIPThemes }" />
+            </div>
+            <div class="clearfix"></div>
+            <div class="col-sm-9">
+                <label>Keywords:</label><br />
+                <input type="text" class="form-control" placeholder="Keywords" id="CommentFilterKeywords" data-bind="value:FilterKeywords" />
+            </div>
+            <div class="col-sm-3">
+                <label></label><br />
+                <button class="btn btn-sm btn-warning" onclick="model.RefreshComment()"><span class="glyphicon glyphicon-refresh"></span> Refresh</button> 
+            </div>
+        </div>
+    </div>
+    <div class="clearfix"></div>
+    <div data-bind="visible:model.sharedCommentProcessing()==true">
+        @Html.Partial("_processing")
+    </div>
+    <div class="comments-list" data-bind="foreach: model.CommentsNotification,visible:model.sharedCommentProcessing()==false">
+        <div class="comment-the" data-bind="click: $root.OpenComment(id()), css: { 'comments-readed': readed }">
+            <div><span class="name" data-bind="text: name"></span> <span class="email" data-bind="text: '(' + email() + ')'"></span></div>
+            <div><span class="name" data-bind="text: well"></span></div>
+            <div>at <span data-bind="text: jsonDateStr(at(),'dd-MMM-yyyy HH:mm:ss')"></span></div>
+            <div><span style="font-weight:bold;">Comment:</span> <span data-bind="text: message"></span></div>
+        </div>
+    </div>
+</div>
+@Html.Partial("_shared_comment")

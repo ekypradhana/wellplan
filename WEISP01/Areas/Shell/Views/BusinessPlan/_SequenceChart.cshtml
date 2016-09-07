@@ -1,0 +1,891 @@
+﻿@*@{
+    ViewBag.Title = "Sequence Charts";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}*@
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<script>
+    model.SequenceChart = {};
+    model.SequenceChart.IsSequenceProcessing = ko.observable(false);
+</script>
+
+<style>
+    html { overflow-y: scroll; }
+    .report .row { position: relative; }
+
+    .content-report { background-color: #Fcfcfc; }
+
+    .container-report { overflow-x: scroll; margin: 0px; padding: 0px; margin-left: 209px; }
+    .container-header { width: 210px; position: absolute; left: 0px; top: 0px; border: 1px solid #e5e5e5; padding: 0px; z-index: 3; background-color: #FAFAFA; }
+    .container-header, .container-header *, .container-report, .container-report * { box-sizing: border-box; }
+    .container-header .each.rigname.first { border-top: 0px; }
+    .container-header .each.rigname:not(.first) { height: 52px; }
+    .container-header .each.rigname { text-align: center; font-size: 20px; background-color: rgb(242, 242, 242); height: 51px; }
+    .container-header .each { padding: 5px; display: table; border-top: 1px solid #e5e5e5; font-weight: bold; width: 100%; overflow: auto !important; }
+    .container-header .each.item { height: 28px !important; }
+    .container-header .each.item.same-calendar { border-bottom: 1px solid #e5e5e5; }
+    .container-header .each.planning-sequence, .container-header .each.item, .container-header .each.item { position: relative; }
+    .container-header .each.planning-sequence:after, .container-header .each.item-current-week:after { top: -2px !important; }
+    /*.container-header .each.planning-sequence:after, .each-planning-sequence:after, .container-header .each.item-current-week:after, .each-current-week:after { content: " "; position: absolute; height: 2px; background-color: rgb(42, 42, 42); left: 0px; right: 0px; top: 0px; }*/
+    .each-year .each, .each-month .each, .each-weekday .each, .each-ops-sequence .each, .each-planning-sequence .each, .each-current-week .each, .each-last-week .each { text-transform: capitalize; float: left; text-align: center; }
+    .each-year .each:hover, .each-month .each:hover, .each-weekday .each:hover { background-color: #f1f1f1; opacity: 0.8; }
+    .each-year .each, .each-month .each, .each-weekday .each { padding: 5px; height: 26px; border-top: 1px solid #e5e5e5; border-left: 1px solid #e5e5e5; }
+    .each-year .each.last, .each-month .each.last, .each-weekday .each.last { border-right: 1px solid #e5e5e5; }
+
+    .each-ops-sequence, .each-planning-sequence, .each-last-week, .each-current-week { position: relative; color: white; }
+    .each-ops-sequence .each, .each-planning-sequence .each, .container-header .each { height: 70px; overflow: hidden; }
+    .each-ops-sequence .each div, .each-planning-sequence .each div { padding: 0px 5px; }
+    .each-ops-sequence .each div, .each-planning-sequence .each div, .each-current-week .each div, .each-last-week .each div { position: relative; display: table; height: 100%; width: 100%; padding-top: 1px; }
+    .each-ops-sequence .each span, .each-planning-sequence .each span, .each-current-week .each span, .each-last-week .each span, .container-header .each span { display: table-cell; vertical-align: middle; } 
+    .each-ops-sequence, .each-planning-sequence { height: 72px; }
+    .each-ops-sequence .each, .each-planning-sequence .each { position: absolute; }
+    .each-ops-sequence .each, .each-planning-sequence .each, .each-current-week .each, .each-last-week .each { border-left: 1px solid #e5e5e5; /** border-top: 1px solid #e5e5e5; */ }
+
+    .each-planning-sequence .each.a-month { position: absolute; z-index: 2; background-color: white; }
+    .each-planning-sequence .each div { height: 35px; position: absolute; }
+    .each-planning-sequence .each div.up { top: 0px; }
+    .each-planning-sequence .each div.bottom { top: 35px; }
+
+    .each-current-week, .each-last-week { height: 35px; position: relative; box-sizing: content-box; }
+    .each-current-week .each, .each-last-week .each { position: absolute; bottom: 0px; top: 0px; overflow: hidden; }
+
+    .each-item .item { height: 28px; background-color: #f9ead4; font-size: 15px; color: #5f5f5f; }
+    .each-item .item.first { background-color: #ddd2e2; padding: 5px 11px; }
+    .each-item .item .actual { display: block; background-color: #f39c12; height: 100%; padding: 5px 10px; color: white; }
+
+    .tab-pane { padding: 15px; }
+    .clear { clear: both; }
+
+    .filter-sequence.disabled { opacity: 0.6; pointer-events: none; }
+    .filter-sequence { margin-top: 10px; margin-bottom: 10px; padding-left: 0px; }
+    .filter-sequence .col-md-3, .filter-sequence .col-md-4 { padding: 0px; margin: 0px; }
+    .filter-sequence .col-md-4 { text-align: right; }
+    .filter-sequence .col-md-4, .filter-sequence .col-md-8 { min-height: 28px; }
+    .filter-sequence .col-md-4 label { padding-top: 4px; }
+    .filter-sequence .col-md-8 { padding-left: 6px; padding-right: 6px; text-align: left; }
+    .filter-sequence .col-md-sequence { width: 170px; float: left; }
+    .filter-sequence .col-md-sequence .col-md-4 { width: 120px; }
+    .filter-sequence .col-md-sequence .col-md-8 { width: 28px; }
+    .filter-sequence input[type=checkbox] { margin-top: 6px; }
+    .filter-sequence .button { text-align: right; position: absolute; top: 0px; right: 0px; }
+    .filter-sequence .trim { position: absolute; top: 28px; left: 9px; right: 0px; }
+    .filter-sequence .trim input { height: 23px; }
+
+    .tt:before { width: 0; height: 0; border-left: 6px solid transparent; border-top: 6px solid #333; border-right: 6px solid transparent; content: ""; left: 110px; position: absolute; z-index: 99; bottom: -6px; }
+    .tt { top: -42px; display: none; position: absolute; z-index: 10000; background-color: #333; color: white; padding: 5px 10px 4px; border-radius: 3px; max-width: 220px; text-align: center; }
+
+    .jspHorizontalBar, .jspVerticalBar { background-color: transparent; z-index: 6; }
+    .jspTrack { border-radius: 7px; background-color: #E0E0E0; }
+    .jspDrag { border-radius: 7px; background-color: #428BCA; }
+
+    .each-planning-sequence .each.ui-draggable { z-index: 3; cursor: move; border-color: rgb(255, 255, 255); }
+    .each-planning-sequence .each.ui-resizable { z-index: 3; cursor: e-resize; border-color: rgb(255, 255, 255); }
+    .each-planning-sequence .each .configure { width: 30px; height: 34px; position: absolute; right: 0px; padding: 0px; z-index: 2; cursor: pointer; }
+    .each-planning-sequence .each .configure .glyphicon { color: black; }
+
+    .configure-ops-modal { height: 105px; width: 80px; background-color: #F2F2F2; left: 660px; z-index: 2; border: 1px solid #2A2A2A; position: absolute; padding: 3px; top: 151px; }
+    .configure-ops-modal:after { position: absolute; left: -11px; top: 4px; content: " "; width: 0; height: 0; border-top: 10px solid transparent; border-bottom: 10px solid transparent; border-right: 10px solid #2A2A2A; }
+    .configure-ops-modal button { display: block; width: 100%; margin-bottom: 3px; border-radius: 0px !important; }
+
+    [data-sequence-chart-model="trim"] { padding-left: 4px; }
+    .drag-mode .configure { visibility: hidden; }
+
+    .drag-info { position: absolute; padding: 6px; border-left: 1px solid #428BCA; z-index: 1; color: white; font-weight: bold; min-width: 135px; }
+    .drag-info:after { background-color: #428BCA; content: " "; position: absolute; left: 0; right: 0; top: 0px; z-index: -1; height: 25px; }
+    .drag-info span { font-weight: normal; }
+    .drag-info.drag-start { margin-top: 1px; }
+    .drag-info.drag-finish { margin-top: 27px; }
+
+    .content-report > .each-current-week:nth-child(5) > .each:hover { border: 1px solid #FFFFFF; cursor: pointer; }
+</style>
+
+<script type="text/template" id="nav-tab-template">
+    <li role="presentation">
+        <a href="#tab1" aria-controls="tab1" role="tab" data-toggle="tab">Tab1</a>
+    </li>
+</script>
+
+<script type="text/template" id="tab-content-template">
+    <div class="row" style="margin-bottom: 17px;">
+        <div class="col-md-3 container-header">
+            <div class="each rigname">
+                <span>&nbsp;</span>
+            </div>
+        </div>
+        <div class="row container-report" data-cell-width="70" data-base-width="28"></div>
+    </div>
+</script>
+
+<div style="padding: 0px 0px 20px;">
+    <!-- filters -->
+    <div class="col-md-12 row filter-sequence" data-bind="visible: false">
+
+        <!-- by rig types -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-4">
+                <label>Rig types: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-sequence-chart-model="rigTypes" data-placeholder="Select rig types ..."></select>
+            </div>
+        </div>
+
+        <!-- by ops sequence -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-8" style="text-align: right">
+                <label>OP-15 Sequence: </label>
+            </div>
+            <div class="col-md-4" style="text-align: left">
+                <input type="checkbox" data-sequence-chart-model="opsSequence">
+            </div>
+        </div>
+
+        <!-- by historical trim -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-4">
+                <label>Historical Trim: </label>
+            </div>
+            <div class="col-md-8">
+                <input type="number" data-sequence-chart-model="trim" data-placeholder="Example: 0" style="width: 42px; margin-top: 2px;" value="0" required min="0" disabled />
+            </div>
+        </div>
+
+        <div class="clearfix" style="display: none;"></div>
+
+        <!-- by rig names -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-4">
+                <label>Rig names: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-sequence-chart-model="rigNames" data-placeholder="Select rig names ..."></select>
+            </div>
+        </div>
+
+        <!-- by planning sequence -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-8" style="text-align: right">
+                <label><span class="planning-sequence-label"></span>:</label>
+            </div>
+            <div class="col-md-4" style="text-align: left">
+                <input type="checkbox" data-sequence-chart-model="planningSequence" disabled>
+            </div>
+        </div>
+
+        <!-- by calendar mode -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-4">
+                <label>Calendar mode:</label>
+            </div>
+            <div class="col-md-8">
+                <select data-sequence-chart-model="calendarMode" data-placeholder="Select calendar mode ..." style="width: 100%;" disabled></select>
+            </div>
+        </div>
+
+        <div class="clearfix" style="display: none;"></div>
+
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-4">
+                <label>Well names: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-sequence-chart-model="wellNames" data-placeholder="Select well names ..."></select>
+            </div>
+        </div>
+
+        <!-- by previous week -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-8" style="text-align: right">
+                <label>Previous Week: </label>
+            </div>
+            <div class="col-md-4" style="text-align: left">
+                <input type="checkbox" data-sequence-chart-model="previousWeek">
+            </div>
+        </div>
+
+        <div class="clearfix" style="display: none;"></div>
+
+        <!-- button reload filter -->
+        @*<div class="col-md-12">
+            <button class="btn btn-sm btn-custom btn-primary do-toggle-dettach">
+                <span class="glyphicon glyphicon-filter"></span> <span>Test</span>
+            </button>
+        </div>*@
+
+    </div>
+
+    <div data-bind="visible: model.SequenceChart.IsSequenceProcessing()" style="margin-top: 10px;">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible: !model.SequenceChart.IsSequenceProcessing()" class="ec-toolbar">
+        <div class="col-md-3">
+            <div class="col-md-4 row">
+                <label>Well Name :</label>
+            </div>
+            <div class="col-md-8 row">
+                <input type="text" class="text search" style="width:200px;" data-bind="kendoMultiSelect:{data:model.bpmodel().WellName,value:filterdetail}" />
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="col-md-4 row">
+                <label>Rigs :</label>
+            </div>
+            <div class="col-md-8 row">
+                <select style="width:200px;" data-bind="kendoMultiSelect: { data: model.SequenceChart.sequenceChart.rigNames, value: model.SequenceChart.sequenceChart.selectedRigNames }"></select>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <button class="btn btn-primary btn-sm btn-custom" data-bind="" onclick="model.SequenceChart.reloadData();">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+            <button class="btn btn-success btn-sm btn-custom" onclick="addEvent()" data-bind="visible: false">
+                <span class="glyphicon glyphicon-plus"></span> Add Event
+            </button>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+
+    <div data-bind="visible: !model.SequenceChart.IsSequenceProcessing()" class="col-md-12 report" style="height: 400px; margin-top: 10px;"></div>
+
+    <div class="clearfix"></div>
+</div>
+
+<script>
+    //model.SequenceChart.PageId("Sequence Chart");
+    model.SequenceChart.sequenceChart = {};
+    model.SequenceChart.sequenceChart.rigNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigNames")
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d))));
+    model.SequenceChart.sequenceChart.rigTypes = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigTypes")
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d))));
+    model.SequenceChart.sequenceChart.wellNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISWellNames", Query.NE("IsVirtualWell", true))
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d))));
+
+    model.SequenceChart.sequenceChart.selectedRigNames = ko.observableArray([]);
+
+    $(function () {
+        var months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+        var colors = ["#45B29D", "#EFC94C", "#29BAD9", "#E2793F", "#334D5C", "#DF5A49", "#AFC034", "#E68074", "#4793DE", "#623029", "#BB496B", "#4D315A", "#9394EE", "#6769E2", "#C08038"];
+        var constDateStart = new Date();
+        var constDateFinish = new Date();
+        var cacheColorForPlanning = {};
+        var deletedPhase = [];
+        var addedPhase = [];
+
+        function serializeDate(o) {
+            return {
+                start: (typeof o.start === 'undefined' ? o.Start : o.start),
+                finish: (typeof o.finish === 'undefined' ? o.Finish : o.finish)
+            };
+        }
+
+        function buildMargin(o, firstDateForChart, cellBaseWidth, isStrict) {
+            isStrict = (typeof isStrict === 'undefined' ? false : isStrict);
+            o = serializeDate(o);
+
+            var startDay = moment(o.start).diff(moment(firstDateForChart), 'days');
+            if (!isStrict) startDay = (startDay < 0 ? 0 : startDay);
+            var lengthDay = moment(o.finish).diff(moment(o.start), 'days');
+            if (!isStrict) lengthDay = (lengthDay < 0 ? 0 : lengthDay);
+
+            var margin = {
+                left: startDay * (cellBaseWidth / 7),
+                width: lengthDay * (cellBaseWidth / 7)
+            };
+
+            if (isStrict && (margin.left < 0)) {
+                margin = { left: 0, width: margin.left + margin.width };
+            };
+
+            return margin;
+        }
+
+        function buildDate(o) {
+            o = serializeDate(o);
+
+            return {
+                start: moment(jsonDateStr(o.start), 'DD-MMM-YYYY').toDate(),
+                finish: moment(jsonDateStr(o.finish), 'DD-MMM-YYYY').toDate()
+            };
+        }
+
+        function buildDateRangeString(o) {
+            o = serializeDate(o);
+
+            return Tools.String.capitalize(moment(o.start).format('MMM-DD, YYYY') + ' - ' + moment(o.finish).format('MMM-DD, YYYY'));
+        }
+
+        function getActivityColor(activity) {
+            var activityContains = function (activity, what) {
+                for (var i in what) {
+                    if (activity.toLowerCase().indexOf(what[i]) > -1)
+                        return true;
+                }
+
+                return false;
+            };
+
+            if (activityContains(activity, ['abandon']))
+                return '#2c3e50';
+            else if (activityContains(activity, ['risk']))
+                return '#96281b';
+            else if (activityContains(activity, ['completion']))
+                return '#126237';
+            else if (activityContains(activity, ['drilling']))
+                return '#446cb3';
+            else
+                return 'gray';
+        }
+
+        function prepareFilter() {
+        }
+
+        function getFirstDateStartFromSpesificDay(startDate, startFrom) {
+            var days = Tools.Date.names("days", "en", startFrom);
+            var firstDate = moment(startDate);
+            var firstDayIndex = days.indexOf(moment(firstDate).format("dddd"));
+
+            if (firstDayIndex <= -1) return;
+
+            if (firstDayIndex > 0) {
+                firstDate.add(days.length - firstDayIndex, 'days');
+            }
+
+            return firstDate.toDate();
+        }
+
+        function isCalendarModeSameMode() {
+            return true;
+        }
+
+        function trimByHistoricalDate() {
+            var trimVal = parseInt($('[data-sequence-chart-model=trim]').val(), 10);
+            var monthOffset = moment(constDateStart).diff(moment(new Date()), 'months');
+            if (isNaN(trimVal)) trimVal = 0;
+
+            if (trimVal > 0 && monthOffset < 1) {
+                var date = moment(constDateStart);
+
+                var ymToday = parseInt(moment(new Date()).format('YYYYMM'), 10);
+                var ymStart = parseInt(moment(constDateStart).format('YYYYMM'), 10);
+
+                if (ymToday > ymStart) date = moment(new Date());
+
+                date = date.startOf('month').subtract(trimVal, 'months');
+                constDateStart = moment(getFirstDateStartFromSpesificDay(date.toDate(), "Monday")).toDate();
+            }
+        }
+
+        function getDateStartFinish(item) {
+            var startDate = null, finishDate = null, isPsNeverValid = true;
+
+            _.each(item.Activities, function (o, i) {
+                var PsSchedule = buildDate(o.PsSchedule);
+                var isValidPsDate = (moment(PsSchedule.finish).diff(moment(PsSchedule.start), 'days') > 0);
+
+                if (isValidPsDate) {
+                    if (startDate === null)
+                        startDate = PsSchedule.start;
+                    else if (PsSchedule.start < startDate)
+                        startDate = PsSchedule.start;
+
+                    if (finishDate === null)
+                        finishDate = PsSchedule.finish;
+                    else if (PsSchedule.finish > finishDate)
+                        finishDate = PsSchedule.finish;
+
+                    if (isPsNeverValid) isPsNeverValid = false;
+                }
+
+                _.each(o.Phases, function (p, j) {
+                    var PhSchedule = buildDate(p.PhSchedule);
+                    var isValidPhDate = moment(PhSchedule.finish).diff(moment(PhSchedule.start), 'days') > 0;
+
+                    if (isValidPhDate) {
+                        if (startDate === null)
+                            startDate = PhSchedule.start;
+                        else if (PhSchedule.start < startDate)
+                            startDate = PhSchedule.start;
+
+                        if (finishDate === null)
+                            finishDate = PhSchedule.finish;
+                        else if (PhSchedule.finish > finishDate)
+                            finishDate = PhSchedule.finish;
+                    }
+                });
+            });
+
+            if (startDate === null && finishDate == null) {
+                startDate = new Date();
+                finishDate = new Date();
+            }
+
+            var ret = {
+                start: moment(getFirstDateStartFromSpesificDay(moment(startDate).startOf('month').toDate(), "Monday")).toDate(),
+                finish: moment(finishDate).startOf('month').toDate()
+            };
+
+            return ret;
+        }
+
+        function getDateStartFinishFromAllRigs(items) {
+            items.forEach(function (item, i) {
+                item.Simulations.forEach(function (simulation, j) {
+                    var dateStartFinish = getDateStartFinish(simulation);
+
+                    if (i == 0) {
+                        constDateStart = dateStartFinish.start;
+                        constDateFinish = dateStartFinish.finish;
+                    }
+
+                    if (constDateStart > dateStartFinish.start)
+                        constDateStart = dateStartFinish.start;
+
+                    if (constDateFinish < dateStartFinish.finish)
+                        constDateFinish = dateStartFinish.finish;
+                });
+            });
+
+            if (items.length == 0) {
+                constDateStart = new Date();
+                constDateFinish = new Date();
+            }
+
+            constDateFinish = new Date(constDateFinish.getFullYear(), 11, 31);
+
+            trimByHistoricalDate();
+        }
+
+        function plotEachItem(item, s) {
+            var $report = $('.report');
+            var sequencesId = {};
+
+            var $tabContent = (function () {
+                var result = null;
+
+                if ((isCalendarModeSameMode() && $('.report').find('.container-header').size() == 0) || !isCalendarModeSameMode()) {
+                    $result = $($('#tab-content-template').html());
+                    $result.attr('id', 'tab' + s);
+                    $result.appendTo($('.report'));
+                    $result.find('.container-header').find('.each').each(function (i, e) {
+                        $(e).addClass('first');
+                        if (i == 4 && isCalendarModeSameMode()) $(e).addClass('same-calendar');
+                    });
+
+                    return $result;
+                } else {
+                    $result = $('.report').find('#tab0');
+                    $result.find('.container-header').find('.each.first').each(function (i, e) {
+                        var $new = $(e.outerHTML);
+                        $new.appendTo($result.find('.container-header'));
+                        $new.removeClass('first');
+                        if (i == 4 && isCalendarModeSameMode()) $(e).addClass('same-calendar');
+                    });
+
+                    return $result;
+                }
+            }());
+
+            var $containerHeader = $tabContent.find('.container-header');
+            var $containerReport = $tabContent.find('.container-report');
+            var cellWidth = parseInt($containerReport.attr('data-cell-width'), 10);
+            var cellBaseWidth = parseInt($containerReport.attr('data-base-width'), 10);
+            var $contentReport = $('<div />')
+                .addClass('content-report')
+                .appendTo($containerReport);
+            var $year = $('<div />')
+                .addClass('each-year')
+                .appendTo($contentReport);
+            var $month = $('<div />')
+                .addClass('each-month')
+                .appendTo($contentReport);
+            var $weekday = $('<div />')
+                .addClass('each-weekday')
+                .appendTo($contentReport);
+            var $opsSequence = $('<div />')
+                .addClass('each-ops-sequence');
+            var $planningSequence = $('<div />')
+                .addClass('each-planning-sequence');
+            var $currentWeek = $('<div />')
+                .addClass('each-current-week');
+            var $lastWeek = $('<div />')
+                .addClass('each-last-week');
+            var monthsWidth = {};
+            var yearsWidth = {};
+            var allWidth = 0;
+            var firstDateForChart;
+            var AllPhases = [];
+
+            $containerHeader.find('.rigname:last span').html(item.RigName);
+            $contentReport.attr("data-rig", item.RigName);
+
+            // get start finish date
+            (function () {
+                if (isCalendarModeSameMode()) return;
+
+                var dateStartFinish = getDateStartFinish(item);
+
+                constDateStart = dateStartFinish.start;
+                constDateFinish = dateStartFinish.finish;
+
+                // add one more year for editing purpose
+                constDateFinish = moment(constDateFinish).add(2, 'year').toDate();
+
+                trimByHistoricalDate();
+            }());
+
+            // append weekdays (monday based)
+            (function () {
+                var startDate = moment(constDateStart).toDate();
+                var finishDate = moment(constDateFinish).toDate();
+                var iterableDate = moment(getFirstDateStartFromSpesificDay(startDate, "Monday"));
+
+                firstDateForChart = moment(startDate).toDate();
+
+                for (var i = startDate.getFullYear() ; i <= finishDate.getFullYear() ; i++) {
+                    var isStartYear = (i == startDate.getFullYear());
+                    var isFinishYear = (i == finishDate.getFullYear());
+
+                    var startMonth = (isStartYear ? startDate.getMonth() : 0);
+                    var finishMonth = (isFinishYear ? finishDate.getMonth() : 11);
+
+                    var totalWeek = 0;
+
+                    for (var j = startMonth; j <= finishMonth; j++) {
+                        var isStartMonth = (j == startDate.getMonth());
+                        var isFinishMonth = (j == finishDate.getMonth());
+
+                        var lastDayOfCurrentMonthBetweenDateRange = parseInt(moment(i + '-' + (j + 1), 'YYYY-M').endOf('month').format('D'));
+
+                        var startDay = ((isStartYear && isStartMonth) ? startDate.getDate() : 1);
+                        startDay = 1; // hack, show start from first week instead
+                        var finishDay = ((isFinishYear && isFinishMonth) ? finishDate.getDate() : lastDayOfCurrentMonthBetweenDateRange);
+                        finishDay = lastDayOfCurrentMonthBetweenDateRange; // hack, coz using lastDayOfCurrentMonthBetweenDateRange causing some ui bug
+
+                        var howManyWeek = (function () {
+                            var lastDate = moment(new Date(i, j, finishDay));
+                            var firstDate = moment(getFirstDateStartFromSpesificDay(new Date(i, j, startDay), "Monday"));
+                            var manyWeeks = 0;
+
+                            while (firstDate.toDate() <= lastDate.toDate()) {
+                                firstDate.add(7, 'days');
+                                manyWeeks++;
+                            }
+
+                            return manyWeeks;
+                        }());
+
+                        for (var k = 0; k < howManyWeek; k++) {
+                            $div = $('<div />');
+                            $div.addClass('each');
+                            $div.css('width', cellBaseWidth);
+                            $div.attr('title', iterableDate.format("MMMM DD, YYYY"));
+                            $div.attr('data-day', iterableDate.format("D"));
+                            $div.attr('data-weekday', howManyWeek);
+                            $div.attr('data-month', j);
+                            $div.attr('data-year', i);
+                            $div.html($('<span />').html(iterableDate.format("D")));
+                            $div.appendTo($weekday);
+
+                            iterableDate.add(7, 'days');
+
+                            if (j == finishMonth && i == finishDate.getFullYear() && (k + 1) == howManyWeek) {
+                                $div.addClass('last');
+                            }
+                        }
+
+                        totalWeek += howManyWeek;
+                        monthsWidth[i + '-' + Tools.String.leftPadding(j, '0', 2)] = howManyWeek;
+                    }
+
+                    allWidth += totalWeek;
+                    yearsWidth[i] = totalWeek;
+                }
+
+                $('<div />').addClass('clear').appendTo($weekday);
+                $contentReport.attr("data-start-date", moment(startDate).format("YYYY-MM-DD"));
+                $contentReport.attr("data-finish-date", moment(finishDate).format("YYYY-MM-DD"));
+            }());
+
+            (function () {
+                var startDate = moment(constDateStart).toDate();
+                var finishDate = moment(constDateFinish).toDate();
+
+                for (var i = startDate.getFullYear() ; i <= finishDate.getFullYear() ; i++) {
+
+                    // append month
+                    (function () {
+                        var startMonth = (i == startDate.getFullYear() ? startDate.getMonth() : 0);
+                        var finishMonth = (i == finishDate.getFullYear() ? finishDate.getMonth() : 11);
+
+                        for (var j = startMonth; j <= finishMonth; j++) {
+                            var $div = $('<div />');
+
+                            $div.addClass('each');
+                            $div.css('width', cellBaseWidth * (monthsWidth[i + '-' + Tools.String.leftPadding(j, '0', 2)]));
+                            $div.attr('title', moment(new Date(i, j)).format("MMMM YYYY"));
+                            $div.attr('data-month', j);
+                            $div.attr('data-year', i);
+                            $div.html($('<span />').html(months[j].substring(0, 3) + ' ' + i));
+                            $div.appendTo($month);
+
+                            if (j == finishMonth && i == finishDate.getFullYear()) {
+                                $div.addClass('last');
+                            }
+                        }
+
+                        $firstYear = $year.find('.each:eq(' + (i - startDate.getFullYear()) + ')');
+                        $firstYear.css('width', (finishMonth - startMonth + 1) * cellWidth);
+                    }());
+                }
+
+                // append month
+                $('<div />').addClass('clear').appendTo($month);
+
+                // append year
+                $('<div />').addClass('clear').appendTo($year);
+            }());
+
+            (function () {
+                var setPropertyOfDiv = function ($eachDiv, date, o, p) {
+                    $eachDiv.attr("data-rig", o.RigName);
+                    $eachDiv.attr("data-well", o.WellName);
+                    $eachDiv.attr("data-sequence-id", o.UARigSequenceId);
+                    $eachDiv.attr("data-activity-type", p.ActivityType);
+                    $eachDiv.attr("data-phase-no", p.PhaseNo)
+                    $eachDiv.attr("data-original-start", moment(date.start).format("YYYY-MM-DD"));
+                    $eachDiv.attr("data-original-finish", moment(date.finish).format("YYYY-MM-DD"));
+                    $eachDiv.attr("data-after-start", moment(date.start).format("YYYY-MM-DD"));
+                    $eachDiv.attr("data-after-finish", moment(date.finish).format("YYYY-MM-DD"));
+                };
+
+                item.Simulations.forEach(function (s, h) {
+                    var $eachHeader = $('<div/>')
+                        .addClass('each')
+                        .html($('<span/>').html(s.title + ' <font style="opacity: 0.4;">(' + s.CopyFrom + ')</font>'))
+                        .appendTo($containerHeader);
+
+                    var $contentWrapperWell = $('<div/>')
+                        .addClass('each-well each-current-week')
+                        .attr('data-simulation', s._id)
+                        .appendTo($contentReport);
+
+                    var $contentWrapperActivity = $('<div/>')
+                        .addClass('each-activity each-current-week')
+                        .attr('data-simulation', s._id)
+                        .appendTo($contentReport);
+
+                    s.Activities.forEach(function (o, i) {
+
+                        // append ps sequence
+                        (function () {
+                            var date = buildDate(o.PsSchedule);
+                            var margin = buildMargin(date, firstDateForChart, cellBaseWidth, true);
+                            var color = colors[i % colors.length];
+                            var title = (o.WellName + ' | ' + buildDateRangeString(date));
+                            var html = o.WellName;
+
+                            var $div = $('<div />')
+                                .addClass('each')
+                                .css('left', margin.left)
+                                .css('width', margin.width)
+                                .css('background-color', color)
+                                .attr('data-title', title)
+                                .html($('<div/>').html($('<span />').html(o.WellName)));
+
+                            if (margin.width > 0) {
+                                $div.appendTo($contentWrapperWell);
+                            }
+                        }());
+
+                        (function () {
+                            _.each(o.Phases, function (p, j) {
+
+                                // append planning sequence
+                                (function () {
+                                    var date = buildDate(p.PhSchedule);
+                                    var margin = buildMargin(date, firstDateForChart, cellBaseWidth, true);
+                                    var color = getActivityColor(p.ActivityType);
+                                    var title = (o.WellName + ' | ' + p.ActivityType + ' | ' + buildDateRangeString(date));
+                                    var html = p.ActivityType;
+
+                                    var $div = $('<div />')
+                                        .addClass('each')
+                                        .css('left', margin.left)
+                                        .css('width', margin.width)
+                                        .css('background-color', color)
+                                        .attr('data-title', title)
+                                        .html($('<div/>').html($('<span />').html(html)));
+
+                                    if (h == 0) {
+                                        $div.addClass('is-current').attr("onclick", "model.SequenceChart.EditActivity('" + p._id + "', this)");
+                                    }
+
+                                    if (margin.width > 0) {
+                                        $div.appendTo($contentWrapperActivity);
+                                        //setPropertyOfDiv($eachDiv, date, o, p);
+                                    }
+                                }());
+                            });
+                        }());
+                    });
+
+                    $('<div class="clearfix"></div>').appendTo($contentWrapperWell);
+                    $('<div class="clearfix"></div>').appendTo($contentWrapperActivity);
+                });
+            }());
+
+            $('<div />').addClass('clear').appendTo($report);
+            $containerReport.find('.content-report').width(allWidth * cellBaseWidth);
+        }
+
+        function prepareOther() {
+            $('.report').on('mouseover', '.each-current-week .each', function (e) {
+                e.stopPropagation();
+                $('.tt').remove();
+
+                var $tooltip = $('<div />')
+                    .addClass('tt')
+                    .appendTo($(this).parent())
+                    .html($(this).attr('data-title'))
+                    .css('left', e.pageX - $(this).parent().offset().left - 110)
+                    .show();
+
+                var $each = $(this);
+                if ($each.closest(".each").size() > 0) {
+                    $each = $each.closest(".each");
+                }
+
+                if ($each.hasClass('is-current')) {
+                    $tooltip.html($(this).attr('data-title') + '<br /> (click to edit)');
+                    $tooltip.css("top", '-60px');
+                }
+            });
+
+            $(document).on('click', function () {
+                $('.tt').hide();
+            });
+
+            $(window).on('resize', function () {
+                if (!isCalendarModeSameMode()) return;
+
+                var paddingBottom = 20;
+                var totalHeight = $(window).height();
+                var paddingTop = $('.report').offset().top;
+                var $ch = $('.container-header');
+                var $cr = $('.container-report');
+                var $tab = $('#tab0');
+
+                $cr.css('overflow-x', 'visible');
+                $tab.height(410) // totalHeight - paddingTop - paddingBottom
+                    .css('overflow-y', 'scroll')
+                    .on('scroll', function () {
+                        $ch.css('left', $tab.scrollLeft());
+                    });
+            });
+
+            model.SequenceChart.sequenceChart.selectedRigNames(model.SequenceChart.sequenceChart.rigNames().slice(0, 2));
+        };
+
+        model.SequenceChart.BackupData = ko.observableArray([]);
+
+        model.SequenceChart.ParseData = function (callback) {
+            $('.report').html('');
+
+            var items = model.SequenceChart.BackupData();
+
+            if (isCalendarModeSameMode()) {
+                getDateStartFinishFromAllRigs(items);
+            }
+
+            console.log("------", constDateStart, constDateFinish);
+
+            _.each(items, plotEachItem);
+
+            if (isCalendarModeSameMode()) {
+                $('.each.item.same-calendar:last').removeClass('same-calendar');
+            }
+
+            $(window).trigger('resize');
+
+            if (callback !== undefined) callback();
+        };
+
+        model.SequenceChart.reloadData = function () {
+            if (model.SequenceChart.IsSequenceProcessing()) return;
+            model.SequenceChart.IsSequenceProcessing(true);
+
+            var url = "@Url.Action("GetWellActivityForSequenceChart")";
+            var param = {
+                id: model.SimulationId(),
+                param: model.filterdetail(),
+                rigNames: model.SequenceChart.sequenceChart.selectedRigNames()
+            };
+
+            if (param.rigNames.length == 0) {
+                model.SequenceChart.IsSequenceProcessing(false);
+                alert("Rigs cannot be empty!");
+                return;
+            }
+
+            if (param.rigNames.length > 5) {
+                model.SequenceChart.IsSequenceProcessing(false);
+                alert("Max rig filter is 5");
+                return;
+            }
+
+            ajaxPost(url, param, function (res) {
+                if (res.Result != "OK") {
+                    alert(res.Message);
+                    model.SequenceChart.IsSequenceProcessing(false);
+                    return;
+                }
+
+                model.SequenceChart.IsSequenceProcessing(false);
+
+                model.SequenceChart.BackupData(_.sortBy(res.Data, function (e) { return e.RigName; }));
+                //model.SequenceChart.BackupData([]);
+                model.SequenceChart.ParseData();
+                //model.SequenceChart.SetScrollPosition();
+            }, function (a, b, c) {
+                model.SequenceChart.IsSequenceProcessing(false);
+            });
+        }
+        
+        model.SequenceChart.SetScrollPosition = function () {
+            setTimeout(function () {
+                var now = new Date();
+                var $pos = $(".content-report .each-weekday").find("[data-month='" + (now.getMonth() + 1) + "'][data-year='" + now.getFullYear() + "']:first");
+                $("#tab0").scrollLeft($pos.offset().left - 400);
+            }, 1000);
+        };
+        model.SequenceChart.EditActivity = function (id, o) {
+            var url = "@Url.Action("GetDetailSimulation")";
+            var param = { BucketId: id };
+
+            ajaxPost(url, param, function (res) {
+                if (res.Result != "OK") {
+                    alert(res.Message);
+                    return;
+                }
+
+                model.AddNewDetail(ko.mapping.fromJS(res.Data));
+                model.bpmodel().MoveToNearestDate(false);
+                $("#modal-add-event [name='Event']").data("kendoDropDownList").enable(false);
+                if (model.Locked()==false) {
+                    $("#modal-add-event").modal("show");
+                }
+            });
+        };
+
+        prepareFilter();
+        $('[data-sequence-chart-model=opsSequence]').prop('checked', true);
+        $('[data-sequence-chart-model=planningSequence]').prop('checked', true);
+        $('[data-sequence-chart-model=previousWeek]').prop('checked', true);
+        prepareOther();
+    });
+</script>

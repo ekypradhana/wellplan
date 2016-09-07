@@ -1,0 +1,304 @@
+﻿@{
+    ViewBag.Title = "User Log Activity";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using Newtonsoft.Json
+@using ECIS.Core
+@using ECIS.Client.WEIS
+@using ECIS.Identity
+
+<style>
+    .form_container .col-md-3 {
+        padding-top: 0px !important;
+        padding-left: 0px !important;
+    }
+
+    .form_container .col-md-9 {
+        padding-left: 0px !important;
+    }
+
+    .toolbar > .col-md-4 {
+        margin-bottom: 5px;
+    }
+
+    .toolbar .col-md-4 .col-md-4 {
+        padding-right: 0px !important;
+        padding-top: 4px;
+        text-align: right;
+    }
+
+    .toolbar .col-md-8 {
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+    }
+
+    .toolbar label {
+        margin-right: 4px;
+    }
+
+    .toolbar input {
+        height: auto !important;
+        padding: 0px 4px !important;
+        width: 100%;
+    }
+
+    .grid {
+        margin-bottom: 20px;
+    }
+
+    #form-add-role .col-md-9 {
+        padding-left: 0px;
+    }
+
+    #form-add-role .col-md-3 {
+        text-align: right;
+        padding-right: 0px !important;
+        padding-top: 5px;
+    }
+
+    #form-add-role .row {
+        margin-bottom: 5px;
+    }
+</style>
+
+<script>
+    model.PageId("Administration");
+    model.UserNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("Users")
+        .Select(d => d.GetString("UserName")).OrderBy(d => d))));
+    model.WellNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISWellNames")
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d))));
+    model.RigNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigNames")
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d))));
+    model.userLogModel = ko.observable({
+        WellName: ko.observableArray([]),
+        RigName: ko.observableArray([]),
+        UserName: ko.observableArray([]),
+    });
+
+    $(document).ready(function () {
+        input2datePicker($("#DateStart"));
+        input2datePicker($("#DateFinish"));
+        $("#GroupBy").kendoDropDownList({
+            dataSource: [{ Name: "Username", Id: "UserName" }, { Name: "Well", Id: "WellName" }, { Name: "Rig", Id: "RigName" }, {Name:"Daily",Id:"Daily"}, { Name:"Weekly",Id:"Weekly"}, { Name:"Monthly",Id:"Monthly" }],
+            dataTextField: "Name",
+            dataValueField: "Id"
+        });
+        refresh();
+    });
+
+    function refresh() {
+        var url = "@Url.Action("GetDataLogUser")";
+        var data = {
+            UserName: $("#UserName").data("kendoMultiSelect").value(),
+            WellName: $("#WellName").data("kendoMultiSelect").value(),
+            RigName: $("#RigName").data("kendoMultiSelect").value(),
+            PeriodStart: $("#DateStart").data("kendoDatePicker").value(),
+            PeriodFinish: $("#DateFinish").data("kendoDatePicker").value(),
+            GroupedBy: $("#GroupBy").val(),
+        };
+        ajaxPost(url, data,
+            function (data) {
+                RenderGrid(data.Data, data.Key);
+                renderChart2(data);
+                console.log(data);
+            });
+    }
+
+    function RenderGrid(Data, Key) {
+        $("#grid").find("#grid_wrapper").replaceWith($('<div />').attr("id", "grid_wrapper"));
+        var gridColumns = [
+           { field: "Key", title: Key },
+           { field: "NumberOfLogin", title: "Total Login" },
+           { field: "NumberOfUniqueUser", title: "Unique User" },
+           { field: "Duration", title: "Total Duration", template:"#= CountHours(Duration)#" }
+        ];
+
+        $('#grid_wrapper').kendoGrid({
+            dataSource: {
+                data: Data,
+                pageSize: 10,
+            },
+            pageable: true,
+            columns:gridColumns
+        });
+    }
+
+    function renderChart2(data) {
+        var chart = $("#chart_wrapper");
+        var wid = screen.width * 0.90;
+        var chartSetting = {
+            dataSource: ({
+                data: data.Data,
+                //sort: { field: "Period" }
+            }),
+            legend: {
+                position: "bottom"
+            },
+            seriesDefaults: {
+                labels: {
+                    visible: true,
+                    font: "9px arial",
+                    format: "{0:N0}",
+                    background: "transparent"
+                }
+            },
+            series: [
+
+            ],
+            //valueAxis: {
+            //    labels: {
+            //        font: "9px arial"
+            //    }
+            //},
+            valueAxes: [
+
+                {
+                    name: "Duration",
+                    title: { text: "Duration Summary" },
+                    min: data.MinDuration - (0.9 * data.MinDuration),
+                    max: data.MaxDuration,
+                    visible: false,
+                    // majorUnit: 1000
+                },
+                {
+                    //title: { text: "miles" },
+                    name: "Login",
+                    min: data.MinLogin * -3,
+                    max: data.MaxLogin + data.MaxLogin * 5,
+                    //min: -10,
+                    //max: data.AmountMax,
+                    visible: false
+                    //majorUnit: 10000000
+                },
+                {
+                    //title: { text: "miles" },
+                    name: "Unique",
+                    min: data.MinUnique - 0.7 * data.MinUnique,
+                    max: data.MaxUnique * 10,
+                    //min: -10,
+                    //max: data.AmountMax,
+                    visible: false
+                    //majorUnit: 10000000
+                }
+            ],
+            categoryAxis: {
+                field: "Key",
+                labels: { font: "9px arial" },
+                rotation: 60,
+                majorGridLines: { visible: false },
+                // axisCrossingValues: 0
+            },
+            chartArea: {
+                width: wid,
+                //height: 200
+            },
+
+        };
+
+        chartSetting.series.push({ type: "line", name: "Total Duration", field: "Duration", markers: { visible: true }, labels: { visible: true, template: "#= CountHours(value) #" }, width: 2, format: "{0:N1}", color: "aqua", axis: "Duration", tooltip: { visible: true, template: "#= series.name #" + " : " + '#= CountHours(value) #' } });
+        chartSetting.series.push({ type: "line", name: "Number Of Login", field: "NumberOfLogin", markers: { visible: true }, labels: {}, width: 2, format: "{0:N1}", color: "green", axis: "Login", tooltip: { visible: true, template: "#= series.name #" + " : " + '#= value #' } });
+        chartSetting.series.push({ type: "line", name: "Number Of Unique User", field: "NumberOfUniqueUser", markers: { visible: true }, labels: {}, width: 2, format: "{0:N1}", color: "orange", axis: "Unique", tooltip: { visible: true, template: "#= series.name #" + " : " + '#= value #' } });
+
+        chart.html("");
+        chart.kendoChart(chartSetting);
+    }
+
+    function CountHours(sec) {
+        return Math.round(sec / 3600) + " Hours";
+    }
+
+
+   
+
+</script>
+
+<div class="col-md-12">
+
+    <div class="toolbar col-md-12 row" style="margin-bottom: 20px;">
+
+        <div class="col-md-4">
+            <div class="col-md-4">
+                <label>User Name:</label>
+            </div>
+            <div class="col-md-8">
+                <select id="UserName" data-bind="kendoMultiSelect: { dataSource: UserNames }"></select>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="col-md-4">
+                <label>Rig Name:</label>
+            </div>
+            <div class="col-md-8">
+                <select id="RigName" data-bind="kendoMultiSelect: { dataSource: RigNames }"></select>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="col-md-4">
+                <label>Well Name:</label>
+            </div>
+            <div class="col-md-8">
+                <select id="WellName" data-bind="kendoMultiSelect: { dataSource: WellNames }"></select>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="col-md-4">
+                <label>Period Start:</label>
+            </div>
+            <div class="col-md-8">
+                <input id="DateStart" />
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="col-md-4">
+                <label>Period Finish:</label>
+            </div>
+            <div class="col-md-8">
+                <input id="DateFinish" />
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="col-md-4">
+                <label>Group By:</label>
+            </div>
+            <div class="col-md-8">
+                <select id="GroupBy"></select>
+            </div>
+        </div>
+        <div class="col-md-8">&nbsp;</div>
+
+        <div class="clearfix" style="margin-bottom: 20px;"></div>
+
+        <div class="col-md-12" style="text-align: right;">
+            <button class="btn btn-primary btn-custom btn-sm" data-bind="" onclick="refresh();">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+        </div>
+
+        <div class="clearfix"></div>
+    </div>
+
+    <!-- Nav tabs -->
+    <ul class="nav nav-tabs" role="tablist" style="margin-top: 10px">
+        <li role="presentation" class="active">
+            <a href="#chart" role="tab" data-toggle="tab">Chart</a>
+        </li>
+        <li role="presentation">
+            <a href="#grid" role="tab" data-toggle="tab">Data</a>
+        </li>
+    </ul>
+
+    <!-- Tab panes -->
+    <div class="tab-content" style="padding-top: 10px;">
+        <div role="tabpanel" class="tab-pane active" id="chart">
+            <div id="chart_wrapper"></div>
+        </div>
+        <div role="tabpanel" class="tab-pane" id="grid">
+            <div id="grid_wrapper"></div>
+        </div>
+    </div>
+</div>

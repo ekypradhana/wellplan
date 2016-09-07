@@ -1,0 +1,83 @@
+﻿<script>
+    var buildfooterTotalCR = function () {
+
+        var footer = "";
+        footer += "<tr class='k-footer-template'><td colspan='5' style='text-align:right'>Realized Total</td><td><div id='sfooter20' class='cell-number' data-bind='text:model.wrmodel().DaysPlanImprovementTotal_RealCR()'></div></td><td><div id='sfooter21' class='cell-number' data-bind='text:model.wrmodel().DaysPlanRiskTotal_RealCR()'></div></td><td><div id='sfooter22' class='cell-number' data-bind='text:model.wrmodel().CostPlanImprovementTotal_RealCR()'></div></td><td><div id='sfooter23' class='cell-number' data-bind='text:model.wrmodel().CostPlanRiskTotal_RealCR()'></div></td><td><div id='sfooter24' class='cell-number' data-bind='text:model.wrmodel().CostCurrentWeekImprovementTotal_RealCR()'></div></td><td><div id='sfooter25' class='cell-number' data-bind='text:model.wrmodel().CostCurrentWeekRiskTotal_RealCR()'></div></td><td><div id='sfooter26' class='cell-number' data-bind='text:model.wrmodel().DaysCurrentWeekImprovementTotal_RealCR()'></div></td><td><div id='sfooter27' class='cell-number' data-bind='text:model.wrmodel().DaysCurrentWeekRiskTotal_RealCR()'></div></td><td></td><td></td><td></td></tr>";
+        footer += "<tr class='k-footer-template'><td colspan='5' style='text-align:right'>Not Realized Total</td><td><div id='sfooter28' class='cell-number' data-bind='text:model.wrmodel().DaysPlanImprovementTotal_NotRealCR()'></div></td><td><div id='sfooter29' class='cell-number' data-bind='text:model.wrmodel().DaysPlanRiskTotal_NotRealCR()'></div></td><td><div id='sfooter30' class='cell-number' data-bind='text:model.wrmodel().CostPlanImprovementTotal_NotRealCR()'></div></td><td><div id='sfooter31' class='cell-number' data-bind='text:model.wrmodel().CostPlanRiskTotal_NotRealCR()'></div></td><td><div id='sfooter32' class='cell-number' data-bind='text:model.wrmodel().CostCurrentWeekImprovementTotal_NotRealCR()'></div></td><td><div id='sfooter33' class='cell-number' data-bind='text:model.wrmodel().CostCurrentWeekRiskTotal_NotRealCR()'></div></td><td><div id='sfooter34' class='cell-number' data-bind='text:model.wrmodel().DaysCurrentWeekImprovementTotal_NotRealCR()'></div></td><td><div id='sfooter35' class='cell-number' data-bind='text:model.wrmodel().DaysCurrentWeekRiskTotal_NotRealCR()'></div></td><td></td><td></td><td></td></tr>";
+        footer += "<tr class='k-footer-template'><td colspan='5' style='text-align:right'>Total</td><td><div id='footer11' class='cell-number' data-bind='text:model.wrmodel().DaysPlanImprovementTotal_CR()'></div></td><td><div id='footer12' class='cell-number' data-bind='text:model.wrmodel().DaysLastWeekRiskTotal_CR()'></div></td><td><div id='footer13' class='cell-number' data-bind='text:model.wrmodel().CostPlanImprovementTotal_CR()'></div></td><td><div id='footer14' class='cell-number' data-bind='text:model.wrmodel().CostLastWeekRiskTotal_CR()'></div></td><td><div id='footer15' class='cell-number' data-bind='text:model.wrmodel().DaysCurrentWeekImprovementTotal_CR()'></div></td><td><div id='footer16' class='cell-number' data-bind='text:model.wrmodel().DaysCurrentWeekRiskTotal_CR()'></div></td><td><div id='footer17' class='cell-number' data-bind='text:model.wrmodel().CostCurrentWeekImprovementTotal_CR()'></div></td><td><div id='footer18' class='cell-number' data-bind='text:model.wrmodel().CostCurrentWeekRiskTotal_CR()'></div></td><td></td><td></td><td></td></tr>";
+        return footer;
+    }
+    model.wrmodel().GridRigColumns = [
+        { field: "Title", title: "Idea", width: 140 },//, footerTemplate: buildfooterTotalCR
+        { field: "Period.Start", width: 80, title: "Activity Start", filterable: false, template: "#: jsonDateStr(Period.Start) #", attributes: { class: "cell-date" } },
+        { field: "Period.Finish", width: 80, title: "Activity End", filterable: false, template: "#: jsonDateStr(Period.Finish) #", attributes: { class: "cell-date" } },
+        { field: "Theme", title: "Theme", width: 100 },
+        { field: "Completion", title: "Realized", width: 70, template: '<input type="checkbox" #= Completion == "' + model.constRealized.YES + '" ? "checked=checked" : "" #  disabled />', attributes: { class: "cell-checkbox" } },//onclick="changeRealizedOrNot(this, \'CRElements\')"
+    
+        { field: "DaysPlanImprovement", title: "Plan Days Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("<br />Original<br>Estimate<br>Days Opp", "days") },
+        { field: "DaysPlanRisk", title: "Plan Days Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("<br />Original<br>Estimate<br>Days Risk", "days") },
+        { field: "CostPlanImprovement", title: "Plan Cost", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("<br />Original<br>Estimate<br>Cost Opp", "$ mm") },
+        { field: "CostPlanRisk", title: "Plan Cost", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, template: "#: CostPlanRisk #", headerTemplate: headerTemplate("<br />Original<br>Estimate<br>Cost Risk", "$ mm") },
+        { field: "DaysCurrentWeekImprovement", title: "Last<br>Estimate<br> Days<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(0, "max", "CRElements"), headerTemplate: headerTemplate("Last<br>Estimate<br> Days Opp", "days") },
+        { field: "DaysCurrentWeekRisk", title: "Last<br>Estimate<br> Days<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(0, "min", "CRElements"), headerTemplate: headerTemplate("Last<br>Estimate<br> Days Risk", "days") },
+        { field: "CostCurrentWeekImprovement", title: "Last<br>Estimate<br> Cost<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "max", "CRElements"), headerTemplate: headerTemplate("Last<br>Estimate<br> Cost Opp", "$ mm") },
+        { field: "CostCurrentWeekRisk", title: "Last<br>Estimate<br> Cost<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "min", "CRElements"), headerTemplate: headerTemplate("Last<br>Estimate<br> Cost Risk", "$ mm") },
+    
+        
+        //{ field: "DaysLastWeekImprovement", title: "Prev. LE Days<br />Improvement", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("Prev. LE Days<br />Improvement", "days") },
+        //{ field: "DaysActualImprovement", title: "Actual Days<br />Improvement", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, editor: numberEditor(0, "max", "CRElements"), headerTemplate: headerTemplate("Actual Days<br />Improvement", "days") },
+        //{ field: "DaysCurrentWeekImprovement", title: "LE Days<br />Improvement", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, editor: numberEditor(0, "max", "CRElements"), headerTemplate: headerTemplate("LE Days<br />Improvement", "days")},
+
+        //{ field: "DaysLastWeekRisk", title: "Prev. LE Days<br />Risk", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("Prev. LE Days<br />Risk", "days")},
+        //{ field: "DaysActualRisk", title: "Actual Days<br />Risk", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, editor: numberEditor(0, "min", "CRElements"), headerTemplate: headerTemplate("Actual Days<br />Risk", "days")},
+        //{ field: "DaysCurrentWeekRisk", title: "LE Days<br />Risk", width: 90, format: "{0:N0}", attributes: { class: "cell-number" }, editor: numberEditor(0, "min", "CRElements"), headerTemplate: headerTemplate("LE Days<br />Risk", "days")},
+    
+        //{ field: "CostPlanImprovement", title: "Plan Cost", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, template: "#: CostPlanImprovement + CostPlanRisk #", headerTemplate: headerTemplate("<br />Plan Cost", "$ mm")},
+        //{ field: "CostLastWeekImprovement", title: "Prev. LE Cost<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("Prev. LE Cost<br />Improvement", "$ mm")},
+        //{ field: "CostActualImprovement", title: "Actual Cost<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "max", "CRElements"), headerTemplate: headerTemplate("Actual Cost<br />Improvement", "$ mm") },
+        //{ field: "CostCurrentWeekImprovement", title: "LE Cost<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "max", "CRElements"), headerTemplate: headerTemplate("LE Cost<br />Improvement", "$ mm") },
+    
+        //{ field: "CostLastWeekRisk", title: "Prev. LE Cost<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("Prev. LE Cost<br />Risk", "$ mm") },
+        //{ field: "CostActualRisk", title: "Actual Cost<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "min", "CRElements"), headerTemplate: headerTemplate("Actual Cost<br />Risk", "$ mm")},
+        //{ field: "CostCurrentWeekRisk", title: "LE Cost<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "min", "CRElements"), headerTemplate: headerTemplate("LE Cost<br />Risk", "$ mm")},
+
+        {
+            field: "AssignTOOps", title: "Assigned To OP", filterable: false,
+            width: 100,
+            editor: OPsEditor,
+            template: "#: AssignTOOps.join(', ') #",
+        },  
+
+        { field: "CostAvoidance", title: "Cost<br />Avoidance", width: 90, format: "{0:N2}", attributes: { class: "cell-checkbox", style: "background-color: white !important; pointer-events: none;" }, template: '<input type="checkbox" #= CostAvoidance ? checked="checked" : "" # disabled />' },
+        {
+            field: "_id", title:"Comments", filterable: false, width: 90, attributes: { style: "text-align: center;" }, template: function (dataItem) {
+                return '<span style="cursor:pointer;" class="glyphicon glyphicon-time" title="Click To Allocate" onclick="gridAllocate(\'grid-well-pip\', ' + dataItem.ElementId + ')"></span>&nbsp;<span style="cursor:pointer;" class="glyphicon glyphicon-comment" title="Click to Add Comments" onclick="model.wrmodel().Comments(model.wrmodel().record()._id(), ' + dataItem.ElementId + ')()" data-auid="' + model.wrmodel().record()._id() + '" data-eid="' + dataItem.ElementId + '"><b class="comment-counter">0</b></span>';//&nbsp;<span style="cursor:pointer" class="glyphicon glyphicon-trash" title="Click To Delete" onclick="model.wrmodel().DeleteElement(model.wrmodel().record()._id(), ' + dataItem.ElementId + ')()"></span>
+            }
+        }
+    ];
+
+    
+//    <td>
+//        <input type="checkbox" data-bind="enable:model.wrmodel().record().Status() == 'In-Progress', checked: CostAvoidance">
+//    </td>
+//    <td>
+//        <span style="cursor:pointer;" class="glyphicon glyphicon-time" title="Click To Allocate" data-bind="click:model.wrmodel().openAllocationModal"></span>
+//        &nbsp;
+//    <span style="cursor:pointer" class="glyphicon glyphicon-trash" title="Click To Delete" data-bind="click: model.wrmodel().DeleteElement($parent._id(), ElementId()),visible:model.wrmodel().DetailStatus() == 'In-Progress'"></span>
+//    &nbsp;
+//    <span style="cursor:pointer;" class="glyphicon glyphicon-comment" title="Click to Add Comments"
+//    data-bind="click: model.wrmodel().Comments($parent._id(), ElementId()), attr: { 'data-auid': $parent._id(), 'data-eid': ElementId() }">
+//  <b class="comment-counter">0</b>
+//</span>
+//</td>
+</script>
+
+<table class="table pip-data ecTableCommentary">
+    <thead>
+        <tr>
+            <td colspan="18">Performance Improvement Plan (RIG)</td>
+        </tr>
+    </thead>
+</table>
+
+<div class="wr-el-grid grid-rig-pip" data-bind="kendoGrid: { data:model.wrmodel().record().CRElements,dataSource:model.wrmodel().GridWellDataSource,columns:model.wrmodel().GridRigColumns,pageable:false,sortable:true,filterable:false,editable:false,dataBound:model.wrmodel().GridWellDataBound() }"></div>

@@ -1,0 +1,21 @@
+﻿<div class="col-md-12">
+    <label id="regionalGuidanceGlobalMarket">View Regional Guidance:</label>
+    <input type="text" data-bind="kendoDropDownList:{data:['Australia','Indonesia', 'Singapore']}" id="inputRegional" />
+    <button type="button" class="btn btn-primary btn-sm" style="width:100px" id="submitRegional">Submit</button>
+</div>
+<div class="col-md-12" style="margin-top:10px;">
+    <label style="width:100px;text-align:right">Please Select Rig:</label>
+    <input type="text" data-bind="kendoDropDownList:{data:['Brutus','Auger']}" />
+    <div class="clearfix" style="margin-top:10px;"></div>
+    <label style="width:100px;text-align:right">Rig Selection:</label>
+    <input type="text" />
+    <div class="clearfix" style="margin-top:10px;"></div>
+    <label style="width:100px;text-align:right">Cost Weighting:</label>
+</div>
+<div class="col-md-6">
+    <div class="grid" id="gridglobalmarket" style="margin-top:10px;" data-bind="kendoGrid: { data: model.bpmodel().DataGlobalMarketEscalation, columns: model.bpmodel().ColumnsGlobalMarketEscalation, pageable: false, sortable: false, filterable: false, editable: false, scrollabel:false} "></div>
+</div>
+
+<div class="col-md-12" style="text-align: right;margin-top:20px;">
+    <button class="btn btn-primary btn-sm btn-custom" style="width:100px;">Submit</button>
+</div>

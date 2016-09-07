@@ -1,0 +1,813 @@
+﻿@{
+    ViewBag.Title = "Monthly LE Report";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    model.PageId("Monthly LE");
+    model.Years = ko.observableArray([2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]);
+    model.IsProcessing = ko.observable(false);
+
+    //model.getFilterValues().YearsCalc = new Date().getFullYear();
+</script>
+<style>
+    .label-right {
+        text-align: right;
+        margin-top: 5px;
+    }
+
+    .ec-right {
+        text-align: right;
+    }
+
+    .ec-center {
+        text-align: center;
+    }
+
+    .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .k-grid th[data-field][data-colspan] {
+        color: #A8A8A8;
+        font-weight: bold;
+    }
+
+    .k-detail-cell .k-grid th[data-field="Year"],
+    .k-grid th[data-field="oPeriod.Start"],
+    .k-grid th[data-field="oPeriod.Finish"],
+    .k-grid th[data-field="Period.Start"],
+    .k-grid th[data-field="Period.Finish"],
+    .k-grid th[data-field="PhSchedule.Start"],
+    .k-grid th[data-field="PhSchedule.Finish"],
+    .k-grid th[data-field="oPhSchedule.Start"],
+    .k-grid th[data-field="oPhSchedule.Finish"],
+    .k-grid th[data-field="LESchedule.Start"],
+    .k-grid th[data-field="LESchedule.Finish"],
+    .k-grid th[data-field="oLESchedule.Start"],
+    .k-grid th[data-field="oLESchedule.Finish"],
+    .k-grid th[data-title="Sum of Elements"],
+    .k-grid th[data-title="Show Details"] {
+        text-align: center;
+    }
+
+    .k-grid th[data-title="Show Details"] {
+        pointer-events: none;
+    }
+
+    .k-grid th[data-field="Value"],
+    .k-grid th[data-field="DaysPlanImprovement"],
+    .k-grid th[data-field="DaysPlanRisk"],
+    .k-grid th[data-field="CostPlanImprovement"],
+    .k-grid th[data-field="CostPlanRisk"],
+    .k-grid th[data-field="DaysCurrentWeekImprovement"],
+    .k-grid th[data-field="DaysCurrentWeekRisk"],
+    .k-grid th[data-field="CostCurrentWeekImprovement"],
+    .k-grid th[data-field="CostCurrentWeekRisk"],
+    .k-grid th[data-field="oDaysPlanImprovement"],
+    .k-grid th[data-field="oDaysPlanRisk"],
+    .k-grid th[data-field="oCostPlanImprovement"],
+    .k-grid th[data-field="oCostPlanRisk"],
+    .k-grid th[data-field="oDaysCurrentWeekImprovement"],
+    .k-grid th[data-field="oDaysCurrentWeekRisk"],
+    .k-grid th[data-field="oCostCurrentWeekImprovement"],
+    .k-grid th[data-field="oCostCurrentWeekRisk"],
+    .k-grid th[data-field="LE.Days"],
+    .k-grid th[data-field="LE.Cost"],
+    .k-grid th[data-field="OP.Days"],
+    .k-grid th[data-field="OP.Cost"],
+    .k-grid th[data-field="OPCost"],
+    .k-grid th[data-field="OPDays"],
+    .k-grid th[data-field="LECost"],
+    .k-grid th[data-field="LEDays"],
+    .k-grid th[data-field="oLE.Days"],
+    .k-grid th[data-field="oLE.Cost"],
+    .k-grid th[data-field="oOP.Days"],
+    .k-grid th[data-field="oOP.Cost"],
+    .k-grid th[data-field="OPWithLeCost"],
+    .k-grid th[data-field="OPWithLeDays"],
+    .k-grid th[data-field="CostCurrentWeek"],
+    .k-grid th[data-field="DaysCurrentWeek"],
+    .k-grid th[data-field="CostPlan"],
+    .k-grid th[data-field="DaysPlan"],
+    .k-grid th[data-title="Days"],
+    .k-grid th[data-title="Cost"] {
+        text-align: right;
+    }
+
+    .k-hierarchy-cell a {
+        opacity: 0;
+        pointer-events: none;
+    }
+</style>
+
+<div data-bind="" class="col-md-12">
+
+    @Html.Partial("Filter")
+    <script>
+        //model.FilterVisibility.Date(true);
+        //model.FilterVisibility.Date2(true
+        model.FilterVisibility.Regions(true);
+        model.FilterVisibility.OperatingUnits(true);
+        model.FilterVisibility.RigTypes(true);
+        model.FilterVisibility.PerformanceUnits(false);
+        model.FilterVisibility.Activities(true);
+        model.FilterVisibility.MonthlySequence(false);
+        model.FilterVisibility.YearsCalc(true);
+        model.FilterVisibility.Date(true);
+        model.FilterVisibility.Date2(true);
+        
+    </script>
+
+
+
+    <div data-bind="">
+        @*<div style="margin-bottom:5px;" class="row">
+                <div class="col-sm-12" data-bind="visible:true">
+                    <div class="col-md-4">
+                        <label class="label-right">Business Plan:</label><br />
+                        <select data-bind="kendoDropDownList:{dataSource:['OP14'],value: model.BusinessPlan}"></select>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Monthly Sequence:</label><br />
+                        <input type="text" id="seqDate" class="entry-date" data-bind="kendoDatePicker: { format: '{0:MMM-yyyy}', start: 'year', depth: 'year', value: model.SequenceDate }" />
+                    </div>
+                    <div class="col-md-4">
+                        <label>Years to Calc:</label><br />
+                        <input type="text" data-bind="kendoMultiSelect: { dataSource: Years,value:model.Year }" />
+                    </div>
+                    <br />
+                    <div class="clearfix"></div>
+
+                    <div class="col-md-8; text-right ">
+                        <button class="btn btn-custom btn-warning btn-sm" data-bind="click: model.ReloadData">
+                            <span class="glyphicon glyphicon-refresh"></span> Refresh
+                        </button>&nbsp;&nbsp;&nbsp;&nbsp;
+                    </div>
+
+                    <div class="col-md-4" hidden="hidden">
+                        <label>Breakdown by:</label><br />
+                        <select data-bind="kendoDropDownList:{dataSource:['Classification','Theme','Performance Unit'],value: model.BreakdownBy}"></select>
+                    </div>
+
+                    <div class="col-md-4" hidden="hidden">
+                        <label>Show by:</label><br />
+                        <select data-bind="kendoDropDownList:{dataSource:['Days','Cost'],value: model.ShowBy}"></select>
+                    </div>
+
+                    <div class="col-md-4" hidden="hidden">
+                        <div class="pull-left">
+                            <label>Based on :</label><br />
+                            <select data-bind="kendoDropDownList:{dataSource:['Monthly','Weekly', 'Combine'],value: model.LoadData}"></select>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+                <div class="col-sm-6">
+                    <div class="col-md-3">
+                    </div>
+                    <div class="col-md-7">
+
+                    </div>
+                    <div class="clearfix"></div>
+                    <div class="col-md-12" style="margin-top: 10px;">
+
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+            </div>*@
+
+        <div style="margin-bottom: 10px; margin-top: 10px;"></div>
+
+        <div data-bind="visible: model.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+        
+
+        <div data-bind="visible: !model.IsProcessing()">
+            <ul class="nav nav-tabs">
+                <li class="active"><a href="#chart-view" data-toggle="tab">Waterfall Chart</a></li>
+                <li><a href="#grid-view" data-toggle="tab">Grid View</a></li>
+            </ul>
+            <div class="tab-content">
+                <div class="tab-pane active" id="chart-view">
+                    <div style="margin-top:20px;">
+                        <button class="btn btn-sm btn-custom btn-shell" data-bind="click: model.ExportToPdf">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                    </div>
+                    <div id="chart-container">
+                        <div class="chart"></div>
+                    </div>
+                    <div style="text-align:center">
+                        <label style="background-color:#8AAAE0; width: 20px;">&nbsp;</label>
+                        <label style="font-weight:normal">OP</label>
+                        &nbsp;|&nbsp;
+                        @*<label style="background-color: #E2A037; width: 20px;">&nbsp;</label>
+                        <label style="font-weight:normal">OP w/ LE</label>
+                        &nbsp;|&nbsp;*@
+                        <label style="background-color:#A0C065; width: 20px;">&nbsp;</label>
+                        <label style="font-weight:normal">Classifications</label>
+                        &nbsp;|&nbsp;
+                        <label style="background-color:#888279; width: 20px;">&nbsp;</label>
+                        <label style="font-weight:normal">Accelerate Scope</label>
+                        &nbsp;|&nbsp;
+                        <label style="background-color: #A48EC1; width: 20px;">&nbsp;</label>
+                        <label style="font-weight:normal">LE</label>
+                    </div>
+                </div>
+                <div class="tab-pane row" id="grid-view">
+                    <div id="grid-container" class="col-md-12" style="margin-top:10px;">
+                        <div class="grid"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    model.BusinessPlan = ko.observable("OP-14");
+    model.SequenceDate = ko.observable();
+    model.Year = ko.observableArray([]);
+    model.BreakdownBy = ko.observable("Classification");
+    model.ShowBy = ko.observable("Cost");
+    model.LoadData = ko.observable("Monthly");
+
+
+    // load data within filter supported
+    model.reloadData = function () {
+        //alert("aaaa");
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        ajaxPost("@Url.Action("GetWaterfallOfMonthlyLE")", model.getFilterValues(), function (res) {
+            model.IsProcessing(false);
+            console.log(model.IsProcessing());
+
+            //model.edit(res.Data[0]._id);
+
+            model.GenerateGrid(res.Data.Grid2);
+            GenerateChart(res.Data.Chart);
+
+
+        }, function () {
+            model.IsProcessing(false);
+        });
+    }
+
+
+    function GenerateChart(data) {
+        var config = model.ChartConfig(data);
+
+        $(".chart").replaceWith('<div class="chart"></div>');
+        $(".chart").width($(".chart").closest(".tab-content").parent().width());
+        $(".chart").kendoChart(config);
+
+        $("svg > g > g:gt(2)").each(function (i, e) {
+            if ($(e).find("tspan").html() != '') return;
+            if ($(e).find("tspan").html() != '0.0') return;
+            $(e).hide();
+        });
+    };
+
+    model.SeriesColor = function (point) {
+        if (point.dataItem.title == model.BusinessPlan())
+            return "#8AAAE0";
+
+        if (point.dataItem.title == "OP w/ LE")
+            return "#E2A037";
+
+        if (point.dataItem.title == "Gap to LE")
+            return "#888279";
+
+        if (point.dataItem.title == "LE")
+            return "#A48EC1";
+
+        return "#A0C065";
+    };
+
+    model.RearrangeData = function (data) {
+        var ret = [];
+        for (var i = 0; i < data.length; i++) {
+            if (data[i].title == model.BusinessPlan()) {
+                ret.push({ title: data[i].title, value: data[i].value });
+            } else if (data[i].title == "LE") {
+                ret.push({ title: "LE", valueLE: data[i].value });
+            } else {
+                ret.push({ title: data[i].title, value: data[i].value });
+            }
+        }
+        //console.log(ret);
+        return ret;
+    }
+
+    model.RearrangeDataGrid = function (data) {
+        var ret = [];
+        if (data.length > 0) {
+            var jmlBreakdown = _.filter(data, function (d) { return d.value != 0; }).length - 2;
+            for (var i = 0; i < model.Year().length; i++) {
+                var Year = model.Year()[i];
+                var getOP = _.where(data[0].Details, { Year: model.Year()[i] });
+
+                if (getOP.length > 0) {
+                    var OP = getOP[0].Value;
+                } else {
+                    var OP = 0;
+                }
+
+                var getOP_LE = _.where(data[1].Details, { Year: model.Year()[i] });
+                if (getOP_LE.length > 0) {
+                    var OP_LE = getOP_LE[0].Value;
+                } else {
+                    var OP_LE = 0;
+                }
+
+                var Breakdown = [];
+                for (var j = 2; j < 2 + jmlBreakdown; j++) {
+                    var getBreakdown = _.where(data[j].Details, { Year: model.Year()[i] });
+                    //console.log(getBreakdown);
+                    if (getBreakdown.length > 0) {
+                        Breakdown.push({ Title: getBreakdown[0].Title, Value: getBreakdown[0].Value });
+                    }
+                }
+                var getLE = _.where(data[3 + jmlBreakdown].Details, { Year: model.Year()[i] });
+                if (getLE.length > 0) {
+                    var LE = getLE[0].Value;
+                } else {
+                    var LE = 0;
+                }
+
+                ret.push({ Year: Year, OP: OP, OP_LE: OP_LE, Breakdown: Breakdown, LE: LE });
+                //console.log(ret);
+            }
+        }
+        return ret;
+    }
+
+    model.ChartConfig = function (data) {
+        //console.log(data);
+        var series = model.RearrangeData(data);
+        return {
+            title: "Monthly LE Report - " + moment(model.SequenceDate()).format("MMM-YYYY"),
+            dataSource: {
+                data: series
+            },
+            chartArea: {
+                background: "",
+                height: 400
+            },
+            seriesDefaults: {
+                type: "waterfall",
+                overlay: {
+                    gradient: "none"
+                },
+                border: {
+                    opacity: 0.4
+                }
+            },
+            series: [{
+                type: "waterfall",
+                field: "value",
+                categoryField: "title",
+                summaryField: "summary",
+                color: model.SeriesColor,
+                line: {
+                    visible: false,
+                    width: 0
+                },
+                labels: {
+                    visible: true,
+                    format: "N1",
+                    position: "outsideEnd"
+                },
+                tooltip: {
+                    visible: true,
+                    template: "#: dataItem.title #: #: kendo.format('{0:N2}', value) #"
+                },
+            },
+            {
+                type: "bar",
+                field: "valueLE",
+                categoryField: "title",
+                color: "#A48EC1",
+                line: {
+                    visible: false,
+                    width: 0
+                },
+                labels: {
+                    visible: true,
+                    format: "N1",
+                    position: "outsideEnd",
+                },
+                tooltip: {
+                    visible: true,
+                    template: "#: dataItem.title #: #: kendo.format('{0:N2}', value) #"
+                },
+            }
+            ],
+            legend: { visible: false, position: "bottom" },
+            valueAxis: {
+                labels: { font: "9px verdana", format: "N1" },
+                majorGridLines: { visible: false }
+            },
+            categoryAxis: {
+                labels: { font: "9px verdana", rotation: 40 },
+                majorGridLines: { visible: false }
+            },
+        };
+    };
+
+    model.ExportToPdf = function () {
+        $("#chart-container > .chart").data("kendoChart").saveAsPDF()
+    };
+
+    model.DummyGridData = [
+        {
+            Year: 2014,
+            OP: 10,
+            OP_LE: 20,
+            Breakdown: [
+                { "Title": "Efficient Execution", "Value": 10 },
+                { "Title": "Supply Chain Transformation", "Value": 10 },
+                { "Title": "Competitive Scope", "Value": 10 },
+                { "Title": "Technology and Innovation", "Value": 10 },
+            ],
+            LE: 50
+        },
+        {
+            Year: 2015,
+            OP: 10,
+            OP_LE: 20,
+            Breakdown: [
+                { "Title": "Efficient Execution", "Value": 10 },
+                { "Title": "Supply Chain Transformation", "Value": 10 },
+                { "Title": "Competitive Scope", "Value": 10 },
+                { "Title": "Technology and Innovation", "Value": 10 },
+            ],
+            LE: 50
+        }
+    ];
+
+    model.GridColumns = function (data) {
+        var cols = [];
+        //console.log("GRID");
+        //console.log(data.OPs);
+        //console.log(data.LEs);
+
+        cols.push({ field: "Year", title: "Year" });
+        cols.push({ field: "OP", title: "OP", attributes: { "class": "ec-right" } });
+        cols.push({ field: "OP_LE", title: "OP w/ LE", attributes: { "class": "ec-right" } });
+        if (data.length > 0) {
+            var breakdown = data[0].Breakdown;
+            var breakdownCol = [];
+            for (var i = 0; i < breakdown.length; i++) {
+                breakdownCol.push({ field: "Breakdown[" + i + "].Value", title: breakdown[i].Title, attributes: { "class": "ec-right" } });
+            }
+
+            var breakdownHead = { title: model.BreakdownBy(), columns: breakdownCol, headerAttributes: { "style": "text-align:center;color:#a8a8a8" } };
+            cols.push(breakdownHead);
+        }
+        cols.push({ field: "LE", title: "Calculated LE", attributes: { "class": "ec-right" } })
+        return cols;
+    };
+
+    model.GridDetailsButton = function () {
+        return '<button type="button" class="btn btn-custom btn-sm btn-primary" data-meta="details" onclick="model.GridExpand(this)">Details</button>';
+        return [
+            '<div class="btn-group btn-group-sm" role="group">',
+                '<button type="button" class="btn btn-custom btn-primary" data-meta="details" onclick="model.GridExpand(this)">Details</button>',
+                '<button type="button" class="btn btn-custom btn-primary" data-meta="op-details" onclick="model.GridExpand(this)" style="display:none;">OP Details</button>',
+                '<button type="button" class="btn btn-custom btn-primary" data-meta="le-details" onclick="model.GridExpand(this)" style="display:none;">LE Details</button>',
+            '</div>'
+        ].join("");
+    };
+
+    model.ActiveRow = {};
+
+    model.GridExpand = function (o) {
+        var which = $(o).data("meta");
+        var $row = $(o).closest(".k-master-row");
+        var $grid = $(".grid").data("kendoGrid");
+        var isSameButton = ($row.find(".btn.active").size() > 0 ? ($row.find(".btn.active")[0] == o) : false);
+
+        $(".grid").find(".k-master-row").each(function (i, each) {
+            $grid.collapseRow(each);
+            $(each).find(".btn.active").removeClass("active");
+        });
+
+        if (isSameButton) {
+            $row.find(".btn.active");
+            return;
+        }
+
+        $grid.expandRow($row);
+
+        $(o).siblings().removeClass("active");
+        $(o).addClass("active");
+
+        var data = $grid.dataSource.getByUid($row.data("uid"));
+        var detailCell = $row.next().find(".k-detail-cell");
+        detailCell.empty();
+
+        var footerForNumber = function (data, decimalPlace) {
+            decimalPlace = (decimalPlace == undefined) ? 2 : decimalPlace;
+            return "<div class='ec-right'>#: kendo.format('{0:N" + decimalPlace + "}', " + data + ") #</div>";
+        };
+
+        if (which == "details") {
+            console.log("data");
+            console.log(data);
+
+            var periodDays = footerForNumber(_.reduce(data.Details, function (x, m) {
+                return x + moment(m.Period.Finish).diff(moment(m.Period.Start), "days")
+            }, 0), 0);
+            var oPeriodDays = footerForNumber(_.reduce(data.Details, function (x, m) {
+                return x + moment(m.oPeriod.Finish).diff(moment(m.oPeriod.Start), "days")
+            }, 0), 0);
+
+            $("<div />").addClass("child-detail").appendTo(detailCell).kendoGrid({
+                dataSource: {
+                    data: data.Details,
+                    pageSize: 10,
+                    aggregate: [
+                        { field: "DaysPlanImprovement", aggregate: "sum" },
+                        { field: "DaysPlanRisk", aggregate: "sum" },
+                        { field: "CostPlanImprovement", aggregate: "sum" },
+                        { field: "CostPlanRisk", aggregate: "sum" },
+                        { field: "oDaysPlanImprovement", aggregate: "sum" },
+                        { field: "oDaysPlanRisk", aggregate: "sum" },
+                        { field: "oCostPlanImprovement", aggregate: "sum" },
+                        { field: "oCostPlanRisk", aggregate: "sum" },
+                        { field: "DaysCurrentWeekImprovement", aggregate: "sum" },
+                        { field: "DaysCurrentWeekRisk", aggregate: "sum" },
+                        { field: "CostCurrentWeekImprovement", aggregate: "sum" },
+                        { field: "CostCurrentWeekRisk", aggregate: "sum" },
+                        { field: "oDaysCurrentWeekImprovement", aggregate: "sum" },
+                        { field: "oDaysCurrentWeekRisk", aggregate: "sum" },
+                        { field: "oCostCurrentWeekImprovement", aggregate: "sum" },
+                        { field: "oCostCurrentWeekRisk", aggregate: "sum" },
+                    ]
+                },
+                sortable: true,
+                pageable: true,
+                columns: [
+                    { field: "Year", title: "Year", width: 50, locked: true, attributes: { class: 'ec-center' } },
+                    { field: "WellName", title: "Well Name", width: 130, locked: true },
+                    { field: "ActivityType", title: "Activity Category", width: 200, locked: true },
+                    { field: "Idea", title: "Idea", width: 300 },
+                   // { field: "SequenceId", title: "Sequence ID", width: 90, locked: true, footerTemplate: "<div class='ec-right'>Total :</div>" },
+                    //{ field: "Value", title: "Proportion <br>No.of.Days<br>per Years (%)", width: 100, template: function (dataItem) { return (dataItem.Value * 100).toFixed(2) + " %" }, attributes: { class: 'ec-right' } },
+                    {
+                        title: "Calculated Period", columns: [
+                          { field: "Period.Start", title: "Date Start", width: 100, template: function (dataItem) { return jsonDateStr(dataItem.Period.Start, 'dd-MMM-yyyy') }, attributes: { class: 'ec-center' } },
+                          { field: "Period.Finish", title: "Date Finish", width: 100, template: function (dataItem) { return jsonDateStr(dataItem.Period.Finish, 'dd-MMM-yyyy') }, attributes: { class: 'ec-center' } },
+                          { field: "#", title: "Days", width: 80, template: function (dataItem) { return parseInt(moment(dataItem.Period.Finish).diff(moment(dataItem.Period.Start), "days")) + 1 }, attributes: { class: 'ec-right' }, footerTemplate: periodDays },
+                        ]
+                    },
+                    {
+                        title: "Original Element Period", columns: [
+                          { field: "oPeriod.Start", title: "Date Start", width: 100, template: function (dataItem) { return jsonDateStr(dataItem.oPeriod.Start, 'dd-MMM-yyyy') }, attributes: { class: 'ec-center' } },
+                          { field: "oPeriod.Finish", title: "Date Finish", width: 100, template: function (dataItem) { return jsonDateStr(dataItem.oPeriod.Finish, 'dd-MMM-yyyy') }, attributes: { class: 'ec-center' } },
+                          { field: "#", title: "Days", width: 80, template: function (dataItem) { return parseInt(moment(dataItem.oPeriod.Finish).diff(moment(dataItem.oPeriod.Start), "days")) + 1 }, attributes: { class: 'ec-right' }, footerTemplate: oPeriodDays },
+                        ]
+                    },
+                        //{
+                        //    title: "Calculated Plan", columns: [
+                        //      { field: "DaysPlanImprovement", title: "Plan Days Opp", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                        //      { field: "DaysPlanRisk", title: "Plan Days Risk", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                        //      { field: "CostPlanImprovement", title: "Plan Cost Opp", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                        //      { field: "CostPlanRisk", title: "Plan Cost Risk", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                        //    ]
+                        //},
+                        //{
+                        //    title: "Original Plan", columns: [
+                        //      { field: "oDaysPlanImprovement", title: "Plan Days Opp", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                        //      { field: "oDaysPlanRisk", title: "Plan Days Risk", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                        //      { field: "oCostPlanImprovement", title: "Plan Cost Opp", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                        //      { field: "oCostPlanRisk", title: "Plan Cost Risk", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                        //    ]
+                        //},
+                    //{
+                    //    title: "Calculated Last Estimate", columns: [
+                    //      { field: "DaysCurrentWeekImprovement", title: "LE Days Opp", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                    //      { field: "DaysCurrentWeekRisk", title: "LE Days Risk", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                    //      { field: "CostCurrentWeekImprovement", title: "LE Cost Opp", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                    //      { field: "CostCurrentWeekRisk", title: "LE Cost Risk", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                    //    ]
+                    //},
+                    //{
+                    //    title: "Original Last Estimate", columns: [
+                    //      { field: "oDaysCurrentWeekImprovement", title: "LE Days Opp", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                    //      { field: "oDaysCurrentWeekRisk", title: "LE Days Risk", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                    //      { field: "oCostCurrentWeekImprovement", title: "LE Cost Opp", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                    //      { field: "oCostCurrentWeekRisk", title: "LE Cost Risk", format: "{0:N2}", width: 100, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                    //    ]
+                    //},
+                    
+                ]
+            });
+        } else if (which == "le-details") {
+            $("<div />").addClass("child-le-detail").appendTo(detailCell).kendoGrid({
+                dataSource: {
+                    data: data.LEs,
+                    pageSize: 10,
+                    aggregate: [
+                        { field: "LE.Days", aggregate: "sum" },
+                        { field: "LE.Cost", aggregate: "sum" },
+                        { field: "oLE.Days", aggregate: "sum" },
+                        { field: "oLE.Cost", aggregate: "sum" },
+                    ]
+                },
+                sortable: true,
+                pageable: true,
+                columns: [
+                    { field: "Year", title: "Year", width: 50, locked: true, attributes: { class: 'ec-center' } },
+                    { field: "RigName", title: "Rig Name", width: 130, locked: true },
+                    { field: "ActivityType", title: "Activity Category", width: 200, locked: true },
+                    { field: "SequenceId", title: "Sequence ID", width: 90, locked: true, footerTemplate: "<div class='ec-right'>Total :</div>" },
+                    { field: "Value", title: "Percentage (%)", width: 100, template: function (dataItem) { return (dataItem.Value * 100).toFixed(2) + " %" }, attributes: { class: 'ec-right' } },
+                    {
+                        title: "Calculated Last Estimate", columns: [
+                          { field: "LESchedule.Start", title: "Date Start", width: 100, template: function (dataItem) { return jsonDateStr(dataItem.LESchedule.Start, 'dd-MMM-yyyy') }, attributes: { class: 'ec-center' } },
+                          { field: "LESchedule.Finish", title: "Date Finish", width: 100, template: function (dataItem) { return jsonDateStr(dataItem.LESchedule.Finish, 'dd-MMM-yyyy') }, attributes: { class: 'ec-center' } },
+                          { field: "LE.Days", title: "Days", format: "{0:N0}", width: 80, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum", 0) },
+                          { field: "LE.Cost", title: "Cost", format: "{0:N2}", width: 130, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                        ]
+                    }, {
+                        title: "Original Last Estimate", columns: [
+                          { field: "oLESchedule.Start", title: "Date Start", width: 100, template: function (dataItem) { return jsonDateStr(dataItem.oLESchedule.Start, 'dd-MMM-yyyy') }, attributes: { class: 'ec-center' } },
+                          { field: "oLESchedule.Finish", title: "Date Finish", width: 100, template: function (dataItem) { return jsonDateStr(dataItem.oLESchedule.Finish, 'dd-MMM-yyyy') }, attributes: { class: 'ec-center' } },
+                          { field: "oLE.Days", title: "Days", format: "{0:N0}", width: 80, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum", 0) },
+                          { field: "oLE.Cost", title: "Cost", format: "{0:N2}", width: 130, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                        ]
+                    }
+                ]
+            });
+        } else if (which == "op-details") {
+            console.log(data);
+            $("<div />").addClass("child-op-detail").appendTo(detailCell).kendoGrid({
+                dataSource: {
+                    data: data.OPs,
+                    pageSize: 10,
+                    aggregate: [
+                        { field: "OP.Days", aggregate: "sum" },
+                        { field: "OP.Cost", aggregate: "sum" },
+                        { field: "oOP.Days", aggregate: "sum" },
+                        { field: "oOP.Cost", aggregate: "sum" },
+                    ]
+                },
+                sortable: true,
+                pageable: true,
+                columns: [
+                    { field: "Year", title: "Year", width: 50, locked: true, attributes: { class: 'ec-center' } },
+                    { field: "RigName", title: "Rig Name", width: 130, locked: true },
+                    { field: "ActivityType", title: "Activity Category", width: 200, locked: true },
+                    { field: "SequenceId", title: "Sequence ID", width: 90, locked: true, footerTemplate: "<div class='ec-right'>Total :</div>" },
+                    { field: "Value", title: "Percentage (%)", width: 100, template: function (dataItem) { return (dataItem.Value * 100).toFixed(2) + " %" }, attributes: { class: 'ec-right' } },
+                    {
+                        title: "Calculated Plan", columns: [
+                          { field: "PhSchedule.Start", title: "Date Start", width: 100, template: function (dataItem) { return jsonDateStr(dataItem.PhSchedule.Start, 'dd-MMM-yyyy') }, attributes: { class: 'ec-center' } },
+                          { field: "PhSchedule.Finish", title: "Date Finish", width: 100, template: function (dataItem) { return jsonDateStr(dataItem.PhSchedule.Finish, 'dd-MMM-yyyy') }, attributes: { class: 'ec-center' } },
+                          { field: "OP.Days", title: "Days", format: "{0:N0}", width: 80, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum", 0) },
+                          { field: "OP.Cost", title: "Cost", format: "{0:N2}", width: 130, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                        ]
+                    }, {
+                        title: "Original Plan", columns: [
+                          { field: "oPhSchedule.Start", title: "Date Start", width: 100, template: function (dataItem) { return jsonDateStr(dataItem.oPhSchedule.Start, 'dd-MMM-yyyy') }, attributes: { class: 'ec-center' } },
+                          { field: "oPhSchedule.Finish", title: "Date Finish", width: 100, template: function (dataItem) { return jsonDateStr(dataItem.oPhSchedule.Finish, 'dd-MMM-yyyy') }, attributes: { class: 'ec-center' } },
+                          { field: "oOP.Days", title: "Days", format: "{0:N0}", width: 80, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum", 0) },
+                          { field: "oOP.Cost", title: "Cost", format: "{0:N2}", width: 130, attributes: { class: 'ec-right' }, aggregate: ["sum"], footerTemplate: footerForNumber("sum") },
+                        ]
+                    }
+                ]
+            });
+        }
+    }
+
+    model.GenerateGrid = function (data1) {
+        $('.grid').replaceWith($('<div />').attr('class', 'grid'));
+
+        var columnPhases = [
+            { field: "Year", title: "Year", width: 100 },
+            { field: "OP", format: "{0:N2}", attributes: { class: "ec-right" }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N2}', sum ) #</div>" },
+            { field: "Competitive_Scope", title: "Competitive Scope", format: "{0:N2}", attributes: { class: "ec-right" }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N2}', sum ) #</div>" },
+            { field: "Supply_Chain_Transformation", title: "Supply Chain Transformation", format: "{0:N2}", attributes: { class: "ec-right" }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N2}', sum ) #</div>" },
+            { field: "Efficient_Execution", title: "Efficient Execution", format: "{0:N2}", attributes: { class: "ec-right" }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N2}', sum ) #</div>" },
+            { field: "Technology_and_Innovation", title: "Technology and Innovation", format: "{0:N2}", attributes: { class: "ec-right" }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N2}', sum ) #</div>" },
+            { field: "LE", format: "{0:N2}", attributes: { class: "ec-right" }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N2}', sum ) #</div>" },
+        ];
+
+        columnPhases = columnPhases.concat([
+            { field: "#", title: "Show Details", template: model.GridDetailsButton(), width: 100 }
+        ]);
+
+        var dataSource = new kendo.data.DataSource({
+            data: data1,
+            pageSize: 10,
+            aggregate: [
+                { field: "OP", aggregate: "sum" },
+                { field: "Competitive_Scope", aggregate: "sum" },
+                { field: "Supply_Chain_Transformation", aggregate: "sum" },
+                { field: "Efficient_Execution", aggregate: "sum" },
+                { field: "Technology_and_Innovation", aggregate: "sum" },
+                { field: "LE", aggregate: "sum" },
+            ]
+        });
+
+        $(".grid").kendoGrid({
+            columns: columnPhases,
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            scrollable: true,
+            detailInit: function (e) {
+                model.ActiveRow = e;
+            },
+            dataSource: dataSource
+        });
+    };
+
+    model.GenerateGridOld = function (data1) {
+        $('.grid').replaceWith($('<div />').attr('class', 'grid'));
+
+        var columnPhases = [
+            { field: "Year", title: "Year", width: 100 },
+            { field: "Title", title: model.BreakdownBy(), footerTemplate: "<div class='ec-right'>Total :</div>" }
+        ];
+
+        if (model.ShowBy() == "Cost") {
+            columnPhases = columnPhases.concat([
+                //{ field: "OPCost", title: "Plan Cost", format: "{0:N1}", attributes: { class: 'ec-right' }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N1}', sum) #</div>" },
+                //{ field: "OPWithLeCost", title: "OP w/ LE Cost", format: "{0:N1}", attributes: { class: 'ec-right' }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N1}', sum) #</div>" },
+                { field: "CostCurrentWeek", title: "Total Realized Elements Cost (mln $)", format: "{0:N1}", attributes: { class: 'ec-right' }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N1}', sum ) #</div>" },
+                //{ field: "LECost", title: "LE Cost", format: "{0:N2}", attributes: { class: 'ec-right' }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N1}', sum) #</div>" },
+            ]);
+        } else {
+            columnPhases = columnPhases.concat([
+                { field: "OPDays", title: "Plan Days", format: "{0:N2}", attributes: { class: 'ec-right' }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N2}', sum) #</div>" },
+                { field: "OPWithLeDays", title: "OP w/ LE Days", format: "{0:N2}", attributes: { class: 'ec-right' }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N2}', sum) #</div>" },
+                { field: "DaysCurrentWeek", title: "Total Elements Days", format: "{0:N2}", attributes: { class: 'ec-right' }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N2}', sum ) #</div>" },
+                { field: "LEDays", title: "LE Days", format: "{0:N2}", attributes: { class: 'ec-right' }, aggregates: ["sum"], footerTemplate: "<div class='ec-right'>#: kendo.format('{0:N2}', sum) #</div>" },
+            ]);
+        }
+
+        columnPhases = columnPhases.concat([
+            { field: "#", title: "Show Details", template: model.GridDetailsButton(), width: 100 }
+        ]);
+
+        var dataSource = new kendo.data.DataSource({
+            data: data1,
+            pageSize: 5,
+            aggregate: (function () {
+                if (model.ShowBy() == "Cost") {
+                    return [
+                        { field: "OPCost", aggregate: "sum" },
+                        { field: "OPWithLeCost", aggregate: "sum" },
+                        { field: "CostCurrentWeek", aggregate: "sum" },
+                        { field: "LECost", aggregate: "sum" },
+                    ];
+                } else {
+                    return [
+                        { field: "OPDays", aggregate: "sum" },
+                        { field: "OPWithLeDays", aggregate: "sum" },
+                        { field: "DaysCurrentWeek", aggregate: "sum" },
+                        { field: "LEDays", aggregate: "sum" },
+                    ];
+                }
+            }())
+        });
+
+        $(".grid").kendoGrid({
+            columns: columnPhases,
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            scrollable: true,
+            detailInit: function (e) {
+                model.ActiveRow = e;
+            },
+            dataSource: dataSource
+        });
+    }
+
+    $(document).ready(function () {
+        //var years = [];
+        //for (var i = 2014; i <= 2022; i++) {
+        //    years.push(i);
+        //}
+        //model.Years(years);
+
+
+        //$("#seqDate").data("kendoDatePicker").value(moment(new Date()).format('MMM-YYYY'));
+        model.getFilterValues().YearsCalc = new Date().getFullYear();
+
+        var arr = [];
+        arr.push(new Date().getFullYear());
+        $("[data-model=YearsCalc]").data('kendoMultiSelect').value(arr);
+
+        model.reloadData();
+    });
+</script>

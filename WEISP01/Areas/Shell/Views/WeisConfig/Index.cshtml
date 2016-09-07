@@ -1,0 +1,160 @@
+﻿@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core
+@using ECIS.Client.WEIS
+
+<script>
+    model.PageId("Administration");
+
+    var roles = @MvcTools.Obj2HtmlStr(WEISRole.Populate<WEISRole>().Select(d => new { _id = d._id, Title = d.RoleName }).OrderBy(d => d.Title));
+</script>
+
+<h2>WEIS Configuration</h2>
+ 
+<div class="form-horizontal" style="width:1000px;margin:0px auto">
+    <div class="form-group">
+        <div class="col-sm-9 col-sm-offset-3">
+            <button class="btn btn-primary btn-sm" onclick="save();">Save</button>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3">Weekly Report PIC Roles</label>
+        <div class="col-sm-9">
+            <input type="text" id="pics" class="full" />
+            Member of this roles of respected well will received email as WeeklyReport PIC (to:)
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3">Weekly Report PIC Review</label>
+        <div class="col-sm-9">
+            <input type="text" id="reviews" class="full" />
+            Member of this roles of respected well will received email as WeeklyReport Reviewer (cc:)
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3">Monthly Report PIC Roles</label>
+        <div class="col-sm-9">
+            <input type="text" id="picsmonthly" class="full" />
+            Member of this roles of respected well will received email as MonthlyReport PIC (to:)
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3">Monthly Report PIC Review</label>
+        <div class="col-sm-9">
+            <input type="text" id="reviewsmonthly" class="full" />
+            Member of this roles of respected well will received email as MonthlyReport Reviewer (cc:)
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3">Health Check PIC Roles</label>
+        <div class="col-sm-9">
+            <input type="text" id="picshealthcheck" class="full" />
+            Member of this roles of respected well will received email as Health Check PIC (cc:)
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3">Health Check Review Roles</label>
+        <div class="col-sm-9">
+            <input type="text" id="reviewershealthcheck" class="full" />
+            Member of this roles of respected well will received email as Health Check Reviewer (cc:)
+        </div>
+    </div>
+</div>
+
+<script>
+    function makeMs(o,datas,values){
+        if(o.data("kendoMultiSelect")==undefined){
+            o.kendoMultiSelect({
+                dataTextField: "Title", dataValueField: "_id",
+                filter:"contains"
+            });
+        }
+        var ms = o.data("kendoMultiSelect");
+        ms.setDataSource(new kendo.data.DataSource({data:datas}));
+        ms.value(values);
+    }
+
+    function initMs(){
+        var url = "@Url.Action("Get")";
+        ajaxPost(url,{},function(data){
+            makeMs($("#pics"),roles,data.Data.Pics);
+            makeMs($("#reviews"),roles,data.Data.Reviewers);
+        });
+    }
+
+    function initMsMonthly(){
+        var url = "@Url.Action("GetMonthly")";
+        ajaxPost(url,{}, function(data){
+            makeMs($("#picsmonthly"),roles,data.Data.Pics);
+            makeMs($("#reviewsmonthly"),roles,data.Data.Reviewers);
+        })
+    }
+
+    function initHealthCheck(){
+        var url = "@Url.Action("GetHealthCheck")";
+        ajaxPost(url,{},function(data){
+            makeMs($("#picshealthcheck"),roles,data.Data.Pics);
+            makeMs($("#reviewershealthcheck"),roles,data.Data.Reviewers);
+        })
+    }
+
+    function saveMs(){
+        var url = "@Url.Action("Save")";
+        var parms = {
+            pics:$("#pics").data("kendoMultiSelect").value(),
+            reviewers:$("#reviews").data("kendoMultiSelect").value()
+        };
+        ajaxPost(url,parms,function(data){
+            if(data.Result=="OK"){
+                alert("Changes has been saved");
+            }
+            else{
+                alert(data.Message + data.Trace);
+            }
+        });
+    }
+
+    function saveMsMonthly(){
+        var url = "@Url.Action("SaveMonthly")";
+        var parms = {
+            pics:$("#picsmonthly").data("kendoMultiSelect").value(),
+            reviewers:$("#reviewsmonthly").data("kendoMultiSelect").value()
+        };
+        ajaxPost(url,parms,function(data){
+            if(data.Result=="OK"){
+                alert("Changes has been saved");
+            }
+            else{
+                alert(data.Message + data.Trace);
+            }
+        });
+    }
+
+    function saveMsHealthCheck(){
+        var url = "@Url.Action("SaveHealthCheck")";
+        var params = {pics:$("#picshealthcheck").data("kendoMultiSelect").value(),
+            reviewers:$("#reviewershealthcheck").data("kendoMultiSelect").value()}
+        ajaxPost(url,params,function(data){
+
+            if(data.Result=="OK"){
+                //alert("Changes has been saved")
+            }else{
+                alert(data.Message+data.Trace);
+            }
+        })
+    }
+
+    function save(){
+        saveMs();
+        saveMsMonthly();
+        saveMsHealthCheck();
+    }
+
+    $(document).ready(function(){
+        initMs();
+        initMsMonthly();
+        initHealthCheck();
+    });
+</script>

@@ -1,0 +1,46 @@
+﻿<div class="col-md-12">
+    <button class="btn btn-custom btn-warning btn-sm" data-bind="click:model.backMain">Back to Main</button>
+    <button class="btn btn-custom btn-primary btn-sm" data-bind="click:model.saveConfig">Save</button>
+    <div class="form-horizontal" style="margin-top:20px">
+        <form class="k-content">
+            <div class="form-group">
+                <label class="col-md-2">Select Fields:</label>
+                <div class="col-md-8">
+                    <select id="fields" data-bind="kendoMultiSelect : {data:model.getFields,dataTextField:'Key',dataValueField:'Value',value:model.setFields}"></select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-md-2">Select Rule:</label>
+                <div class="col-md-8">
+                    <select id="rules" data-bind="kendoMultiSelect:{data:['Empty','Null'],value:model.ruleValue}"></select>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    model.backMain = function () {
+        model.ShowSetting(false);
+        model.ShowInsertActivityForm(false);
+        model.ShowBrowser(true);
+        model.reloadData();
+    }
+
+    model.saveConfig = function () {
+        var url = "@Url.Action("MetadataSave")";
+        var KeyValues = [];
+        var data = $("#fields").data("kendoMultiSelect")._dataItems;
+        data.forEach(function (e) {
+            KeyValues.push({
+                "Key": e.Key, "Value":e.Value
+            });
+        });
+        var param = { fields: data, rules: model.ruleValue() };
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "OK") {
+                alert("data saved!");
+            }
+        });
+    }
+
+</script>

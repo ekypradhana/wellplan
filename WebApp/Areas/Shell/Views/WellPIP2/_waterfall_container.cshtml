@@ -1,0 +1,1135 @@
+﻿<style>
+    .no-padding {
+        padding: 0px !important;
+    }
+    .no-margin {
+        margin: 0px !important;
+    }
+    .control {
+        border-bottom: 1px solid #F3F3F3;
+        width: 705px;
+        padding-bottom: 16px;
+    }
+    .control-head {
+        padding: 7px 7px;
+        text-align: right;
+        float: left;
+        width: 80px;
+    }
+    .control-comp {
+        float: left;
+        width: 200px;
+        margin-right: 20px;
+    }
+    .control-button {
+        float: left;
+        width: 100px;
+        padding-left: 15px;
+    }
+    .k-chart-tooltip {
+        background-image: none !important;
+        -webkit-box-shadow: none !important;
+        box-shadow: none !important;
+    }
+</style>
+
+<script>
+    model.Waterfall = {};
+    model.Waterfall.WaterfallTypes = ko.observableArray([
+        { id: "type1", value: "Type 1 - Lv0 Estimate", chartTitle: "Lv 0 Estimate" },
+        { id: "type2", value: "Type 2 - Lv3 / DG3 Estimate", chartTitle: "Lv 3 DG3" },
+        { id: "type3", value: "Type 3 - Lv4 / AFE Estimate", chartTitle: "Lv 4 AFE" },
+        { id: "type4", value: "Type 4 - Execution Estimate 1", chartTitle: "Execution" },
+        { id: "type5", value: "Type 5 - Execution Estimate 2", chartTitle: "Execution" },
+        { id: "type6", value: "Type 6 - Final", chartTitle: "Final" },
+        { id: "type7", value: "Cumulative Cost Saving Analysis", chartTitle: "Cumulative Cost Saving Analysis" }
+    ]);
+    model.Waterfall.Breakdowns = ko.observableArray([
+        { id: "Classification", value: "Classification" },
+        { id: "Theme", value: "Theme" },
+        { id: "Title", value: "Title" },
+        { id: "PerformanceUnit", value: "PerformanceUnit" },
+        { id: "ActionParty", value: "ActionParty" },
+    ]);
+    model.Waterfall.WaterfallType = ko.observable(model.Waterfall.WaterfallTypes()[0].id);
+    model.Waterfall.Breakdown = ko.observable(model.Waterfall.Breakdowns()[0].id);
+    model.Waterfall.ChartConfig = function (title, series, categories) {
+        window.series = series;
+        var max = (function (temp) {
+            series.forEach(function (e) {
+                e.data.forEach(function (f) {
+                    temp.push(f);
+                });
+            });
+
+            var max = _.max(temp, function (e) {
+                return e;
+            });
+
+            max = max + (max * 25 / 100);
+            console.log(max);
+
+            return max;
+        }([]));
+
+        var config = {
+            title: title,
+            legend: {
+                visible: false,
+                position: "bottom",
+                labels: {
+                    font: "8px Calibri"
+                },
+            },
+            chartArea: {
+                background: "",
+                height: 400
+            },
+            seriesDefaults: {
+                type: "column",
+                stack: true,
+                labels: {
+                    visible: false,
+                    background: "transparent",
+                    template: "#= dataItem.BreakDown # on #= dataItem.Period #",
+                    font: "8px Calibri"
+                },
+                overlay: {
+                    gradient: "none"
+                },
+                border: {
+                    opacity: 0
+                }
+            },
+            series: series,
+            categoryAxis: {
+                labels: {
+                    visible: true,
+                    font: "8px Calibri"
+                },
+                majorGridLines: { visible: false }
+            },
+            valueAxis: {
+                labels: {
+                    visible: true,
+                    font: "8px Calibri"
+                },
+                min: 0,
+                max: (max < 140 ? 140 : max),
+                majorGridLines: { visible: false }
+            },
+            tooltip: {
+                visible: true,
+                font: "12px Calibri",
+            },
+            legendItemClick: function (e) {
+                e.preventDefault();
+            },
+        };
+
+        if (categories !== undefined) {
+            config.categoryAxis.categories = categories;
+        }
+
+        return config;
+    };
+    model.Waterfall.PrepareCharts = function (which, data) {
+        $(".waterfall-chart-container").show();
+        $(".waterfall-chart-analysis").hide();
+        var title = [
+            _.find(model.Waterfall.WaterfallTypes(), { id: model.Waterfall.WaterfallType() }).value,
+            " - ",
+            which,
+            " (breakdown by ",
+            _.find(model.Waterfall.Breakdowns(), { id: model.Waterfall.Breakdown() }).value,
+            ')'
+        ].join("");
+
+        var $chartContainer = $(".waterfall-chart-" + which.toLowerCase());
+        $chartContainer.find(".waterfall-chart").replaceWith($("<div />").addClass('waterfall-chart'));
+
+        var $chart = $chartContainer.find(".waterfall-chart");
+        $chart.width($(".waterfall-chart-container").width() / 2);
+        $chart.kendoChart(model.Waterfall.ChartConfig(title, data));
+    };
+    model.Waterfall.LoadData = function (url, dayOrCost, callback) {
+        var param = {
+            WellName: model.uimodel().WellName,
+            ActivityType: model.uimodel().ActivityType,
+            GroupBy: model.Waterfall.Breakdown(),
+            DayOrCost: dayOrCost
+        };
+
+        ajaxPost(url, param, function (res) {
+            callback(res);
+        });
+    };
+    model.Waterfall.FormatNumber = function (value, type, withoutPrefix) {
+        withoutPrefix = (withoutPrefix === undefined ? false : withoutPrefix);
+
+        if (type == "Day") {
+            return kendo.toString(value, "N0") + (withoutPrefix ? "" : " (in days)");
+        } else {
+            return kendo.toString(value, "N2") + (withoutPrefix ? "" : " (in million)");
+        }
+    }
+    model.Waterfall.LoadDataForChartType1 = function () {
+        var parse = function (data, type) {
+            if (type === "Cost") {
+                data.OPLine = data.OPLine / 1000000;
+                data.LE = data.LE / 1000000;
+            }
+
+            var TQTarget = data.TQTarget;
+            var OPLine = data.OPLine - data.TQTarget;
+
+            var series = [{
+                type: "column",
+                data: [data.Performance, 0, 0, 0, 0],
+                tooltip: {
+                    template: "Status Quo Performance: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                data: [0, 0, data.OP, 0, 0],
+                tooltip: {
+                    template: "OP15: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                data: [0, 0, 0, 0, data.LE],
+                tooltip: {
+                    template: "LE: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "line",
+                data: [TQTarget, TQTarget, TQTarget, TQTarget, TQTarget],
+                tooltip: {
+                    template: "TQ / Target: #: model.Waterfall.FormatNumber(" + data.TQTarget + ", '" + type + "') #"
+                }
+            }, {
+                type: "line",
+                data: [OPLine, OPLine, OPLine, OPLine, OPLine],
+                tooltip: {
+                    template: "OP Line Data: #: model.Waterfall.FormatNumber(" + data.OPLine + ", '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                name: "Included in OP",
+                color: "transparent",
+                data: [
+                    0,
+                    (OPLine + _.reduce(data.IncludedInOPs, function (e, f) { return e + f.Value; }, 0)),
+                    0,
+                    0,
+                    0
+                ]
+            }, {
+                type: "column",
+                name: "Opportunities",
+                color: "transparent",
+                data: [
+                    0,
+                    0,
+                    0,
+                    (data.LE + _.reduce(data.Opportunities, function (e, f) { return e + f.Value; }, 0)),
+                    0
+                ]
+            }];
+
+            var breakdowns = [];
+
+            data.IncludedInOPs.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+            data.Opportunities.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+
+            breakdowns.forEach(function (each) {
+                var includedOP = 0;
+                var opportunities = 0;
+
+                var eachIncludedOp = _.find(data.IncludedInOPs, { Title: each });
+                var eachOpportunities = _.find(data.Opportunities, { Title: each });
+
+                if (eachIncludedOp !== undefined)
+                    includedOP = eachIncludedOp.Valu;
+                if (eachOpportunities !== undefined)
+                    opportunities = eachOpportunities.Value;
+
+                series.push({
+                    type: "column",
+                    data: [0, Math.abs(includedOP), 0, Math.abs(opportunities), 0],
+                    tooltip: {
+                        template: [each, ": #: model.Waterfall.FormatNumber(value, '" + type + "') #"].join("")
+                    }
+                });
+            });
+
+            window.series = series;
+
+            return series;
+        };
+
+        var categories = ["Status Quo Performance", "Included in OP", "OP15", "Opportunities", "LE"];
+
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartLevel0")", "Day", function (res) {
+            if (res.Result === "NOK") return;
+            model.Waterfall.PrepareCharts("Day", parse(res.Data, "Day"), categories);
+        });
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartLevel0")", "Cost", function (res) {
+            if (res.Result === "NOK") return;
+            model.Waterfall.PrepareCharts("Cost", parse(res.Data, "Cost"), categories);
+        });
+    };
+    model.Waterfall.LoadDataForChartType2 = function () {
+        var parse = function (data, type) {
+            if (type === "Cost") {
+                data.OPLine = data.OPLine / 1000000;
+                data.LE = data.LE / 1000000;
+            }
+
+            var series = [{
+                type: "column",
+                data: [data.Performance, 0, 0, 0],
+                tooltip: {
+                    template: "Status Quo Performance: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                data: [0, 0, 0, data.LE],
+                tooltip: {
+                    template: "LE: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "line",
+                data: [data.TQTarget, data.TQTarget, data.TQTarget, data.TQTarget],
+                tooltip: {
+                    template: "TQ / Target: #: model.Waterfall.FormatNumber(" + data.TQTarget + ", '" + type + "') #"
+                }
+            }, {
+                type: "line",
+                data: [data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget],
+                tooltip: {
+                    template: "OP Line Data: #: model.Waterfall.FormatNumber(" + data.OPLine + ", '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                name: "Realised",
+                color: "transparent",
+                data: [
+                    0,
+                    (data.OPLine + _.reduce(data.Realised, function (e, f) { return e + f.Value; }, 0)),
+                    0,
+                    0
+                ]
+            }, {
+                type: "column",
+                name: "Remaining",
+                color: "transparent",
+                data: [
+                    0,
+                    0,
+                    (data.LE + _.reduce(data.Remaining, function (e, f) { return e + f.Value; }, 0)),
+                    0
+                ]
+            }];
+
+            var breakdowns = [];
+
+            data.Realised.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+            data.Remaining.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+
+            breakdowns.forEach(function (each) {
+                var realised = 0;
+                var remaining = 0;
+
+                var eachRealised = _.find(data.Realised, { Title: each });
+                var eachRemaining = _.find(data.Remaining, { Title: each });
+
+                if (eachRealised !== undefined)
+                    realised = eachRealised.Value;
+                if (eachRemaining !== undefined)
+                    remaining = eachRemaining.Value;
+
+                series.push({
+                    type: "column",
+                    data: [0, Math.abs(realised), Math.abs(remaining), 0],
+                    tooltip: {
+                        template: [each, ": #: value #"].join("")
+                    }
+                });
+            });
+
+            window.series = series;
+
+            return series;
+        };
+
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartLevel3dg3")", "Day", function (res) {
+            if (res.Result === "NOK") return;
+            model.Waterfall.PrepareCharts("Day", parse(res.Data, "Day"));
+        });
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartLevel3dg3")", "Cost", function (res) {
+            if (res.Result === "NOK") return;
+            model.Waterfall.PrepareCharts("Cost", parse(res.Data, "Cost"));
+        });
+    };
+
+
+    model.Waterfall.LoadDataForChartType3 = function () {
+        var parse = function (data, type) {
+            if (type === "Cost") {
+                data.OPLine = data.OPLine / 1000000;
+                data.LE = data.LE / 1000000;
+            }
+
+            var series = [{
+                type: "column",
+                data: [data.Performance, 0, 0, 0, 0, 0, 0],
+                tooltip: {
+                    template: "Status Quo Performance: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                data: [0, 0, 0, 0, 0, 0, data.LE],
+                tooltip: {
+                    template: "LE: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                data: [0, 0, 0, 0, data.AFE, 0, 0],
+                tooltip: {
+                    template: "AFE: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "line",
+                data: [data.TQTarget, data.TQTarget, data.TQTarget, data.TQTarget, data.TQTarget, data.TQTarget, data.TQTarget],
+                tooltip: {
+                    template: "TQ / Target: #: model.Waterfall.FormatNumber(" + data.TQTarget + ", '" + type + "') #"
+                }
+            }, {
+                type: "line",
+                data: [data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget],
+                tooltip: {
+                    template: "OP Line Data: #: model.Waterfall.FormatNumber(" + data.OPLine + ", '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                name: "Included in OP",
+                color: "transparent",
+                data: [
+                    0,
+                    data.OPLine,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            }, {
+                type: "column",
+                name: "Realised",
+                color: "transparent",
+                data: [
+                    0,
+                    0,
+                    0,
+                    (data.OPLine - _.reduce(data.Realised, function (e, f) { return e + Math.abs(f.Value); }, 0)),
+                    0,
+                    0,
+                    0
+                ]
+            }, {
+                type: "column",
+                name: "Remaining",
+                color: "transparent",
+                data: [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    (data.LE - _.reduce(data.Remaining, function (e, f) { return e + Math.abs(f.Value); }, 0)),
+                    0
+                ]
+            }];
+
+            var breakdowns = [];
+
+            data.Realised.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+            data.Remaining.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+            data.IncludedInOP.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+
+            breakdowns.forEach(function (each) {
+                var realised = 0;
+                var remaining = 0;
+                var includeOP = 0;
+
+                var eachRealised = _.find(data.Realised, { Title: each });
+                var eachRemaining = _.find(data.Remaining, { Title: each });
+                var eachIncludeOP = _.find(data.IncludedInOP, { Title: each });
+
+                if (eachRealised !== undefined)
+                    realised = Math.abs(eachRealised.Value);
+                if (eachRemaining !== undefined)
+                    remaining = Math.abs(eachRemaining.Value);
+                if (eachIncludeOP !== undefined)
+                    includeOP = Math.abs(eachIncludeOP.Value);
+
+                series.push({
+                    type: "column",
+                    data: [0, includeOP, 0, realised, 0, remaining, 0],
+                    tooltip: {
+                        template: [each, ": #: model.Waterfall.FormatNumber(value, '" + type + "') #"].join("")
+                    }
+                });
+            });
+
+            window.series = series;
+
+            return series;
+        };
+
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartLevel4AFE")", "Day", function (res) {
+            if (res.Result === "NOK") return;
+            model.Waterfall.PrepareCharts("Day", parse(res.Data, "Day"));
+        });
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartLevel4AFE")", "Cost", function (res) {
+            if (res.Result === "NOK") return;
+            model.Waterfall.PrepareCharts("Cost", parse(res.Data, "Cost"));
+        });
+    };
+
+    model.Waterfall.LoadDataForChartType4 = function () {
+        var parse = function (data, type) {
+            if (type === "Cost") {
+                data.OPLine = data.OPLine / 1000000;
+                data.OP = data.OP / 1000000;
+                data.LE = data.LE / 1000000;
+            }
+
+            var series = [{
+                type: "column",
+                data: [data.Performance, 0, 0, 0, 0, 0, 0, 0],
+                tooltip: {
+                    template: "Status Quo Performance: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                data: [0, 0, 0, 0, 0, 0, data.LE, 0],
+                tooltip: {
+                    template: "LE: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                data: [0, 0, data.OP, 0, 0, 0, 0, 0],
+                tooltip: {
+                    template: "OP15: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                data: [0, 0, 0, 0, data.AFE, 0, 0, 0],
+                tooltip: {
+                    template: "AFE: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "line",
+                data: [data.TQTarget, data.TQTarget, data.TQTarget, data.TQTarget, data.TQTarget, data.TQTarget, data.TQTarget, data.TQTarget],
+                tooltip: {
+                    template: "TQ / Target: #: model.Waterfall.FormatNumber(" + data.TQTarget + ", '" + type + "') #"
+                }
+            }, {
+                type: "line",
+                data: [data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget],
+                tooltip: {
+                    template: "OP Line Data: #: model.Waterfall.FormatNumber(" + data.OPLine + ", '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                name: "Included in OP",
+                color: "transparent",
+                data: [
+                    0,
+                    data.OPLine,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ]
+            }, {
+                type: "column",
+                name: "Realised",
+                color: "transparent",
+                data: [
+                    0,
+                    0,
+                    0,
+                    (data.OPLine - _.reduce(data.Realised, function (e, f) { return e + Math.abs(f.Value); }, 0)),
+                    0,
+                    0,
+                    0,
+                    0,
+                ]
+            }, {
+                type: "column",
+                name: "Realised",
+                color: "transparent",
+                data: [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    (data.AFE - _.reduce(data.RealisedAFE, function (e, f) { return e + Math.abs(f.Value); }, 0)),
+                    0,
+                    0,
+                ]
+            }, {
+                type: "column",
+                name: "Remaining",
+                color: "transparent",
+                data: [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    (data.LE - _.reduce(data.Remaining, function (e, f) { return e + Math.abs(f.Value); }, 0))
+                ]
+            }];
+
+            var breakdowns = [];
+
+            data.Realised.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+            data.Remaining.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+            data.IncludedInOP.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+            data.RealisedAFE.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+
+            breakdowns.forEach(function (each) {
+                var realised = 0;
+                var remaining = 0;
+                var includeOP = 0;
+                var realisedAFE = 0;
+
+                var eachRealised = _.find(data.Realised, { Title: each });
+                var eachRemaining = _.find(data.Remaining, { Title: each });
+                var eachIncludeOP = _.find(data.IncludedInOP, { Title: each });
+                var eachRealisedAFE = _.find(data.RealisedAFE, { Title: each });
+
+                if (eachRealised !== undefined)
+                    realised = Math.abs(eachRealised.Value);
+                if (eachRemaining !== undefined)
+                    remaining = Math.abs(eachRemaining.Value);
+                if (eachIncludeOP !== undefined)
+                    includeOP = Math.abs(eachIncludeOP.Value);
+                if (eachRealisedAFE !== undefined)
+                    realisedAFE = Math.abs(eachRealisedAFE.Value);
+
+                series.push({
+                    type: "column",
+                    data: [0, includeOP, 0, realised, 0, remaining, 0],
+                    tooltip: {
+                        template: [each, ": #: model.Waterfall.FormatNumber(value, '" + type + "') #"].join("")
+                    }
+                });
+            });
+
+            window.series = series;
+
+            return series;
+        };
+
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartExecutionEstimate")", "Day", function (res) {
+            if (res.Result === "NOK") return;
+            model.Waterfall.PrepareCharts("Day", parse(res.Data, "Day"));
+        });
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartExecutionEstimate")", "Cost", function (res) {
+            if (res.Result === "NOK") return;
+            model.Waterfall.PrepareCharts("Cost", parse(res.Data, "Cost"));
+        });
+    };
+
+    model.Waterfall.LoadDataForChartType5 = function () {
+        var parse = function (data, type) {
+            if (type === "Cost") {
+                data.OPLine = data.OPLine / 1000000;
+                data.LE = data.LE / 1000000;
+            }
+
+            var fields = [];
+            data.AFEBreakdowns.forEach(function (e) {
+                if (fields.indexOf(e.Title) === -1) {
+                    fields.push(e.Title);
+                }
+            });
+            data.LEBreakdowns.forEach(function (e) {
+                if (fields.indexOf(e.Title) === -1) {
+                    fields.push(e.Title);
+                }
+            });
+
+            var series = [{
+                type: "column",
+                data: (function (d) {
+                    d.push(data.AFE);
+                    fields.forEach(function (e) {
+                        d.push(0);
+                    });
+
+                    d.push(0);
+                    fields.forEach(function (e) {
+                        d.push(0);
+                    });
+
+                    return d;
+                }([])),
+                tooltip: {
+                    template: "AFE: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                data: (function (d) {
+                    d.push(0);
+                    fields.forEach(function (e) {
+                        d.push(0);
+                    });
+
+                    d.push(data.LE);
+                    fields.forEach(function (e) {
+                        d.push(0);
+                    });
+
+                    return d;
+                }([])),
+                tooltip: {
+                    template: "LE: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "line",
+                data: (function (d) {
+                    for (var j = 0; j < ((fields.length * 2) + 2) ; j++) {
+                        d.push(data.TQTarget);
+                    }
+                    return d;
+                }([])),
+                tooltip: {
+                    template: "TQ / Target: #: model.Waterfall.FormatNumber(" + data.TQTarget + ", '" + type + "') #"
+                }
+            }, {
+                type: "line",
+                data: (function (d) {
+                    for (var j = 0; j < ((fields.length * 2) + 2) ; j++) {
+                        d.push(data.OPLine - data.TQTarget);
+                    }
+                    return d;
+                }([])),
+                tooltip: {
+                    template: "OP Line Data: #: model.Waterfall.FormatNumber(" + data.OPLine + ", '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                color: "transparent",
+                data: (function (d, LEBreakdowns, AFEBreakdowns, currentSpace) {
+                    currentSpace = data.TQTarget;
+                    fields.forEach(function (e) {
+                        value = 0;
+
+                        var each = _.find(data.LEBreakdowns, { Title: e });
+                        if (each !== undefined) {
+                            value = Math.abs(each.Value);
+                        }
+
+                        LEBreakdowns.push(value + currentSpace);
+                        currentSpace += value;
+                    });
+                    LEBreakdowns.push(0);
+                    d = d.concat(LEBreakdowns);
+
+                    currentSpace = data.LE;
+                    fields.forEach(function (e) {
+                        value = 0;
+
+                        var each = _.find(data.AFEBreakdowns, { Title: e });
+                        if (each !== undefined) {
+                            value = Math.abs(each.Value);
+                        }
+
+                        AFEBreakdowns.push(value + currentSpace);
+                        currentSpace += value;
+                    });
+                    AFEBreakdowns.push(0);
+                    d = d.concat(AFEBreakdowns);
+                    console.log(AFEBreakdowns);
+
+                    return d.reverse();
+                }([], [], [], 0))
+            }];
+
+            fields.forEach(function (e, i) {
+                var value = 0;
+                var each = _.find(data.AFEBreakdowns, { Title: e });
+                if (each !== undefined) {
+                    value = Math.abs(each.Value);
+                }
+
+                var subData = [];
+                for (var j = 0; j < ((fields.length * 2) + 2) ; j++) {
+                    subData.push(0);
+                }
+                subData[i + 1] = value;
+
+                var name = "Realised - " + e;
+                series.push({
+                    type: "column",
+                    name: name,
+                    data: subData,
+                    tooltip: {
+                        template: name + ": #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                    }
+                });
+            });
+
+            window.series = series;
+
+            return series;
+        };
+
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartExecutionEstimate2")", "Day", function (res) {
+            if (res.Result === "NOK") return;
+            model.Waterfall.PrepareCharts("Day", parse(res.Data, "Day"));
+        });
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartExecutionEstimate2")", "Cost", function (res) {
+            if (res.Result === "NOK") return;
+            model.Waterfall.PrepareCharts("Cost", parse(res.Data, "Cost"));
+        });
+    };
+
+
+    model.Waterfall.LoadDataForChartType6 = function () {
+        var parse = function (data, type) {
+            if (type === "Cost") {
+                data.OPLine = data.OPLine / 1000000;
+                data.Actual = data.Actual / 10000;
+                data.OP = data.OP / 1000000;
+            }
+
+            var series = [{
+                type: "column",
+                data: [data.OP, 0, 0, 0],
+                tooltip: {
+                    template: "OP15: #: model.Waterfall.FormatNumber(value, '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                data: [0, 0, 0, data.Actual],
+                tooltip: {
+                    template: "Actual: #: model.Waterfall.FormatNumber(value, '" + type + "', true) # (in ten thousands)"
+                }
+            }, {
+                type: "line",
+                data: [data.TQTarget, data.TQTarget, data.TQTarget, data.TQTarget],
+                tooltip: {
+                    template: "TQ / Target: #: model.Waterfall.FormatNumber(" + data.TQTarget + ", '" + type + "') #"
+                }
+            }, {
+                type: "line",
+                data: [data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget, data.OPLine - data.TQTarget],
+                tooltip: {
+                    template: "OP Line Data: #: model.Waterfall.FormatNumber(" + data.OPLine + ", '" + type + "') #"
+                }
+            }, {
+                type: "column",
+                name: "Realised (During Planning)",
+                color: "transparent",
+                data: [
+                    0,
+                    (data.OPLine - _.reduce(data.RealiseDuringPlannings, function (e, f) { return e + Math.abs(f.Value); }, 0)),
+                    0,
+                    0
+                ]
+            }, {
+                type: "column",
+                name: "Realised (During Operation)",
+                color: "transparent",
+                data: [
+                    0,
+                    0,
+                    data.Actual,
+                    0
+                ]
+            }];
+
+            var breakdowns = [];
+
+            data.RealiseDuringPlannings.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+            data.RealiseDuringOperations.forEach(function (each) {
+                if (breakdowns.indexOf(each.Title) === -1)
+                    breakdowns.push(each.Title);
+            });
+
+            breakdowns.forEach(function (each) {
+                var realised = 0;
+                var remaining = 0;
+
+                var eachRealised = _.find(data.RealiseDuringPlannings, { Title: each });
+                var eachRemaining = _.find(data.RealiseDuringOperations, { Title: each });
+
+                if (eachRealised !== undefined)
+                    realised = Math.abs(eachRealised.Value);
+                if (eachRemaining !== undefined)
+                    remaining = Math.abs(eachRemaining.Value);
+
+                series.push({
+                    type: "column",
+                    data: [0, realised, remaining, 0],
+                    tooltip: {
+                        template: [each, ": #: model.Waterfall.FormatNumber(value, '" + type + "') #"].join("")
+                    }
+                });
+            });
+
+            window.series = series;
+
+            return series;
+        };
+
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartFinal")", "Day", function (res) {
+            console.log(res);
+            if (res.Result === "NOK") return;
+            model.Waterfall.PrepareCharts("Day", parse(res.Data, "Day"));
+        });
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartFinal")", "Cost", function (res) {
+            if (res.Result === "NOK") return;
+            model.Waterfall.PrepareCharts("Cost", parse(res.Data, "Cost"));
+        });
+    };
+
+    model.Waterfall.LoadDataForChartType7 = function () {
+        $(".waterfall-chart-container").hide();
+        $(".waterfall-chart-analysis").show();
+
+        var parse = function (data) {
+            var newData = [];
+
+            data.Attributes.forEach(function (attr) {
+                attr.Details.forEach(function (det) {
+                    var d = {};
+                    d.BreakDown = det.Title;
+                    d.Value = det.Value;
+                    d.Period = jsonDateStr(attr.Axis);
+                    d.Date = attr.Axis;
+                    newData.push(d);
+                });
+            });
+
+            return newData;
+        };
+
+
+        model.Waterfall.LoadData("@Url.Action("GetWaterfallChartCostSavingAnalysis")", "Day", function (res) {
+            console.log(res);
+            if (res.Result === "NOK") return;
+            var newData = parse(res.Data);
+
+            var $chartContainer = $(".waterfall-chart-analysis");
+            $chartContainer.find(".waterfall-chart").replaceWith($("<div />").addClass('waterfall-chart'));
+
+            var $chart = $chartContainer.find(".waterfall-chart");
+            $chart.width($(".waterfall-chart-analysis").width());
+            $chart.kendoChart({
+                dataSource: {
+                    @*transport: {
+                        read: "@Url.Action("FinRptInvoiceSummary", "WFMCXO")",
+                    dataType: "json",
+                    type: "POST",
+                    parameterMap: function (data, type) {
+                        return { project: $("#project").data("kendoDropDownList").value(), yearstart: parseInt($("#yearfrom").data("kendoDropDownList").value()), yearend: parseInt($("#yearto").data("kendoDropDownList").value()) }
+                    }
+                },*@
+
+                    data: newData,
+                    sort: {
+                        field: "Date",
+                        dir: "asc"
+                    },
+                    group: {
+                        field: "BreakDown"
+                    }
+                },
+                //seriesColors: donutcolor,
+                title: {
+                    position: "bottom",
+                    text: "Analysis",
+                    visible: true
+                },
+                legend: {
+                    visible: true,
+                    position: "bottom",
+                    labels: {
+                        font: "8px Calibri"
+                    }
+                },
+                height: '50px',
+                chartArea: {
+                    background: ""
+                },
+                seriesDefaults: {
+                    type: "column",
+                    stack: true,
+                    labels: {
+                        visible: false,
+                        background: "transparent",
+                        template: "#= dataItem.BreakDown # on #= dataItem.Period #",
+                        font: "8px Calibri"
+                    },
+                    overlay: {
+                        gradient: "none"
+                    }
+                },
+                series: [{
+                    field: "Value",
+                    categoryField: "Period",
+                    visibleInLegendField: "VisibleInLegend",
+                    padding: 10
+                }],
+                categoryAxis: {
+                    labels: {
+                        visible: true,
+                        font: "8px Calibri"
+                    }
+                },
+                valueAxis: {
+                    labels: {
+                        visible: true,
+                        //template: "#if(value>=10000000){# #= (value/10000000)# Cr #} else if(value>0) {# #= (value/100000)# L #}  # ",
+                        font: "8px Calibri"
+                    }
+                },
+                tooltip: {
+                    visible: true,
+                    font: "12px Calibri",
+                    //template: "#= dataItem.BreakDown # on #= dataItem.Period # : #= formatnum(kendo.parseFloat(dataItem.Value)) #"
+                }
+            });
+
+        });
+
+
+
+    };
+
+    model.Waterfall.Refresh = function () {
+        if (model.Waterfall.WaterfallType() === "type1") {
+            model.Waterfall.LoadDataForChartType1();
+        }
+        if (model.Waterfall.WaterfallType() === "type2") {
+            model.Waterfall.LoadDataForChartType2();
+        }
+        if (model.Waterfall.WaterfallType() === "type3") {
+            model.Waterfall.LoadDataForChartType3();
+        }
+        if (model.Waterfall.WaterfallType() === "type4") {
+            model.Waterfall.LoadDataForChartType4();
+        }
+        if (model.Waterfall.WaterfallType() === "type5") {
+            model.Waterfall.LoadDataForChartType5();
+        }
+        if (model.Waterfall.WaterfallType() === "type6") {
+            model.Waterfall.LoadDataForChartType6();
+        }
+        if (model.Waterfall.WaterfallType() === "type7") {
+            model.Waterfall.LoadDataForChartType7();
+        }
+    };
+
+    $(function () {
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            if ($(e.target).html() == "Waterfall") {
+                model.Waterfall.Refresh();
+            }
+        })
+    });
+</script>
+
+<div class="waterfall-container" data-bind="with: model.Waterfall">
+    <div class="control">
+        <div class="control-head">Chart Type :</div>
+        <div class="control-comp">
+            <select style="width: 100%" data-bind="kendoDropDownList: {
+                    data: WaterfallTypes,
+                    value: WaterfallType,
+                    dataTextField: 'value',
+                    dataValueField: 'id',
+                    optionsLabel: 'Select one' }"></select>
+        </div>
+        <div class="control-head">Breakdown :</div>
+        <div class="control-comp">
+            <select style="width: 100%" data-bind="kendoDropDownList: {
+                    data: Breakdowns,
+                    value: Breakdown,
+                    dataTextField: 'value',
+                    dataValueField: 'id',
+                    optionsLabel: 'Select one' }"></select>
+        </div>
+        <div class="control-button">
+            <button class="btn btn-primary btn-sm btn-custom" data-bind="click: Refresh">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+
+    <div class="clearfix"></div>
+
+    <div class="waterfall-chart-container">
+        <div class="waterfall-chart-day col-md-6 no-padding no-margin">
+            <div class="waterfall-chart"></div>
+        </div>
+        <div class="waterfall-chart-cost col-md-6 no-padding no-margin">
+            <div class="waterfall-chart"></div>
+        </div>
+    </div>
+    <div class="waterfall-chart-analysis">
+        <div class="col-md-12 no-padding no-margin">
+            <div class="waterfall-chart"></div>
+        </div>
+    </div>
+</div>

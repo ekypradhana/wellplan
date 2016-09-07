@@ -1,0 +1,32 @@
+﻿<div class="col-md-12 no-padding">
+    <div class="col-md-12" style="text-align:center">
+
+        <ul class="nav nav-stacked" style="margin-bottom:10px">
+            <li class="stacked" style="background-color: #23be23; border: none; padding: 10px; color: #ffffff">Long Lead Items</li>
+        </ul>
+    </div>
+    <div class="col-md-12">
+        
+        <div class="ec-panel">
+            <div class="ec-panel" style="margin-left:40%;margin-top:20px">
+                <ul class="menu nav nav-pills">
+                    <li class="active"><a href="#drilling" id="" data-toggle="pill">Drilling</a></li>
+                    <li><a href="#completion" data-toggle="pill" id="">Completion</a></li>
+                    <li><a href="#abandonment" data-toggle="pill" id="">Abandonment</a></li>
+                </ul>
+            </div>
+
+            <div class="tab-content" style="margin-top:10px">
+                <div class="tab-pane active" id="drilling" style="overflow-y:auto;">
+                    <div class="grid" id="drilling" data-bind="kendoGrid: { data: model.bpmodel().drillingData, columns: model.bpmodel().capitalColumns, pageable: true, sortable: false, filterable: false, editable: false }"></div>
+                </div>
+                <div class="tab-pane" id="completion" style="overflow-y:auto;">
+                    <div class="grid" id="completion" data-bind="kendoGrid: { data: model.bpmodel().completionData, columns: model.bpmodel().capitalColumns, pageable: true, sortable: false, filterable: false, editable: false }"></div>
+                </div>
+                <div class="tab-pane" id="abandonment" style="overflow-y:auto;">
+                    <div class="grid" id="abandonment" data-bind="kendoGrid: { data: model.bpmodel().abondonmentData, columns: model.bpmodel().capitalColumns, pageable: true, sortable: false, filterable: false, editable: false }"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

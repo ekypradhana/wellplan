@@ -1,0 +1,370 @@
+﻿@using Newtonsoft.Json
+@using ECIS.Core
+@using ECIS.Client.WEIS
+<script>
+    model.uimodel().comment = ko.observable("");
+    model.uimodel().commentProcessing = ko.observable(true);
+    model.uimodel().ParentId = ko.observable();
+    model.uimodel().PIPAssignTOOp = ko.observableArray("");
+    model.uimodel().CommentRecord = ko.observable(ko.mapping.fromJS(@MvcTools.Obj2HtmlStr(new WEISComment())));
+    model.uimodel().UpdateCommentCounter = function (ElementId, totalComment) {
+        var c = function (t) {
+            var $target = $("[data-eid=" + ElementId + "]");
+            $target.removeClass("comment-exist");
+            if (t > 0) {
+                $target.addClass("comment-exist");
+                $target.find('b').html(t);
+            } else {
+                $target.find('b').html('');
+            }
+        };
+
+        if (typeof totalComment === "undefined") {
+            var data = {
+                PIPId: model.uimodel().selectedPIPId(),
+                ElementId: ElementId
+            };
+            ajaxPost("@Url.Action("GetComment")", data, function (d) {
+                c(d.Data.length);
+            });
+        } else {
+            c(totalComment);
+        }
+    };
+    model.uimodel().Comments = function (ElementId) {
+        var x = model.uimodel();
+        x.selectedElementId(ElementId);
+        x.comment("");
+        var data = {
+            PIPId: x.selectedPIPId(),
+            ElementId: x.selectedElementId(),
+            isRead: true
+        };
+        ajaxPost("@Url.Action("GetComment")", data, function (d) {
+            var r = ko.mapping.fromJS(d.Data);
+            x.CommentRecord(r);
+            $("#modalComments").modal("show");
+            x.commentProcessing(false);
+            model.uimodel().UpdateCommentCounter(ElementId, d.Data.length);
+        });
+    };
+    model.uimodel().PreSaveComment = function () {
+        var x = model.uimodel();
+        x.ParentId(0);
+        x.SaveComment();
+    };
+    model.uimodel().SaveComment = function () {
+        var x = model.uimodel();
+        x.commentProcessing(true);
+        var data = {
+            PIPId: x.selectedPIPId(),
+            ElementId: x.selectedElementId(),
+            ParentId: x.ParentId(),
+            Comment: x.comment()
+        };
+        ajaxPost("@Url.Action("SaveComment")", data, function (data) {
+            if (!data.Success) {
+                alert(data.Message);
+                x.commentProcessing(false);
+                return;
+            }
+            //$("#modalComments").modal("hide");
+            x.ParentId("");
+            x.Comments(x.selectedElementId());
+        });
+    };
+    model.uimodel().DeleteComment = function (d) {
+        if (!confirm('Are you sure want to delete this comment?'))
+            return;
+
+        var x = model.uimodel();
+        var data = { id: d._id() };
+        ajaxPost("@Url.Action("DeleteComment")", data, function (data) {
+            if (!data.Success) {
+                alert(data.Message);
+                x.commentProcessing(false);
+                return;
+            }
+
+            x.Comments(x.selectedElementId());
+        });
+    };
+    model.uimodel().ReplyComment = function (d) {
+        var ParentId = d._id();
+        var x = model.uimodel();
+        x.ParentId(ParentId);
+        var com = prompt("Insert your reply:");
+        if ((com != null) && (com != "")) {
+            x.comment(com);
+            x.SaveComment();
+        } else {
+            x.ParentId(0);
+        }
+    }
+    function replycomment(ParentId) {
+        alert(ParentId);
+    }
+</script>
+
+<style>
+    /*fb time line*/
+
+    .cover-photo {
+        position: relative;
+    }
+
+
+    .fb-timeline-img img {
+        width: 100%;
+        border-radius: 4px 4px 0 0;
+        -webkit-border-radius: 4px 4px 0 0;
+    }
+
+    .profile-thumb img {
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        -webkit-border-radius: 50%;
+        margin-top: -90px;
+        border: 3px solid #fff;
+    }
+
+    .profile-thumb {
+        float: left;
+        position: relative;
+    }
+
+
+    .fb-user-mail {
+        margin: 10px 0 0 20px;
+        display: inline-block;
+    }
+
+
+    .fb-name {
+        bottom: 5px;
+        left: 175px;
+        position: absolute;
+    }
+
+        .fb-name h2 a {
+            color: #FFFFFF;
+            text-rendering: optimizelegibility;
+            text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+            font-size: 25px;
+        }
+
+    .fb-user-thumb {
+        float: left;
+        width: 70px;
+        margin-right: 15px;
+    }
+
+        .fb-user-thumb img {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            -webkit-border-radius: 50%;
+        }
+
+
+    .fb-user-details h3 {
+        margin: 15px 0 0;
+        font-size: 18px;
+        font-weight: 300;
+    }
+
+    .fb-user-details p {
+        color: #c3c3c3;
+    }
+
+
+    .fb-user-status {
+        padding: 10px 0;
+        line-height: 20px;
+    }
+
+    .fb-time-action {
+        padding: 15px 0;
+    }
+
+
+    .fb-border {
+        border-top: 1px solid #ebeef5;
+    }
+
+    .fb-time-action span, .fb-time-action a {
+        margin-right: 5px;
+    }
+
+    .fb-time-action a {
+        color: #2972a1;
+    }
+
+        .fb-time-action a:hover {
+            text-decoration: underline;
+        }
+
+    .fb-time-action span {
+        color: #5a5a5a;
+    }
+
+    .fb-status-container, .fb-comments li {
+        margin: 0 -15px 0 -15px;
+        padding: 0 10px 0 0;
+    }
+
+    .fb-gray-bg {
+        background: #f6f6f6;
+    }
+
+    .fb-comments li {
+        border-top: 1px solid #ebeef5;
+        list-style: none;
+    }
+
+    .fb-comments .cmt-thumb {
+        width: 50px;
+        float: left;
+        margin-right: 15px;
+    }
+
+        .fb-comments .cmt-thumb img {
+            width: 50px;
+        }
+
+    .fb-comments .cmt-details {
+        padding-top: 5px;
+    }
+
+
+        .fb-comments .cmt-details a {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+            .fb-comments .cmt-details a.like-link {
+                font-size: 12px;
+                font-weight: normal;
+            }
+    a.comment-delete {
+        position: absolute;
+        right: 20px;
+        font-family: monospace;
+        font-size: 16px !important;
+        color: #4C4C4C;
+        cursor: pointer;
+    }
+
+    a.comment-delete:hover {
+        text-decoration: none;
+    }
+    .cmt-form {
+        display: inline-block;
+        width: 100%;
+    }
+
+        .cmt-form textarea {
+            height: 50px;
+            line-height: 35px;
+        }
+
+    .fb-timeliner h2 {
+        background: #828283;
+        color: #fff;
+        margin-top: 0;
+        padding: 10px 15px;
+        font-size: 16px;
+        border-radius: 4px;
+        -webkit-border-radius: 4px;
+        font-weight: 300;
+    }
+
+    .fb-timeliner ul {
+        margin-left: 15px;
+        margin-bottom: 20px;
+    }
+
+        .fb-timeliner ul li {
+            margin-bottom: 3px;
+        }
+
+            .fb-timeliner ul li a {
+                color: #999797;
+                border-left: 4px solid #d3d7dd;
+                padding-left: 10px;
+                padding-top: 3px;
+                padding-bottom: 3px;
+                display: block;
+            }
+
+                .fb-timeliner ul li a:hover {
+                    color: #999797;
+                    border-left: 4px solid #b1b1b1;
+                    padding-left: 10px;
+                }
+
+            .fb-timeliner ul li.active a {
+                color: #7a7a7a;
+                border-left: 4px solid #7a7a7a;
+                padding-left: 10px;
+            }
+
+    .recent-highlight {
+        background: #FF6C60 !important;
+    }
+
+</style>
+
+<!-- Modal Comments -->
+<div class="modal fade myModal" id="modalComments" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                <h4 class="modal-title" id="myModalLabel" data-bind="">Comments</h4>
+            </div>
+            <div class="modal-body">
+                <div class="cmt-form" data-bind="visible:model.uimodel().isRO() != '1'">
+                    <textarea name="" placeholder="Write a new comment..." class="form-control" data-bind="value:model.uimodel().comment"></textarea>
+                    <br />
+                    <button type="button" class="btn btn-primary btn-sm" style="float:right;" onclick="model.uimodel().PreSaveComment()">Submit</button>
+                    <div class="clearfix"></div>
+                </div>
+                
+                <div data-bind="visible:model.uimodel().commentProcessing()==true">
+                    @Html.Partial("_processing")
+                </div>
+
+                <div class="fb-status-container fb-border fb-gray-bg" style="margin-top:10px;" data-bind="visible:!model.uimodel().commentProcessing()==true">
+
+                    <div style="overflow-y: auto; overflow-x: hidden; max-height: 350px;">
+                        <ul class="fb-comments" data-bind="foreach:model.uimodel().CommentRecord()">
+
+                            <li>
+                                <div class="cmt-details">
+                                    @if (ViewBag.IsAppSupport || ViewBag.IsAdministrator)
+                                    {
+                                    <a class="comment-delete" data-bind="click: $parent.DeleteComment">x</a>
+                                    }
+                                    <a href="#" data-bind="text:FullName"></a> <small data-bind="text:jsonDateStr(LastUpdate(),'dd-MMM-yyyy HH:mm:ss')"></small><br />
+                                    <span data-bind="text:Comment"></span>
+                                    <p style="margin-top:15px;"><a data-bind="click: $parent.ReplyComment,visible:model.uimodel().isRO() != '1'" class="like-link" href="#" title="Give reply to this comment">Reply</a></p>
+                                </div>
+                            </li>
+
+                        </ul>
+                    </div>
+                    <div class="clearfix"></div>
+
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                @*<button type="button" class="btn btn-primary" onclick="model.uimodel().saveActionParty()">Save</button>*@
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Modal Comments -->

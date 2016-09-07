@@ -1,0 +1,27 @@
+﻿
+<div>
+    <div id="chart-cumulative-panel" style="width:1020px; margin: 0px auto; ">
+        <div class="mini-nav bordered-mini-nav" style="width: 365px; margin: 0px;">
+            <div class="each-nav">
+                Select Data Type:
+                <select data-bind="value:model.WaterfallFilter.CumulativeDataType">
+                    <option value="Total">Improvement + Risk</option>
+                    <option value="Improvement">Improvement</option>
+                    <option value="Risk">Risk</option>
+                </select>
+            </div>
+            <div class="each-nav no-border-nav">
+                View:
+                <select data-bind="options: model.YearOptions, value: model.WaterfallFilter.AllocationYear"></select>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+</div>
+   
+<div style="padding: 0px 30px 20px;" class="grid">
+    <h6>Cumulative Days of <span class="cumulative-title"></span></h6>
+    <div class="grid-cumulative-days"></div>
+    <h6>Cumulative Last Estimate Days</h6>
+    <div class="grid-cumulative-le-days"></div>
+</div>

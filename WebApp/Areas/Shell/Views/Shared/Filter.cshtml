@@ -1,0 +1,585 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+@{
+    var PerformanceUnits = new List<string>();
+    var elements = DataHelper.Populate<WellPIP>("WEISWellPIPs").SelectMany(d => d.Elements);
+    if (elements.Where(d => d.PerformanceUnit != null).Count() > 0)
+    {
+        PerformanceUnits = elements.Where(d => d.PerformanceUnit != null).GroupBy(d => d.PerformanceUnit).Select(d => d.Key).OrderBy(d => d).ToList();
+    }
+}
+
+<style>
+    .filter { margin-top: 10px; margin-bottom: 10px; }
+    .filter .col-md-3, .filter .col-md-4 { padding: 0px; margin: 0px; }
+    .filter .col-md-4 { text-align: right; min-height: 27px; }
+    .filter .col-md-4 label { padding-top: 4px; }
+    .filter .col-md-8 { padding-left: 6px; padding-right: 6px; }
+    .filter .floated { text-align: right; padding-right: 6px; height: 35px; }
+    .filter .not-floated { text-align: left; margin-top: 3px !important; padding-right: 6px; height: 35px; }
+
+    .shell-button { color: white; background-color: #f4b350; border: 1px solid #E2A952; border-radius: 2px; width: 115px; height: 30px; }
+
+    .filter.disabled { opacity: 0.6; pointer-events: none; }
+</style>
+
+<div class="col-md-12 row filter" data-bind="with: $root.FilterVisibility">
+
+    <!-- by regions -->
+    <div class="col-md-4" data-bind="visible: Regions">
+        <div class="col-md-4">
+            <label>Regions: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="regions" data-placeholder="Select regions ..."></select>
+        </div>
+    </div>
+
+    <!-- by operation units -->
+    <div class="col-md-4" data-bind="visible: OperatingUnits">
+        <div class="col-md-4">
+            <label>Operation Units: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="operatingUnits" data-placeholder="Select operating units ..."></select>
+        </div>
+    </div>
+
+    <!-- by rig types -->
+    <div class="col-md-4" data-bind="visible: RigTypes">
+        <div class="col-md-4">
+            <label>Rig types: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="rigTypes" data-placeholder="Select rig types ..."></select>
+        </div>
+    </div>
+
+    <!-- by rig names -->
+    <div class="col-md-4" data-bind="visible: RigNames">
+        <div class="col-md-4">
+            <label>Rig names: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="rigNames" data-placeholder="Select rig names ..."></select>
+        </div>
+    </div>
+
+    <!-- by projects -->
+    <div class="col-md-4" data-bind="visible: ProjectNames">
+        <div class="col-md-4">
+            <label>Projects: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="projectNames" data-placeholder="Select projects ..."></select>
+        </div>
+    </div>
+
+    <!-- by wellname -->
+    <div class="col-md-4" data-bind="visible: WellNames">
+        <div class="col-md-4">
+            <label>Well: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="wellNames" data-placeholder="Select wells ..."></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: PeriodBase">
+        <div class="col-md-4">
+            <label>Period Base:</label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="periodBase" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: ExType" style="margin-bottom: 8px !important;">
+        <div class="col-md-4">
+            <label>EX Type: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="exType" data-placeholder="Select Ex Type ..."></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: EDMWellNames" style="margin-bottom: 8px !important;">
+        <div class="col-md-4">
+            <label>EDM Well: </label>
+        </div>
+        <div class="col-md-8">
+            <input data-model="edmwellnames" />
+        </div>
+    </div>
+
+    <!-- by activities -->
+    <div class="col-md-4" data-bind="visible: Activities">
+        <div class="col-md-4">
+            <label>Activities: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="activities" data-placeholder="Select activities ..."></select>
+        </div>
+    </div>
+
+    <!-- by performance units -->
+    <div class="col-md-4" data-bind="visible: PerformanceUnits">
+        <div class="col-md-4">
+            <label>Performance Units: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="performanceUnits" data-placeholder="Select performance units ..."></select>
+        </div>
+    </div>
+
+    <div class="clearfix" data-bind="visible: (Activities() || PerformanceUnits() || ExType())"></div>
+
+    <!-- by date -->
+    <div class="col-md-4" data-bind="visible: Date" style="margin-bottom: 8px !important;">
+        <div class="col-md-4">
+            <label>Period Start: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="date" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <!-- by start date -->
+    <div class="col-md-4" data-bind="visible: DateStart" style="margin-bottom: 8px !important;">
+        <div class="col-md-4">
+            <label>Date Range Start: </label>
+        </div>
+        <div class="col-md-8">
+            <input data-model="dateStart" type="date" style="width: 45%" />
+            <span style="width: 10%">&nbsp;-&nbsp;</span>
+            <input data-model="dateFinish" type="date" style="width: 45%; " />
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: Date" style="margin-bottom: 8px !important;">
+        <div class="col-md-4">
+            <label>Period Relation: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="dateRelation" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <div class="clearfix"></div>
+
+    <!-- by date -->
+    <div class="col-md-4" data-bind="visible: Date2">
+        <div class="col-md-4">
+            <label>Period Finish: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="date2" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <!-- by start date -->
+    <div class="col-md-4" data-bind="visible: DateStart2">
+        <div class="col-md-4">
+            <label>Date Range Finish: </label>
+        </div>
+        <div class="col-md-8">
+            <input data-model="dateStart2" type="date" style="width: 45%" />
+            <span style="width: 10%">&nbsp;-&nbsp;</span>
+            <input data-model="dateFinish2" type="date" style="width: 45%; " />
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: riskcheck">
+        <div class="col-md-4">
+            <label>Include Risk:</label>
+        </div>
+        <div class="col-md-2" style="padding-left: 3px; text-align: left;">
+            <input data-model="riskcheck" type="checkbox" style="width: 45%" id="riskcheck" checked="checked" />
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: wellwithpipcheck">
+        <div class="col-md-4">
+            <label>Well With PIPs:</label>
+        </div>
+        <div class="col-md-2" style="padding-left: 3px; text-align: left;">
+            <input data-model="wellwithpipcheck" type="checkbox" style="width: 45%" id="wellwithpipcheck" checked="checked" />
+        </div>
+    </div>
+
+    <div class="col-md-4 active-well" data-bind="visible: ActiveWell">
+        <div class="col-md-4">
+            <label>Show Active Well:</label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="activeWell" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <!-- button reload filter -->
+    <div data-bind="css: { 'col-md-12 floated': FloatedButton(), 'col-md-4 not-floated': !FloatedButton() }">
+        <button class="btn btn-custom btn-sm btn-primary do-filter">
+            <span class="glyphicon glyphicon-refresh"></span> Refresh
+        </button>
+    </div>
+
+</div>
+
+<script>
+    // set kendo datasource
+    (function () {
+        model.FilterVisibility = {
+            Regions         : ko.observable(true),
+            OperatingUnits  : ko.observable(true),
+            RigTypes        : ko.observable(true),
+            RigNames        : ko.observable(true),
+            ProjectNames    : ko.observable(true),
+            WellNames       : ko.observable(true),
+            Activities      : ko.observable(false),
+            PerformanceUnits: ko.observable(false),
+            FloatedButton   : ko.observable(true),
+            Date            : ko.observable(false),
+            DateStart       : ko.observable(false),
+            DateFinish      : ko.observable(false),
+            Date2           : ko.observable(false),
+            DateStart2      : ko.observable(false),
+            DateFinish2     : ko.observable(false),
+            riskcheck: ko.observable(false),
+            wellwithpipcheck: ko.observable(false),
+            ActiveWell      : ko.observable(false),
+            PeriodBase      : ko.observable(false),
+            ExType          : ko.observable(false),
+            EDMWellNames    : ko.observable(false)
+        };
+
+        model.maxDate = new Date(3001, 1, 1);
+        model.defaultDateStart = moment(new Date(2000, 1, 1)).startOf('year').toDate();
+        model.defaultDateFinish = moment(new Date(3000, 1, 1)).endOf('year').toDate();
+
+        model.regions = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRegions")
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        model.operatingUnits = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISOperatingUnits")
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        model.rigTypes = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigTypes")
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        model.rigNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigNames", 
+                                                    Query.Or(Query.EQ("isOfficeLocation", false), Query.NotExists("isOfficeLocation")))
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        model.projectNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISProjectNames")
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        model.wellNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISWellNames", Query.NE("IsVirtualWell", true))
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        model.activities = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate<WellActivity>("WEISWellActivities")
+            .SelectMany(d => d.Phases).GroupBy(d => d.ActivityType).Select(d => d.Key).OrderBy(d => (d.Equals("n/a") ? "" : d)))));
+        model.performanceUnits = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(PerformanceUnits)));
+        model.edmwellnames = ko.observable('');
+        var items = ["EXPEX", "CAPEX", "ABEX", "OPEX"];
+        model.exType = ko.observableArray(items);
+
+        // date validation
+        model.InvalidDate1Message = ko.observable("Date range start cannot be empty");
+        model.InvalidDate2Message = ko.observable("Date range finish cannot be empty");
+        model.IsDateInputValid = function () {
+            if ($('[data-model=date]').data('kendoDropDownList').value() === 'Custom') {
+                var date1 = (function (d) { return !(d == null || d == ""); }($('[data-model=dateStart]').data('kendoDatePicker').value()));
+                var date2 = (function (d) { return !(d == null || d == ""); }($('[data-model=dateFinish]').data('kendoDatePicker').value()));
+
+                if (!(date1 || date2)) {
+                    alert(model.InvalidDate1Message());
+                    return false;
+                }
+            }
+
+            if ($('[data-model=date2]').data('kendoDropDownList').value() === 'Custom') {
+                var date1 = (function (d) { return !(d == null || d == ""); }($('[data-model=dateStart2]').data('kendoDatePicker').value()));
+                var date2 = (function (d) { return !(d == null || d == ""); }($('[data-model=dateFinish2]').data('kendoDatePicker').value()));
+
+                if (!(date1 || date2)) {
+                    alert(model.InvalidDate2Message());
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+        // return params of filter
+        model.getFilterValues = function () {
+            var result = {};
+
+            $('.filter').find('select:not([data-model="date"],[data-model="date2"],[data-model="dateRelation"],[data-model="riskcheck"],[data-model="wellwithpipcheck"],[data-model="activeWell"],[data-model="periodBase"],[data-model="sortBy"],[data-model="sortType"],[id="PIPTypeFilter"])').each(function (i, e) {
+                result[$(e).attr('data-model')] = $(e).data('kendoMultiSelect').value();
+            });
+
+            $(['dateStart', 'dateFinish', 'dateStart2', 'dateFinish2']).each(function (i, e) {
+                var val = $('[data-model="' + e + '"]').data('kendoDatePicker').value();
+                if ($.trim(val).length === 0) return;
+
+                result[e] = moment(val).format('YYYY-MM-DD');
+            });
+
+            result['wellwithpipcheck'] = $('[data-model="wellwithpipcheck"]').is(':checked');
+            result['riskcheck'] = $('[data-model="riskcheck"]').is(':checked');
+            result['dateRelation'] = $('[data-model="dateRelation"]').data('kendoDropDownList').value();
+            result['activeWell'] = $('[data-model="activeWell"]').data('kendoDropDownList').value();
+            result['periodBase'] = $('[data-model="periodBase"]').data('kendoDropDownList').value();
+            result['edmwellnames'] = $('[data-model="edmwellnames"]').val();
+
+            //console.log('model.getFilterValues function()');
+            //console.log(result);
+            return result;
+        }
+
+        // detect is filter implemented
+        model.validateFilterImplementation = function () {
+            if (typeof model.reloadData !== 'undefined') return true;
+
+            //console.error('Filter.cshtml is used but model.reloadData() not yet implemented. model.reloadData() function required for filter action!');
+            return false;
+        }
+
+        //console.log('use model.getFilterValues() to get filter values');
+    }());
+
+    // prepare filters
+    $(function () {
+        var datex = new Date();
+        var current = datex.getFullYear();
+        var last = datex.getFullYear()-1;
+        var next = datex.getFullYear()+1;
+        var dateBuilder = function (dateModel, dateStartModel, dateFinishModel) {
+            $('[data-model="' + dateModel + '"]').kendoDropDownList({
+
+                dataSource: ["Current Year" + " (" + current.toString() + ")", "Last Year" + " (" + last.toString() + ")", "Next Year" + " (" + next.toString() + ")", "Custom", "None"],
+                change: function (e) {
+                    var self = this;
+                    var isCustom = self.value() === 'Custom';
+
+                    model.FilterVisibility['DateStart' + (dateStartModel.indexOf('2') > -1 ? '2' : '')](isCustom);
+                    model.FilterVisibility['DateFinish' + (dateStartModel.indexOf('2') > -1 ? '2' : '')](isCustom);
+
+                    $([dateStartModel, dateFinishModel]).each(function (i, e) {
+                        var datePickerStart = $('[data-model="' + dateStartModel + '"]').data('kendoDatePicker');
+                        var datePickerFinish = $('[data-model="' + dateFinishModel + '"]').data('kendoDatePicker');
+
+                        if (self.value().indexOf('Current Year') > -1) {
+                            datePickerStart.value(moment(new Date()).startOf('year').toDate());
+                            datePickerFinish.value(moment(new Date()).endOf('year').toDate());
+                        } else if (self.value().indexOf('Last Year') > -1) {
+                            datePickerStart.value(moment(new Date()).subtract(1, 'years').startOf('year').toDate());
+                            datePickerFinish.value(moment(new Date()).subtract(1, 'years').endOf('year').toDate());
+                        } else if (self.value().indexOf('Next Year') > -1) {
+                            datePickerStart.value(moment(new Date()).add(1, 'years').startOf('year').toDate());
+                            datePickerFinish.value(moment(new Date()).add(1, 'years').endOf('year').toDate());
+                        } else if (self.value() === 'Custom') {
+                            datePickerStart.value(model.defaultDateStart);
+                            datePickerFinish.value(model.defaultDateFinish);
+                        } else {
+                            datePickerStart.value('');
+                            datePickerFinish.value('');
+                        }
+                    });
+                }
+            });
+
+            $([dateStartModel, dateFinishModel]).each(function (i, e) {
+                $('[data-model="' + e + '"]').kendoDatePicker({ format: "dd-MMM-yyyy", max: model.maxDate });
+            });
+
+            $('[data-model="' + dateStartModel + '"]').data('kendoDatePicker').value(moment(new Date()).startOf('year').toDate());
+            $('[data-model="' + dateFinishModel + '"]').data('kendoDatePicker').value(moment(new Date()).endOf('year').toDate());
+        };
+
+        // date picker
+        (function () {
+            dateBuilder('date', 'dateStart', 'dateFinish');
+            dateBuilder('date2', 'dateStart2', 'dateFinish2');
+
+            $('[data-model="dateRelation"]').kendoDropDownList({
+                dataSource: ["AND", "OR"],
+                value: ["OR"]
+            });
+
+            $('[data-model="activeWell"]').kendoDropDownList({
+                dataSource: ["Per Last Sequence", "Per Last Estimate", "Per Last Estimate or Last Sequence", "None"],
+                value: ["Per Last Sequence"]
+            });
+
+            $('[data-model="periodBase"]').kendoDropDownList({
+                dataSource: ["By Last Sequence", "By Last Estimate"],
+                value: ["By Last Sequence"]
+            });
+        }());
+
+        function prepareFilters(callbackEachFilter) {
+            if (typeof callbackEachFilter === 'undefined') {
+                callbackEachFilter = function (c, i, e) { return c; };
+            }
+
+            // prepare filters
+            $('.filter').find('select:not([data-model="date"],[data-model="date2"],[data-model="dateRelation"],[data-model="riskcheck"],[data-model="wellwithpipcheck"],[data-model="activeWell"],[data-model="periodBase"],[data-model="sortBy"],[data-model="sortType"])').each(function (i, e) {
+
+                var config = {
+                    placeholder: $(e).attr('data-placeholder'),
+                    dataSource: { data: model[$(e).attr('data-model')]() },
+                    filter: "contains",
+                    value: (function (v) { return typeof v === 'undefined' ? '' : v; }($(e).attr('data-value')))
+                };
+
+                if (['activities', 'performanceUnits'].indexOf($(e).attr('data-model')) < 0)
+                    callbackEachFilter(config, i, e);
+
+                $(e).kendoMultiSelect(config);
+            });
+        }
+
+        // seqeuence filter feature
+        $(function () {
+            var enableFilterTargets = function (bool) {
+                (function ($f) { (bool ? $f.removeClass('disabled') : $f.addClass('disabled')) }($('.filter')));
+            };
+
+            prepareFilters(function (config, i, e) {
+                config.change = function (p) {
+                    enableFilterTargets(false);
+
+                    var firstLevelLowercase = p.sender.element.attr('data-model');
+                    var firstLevel = firstLevelLowercase.substring(0, 1).toUpperCase() + firstLevelLowercase.substring(1);
+
+                    var currentModelName = (function (str) {
+                        return str.replace(/\w\S*/g, function (txt) { return txt.charAt(0).toUpperCase() + txt.substr(1); });
+                    }($(e).attr('data-model')));
+
+                    if ([firstLevel, 'RigNames', 'ProjectNames', 'WellNames'].indexOf(currentModelName) <= -1) {
+                        enableFilterTargets(true);
+                        return;
+                    }
+
+                    var targetsByModel = {
+                        Regions: [],
+                        OperatingUnits: [],
+                        RigTypes: [],
+                        RigNames: [['Regions', 'OperatingUnits', 'RigTypes']],
+                        ProjectNames: ['RigNames', ['Regions', 'OperatingUnits', 'RigTypes']],
+                        WellNames: ['ProjectNames', 'RigNames', ['Regions', 'OperatingUnits', 'RigTypes']],
+                        ExType: [],
+                        EDMWellNames : '',
+                    };
+
+                    var $filter = $('.filter');
+                    var selectsByModel = {
+                        Regions: $filter.find('[data-model=regions]').data('kendoMultiSelect'),
+                        OperatingUnits: $filter.find('[data-model=operatingUnits]').data('kendoMultiSelect'),
+                        RigTypes: $filter.find('[data-model=rigTypes]').data('kendoMultiSelect'),
+                        RigNames: $filter.find('[data-model=rigNames]').data('kendoMultiSelect'),
+                        ProjectNames: $filter.find('[data-model=projectNames]').data('kendoMultiSelect'),
+                        WellNames: $filter.find('[data-model=wellNames]').data('kendoMultiSelect'),
+                        ExType: $filter.find('[data-model=exType]').data('kendoMultiSelect'),
+                        EDMWellNames: $filter.find('[data-model=edmwellnames]').data('')
+                    };
+
+                    for (var f in targetsByModel[currentModelName]) {
+                        var g = targetsByModel[currentModelName][f];
+
+                        if (selectsByModel[currentModelName].value().length === 0) {
+                            if (g instanceof Array) {
+                                for (var o in g) selectsByModel[g[o]].enable(true);
+                                break;
+                            } else {
+                                selectsByModel[g].enable(true);
+                            }
+
+                            if (selectsByModel[g].value().length > 0) {
+                                break;
+                            }
+                        } else {
+                            if (g instanceof Array) {
+                                for (var o in g) selectsByModel[g[o]].enable(false);
+                            } else {
+                                selectsByModel[g].enable(false);
+                            }
+                        }
+                    }
+
+                    var paramsByModel = {
+                        Regions: {
+                            get: ['RigName', 'ProjectName', 'WellName'],
+                            regions: selectsByModel['Regions'].value(),
+                            operatingUnits: selectsByModel['OperatingUnits'].value(),
+                            rigTypes: selectsByModel['RigTypes'].value(),
+                            key: 'Region' },
+                        OperatingUnits: {
+                            get: ['RigName', 'ProjectName', 'WellName'],
+                            regions: selectsByModel['Regions'].value(),
+                            operatingUnits: selectsByModel['OperatingUnits'].value(),
+                            rigTypes: selectsByModel['RigTypes'].value(),
+                            key: 'OperatingUnit' },
+                        RigTypes: {
+                            get: ['RigName', 'ProjectName', 'WellName'],
+                            regions: selectsByModel['Regions'].value(),
+                            operatingUnits: selectsByModel['OperatingUnits'].value(),
+                            rigTypes: selectsByModel['RigTypes'].value(),
+                            key: 'RigType' },
+                        RigNames: {
+                            get: ['ProjectName', 'WellName'],
+                            key: 'RigName',
+                            val: this.value() },
+                        ProjectNames: {
+                            get: ['WellName'],
+                            key: 'ProjectName',
+                            val: this.value() },
+                        WellNames: {
+                            get: [],
+                            key: '',
+                            val: []
+                        },
+                        ExType: {
+                            get: [],
+                            key: '',
+                            val: []
+                        }
+                    }
+
+                    if (paramsByModel[currentModelName].get.length === 0) {
+                        enableFilterTargets(true);
+                        return;
+                    }
+                    //console.log(paramsByModel[currentModelName]);
+                    ajaxPost("@Url.Action("GetAvailableFilter", "Dashboard")", paramsByModel[currentModelName], function (res) {
+                        var modelFor = [firstLevel, 'RigNames', 'ProjectNames','ExType'];
+
+                        for (var key in res.Data) if (res.Data.hasOwnProperty(key)) {
+                            var jey = key.substring(0, key.length - 1);
+
+                            if (modelFor.indexOf(currentModelName) > -1 && paramsByModel[currentModelName].get.indexOf(jey) > -1) {
+                                selectsByModel[key].setDataSource({ data: res.Data[key] });
+                            }
+                        }
+
+                        enableFilterTargets(true);
+                    }, function () {
+                        enableFilterTargets(true);
+                    });
+                }
+            });
+        }());
+
+        // filter action
+        $('.filter').find('.do-filter').on('click', function () {
+            if (!model.IsDateInputValid()) {
+                return;
+            }
+
+            if (model.validateFilterImplementation())
+                model.reloadData();
+        });
+
+    });
+
+    $(function () {
+        model.validateFilterImplementation();
+    });
+</script>

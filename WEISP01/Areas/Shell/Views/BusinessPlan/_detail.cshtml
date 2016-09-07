@@ -1,0 +1,170 @@
+﻿<style>
+    .titleDetailSim:hover {
+        background: #E8E8E8;
+    }
+    .editTitle {
+        display: none;
+    }
+    .titleDetailSim:hover > .editTitle {
+        display: block;
+    }
+</style>
+<script>
+    model.bpmodel().sampleDataDetailSimulation = [
+            { PlanId: "OP14", Title: "Current LS", CreatedBy: "", Days: "100", Cost: "100" },
+            { PlanId: "LS Aug 2015", Title: "Current OP", CreatedBy: "", Days: "100", Cost: "100" },
+            { PlanId: "LE 17 Aug 2015", Title: "Current LE", CreatedBy: "", Days: "100", Cost: "100" }
+    ];
+    
+    model.bpmodel().simulationDetailColumns = [
+                        { field: "PlanId", title: "Plan Id" },
+                        { field: "Title", title: "Title" },
+                        { field: "CreatedBy", title: "Created By" },
+                        { title: "2015", columns: [{ field: "Days", title: "Days" }, { field: "Cost", title: "Cost" }] },
+                        { title: "2016", columns: [{ field: "Days", title: "Days" }, { field: "Cost", title: "Cost" }] },
+                        { title: "2017", columns: [{ field: "Days", title: "Days" }, { field: "Cost", title: "Cost" }] },
+    ];
+  
+    function EditTitle() {
+        $("#modal-edit-title").modal("show");
+    }
+
+    function SubmitTitle() {
+        var simId = model.SimulationId();
+        var newTitle = $("#NewTitle").val();
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("ChangeNameSimulation")", { ID: simId, NewTitle: newTitle }, function (res) {
+            model.IsProcessing(false);
+            if (res.Result != "OK") {
+                alert("Something error when changing simulation name. " + res.Message);
+                return;
+            }
+            $("#NewTitle").val("");
+            model.bpmodel().changeMode("");
+            $("#modal-edit-title").modal("hide");
+            model.bpmodel().detail(model.SimulationId());
+        });
+    }
+</script>
+<div class="ec-panel">
+    <div class="ec-toolbar">
+        <div class="col-md-12 no-padding">
+            <div class="col-md-6 titleDetailSim">
+                <span class="PSTitle" data-bind="text:model.SimulationTitle()"></span>
+                <button class="btn btn-xs btn-primary editTitle" style="margin-top: 1%; float: right" onclick="EditTitle()"><span class="glyphicon glyphicon-pencil"></span></button>
+            </div>
+            <div class="col-md-6 no-padding" style="text-align:right">
+                <button class="btn btn-warning btn-sm btn-custom" onclick="model.bpmodel().changeMode('')">Back To List</button>
+                <button class="btn btn-success btn-sm btn-custom" id="commitls"><span class="glyphicon glyphicon-ok"></span> Commit to LS</button>
+                <button class="btn btn-success btn-sm btn-custom" id="commitop"><span class="glyphicon glyphicon-ok"></span> Commit to OP</button>
+                <button class="btn btn-success btn-sm btn-custom" onclick="LockSimulation()" data-bind="text:model.LockStatus" id="lock"><span class="glyphicon glyphicon-lock"></span></button>
+                <button class="btn btn-danger btn-sm btn-custom" data-bind="click: model.bpmodel().DeleteSimulation"><span class="glyphicon glyphicon-remove"></span> Delete</button>
+                <button class="btn btn-success btn-sm btn-custom" id="hideComparison">Hide Comparison</button>
+                
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+
+    <div data-bind="visible:model.IsCompProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div class="col-md-12 no-padding" data-bind="visible:!model.IsCompProcessing()">
+        <div class="grid" id="gridsimulationheader"></div>
+    </div>
+
+    <div class="col-md-12 no-padding" style="text-align:right;margin-top:10px;">
+        <button class="btn btn-success btn-sm btn-custom" onclick="addcomparison()" id="addcomparison">Add Comparison</button>
+    </div>
+</div>
+<div class="ec-panel">
+    <div class="col-md-12 no-padding" style="margin-top:20px;">
+        <ul class="nav nav-tabs">
+            <li class="active"><a href="#bywell" id="" data-toggle="tab">By Well</a></li>
+            <li><a href="#seqchart" data-toggle="tab" id="">Sequence Chart</a></li>
+        </ul>
+        <div class="tab-content" style="padding-top:10px;">
+            <div class="tab-pane active" id="bywell" style="overflow-y:auto;">
+                @Html.Partial("_byWellTab")
+            </div>
+            <div class="tab-pane" id="seqchart" style="overflow-y:auto;">
+                @Html.Partial("_SequenceChart")
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@*<div class="modal fade" id="modal-edit-title" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="col-md-12" style="margin-top:10px;">
+        <div class="modal-dialog" style="width: 400px;">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">Modal title</h4>
+            </div>
+            <div class="modal-content">
+                <div>
+                    <div class="row" style="margin-top:10px;">
+                        <div class="col-md-12">
+                            <div class="col-md-2 text-right">
+                                <label>Title:</label>
+                            </div>
+                            <div class="col-md-10">
+                                <input type="text" id="NewTitle" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="SaveWell()">Save Changes</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>*@
+
+
+<div class="modal fade" id="modal-edit-title" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" style="width: 500px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">Modal title</h4>
+            </div>
+            <div class="modal-body">
+                <div>
+                    <div class="row" style="margin-top:10px;">
+                        <div class="col-md-12">
+                            <div class="col-md-4 text-right">
+                                <label>Old Title:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="text" data-bind="value: model.SimulationTitle" style="width: 100%" disabled />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row" style="margin-top:10px;">
+                        <div class="col-md-12">
+                            <div class="col-md-4 text-right">
+                                <label>Title:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="text" id="NewTitle" style="width: 100%" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                @*<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>*@
+                <button type="button" class="btn btn-sm btn-primary" onclick="SubmitTitle()">Save changes</button>
+            </div>
+        </div><!-- /.modal-content -->
+    </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->

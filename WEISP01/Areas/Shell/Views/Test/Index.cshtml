@@ -1,0 +1,19 @@
+﻿@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<div style="height:200px">
+    <h2>Under Development</h2>
+    <label data-bind="text:no"></label>
+</div>
+
+<script>
+    model.PageId("Glossary and Tooltips");
+    
+    model.no = ko.observable(1);
+
+    $(document).ready(function () {
+        model.no(kendo.format("{0:00,00,00,000.00}",10000000))
+    });
+</script>

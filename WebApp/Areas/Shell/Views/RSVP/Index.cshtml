@@ -1,0 +1,230 @@
+﻿@{
+    ViewBag.Title = "Rig Site Virtual Presence";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<style>
+    #dashboard .row .col-md-3 {
+        padding-right: 5px;
+    }
+
+    h3.video-title {
+        border: none;
+    }
+
+    #dashboard .row h3.section-title {
+        border: none;
+        background-color: rgb(249, 249, 249);
+    }
+
+    #sortable {
+        cursor: move; /* fallback if grab cursor is unsupported */
+        cursor: grab;
+        cursor: -moz-grab;
+        cursor: -webkit-grab;
+        border: 1px solid #F9F9F9;
+    }
+    #sortable:active {
+        cursor: grabbing;
+        cursor: -moz-grabbing;
+        cursor: -webkit-grabbing;
+    }
+    .k-item {
+        cursor: pointer;
+        -webkit-user-select: none; /* webkit (safari, chrome) browsers */
+        -moz-user-select: none; /* mozilla browsers */
+        -khtml-user-select: none; /* webkit (konqueror) browsers */
+        -ms-user-select: none; /* IE10+ */
+    }
+
+    .is {
+        display: none
+    }
+
+    .is button {
+        margin-top: 7px;
+    }
+
+    .hvr {
+        background-color: white;
+        border: 1px solid #F9F9F9;
+        padding: 15px;
+        padding-top: 10px;
+    }
+
+    .hvr:hover .is {
+        display: block;
+        position: absolute;
+        z-index: 2;
+        top: 5px;
+        right: 1px;
+    }
+
+    .k-treeview .k-item .k-in {
+        padding-left: 8px !important;
+    }
+
+    .k-treeview .k-state-selected {
+        background: #DD3333 !important;
+        color: white !important;
+    }
+</style>
+
+<script>
+    model.PageId("RSVP");
+    model.rsvp = ko.observable({
+        recordBefore: ko.observableArray([]),
+        record: ko.observableArray([]),
+        remove: function() {
+            var x = model.rsvp();
+            x.record.remove(this);
+            x.SaveConfig();
+        },
+        reset: function() {
+            var x = model.rsvp();
+            x.record([]);
+        },
+        SaveConfig: function () {
+            var dt = [];
+            var x = model.rsvp().record();
+            x.forEach(function(data, index) {
+                var c = {
+                    key: data.id,
+                    value: index + 1
+                };
+                dt.push(c);
+            });
+
+            ajaxPost("@Url.Action("Save")", { key: dt });
+        },
+        GetMyConfig: function () {
+            var x = model.rsvp();
+            ajaxPost("@Url.Action("GetConfigStream")", {},
+                function (data) {
+                    if (data.Result != "OK") {
+                        alert(data.Message);
+                        return;
+                    }
+                    x.record(data.Data);
+                } 
+            );
+        }
+    });
+
+    model.rsvp().record.subscribe(function (e) {
+        setTimeout(function () {
+            var width = 0;
+            var height = 0;
+            var GetWidth = $("#sortable").width();
+            var GetHeight = $(window).height();
+            if (e.length == 1) {
+                width = GetWidth * 0.95;
+                height = GetHeight * 0.65;
+            }
+            else if (e.length == 2) {
+                width = GetWidth * 0.45;
+                height = GetHeight * 0.55;
+            } else {
+                width = GetWidth * 0.3;
+                height = GetHeight * 0.3;
+            }
+            e.forEach(function (data, index) {
+                var createPlayer = function() {
+                    var player = jwplayer('mediaspace' + data.id);
+                    player.setup({
+                        'flashplayer': '@Url.Content("~/Content/JWPlayer/player.swf")',
+                        'provider': data.Provider,
+                        'streamer': data.Streamer,
+                        'file': data.File,
+                        'controlbar': 'bottom',
+                        'width': width,
+                        'height': height,
+                        'autostart': true
+                    });
+                    player.onError(function (e) {
+                        console.log(data.File + " ~ " + e.message);
+                        console.log("trying to reconnect in 5 seconds");
+
+                        setTimeout(function () {
+                            player.remove();
+                            createPlayer();
+                        }, 1000 * 5);
+                    });
+
+                    return player;
+                };
+
+                createPlayer();
+            });
+        }, 500);
+
+        model.rsvp().recordBefore(e);
+    });
+</script>
+
+<div id="dashboard">
+    <script type='text/javascript' src="@Url.Content("~/Content/JWPlayer/jwplayer.js")"></script>
+
+    <div id="rsvp" class="col-md-12">
+        <div class="row">
+        </div>
+
+        <div class="row">
+            <div class="col-md-3">
+                @RenderPage("_LeftSelect.cshtml")
+            </div>
+
+            <div class="col-md-9" style="padding-bottom: 10px;">
+                <h3 class="section-title">Live Streaming</h3>
+                
+                <div class="row" id="sortable">
+                    
+                    <!--ko foreach: model.rsvp().record-->
+                    
+                    <!--ko if: model.rsvp().record().length == 1-->
+                    <div class="col-md-12 hvr">
+                        <div class="col-md-12 is">
+                            <button class="btn btn-xs btn-danger btn-custom" data-bind="click: model.rsvp().remove"><span class="glyphicon glyphicon-remove"></span></button>
+                        </div>
+                        <h3 class="video-title" data-bind="text: text"></h3>
+                        <div data-bind="attr: {id: 'mediaspace' + id}" class="ms"></div>
+                    </div>
+                    <!--/ko-->
+                    <!--ko if: model.rsvp().record().length == 2-->
+                    <div class="col-md-6 hvr">
+                        <div class="col-md-12 is">
+                            <button class="btn btn-xs btn-danger btn-custom" data-bind="click: model.rsvp().remove"><span class="glyphicon glyphicon-remove"></span></button>
+                        </div>
+                        <h3 class="video-title" data-bind="text: text"></h3>
+                        <div data-bind="attr: {id: 'mediaspace' + id}" class="ms"></div>
+                    </div>
+                    <!--/ko-->
+                    <!--ko if: model.rsvp().record().length >= 3-->
+                    <div class="col-md-4 hvr">
+                        <div class="col-md-12 is">
+                            <button class="btn btn-xs btn-danger btn-custom" data-bind="click: model.rsvp().remove"><span class="glyphicon glyphicon-remove"></span></button>
+                        </div>
+                        <h3 class="video-title" data-bind="text: text"></h3>
+                        <div data-bind="attr: {id: 'mediaspace' + id}" class="ms"></div>
+                    </div>
+                    <!--/ko-->
+
+                    <!--/ko-->
+                    
+                </div>
+                <div style="clear:both"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type='text/javascript'>
+    $(function () {
+        $("#sortable").sortable();
+        $("#sortable").disableSelection();
+    });
+
+    $(document).ready(function() {
+        model.rsvp().GetMyConfig();
+    });
+</script>

@@ -1,0 +1,166 @@
+﻿
+<div class="ec-panel" style="width:1000px;margin:0px auto;">
+    <div data-bind="with:$root.waterfall">
+        <div class="mini-nav bordered-mini-nav" style="width: 150px; margin: 0px;">
+            <div class="each-nav no-border-nav">
+                Show:
+                <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                    <option value="Day">Days</option>
+                    <option value="Cost">Cost</option>
+                </select>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+</div>
+
+<div style="padding: 0px 30px 20px; margin-top: 10px;" class="grid">
+    <div class="grid-waterfall-data"></div>
+</div>
+
+<style>
+    .grid-waterfall-data .k-header.k-grid-toolbar {
+        background-color: #F9F9FB;
+    }
+
+        .grid-waterfall-data .k-header.k-grid-toolbar .k-button {
+            background-color: #f4b350;
+            border-color: #E2A952;
+        }
+
+    .grid-waterfall-data .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+        .grid-waterfall-data .k-header[role=columnheader][data-colspan] {
+            text-align: center;
+            font-weight: bold;
+            color: #a8a8a8;
+        }
+
+    .grid-waterfall-data [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: top;
+    }
+</style>
+
+<script>
+    function createWaterfallData(data) {
+        renderGrid(data.grid);
+    }
+
+    function renderGrid(data) {
+        var getFormat = function () {
+            return "{0:N1}";
+            return ("{0:N" + (model.waterfall().DayOrCost() === 'Day' ? 0 : 1) + "}");
+        };
+        var columns = (function () {
+            var buildColumn = function (field, title) {
+                title = (typeof title === 'undefined' ? field : title);
+
+                return {
+                    field: field + (model.waterfall().DayOrCost() === 'Day' ? 'Days' : 'Cost'),
+                    title: "<b>" + title + "</b><br />" + (model.waterfall().DayOrCost() === 'Day' ? 'Days' : 'Cost (US$ m)'),
+                    width: 90,
+                    format: getFormat(),
+                    attributes: { style: 'text-align:right;' },
+                    aggregates: ["sum"],
+                    //footerTemplate: "<div style='text-align: right;'>#= kendo.toString(parseFloat(sum).toFixed(2), 'n2') #</div>"
+                    footerTemplate: "<div style='text-align: right;' data-value='#=sum#'>#=kendo.format('" + getFormat() + "',sum)#</div>" //"<div style='text-align: right;'>#= kendo.toString(parseFloat(sum).toFixed(2), 'n2') #</div>"
+
+                };
+            };
+
+            var c = [
+                { field: "WellName", title: "Well" },
+                { field: "ActivityType", title: "Activity" },
+                { field: "RigName", title: "Rig" },
+                { field: "Type", title: "Type", width: 100 },
+            ];
+
+            var selectedLayout = model.waterfall().Layout();
+
+            //if (selectedLayout.indexOf("OP") > -1)
+            c.push(buildColumn("OP"));
+
+            c.push(buildColumn("LEPIPOpp", "LE PIP Opp"));
+            c.push(buildColumn("LEPIPRisk", "LE PIP Risk"));
+
+            if (model.waterfall().IncludeGaps())
+                c.push(buildColumn("Gaps", "Accelerate Scope"));
+
+            if (selectedLayout.indexOf("TQ") > -1)
+                c.push(buildColumn("TQ"));
+
+            if (selectedLayout.indexOf("LE") > -1)
+                c.push(buildColumn("LE"));
+
+            console.log(c);
+
+            return c;
+        }());
+
+        $('.grid-waterfall-data').replaceWith($('<div />').addClass('grid-waterfall-data'));
+        $('.grid-waterfall-data').kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "Waterfall Data.pdf" },
+            excel: { fileName: "Waterfall Data.xlsx", allPages: true, filterable: true },
+            dataSource: {
+                data: data,
+                type: "json",
+                aggregate: [
+                    { field: "GapsDays", aggregate: "sum" },
+                    { field: "OPDays", aggregate: "sum" },
+                    { field: "LEDays", aggregate: "sum" },
+                    { field: "TQDays", aggregate: "sum" },
+                    { field: "LEPIPOppDays", aggregate: "sum" },
+                    { field: "LEPIPRiskDays", aggregate: "sum" },
+
+                    { field: "GapsCost", aggregate: "sum" },
+                    { field: "OPCost", aggregate: "sum" },
+                    { field: "LECost", aggregate: "sum" },
+                    { field: "TQCost", aggregate: "sum" },
+                    { field: "LEPIPOppCost", aggregate: "sum" },
+                    { field: "LEPIPRiskCost", aggregate: "sum" },
+                ]
+            },
+            excelExport: function (e) {
+                e.workbook.sheets[0].rows.forEach(function (row, i) {
+                    if (i == 0) {
+                        row.cells.forEach(function (cell, j) {
+                            try { cell.value = cell.value.replace("<br />", " "); } catch (err) { }
+                            try { cell.value = cell.value.replace("<b>", ""); } catch (err) { }
+                            try { cell.value = cell.value.replace("</b>", ""); } catch (err) { }
+                        });
+                        return;
+                    }
+
+                    for (var j = 4; j < row.cells.length; j++) {
+                        if (e.workbook.sheets[0].rows.length - 1 == i) {
+                            row.cells[j].value = parseFloat($(row.cells[j].value).data("value"));
+                            continue;
+                        }
+
+                        try { row.cells[j].value = row.cells[j].value.replace("<div style='text-align: right;'>", ""); } catch (err) { }
+                        try { row.cells[j].value = row.cells[j].value.replace("</div>", ""); } catch (err) { }
+                        try { row.cells[j].value = parseFloat($.trim(row.cells[j].value)); } catch (err) { }
+                    }
+                });
+            },
+            height: 245,
+            scrollable: true,
+            sortable: true,
+            resizable: true,
+            columns: columns
+        });
+
+        $(function () {
+            $('[href=#waterfall-data]').on('click', function () {
+                setTimeout(function () {
+                    $('.grid-waterfall-data').data('kendoGrid').refresh();
+                }, 500);
+            });
+        });
+    }
+
+</script>

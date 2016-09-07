@@ -1,0 +1,422 @@
+﻿<style>
+    .pip{
+    }
+
+    textarea{
+        border:solid 1px #ccc;
+    }
+    .counter {
+        text-align: right;
+        font-size: 10px;
+        color: blue;
+    }
+
+        .counter span {
+            font-weight: bold;
+        }
+
+    span.glyphicon.glyphicon-comment.comment-exist {
+        color: rgb(66, 139, 202);
+    }
+    span.glyphicon.glyphicon-comment.comment-exist .comment-counter {
+        color: black;
+        font-size: 10px;
+        position: absolute;
+        top: -5px;
+        right: -7px;
+        font-weight: normal !important;
+    }
+    .fontRed{
+        color:red;
+    }
+</style>
+<script>
+    model.wrmodel().countNPTCOst = function () {
+        var x = model.wrmodel().record();
+        AFEDays = parseFloat(x.AFE.Days());
+        AFECost = parseFloat(x.AFE.Cost());
+        NPTDays = parseFloat(x.NPT.Days());
+        //if (AFEDays == 0 || NPTDays == 0) {
+        //    x.NPT.Cost(0);
+        //} else {
+        //    var perc = NPTDays / AFEDays;
+        //    x.NPT.Cost(perc);
+        //}
+        //<a href="~/Areas/Shell/Views/WeeklyReport/_commentary.cshtml">~/Areas/Shell/Views/WeeklyReport/_commentary.cshtml</a>
+        //var cost = NPTDays * 100 / AFEDays;
+        //x.NPT.Cost(cost);
+    }
+    model.wrmodel().countNPTDays = function () {
+        var x = model.wrmodel();
+        ActualDays = parseFloat(x.record().Actual.Days());
+        NPTHours = parseFloat(x.NPTHours());
+        if (ActualDays == 0 || NPTHours == 0) {
+            x.record().NPT.Days(0);
+        } else {
+            var perc = NPTHours / 24 / ActualDays;
+            x.record().NPT.Days(perc);
+        }
+        //x.countNPTCOst();
+    }
+
+    model.wrmodel().CounterExecutiveSummary = ko.observable("");
+    model.wrmodel().CounterOperationSummary = ko.observable("");
+    model.wrmodel().CounterPlannedOperation = ko.observable("");
+    model.wrmodel().CounterSuplementReason = ko.observable("");
+    model.wrmodel().LineExecutiveSummary = ko.observable("");
+    model.wrmodel().LineOperationSummary = ko.observable("");
+    model.wrmodel().LinePlannedOperation = ko.observable("");
+    model.wrmodel().LineSuplementReason = ko.observable("");
+    model.wrmodel().MaxCharPerLine = ko.observable(105);
+
+
+    function getTotalLine(Chars) {
+        var x = model.wrmodel();
+        //var totalN = (Chars.match(/\n/g) || []).length;
+        //var totalLine = Math.ceil((Chars.length - totalN) / x.MaxCharPerLine());
+        //totalLine = totalLine + totalN;
+
+        var totalN = (Chars.match(/\n/g) || []).length;
+        var additionalLine = 0;
+        var splitLine = Chars.split(/\n/g);
+        for (var i = 0; i < splitLine.length; i++) {
+            var addLine = Math.ceil((splitLine[i].length) / x.MaxCharPerLine());
+            additionalLine = additionalLine + (addLine == 0 ? 1 : addLine);
+        }
+        var totalLine = additionalLine;
+        return totalLine;
+    }
+
+    $(document).ready(function () {
+        var x = model.wrmodel();
+        var characters = model.wrmodel().WordCount();
+        $(".container-fluid").on("keyup", "#ExeSum", function () {
+            if (characters == 0) {
+                //unlimited chars
+                x.CounterExecutiveSummary("Total Characters: " + $(this).val().length);
+            }else{
+                if ($(this).val().length > characters) {
+                    $(this).val($(this).val().substr(0, characters));
+                    x.record().ExecutiveSummary($(this).val().substr(0, characters));
+                }
+                var remaining = characters - $(this).val().length;
+                x.CounterExecutiveSummary("You have " + remaining + " characters remaining");
+
+                var totalLine = getTotalLine($(this).val())
+                
+                if (totalLine > 6) {
+                    $("#LineExecutiveSummary").addClass("fontRed");
+                    x.LineExecutiveSummary("(" + totalLine + " lines on PDF, but only shown 6 lines)");
+                } else {
+                    $("#LineExecutiveSummary").removeClass("fontRed")
+                    x.LineExecutiveSummary("(" + totalLine + " lines on PDF)");
+                }
+            }
+        });
+        $(".container-fluid").on("keyup", "#OpsSum", function () {
+            if (characters == 0) {
+                //unlimited chars
+                x.CounterOperationSummary("Total Characters: " + $(this).val().length);
+            } else {
+                if ($(this).val().length > characters) {
+                    $(this).val($(this).val().substr(0, characters));
+                    x.record().OperationSummary($(this).val().substr(0, characters));
+                }
+                var remaining = characters - $(this).val().length;
+                x.CounterOperationSummary("You have " + remaining + " characters remaining");
+
+                var totalLine = getTotalLine($(this).val())
+                
+                if (totalLine > 14) {
+                    $("#LineOperationSummary").addClass("fontRed");
+                    x.LineOperationSummary("(" + totalLine + " lines on PDF, but only shown 14 lines)");
+                } else {
+                    $("#LineOperationSummary").removeClass("fontRed")
+                    x.LineOperationSummary("(" + totalLine + " lines on PDF)");
+                }
+            }
+        });
+        $(".container-fluid").on("keyup", "#PlnOps", function () {
+            if (characters == 0) {
+                //unlimited chars
+                x.CounterPlannedOperation("Total Characters: " + $(this).val().length);
+            } else {
+                if ($(this).val().length > characters) {
+                    $(this).val($(this).val().substr(0, characters));
+                    x.record().PlannedOperation($(this).val().substr(0, characters));
+                }
+                var remaining = characters - $(this).val().length;
+                x.CounterPlannedOperation("You have " + remaining + " characters remaining");
+
+                var totalLine = getTotalLine($(this).val())
+                
+                if (totalLine > 6) {
+                    $("#LinePlannedOperation").addClass("fontRed");
+                    x.LinePlannedOperation("(" + totalLine + " lines on PDF, but only shown 6 lines)");
+                } else {
+                    $("#LinePlannedOperation").removeClass("fontRed")
+                    x.LinePlannedOperation("(" + totalLine + " lines on PDF)");
+                }
+            }
+        });
+        $(".container-fluid").on("keyup", "#SupRes", function () {
+            if (characters == 0) {
+                //unlimited chars
+                x.CounterSuplementReason("Total Characters: " + $(this).val().length);
+            } else {
+                if ($(this).val().length > characters) {
+                    $(this).val($(this).val().substr(0, characters));
+                    x.record().SupplementReason($(this).val().substr(0, characters));
+                }
+                var remaining = characters - $(this).val().length;
+                x.CounterSuplementReason("You have " + remaining + " characters remaining");
+
+                var totalLine = getTotalLine($(this).val())
+                
+                if (totalLine > 6) {
+                    $("#LineSuplementReason").addClass("fontRed");
+                    x.LineSuplementReason("(" + totalLine + " lines on PDF, but only shown 6 lines)");
+                } else {
+                    $("#LineSuplementReason").removeClass("fontRed")
+                    x.LineSuplementReason("(" + totalLine + " lines on PDF)");
+                }
+            }
+        });
+    });
+
+</script>
+
+@Html.Partial("_comment")
+
+<div style="margin-top:10px;">
+    <div style="margin:0px auto" class="form-horizontal">
+        <div class="form-group">
+            <label class="col-sm-2">Executive Summary</label>
+            <div class="col-sm-4">
+                <textarea id="ExeSum" style="width: 100%; min-height: 60px;" data-bind="value:ExecutiveSummary, enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1'"></textarea>
+                <div class="counter"><span data-bind="text:model.wrmodel().CounterExecutiveSummary"></span>&nbsp;<span data-bind="text:model.wrmodel().LineExecutiveSummary" id="LineExecutiveSummary"></span></div>
+            </div>
+            <label class="col-sm-2">Planned Operations</label>
+            <div class="col-sm-4">
+                <textarea id="PlnOps" style="width: 100%; min-height: 60px;" data-bind="value:PlannedOperation, enable:Status()=='In-Progress'  && !model.wrmodel().isRO()=='1'"></textarea>
+                <div class="counter"><span data-bind="text:model.wrmodel().CounterPlannedOperation" id="counterPlannedOperation"></span>&nbsp;<span data-bind="text:model.wrmodel().LinePlannedOperation" id="LinePlannedOperation"></span></div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-2">Operation Summary</label>
+            <div class="col-sm-4">
+                <textarea id="OpsSum" style="width: 100%; min-height: 60px;" data-bind="value:OperationSummary, enable:Status()=='In-Progress'  && !model.wrmodel().isRO()=='1'"></textarea>
+                <div class="counter"><span data-bind="text:model.wrmodel().CounterOperationSummary" id="counterOperationSummary"></span>&nbsp;<span data-bind="text:model.wrmodel().LineOperationSummary" id="LineOperationSummary"></span></div>
+            </div>
+            <label class="col-sm-2">Suplement Reason</label>
+            <div class="col-sm-4">
+                <textarea id="SupRes" style="width:100%;height:60px" data-bind="value:SupplementReason, enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1'"></textarea>
+                <div class="counter"><span data-bind="text:model.wrmodel().CounterSuplementReason" id="counterSuplementReason"></span>&nbsp;<span data-bind="text:model.wrmodel().LineSuplementReason" id="LineSuplementReason"></span></div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-2">Suplement Last 7 Days</label>
+            <div class="col-sm-4">
+                <input type="checkbox" data-bind="checked:SupplementLast7Days, enable:Status()=='In-Progress'  && !model.wrmodel().isRO()=='1'" />
+            </div>
+        </div>
+        <div style="width:100%">
+            <div class="form-group" style="border-bottom:solid 1px #888;border-bottom:solid 1px #888;">
+                <label class="col-sm-1 col-sm-offset-2" style="text-align:right">Days</label>
+                <label class="col-sm-1" style="text-align:right">Cost</label>
+                <label class="col-sm-1 col-sm-offset-4" style="text-align:right">Days</label>
+                <label class="col-sm-1" style="text-align:right">Cost</label>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2">OP-14</label>
+                <div class="col-sm-1 ec-right"><span data-bind="text:kendo.format('{0:N1}',Plan.Days())"></span></div>
+                <div class="col-sm-1 ec-right"><span data-bind="text:kendo.format('{0:N1}',Plan.Cost()/1000000)"></span></div>
+                <label class="col-sm-2 col-sm-offset-2">Latest Sequence</label>
+                <div class="col-sm-1 ec-right"><span data-bind="text:kendo.format('{0:N1}',OP.Days())"></span></div>
+                <div class="col-sm-1 ec-right"><span data-bind="text:kendo.format('{0:N1}',OP.Cost()/1000000)"></span></div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2">AFE</label>
+                <div class="col-sm-1 ec-right"><span data-bind="text:kendo.format('{0:N1}',AFE.Days())"></span></div>
+                <div class="col-sm-1 ec-right"><span data-bind="text:kendo.format('{0:N1}',AFE.Cost()/1000000)"></span></div>
+
+                <label class="col-sm-2 col-sm-offset-2">Actual</label>
+                <div class="col-sm-1">
+                    <input type="text" style="width:100%" class="align_right input_number" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1',value:Actual.Days" />
+                </div>
+                <div class="col-sm-1">
+                    <input type="text" style="width:100%" class="align_right input_number" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1',value:Actual.Cost" />
+                </div>
+
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2">Previous LE</label>
+                <div class="col-sm-1 ec-right"><span data-bind="text:kendo.format('{0:N1}',LastWeek.Days())"></span></div>
+                <div class="col-sm-1 ec-right"><span data-bind="text:kendo.format('{0:N1}',LastWeek.Cost()/1000000)"></span></div>
+                <label class="col-sm-2 col-sm-offset-2">LE</label>
+                <div class="col-sm-1">
+                    <input type="text" style="width:100%" class="align_right input_number" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1',value:CurrentWeek.Days" />
+                </div>
+                <div class="col-sm-1">
+                    <input type="text" style="width:100%" class="align_right input_number" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1',value:CurrentWeek.Cost" />
+                </div>
+                <div class="col-sm-1" data-bind="visible:false">
+                    <select id="cost_scale" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1',value:$parent.CostScale">
+                        <option value="asis">As Is</option>
+                        <option value="million">Million</option>
+                        <option value="thousand">Thousand</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2">TQ/Agreed Target</label>
+                <div class="col-sm-1 ec-right"><span data-bind="text:kendo.format('{0:N1}',TQ.Days())"></span></div>
+                <div class="col-sm-1 ec-right"><span data-bind="text:kendo.format('{0:N1}',TQ.Cost()/1000000)"></span></div>
+
+            </div>
+            <div class="form-group" style="border-bottom:solid 1px #888;border-bottom:solid 1px #888;margin-top:15px">
+                <label class="col-sm-1 col-sm-offset-2" style="text-align:right">Hours</label>
+                <label class="col-sm-1" style="text-align:right">Days</label>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2">NPT Hours</label>
+                <div class="col-sm-1">
+                    <input type="text" style="width:100%" min="0" class="align_right" id="npt_hours" onchange="model.wrmodel().countNPTDays();" onkeyup="model.wrmodel().countNPTDays();" data-bind="enable: Status() == 'In-Progress' && !model.wrmodel().isRO()=='1', value: $parent.NPTHours" />
+                </div>
+                <div class="col-sm-1">
+                    <input type="text" style="width:100%" class="align_right" id="npt_days" data-bind="enable: false, value: kendo.toString(NPT.Days(), 'p0')" />
+                </div>
+                <div class="col-sm-1" data-bind="visible:false">
+                    <input type="text" style="width:100%" class="align_right" id="npt_hours" data-bind="enable:false,value:kendo.toString(NPT.Cost(),'p0')" />
+                </div>
+            </div>
+        </div>
+        <div class="row" style="overflow-x:auto;">
+            <table class="table" style="width:96%;margin: 0px auto;">
+                <thead>
+                    <tr>
+                        <td style="text-align:center" colspan="20">Performance Improvement Plan</td>
+                    </tr>
+                    <tr>
+                        <td class="col-sm-1" style="text-align:left;border-left:solid 1px #CCC;width:200px;" rowspan="3">Theme</td>
+                        <td class="col-sm-1" style="text-align:right;border-right:solid 1px #CCC" rowspan="3">Completion</td>
+                        <td class="col-sm-5" style="text-align:left;border-right:solid 1px #CCC" colspan="7">
+                            Duration (days)
+                        </td>
+                        <td class="col-sm-5" style="text-align:left;border-right:solid 1px #CCC" colspan="7">
+                            Cost ($ mln)
+                        </td>
+                        <td style="text-align:left;border-right:solid 1px #CCC;width:80px;" rowspan="3">Allocate</td>
+                    </tr>
+                    <tr style="border-top:solid 1px #ccc">
+                        <th style="text-align:left;border-right:solid 1px #CCC">Plan</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC" colspan="3">Improvement</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC" colspan="3">Risk</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">Plan</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC" colspan="3">Improvement</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC" colspan="3">Risk</th>
+                    </tr>
+                    <tr style="border-bottom:solid 1px #ccc">
+                        <th style="text-align:left;border-right:solid 1px #CCC">&nbsp;</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">Previous LE</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">Actual</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">LE</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">Previous LE</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">Actual</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">LE</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">&nbsp;</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">Previous LE</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">Actual</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">LE</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">Previous LE</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">Actual</th>
+                        <th style="text-align:left;border-right:solid 1px #CCC">LE</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- ko foreach:Elements -->
+                    <tr style="border-bottom: solid 1px #CCC; border-left: solid 1px #CCC;">
+                        <td data-bind="text:Title" style="text-align: left; vertical-align: middle;"></td>
+                        <td style="border-right: solid 1px #CCC; text-align: right; vertical-align: middle;" @*data-bind="text: kendo.toString($data.CompletionPerc(),'p0')"*@>
+                           @*<input style="width:60px"
+                                   class="align_right Completion" data-bind="kendoNumericTextBox: { format: '# \\%', value: Completion }, enable:model.wrmodel().record().Status() == 'In-Progress'" />*@
+                            <input style="width: 110px;" data-bind="kendoDropDownList:{ data:['','Realized','Not Yet Realized'],value: Completion }, enable:model.wrmodel().record().Status() == 'In-Progress'">
+                        </td>
+                        <td class="ec-right" style="border-right: solid 1px #CCC; vertical-align: middle;"
+                            data-bind="text:DaysPlanImprovement() + DaysPlanRisk()"></td>
+                        <td class="ec-right"
+                            data-bind="text:DaysLastWeekImprovement" style="vertical-align:middle;"></td>
+                        <td class="ec-right" style="vertical-align:middle;">
+                            <input onkeyup="count_total()" onchange="count_total()" type="number" style="width:60px"
+                                   class="align_right input_number" data-bind="value:DaysActualImprovement,enable:model.wrmodel().record().Status() == 'In-Progress'" max="0" />
+                        </td>
+                        <td style="border-right: solid 1px #CCC; vertical-align: middle;">
+                            <input onkeyup="count_total()" onchange="count_total()" type="number" style="width:60px"
+                                   class="align_right input_number" data-bind="value:DaysCurrentWeekImprovement,enable:model.wrmodel().record().Status() == 'In-Progress'" max="0" />
+                            </td>
+                        <td class="ec-right" data-bind="text:DaysLastWeekRisk" style="vertical-align:middle;"></td>
+                        <td class="ec-right" style="vertical-align:middle;">
+                            <input onkeyup="count_total()" onchange="count_total()" type="number" style="width:60px"
+                                   class="align_right input_number" data-bind="value:DaysActualRisk,enable:model.wrmodel().record().Status() == 'In-Progress'" min="0" />
+                        </td>
+                        <td style="border-right: solid 1px #CCC; vertical-align: middle;">
+                            <input onkeyup="count_total()" onchange="count_total()" type="number" style="width:60px"
+                                   class="align_righ input_number" data-bind="value:DaysCurrentWeekRisk,enable:model.wrmodel().record().Status() == 'In-Progress'" min="0" />
+                            </td>
+                        <td class="ec-right" style="border-right: solid 1px #CCC; vertical-align: middle;" data-bind="text:CostPlanImprovement() + CostPlanRisk()"></td>
+                        <td class="ec-right" style="vertical-align:middle;" data-bind="text:CostLastWeekImprovement"></td>
+                        <td class="ec-right" style="vertical-align:middle;">
+                            <input onkeyup="count_total()" onchange="count_total()" type="number" style="width:60px"
+                                   class="align_right input_number" data-bind="value:CostActualImprovement,enable:model.wrmodel().record().Status() == 'In-Progress'" max="0" />
+                        </td>
+                        <td style="border-right: solid 1px #CCC; vertical-align: middle;">
+                            <input onkeyup="count_total()" onchange="count_total()" type="number" style="width:60px"
+                                   class="align_right input_number" data-bind="value:CostCurrentWeekImprovement,enable:model.wrmodel().record().Status() == 'In-Progress'" max="0" />
+                        </td>
+                        <td class="ec-right" data-bind="text:CostLastWeekRisk" style="vertical-align:middle;"></td>
+                        <td class="ec-right" style="vertical-align:middle;">
+                            <input onkeyup="count_total()" onchange="count_total()" type="number" style="width:60px"
+                                   class="align_right input_number" data-bind="value:CostActualRisk,enable:model.wrmodel().record().Status() == 'In-Progress'" min="0" />
+                        </td>
+                        <td style="border-right: solid 1px #CCC; vertical-align: middle;">
+                            <input onkeyup="count_total()" onchange="count_total()" type="number" style="width:60px"
+                                   class="align_right input_number" data-bind="value:CostCurrentWeekRisk,enable:model.wrmodel().record().Status() == 'In-Progress'" min="0" />
+                        </td>
+                        <td style="border-right:solid 1px #CCC;text-align:center;vertical-align:middle;">
+                            <span style="cursor:pointer;" class="glyphicon glyphicon-time" title="Click To Allocate" data-bind="click:model.wrmodel().openAllocationModal"></span>
+                            &nbsp;
+                            <span style="cursor:pointer;" class="glyphicon glyphicon-comment" title="Click to Add Comments"
+                                  data-bind="click: model.wrmodel().Comments($parent._id(), ElementId()), attr: { 'data-auid': $parent._id(), 'data-eid': ElementId() }">
+                                <b class="comment-counter">0</b>
+                            </span>
+                        </td>
+                    </tr>
+                    <!-- /ko -->
+
+                    <tr style="border-bottom:solid 1px #CCC;border-left:solid 1px #CCC;font-weight:bold;">
+                        <td data-bind="" style="text-align:left">Total</td>
+                        <td class="ec-right" style="border-right:solid 1px #CCC; padding-right:35px;" @*data-bind="text:model.wrmodel().CompletionTotal()"*@></td>
+                        <td class="ec-right" style="border-right:solid 1px #CCC" data-bind="text:model.wrmodel().DaysPlanImprovementTotal()">@*DaysPlanImprovementTotal*@</td>
+                        <td class="ec-right" data-bind="text:model.wrmodel().DaysLastWeekImprovementTotal()">@*DaysLastWeekImprovementTotal*@</td>
+                        <td class="ec-right" style="padding-right: 25px;" data-bind="text:model.wrmodel().DaysActualImprovementTotal()">@*DaysActualImprovementTotal*@</td>
+                        <td class="ec-right" style="border-right: solid 1px #CCC; padding-right: 40px;" data-bind="text:model.wrmodel().DaysCurrentWeekImprovementTotal()">@*DaysCurrentWeekImprovementTotal*@</td>
+                        <td class="ec-right" data-bind="text:model.wrmodel().DaysLastWeekRiskTotal()">@*DaysLastWeekRiskTotal*@</td>
+                        <td class="ec-right" style="padding-right: 25px;" data-bind="text:model.wrmodel().DaysActualRiskTotal()">@*DaysActualRiskTotal*@</td>
+                        <td class="ec-right" style="border-right: solid 1px #CCC; padding-right: 40px;" data-bind="text:model.wrmodel().DaysCurrentWeekRiskTotal()">@*DaysCurrentWeekRiskTotal*@</td>
+                        <td class="ec-right" style="border-right:solid 1px #CCC" data-bind="text:model.wrmodel().CostPlanImprovementTotal()">@*CostPlanImprovementTotal*@</td>
+                        <td class="ec-right" data-bind="text:model.wrmodel().CostLastWeekImprovementTotal()">@*CostLastWeekImprovementTotal*@</td>
+                        <td class="ec-right" style="padding-right 25px;" data-bind="text:model.wrmodel().CostActualImprovementTotal()">@*CostActualImprovementTotal*@</td>
+                        <td class="ec-right" style="border-right: solid 1px #CCC; padding-right: 40px;" data-bind="text:model.wrmodel().CostCurrentWeekImprovementTotal()">@*CostCurrentWeekImprovementTotal*@</td>
+                        <td class="ec-right" data-bind="text:model.wrmodel().CostLastWeekRiskTotal()">@*CostLastWeekRisk*@</td>
+                        <td class="ec-right" style="padding-right: 25px;" data-bind="text:model.wrmodel().CostActualRiskTotal()">@*CostActualRiskTotal*@</td>
+                        <td class="ec-right" style="border-right: solid 1px #CCC; padding-right: 40px;" data-bind="text:model.wrmodel().CostCurrentWeekRiskTotal()">@*CostCurrentWeekRisk*@</td>
+                        <td class="col-sm-1" style="text-align:left;border-right:solid 1px #CCC" rowspan="3">&nbsp;</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+@Html.Partial("_modalAllocation");
+
+

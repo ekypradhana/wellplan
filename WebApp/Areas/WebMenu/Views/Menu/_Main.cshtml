@@ -1,0 +1,221 @@
+﻿<script type="text/javascript">
+    var menu_model = {
+        collection_name: ko.observable($("#collection_name").val()),
+        menu_topparent: ko.observable(""),
+        menu_parent: ko.observable(""),
+        menu_id: ko.observable(""),
+        menu_title: ko.observable(),
+        menu_url: ko.observable(),
+        menu_order: ko.observable(),
+        processing:ko.observable(false)
+    };
+     
+    menu_model.menus = ko.observableArray([]);
+    menu_model.menu_list = ko.observableArray([]);
+
+    menu_model.getMenus = function () {
+        var url = "@Url.Content("~/webmenu/menu/getmenu")";
+        //alert(menu_model.collection_name());
+        ajaxPost(url, { collection_name: menu_model.collection_name() }, function (respondse) {
+            var arr = respondse.Data;
+            menu_model.menu_list(JSON.parse(JSON.stringify(arr).replace(/Submenus/g,'items')));
+            menu_model.menus([]);
+            menu_model.menus.push({ id: "", order: "", title: "[ TOP LEVEL ]", name: "[ TOP LEVEL ]", topparent_id: "",parent_id:"",Url:"" });
+            var dot = 5;
+            var dotspace = ""; // set - dot space for title
+            for (var i = 0; i < dot; i++) {
+                dotspace += ".";
+            }
+            for (var i in arr) {
+                menu_model.menus.push({ id: arr[i]._id, order: (parseInt(arr[i].Order) === 1000 ? "" : arr[i].Order), name: arr[i].Title, title: dotspace + arr[i].Title, topparent_id: arr[i]._id ,parent_id:"",Url:arr[i].Url});
+                menu_model.addSubMenu(arr[i],dot+dot,arr[i]._id);
+            }
+            $("#menu-list").data("kendoTreeView").setDataSource(menu_model.menu_list());
+            $("#menu-list").data("kendoTreeView").expand(".k-item");
+            $("#parent").data("kendoDropDownList").setDataSource(menu_model.menus());
+        });
+    }
+    menu_model.addSubMenu = function (menu,dot,topparent_id) {
+        var arr = menu.Submenus;
+        var dotspace = "";
+        for (var i = 0; i < dot; i++) {
+            dotspace += ".";
+        }
+        for (var i in arr) {
+            menu_model.menus.push({ id: arr[i]._id, order: (parseInt(arr[i].Order) === 1000 ? "" : arr[i].Order), name: arr[i].Title, title: dotspace + arr[i].Title, topparent_id: topparent_id, parent_id: menu._id, Url: arr[i].Url });
+            menu_model.addSubMenu(arr[i], dot + dot, topparent_id);
+        }
+    }
+    menu_model.getTOPParentID = function () {
+        var id = $("#parent").data("kendoDropDownList").value();
+        var arr = menu_model.menus();
+        menu_model.menu_topparent("");
+        for (var i in arr) {
+            if (arr[i].id==id) {
+                menu_model.menu_topparent(arr[i].topparent_id);
+            }
+        }
+    }
+    menu_model.save = function () {
+        var url = "@Url.Content("~/webmenu/menu/save")";
+        var parm = {
+            FormSubmit: menu_model
+        };
+        menu_model.processing(true);
+        //alert("menu_id:" + menu_model.menu_id() + " \n parent_id:" + menu_model.menu_parent() + " \n top_parent :" + menu_model.menu_topparent());
+        ajaxPost(url, parm, function (respondse) {
+            alert(respondse.Data);
+            menu_model.processing(false);
+            menu_model.reset();
+            model.getMainMenu();
+        });
+    }
+    menu_model.reset = function () {
+        menu_model.menu_id("");
+        menu_model.menu_topparent("");
+        menu_model.menu_parent("");
+        menu_model.menu_title("");
+        menu_model.menu_url("");
+        menu_model.menu_order("");
+        menu_model.getMenus();
+        $("#parent").data("kendoDropDownList").value(menu_model.menu_parent());
+    }
+    menu_model.edit = function () {
+        var id= $("#menu-list").data("kendoTreeView").select().find("input").val();
+        if (id === undefined) {
+            alert("please select menu");
+        } else {
+            var arr = menu_model.menus();
+            for (var i in arr) {
+                var menu = arr[i]
+                if (id == menu.id) {
+                    menu_model.menu_id(menu.id);
+                    menu_model.menu_title(menu.name);
+                    menu_model.menu_parent(menu.parent_id);
+                    menu_model.menu_url(menu.Url);
+                    menu_model.menu_topparent(menu.topparent_id);
+                    menu_model.menu_order(menu.order);
+                    break;
+                }
+            }
+            $("#parent").data("kendoDropDownList").value(menu_model.menu_parent());
+        }
+    }
+    menu_model.remove = function () {
+        var selectedMenu = $("#menu-list").data("kendoTreeView").select().find("input");
+        if (selectedMenu.val() === undefined) {
+            alert("please select menu");
+        } else {
+            if (confirm("Are you sure want to remove this selected menu?")) {
+                var url = "@Url.Content("~/webmenu/menu/remove")";
+                var parm = {
+                    id: selectedMenu.val(),
+                    collection_name: menu_model.collection_name()
+                };
+                menu_model.processing(true);
+                ajaxPost(url, parm, function (respondse) {
+                    alert(respondse.Data);
+                    menu_model.processing(false);
+                    menu_model.reset();
+                    model.getMainMenu();
+                });
+            }
+        }
+        return false;
+    }
+</script>
+<style>
+    #form-wrapper div{
+        padding-bottom:3px;
+    }
+    #form-wrapper div label {
+        line-height: 23px;
+    }
+    .form-control{
+        font-size:9pt;
+    }
+    input[type='text']{
+        line-height:20px;
+    }
+    #form-wrapper input[type='number'] {
+        height: 23px;
+    }
+</style>
+<div id="menu_container" class="col-md-12" data-bind="with:menu_model">
+    <div data-bind="visible:processing()">@Html.Partial("_processing")</div>
+    <div class="form-group col-md-6" id="form-wrapper" data-bind="visible:processing()==false">
+        <h4>Form Entry</h4>
+        <div class="row">
+            <label class="col-md-3">Parent</label>
+            <div class="col-md-9">
+                <input class="combo_single" style="width:100%;" data-bind="value:menu_parent" id="parent">
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Title</label>
+            <div class="col-md-5">
+                <input type="text" data-bind="value:menu_title" class="form-control" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Url</label>
+            <div class="col-md-5">
+                <input type="text" data-bind="value:menu_url" class="form-control" />
+            </div>
+            <label class="col-md-4">&nbsp;</label>
+            <label class="col-md-3">&nbsp;</label>
+            <span class="col-md-5" style="font-size: 10px;">Input Format:  ~/Controller/Action</span>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Index</label>
+            <div class="col-md-5">
+                <input type="number" data-bind="value:menu_order" class="form-control" />
+            </div>
+        </div>
+        <div class="row">
+            <button class="btn btn-primary" data-bind="click:save">save</button>
+            &nbsp;
+            <button class="btn btn-primary" data-bind="click:reset">reset</button>
+        </div>
+    </div>
+    <script id="menulist-template" type="text/kendo-ui-template">
+        <input type="hidden"  value="#:item._id#"/>
+        <span class="glyphicon glyphicon-credit-card"></span>&nbsp;#: item.Title #
+    </script>
+    
+    <div id="menu-wrapper" class="col-md-6" data-bind="visible:processing()==false">
+        <div>
+            <h4>
+                Menu List
+                <div style="float:right;">
+                    <button class="btn btn-primary" data-bind="click:edit">edit</button>
+                    &nbsp;
+                    <button class="btn btn-primary" data-bind="click:remove">remove</button>
+                </div>
+            </h4>
+        </div>
+
+        <ul id="menu-list"></ul>
+    </div>
+</div>
+<script type="text/javascript">
+    var container = $("#menu_container")[0];
+    model.menu_model = ko.observable(menu_model);
+
+    menu_model.sampleMenus = ko.observableArray([])
+
+    $(document).ready(function () {
+        $(".combo_single").kendoDropDownList({
+            dataTextField: "title",
+            dataValueField: "id",
+            change:menu_model.getTOPParentID
+        });
+        menu_model.getMenus();
+        $("#menu-list").kendoTreeView({
+            template: kendo.template($("#menulist-template").html()),
+            dataTextField: "Title",
+            dataSource:menu_model.menu_list()
+        });
+        
+    });
+</script>

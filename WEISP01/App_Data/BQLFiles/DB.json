@@ -1,0 +1,13 @@
+﻿[
+{$group:{
+	_id:"$IMEI",
+	Amount:{$sum:"$AMOUNT"},
+	Volume:{$sum:"$VOLUME"}
+}},
+{$group:{
+	_id:"",
+	Subscriber:{$sum:1},
+	Amount:{$sum:"$Amount"},
+	Volume:{$sum:"$Volume"}
+}},
+] 

@@ -1,0 +1,796 @@
+﻿
+@{
+    ViewBag.Title = "Report Capex";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+    //var PerformanceUnits = new List<string>();
+    //var elements = DataHelper.Populate("WEISPerformanceUnits").Select(x => BsonHelper.GetString(x, "_id"));
+    //PerformanceUnits = elements.ToList();
+
+    var CaseNameSel = DataHelper.Populate("WEISPalantirCapex").Select(x => BsonHelper.GetString(x, "CaseName")).Distinct().ToList<string>();
+    //var mapfilesview = PCapex.Populate<PCapex>().Select(x => x.MapName).Distinct().ToList();
+    //List<string> mapOption = new List<string>();
+    //mapOption.Add("Select Map File");
+    //foreach (string map in mapfilesview)
+    //{
+    //    mapOption.Add(map);
+    //}
+}
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.actionMapProcessing = ko.observable(false);
+    @*model.MapFileSelectAll = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(mapOption)));*@
+</script>
+
+<style>
+
+    .newmp {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+        .newmp .col-md-3, .newmp .col-md-4 {
+            padding: 0px;
+            margin: 0px;
+        }
+
+        .newmp .col-md-4 {
+            text-align: right;
+            min-height: 28px;
+        }
+
+            .newmp .col-md-4 label {
+                padding-top: 4px;
+            }
+
+        .newmp .col-md-8 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+        .newmp .col-md-8 {
+            text-align:left;
+        }
+
+    .grids .grid {
+        height: 100%;
+        width: 100%;
+    }
+
+    .grids {
+        margin-top: 15px;
+    }
+
+    .grids {
+        padding: 0px 15px 0px 0px !important;
+    }
+
+        .grids .cell-number {
+            text-align: right;
+        }
+
+        .grids .cell-date {
+            text-align: center;
+        }
+
+        .grids .k-grid .k-grid-content {
+            min-height: 100px;
+            /*max-height: 600px;*/
+        }
+
+
+
+        .grids .k-header.k-grid-toolbar {
+            /*background-color: #F9F9FB;*/
+        }
+
+        .grids .k-header[role=columnheader] {
+            vertical-align: middle;
+        }
+
+            .grids .k-header[role=columnheader][data-colspan] {
+                text-align: center;
+                font-weight: bold;
+                color: #a8a8a8;
+            }
+
+        .grids [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+            text-align: center;
+            vertical-align: top;
+        }
+
+    .k-grid .k-grid-content-locked {
+        height: auto !important;
+    }
+</style>
+
+
+
+<div class="col-md-12" style="margin-bottom: 10px;">
+    <!-- filters -->
+    @*@Html.Partial("FilterForWaterfall")*@
+    @Html.Partial("FilterForCapex")
+
+    <script>
+        model.FilterVisibilityCapex.Currency(true);
+        model.FilterVisibilityCapex.SSTG(true);
+        model.FilterVisibilityCapex.MoneyType(true);
+        model.FilterVisibilityCapex.InPlan(true);
+
+        model.FilterVisibilityCapex.BtnGenerateCapex(true);
+        //model.FilterVisibility.BtnViewCapexMapping(true);
+
+        model.FilterVisibilityCapex.MapFilecpx(true);
+    </script>
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    @*<div class="col-md-12 row newmp">
+        <div class="col-md-4">
+            <div class="col-md-4">
+                <label>Map File: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="MapFileSelect" data-placeholder="Select map file ..." style="width:100%"></select>
+            </div>
+        </div>
+    </div>*@
+
+    <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden'), height: (!model.IsProcessing() ? '' : '0px'), overflow: (!model.IsProcessing() ? '' : 'hidden') }">
+        <div class="col-md-12" id="button_group_mapping" style="margin-left: 125px; margin-bottom: 20px; display:none;">
+            <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: generatecapexaggrts, enable:!model.actionMapProcessing()">
+                <span class="glyphicon glyphicon-play"></span> Generate Report
+            </button>
+            <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: EditMappingReport">
+                <span class="glyphicon glyphicon-pencil"></span> Edit Mapping
+            </button>
+            <button type="button" class="btn btn-sm btn-custom btn-danger" data-bind="click: DeleteMappingReport, enable:!model.actionMapProcessing()">
+                <span class="glyphicon glyphicon-trash"></span> Delete Mapping
+            </button>
+        </div>
+        <div class="col-md-12">
+            @*<div style="margin-bottom:10px;">
+                <button class="btn btn-custom btn-sm btn-danger" data-bind="click: deleteaggrcapex" style="visibility:hidden">
+                    <span class="glyphicon glyphicon-trash"></span> Delete Record
+                </button>
+                <button class="btn btn-custom btn-sm btn-danger" data-bind="click: deletemapcapex" style="visibility:hidden">
+                    <span class="glyphicon glyphicon-trash"></span> Delete Map
+                </button>
+            </div>*@
+            <div id="grid_capex" class="grid"></div>
+            <div id="grid_capexaggrts" class="grid"></div>
+        </div>
+
+        <div style="clear: both;"></div>
+    </div>
+
+</div>
+
+<div class="modal fade" id="modal-action-map">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title">Capex Mapping Action</h4>
+                </div>
+                <div class="modal-body">
+                    <div data-bind="visible:model.actionMapProcessing()" id="actionMapProcessing">
+                        @Html.Partial("_processing")
+                    </div>
+                    <div class="form-group" id="actionMapProcessing" data-bind="visible:!model.actionMapProcessing()">
+                        <div class="col-md-12" style="text-align:right">
+                            <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: generatecapexaggrts, enable:!model.actionMapProcessing()">
+                                <span class="glyphicon glyphicon-play"></span> Generate Report
+                            </button>
+                            <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: EditMappingReport">
+                                <span class="glyphicon glyphicon-pencil"></span> Edit Mapping
+                            </button>
+                            <button type="button" class="btn btn-sm btn-custom btn-danger" data-bind="click: DeleteMappingReport, enable:!model.actionMapProcessing()">
+                                <span class="glyphicon glyphicon-trash"></span> Delete Mapping
+                            </button>
+                        </div>
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@*<div id="divviewcapexmap">
+    @Html.Partial("CAPEXMapping");
+</div>*@
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        //$('[data-model="MapFileSelect"]').kendoDropDownList({
+        //    dataSource: model.MapFileSelectAll(),
+        //    value: model.MapFileSelectAll().length == 0 ? [] : [model.MapFileSelectAll()[0]],
+        //    select: function (e) {
+        //        var dataItem = this.dataItem(e.item);
+                
+        //        if (typeof dataItem !== 'undefined') {
+        //            GetListMapping(dataItem);
+        //            if (dataItem != "Select Map File") {
+        //                $("#modal-action-map").modal("show");
+        //            }
+        //        }
+        //    }
+        //});
+
+        //var mapFileAr = $('[data-model="MapFileSelect"]').data('kendoDropDownList').value();
+        //if (typeof mapFileAr !== 'undefined') {
+        //    GetListMapping(mapFileAr);
+        //}
+
+        //model.reloadData();
+    });
+
+    model.selectedMapFile = function (dataItem) {
+        if (typeof dataItem !== 'undefined') {
+            //GetListMapping(dataItem);
+            //if (dataItem != "Select Map File") {
+            //    //$("#modal-action-map").modal("show");
+            //    $("#button_group_mapping").show();
+            //}
+
+            if (dataItem != "Select Map File") {
+                GetListMapping(dataItem);
+                $("#button_group_mapping").show();
+            } else {
+                model.IsProcessing(true);
+                alert("Please select map file!");
+                $('#grid_capexaggrts').replaceWith($('<div />').attr('id', 'grid_capexaggrts'));
+                $("#button_group_mapping").hide();
+                model.IsProcessing(false);
+            }
+        }
+    }
+
+    model.reloadData = function() {
+        @*if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+        model.GetDataReport("@Url.Action("GetListCapexMapping")");*@
+        model.GetDataReport();
+    }
+
+    model.GetDataReport = function () {
+        var param = model.getFilterValuesCapex();
+        var mapname = param.MapFilecpx;
+        model.selectedMapFile(mapname);
+    }
+
+    @*model.reloadDataCapex = function() {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        model.GetDataReport("@Url.Action("GetCAPEXReport")", "grid_capex");
+    }*@
+
+    //model.GetDataReport = function (url) {
+    //    var param = model.getFilterValuesCapex();
+    //    var mapName = param.MapFilecpx;
+    //    ajaxPost(url, { pq: param, mapname: mapName }, function (res) {
+    //        model.IsProcessing(false);
+    //        if (res.Result != "OK") {
+    //            alert(res.Message);
+    //            return;
+    //        }
+
+    //        if (res.Data.length > 0) {
+    //            renderGridUsingDataIsaggrt(res.Data);
+    //        }
+
+    //    }, function (res) {
+    //        model.IsProcessing(false);
+    //        alert(res);
+    //    });
+    //}
+
+    var uniqueArray = function(a) {
+        return a.reduce(function(p, c) {
+            if (p.indexOf(c) < 0) p.push(c);
+            return p;
+        }, []);
+    };
+
+    function toggleCheckCapex(sender) {
+        var s = $(sender);
+        var cbxs = s.closest("#grid_capex.k-grid").find("input[type='checkbox'].checkme");
+        cbxs.prop("checked", s.prop("checked"));
+    }
+    
+    model.renderGridColumnsCapex = function(data) {
+        var gridColumns = [];
+        gridColumns.push(
+        //    { field: "_id",  width: 100, title: "Action", template: "<div style='text-align: center'><button onclick='model.update(\"#= _id #\")' class='btn btn-custom btn-primary btn-xs'><span class='glyphicon glyphicon-remove-circle'></span> Edit</button>"+
+        //"</div>",
+        //    locked: true,
+        //    lockable: false },
+        //{
+        //    width: 30,
+        //    template: "<input type='checkbox' class='checkme' value='#: _id #'>",
+        //    headerTemplate: "<input type='checkbox' class='check_toggle' onchange='javascript:toggleCheckCapex(this)'>",
+        //    locked: true
+        //},
+        {
+            field: "CaseName",
+            title: "Case Name",
+            width: 100,
+            locked: true
+        }, {
+            field: "MonthId",
+            title: "Date",
+            width: 80,
+            template: "#= MonthId.length > 4 ? kendo.toString(kendo.parseDate(MonthId, 'yyyy/MM/dd'), 'dd/MM/yyyy') : kendo.toString(kendo.parseDate(MonthId, 'yyyy'), 'yyyy')  #",
+            locked: true
+        });
+
+        var capexSum = data[0].CapexSummary;
+        var titleHeader = [];
+        var subTitleHeader = [];
+        for (var key in capexSum) {
+            if (capexSum.hasOwnProperty(key)) {
+                for (var keyitem in capexSum[key]) {
+                    titleHeader.push(key);
+                    //subTitleHeader.push({ field: ("CapexSummary." + key + "." + keyitem), title: keyitem, width: 70, attributes: { style: 'text-align:center;' } });
+
+                    var titheHeaderUpdate;
+                    if (key == "CapitalCompletionPDDevInTang"){
+                        titheHeaderUpdate = "Capital Completion <br/>PD Dev In Tang";
+
+                    } else if (key == "CapitalCompletionPDDevTang"){
+                        titheHeaderUpdate = "Capital Completion <br/>PD Dev Tang";
+
+                    } else if (key == "CapitalDrillingPDDevInTang"){
+                        titheHeaderUpdate = "Capital Drilling <br/>PD Dev In Tang";
+
+                    } else if (key == "CapitalDrillingPDDevTang"){
+                        titheHeaderUpdate = "Capital Drilling <br/>PD Dev Tang";
+
+                    } else if (key == "CapitalExpenDRDVAWells"){
+                        titheHeaderUpdate = "Capital Expen <br/>DRDVA Wells";
+
+                    } else if (key == "CapitalExpenDRSubSeaWells"){
+                        titheHeaderUpdate = "Capital Expen <br/>DR Sub Sea Wells";
+
+                    } else if (key == "ContigencyInTangWells"){
+                        titheHeaderUpdate = "Contigency <br/>In Tang Wells";
+
+                    } else if (key == "ContigencyTangWells"){
+                        titheHeaderUpdate = "Contigency <br/>Tang Wells";
+
+                    } else if (key == "EPEXCompletionB2ExplInTang"){
+                        titheHeaderUpdate = "EPEX Completion <br/>B2Expl In Tang";
+
+                    } else if (key == "EPEXCompletionB2ExplTang"){
+                        titheHeaderUpdate = "EPEX Completion <br/>B2 Expl Tang";
+
+                    } else if (key == "EPEXDrillingB2ExplInTang"){
+                        titheHeaderUpdate = "EPEX Drilling <br/>B2 Expl In Tang";
+                    } else if (key == "EPEXDrillingB2ExplTang"){
+                        titheHeaderUpdate = "EPEX Drilling <br/>B2 Expl Tang";
+
+                    } else if (key == "OPCostIdleRig"){
+                        titheHeaderUpdate = "OP Cost Idle Rig";
+                    }
+                    subTitleHeader.push({ field: ("CapexSummary." + key + "." + keyitem), title: titheHeaderUpdate, width: 110, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+                }
+            }
+        }
+
+        var titleHeaderUnique = uniqueArray(titleHeader);
+        for (var j = 0; j < titleHeaderUnique.length; j++) {
+            //var tempsubTitle = [];
+            for (var i = 0; i < subTitleHeader.length; i++) {
+                if ((titleHeaderUnique[j] == subTitleHeader[i].field.split('.')[1]) && (subTitleHeader[i].field.split('.')[2] == "EDM")) {
+                    //tempsubTitle.push(subTitleHeader[i]);
+                    //console.log(subTitleHeader[i]);
+
+                    //alert(titheHeaderUpdate);
+                    //console.log(subTitleHeader[i]);
+                    //gridColumns.push(subTitleHeader[i]);
+                    gridColumns.push(subTitleHeader[i]);
+                }
+            }
+            //gridColumns.push({ title: titleHeader[j], columns: tempsubTitle });
+        }
+
+        //var recCapexSum = data[0].CapexSummary;
+        ////var iAnnual = 0;
+        //for (var key in recCapexSum) {
+        //    if (recCapexSum.hasOwnProperty(key)) {
+        //        //alert(key + " -> " + data[0].UIDummyYear[key]);
+        //        console.log(key);
+        //        gridColumns.push({ field: ("CapexSummary." + key + ".EDM"), title: key, width: 70, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+
+        //        //for (var keyitem in recCapexSum[key]) {
+        //        //    gridColumns.push({ field: ("UIOAnnual[" + iAnnual + "]." + keyitem), title: keyitem.split('_')[1], width: 70, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+        //        //}
+        //        //iAnnual++;
+        //    }
+        //}
+
+        return gridColumns;
+    }
+
+
+    //$("#grid_capex").delegate("tbody>tr", "dblclick", function () {
+    //    console.log("helodsads");
+    //    //if (!$(this).hasClass('k-grid-edit-row')) {
+    //    //    $("#grid").data("kendoGrid").editRow($(this));
+    //    //}
+
+    //});
+
+    model.update = function(id) {
+        @*var x = model.Stream();
+        var y = ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WEISStream())));
+        x.record(y);
+        var c = x.record();
+        c.RigName(id);*@
+
+        $("#ModalUpdate").modal("show");
+    }
+
+    function renderGridUsingData(data) {
+        $('#grid_capex').replaceWith($('<div />').attr('id', 'grid_capex'));
+        $('#grid_capex').kendoGrid({
+            toolbar: ["excel"],
+            excel: { fileName: "DataCapex.xlsx", allPages: true, filterable: true },
+            dataSource: {
+                //schema: {
+                //    model: {
+                //        _id:'int',
+                //        //PhStart: 'date',
+                //        //PhFinish: 'date',
+                //        //OpsStart: 'date',
+                //        //OpsFinish: 'date',
+                //        fields: {
+                //            //"VirtualPhase": { type: "boolean", editable: false },
+                //            "WellDuration": { type: "string" }
+                //        }
+                //    }
+                //},
+                //aggregate: aggs,
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+            editable: "popup",
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: model.renderGridColumnsCapex(data),
+            excelExport: function(e) {
+                var sheet = e.workbook.sheets[0];
+                for (var rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
+                    var row = sheet.rows[rowIndex];
+                    for (var cellIndex = 0; cellIndex < row.cells.length; cellIndex ++) {
+                        if (rowIndex == 0) {
+                            row.cells[cellIndex].value = row.cells[cellIndex].value.replace("<br/>","");
+                        }
+                    }
+                }
+            }
+        });
+
+    }
+
+    model.deleteaggrcapex = function() {
+        var conf = confirm("Are you sure want to delete?");
+        if(conf){
+            model.deleteaggr("grid_capex", "capex");
+        }
+    }
+    
+    model.deleteaggr = function(idgrid, report) {
+        var ids = $("#"+idgrid).find("input.checkme:checked");
+        var idValues = $.map(ids, function (obj, idx) {
+            var $obj = $(obj);
+            return $obj.val();
+        });
+        if (idValues.length == 0) {
+            alert("Please select record Report to be reminded");
+            return;
+        }
+        //if (!confirm('Are you sure want to delete this record?'))
+        //    return;
+        //console.log(report);
+
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("DeleteAggr")", { ids: idValues, report: report }, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadDataCapex();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    model.deletemapcapex = function(){
+        var conf = confirm("Are you sure want to delete?");
+        if(conf){
+            model.deletemap("capex");
+        }
+    }
+    
+    model.deletemap = function(report) {
+        var casename = $('[data-model="CaseNameSelect"]').data('kendoDropDownList').value();
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("DeleteMap")", { caseName: casename, report: report }, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadDataCapex();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+
+
+
+
+
+
+
+    model.EditMappingReport = function () {
+        $("#myForm").remove();
+        //var mapNameAr = $('[data-model="MapFileSelect"]').data('kendoDropDownList').value();
+        var mapNameAr = model.getFilterValuesCapex().MapFilecpx;
+        if (mapNameAr.length > 0) {
+            var f = document.createElement("form");
+            f.setAttribute("id", "myForm");
+            f.setAttribute('method', "post");
+            f.setAttribute('action', "@Url.Action("capexmapping")");
+
+            var selectList = document.createElement("select");
+            selectList.setAttribute("name", "mapname");
+            selectList.setAttribute("style", "width:200px");
+            f.appendChild(selectList);
+
+            var option = document.createElement("option");
+            option.setAttribute("value", mapNameAr);
+            option.text = mapNameAr;
+            option.setAttribute("selected", "selected");
+            selectList.appendChild(option);
+
+            var s = document.createElement("input");
+            s.setAttribute('type', "submit");
+            s.setAttribute('value', "Submit");
+            f.appendChild(s);
+            document.body.appendChild(f);
+
+            $("#myForm").hide();
+            $('#myForm input[type="submit"]').trigger('click');
+        } else {
+            alert("Please Input Map Name");
+        }
+    }
+
+    model.DeleteMappingReport = function () {
+        var conf = confirm("Are you sure want to delete mapping?");
+        if (conf) {
+            model.deletemapreport();
+        }
+    }
+
+    model.deletemapreport = function () {
+        var mapnamesss = model.getFilterValuesCapex().MapFilecpx;
+        if (mapnamesss != "Select Map File") {
+            model.actionMapProcessing(true);
+            ajaxPost("@Url.Action("DeleteMap")", { mapname: mapnamesss }, function (res) {
+                if (res.Success) {
+                    model.actionMapProcessing(false);
+                    location.reload();
+                    //$("#grid_capexaggrts").data("kendoGrid").dataSource.data([]);
+                } else {
+                    model.actionMapProcessing(false);
+                    alert(res.Message);
+                }
+            }, function () {
+                model.actionMapProcessing(false);
+                alert(res.Message);
+            });
+            $("#modal-action-map").modal("hide");
+        } else {
+            alert("Please Input Map Name");
+        }
+    }
+
+    function ExportToExcel() {
+        //console.log(listaggr);
+        model.IsProcessing(true);
+        //var mapName = $('[data-model="MapFileSelect"]').data('kendoDropDownList').value();
+        var mapName = model.getFilterValuesCapex().MapFilecpx;
+        var param = {
+            //listAggr: listaggr,
+            pq: model.getFilterValuesCapex(),
+            mapname: mapName
+        }
+        var url = "@Url.Action("ExportAgg")";
+        ajaxPost(url, param, function(data) {
+            url = "@Url.Action("DownloadCapexAggFile", "palantir")" + "?stringName=" + data.Path + "&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss");
+            location.href = url;
+            model.IsProcessing(false);
+        }, function (err) { alert(err); model.IsProcessing(false); });
+
+    }
+
+    model.generatecapexaggrts = function () {
+        model.IsProcessing(true);
+        model.actionMapProcessing(true);
+
+        var param = model.getFilterValuesCapex();
+        //var mapFileAggrts = $('[data-model="MapFileSelect"]').data('kendoDropDownList').value();
+        var mapFileAggrts = model.getFilterValuesCapex().MapFilecpx;
+        //model.IsProcessing(true);
+        ajaxPost("@Url.Action("SavePlanCapex")", { pq: param, mapname: mapFileAggrts }, function (res) {
+            //if (res.Data.listAgg.length == 0) {
+            //    alert("Cannot find data with InPlan:" + param.InPlan);
+            //    model.IsProcessing(false);
+                
+            //} else {
+                if (res.Result == "NOK") {
+                    alert(res.Message);
+                    model.IsProcessing(false);
+                    return;
+                }
+
+                if (res.Data.Status == "NOK") {
+                    alert(res.Data.Message);
+                    model.IsProcessing(false);
+
+                    return;
+                }
+                //var ddlMapaagrts = $('#MapNamesAggrt').data("kendoDropDownList");
+                //ddlMapaagrts.setDataSource(res.Data.LMapName);
+                //ddlMapaagrts.refresh();
+
+                alert("Aggregate Map Capex Success. Process Export to excel ");
+                $("#modal-action-map").modal("hide");
+
+                ExportToExcel();
+            //}
+
+            
+            model.actionMapProcessing(false);
+        }, function() {
+            model.actionMapProcessing(false);
+            model.IsProcessing(false);
+        });
+    }
+
+
+    model.renderGridColumnsMap = function (data) {
+        var gridColumns = [];
+        gridColumns.push(
+        {
+            field: "CaseName",
+            title: "Case Name",
+            width: 90
+        }, {
+            field: "ActivityCategory",
+            title: "Activity Category",
+            width: 150
+        }, {
+            field: "WellName",
+            title: "Well Name",
+            width: 150
+        }, {
+            field: "ActivityType",
+            title: "Activity Type",
+            width: 150
+        }, {
+            field: "FundingType",
+            title: "Funding <br/>Type",
+            width: 60
+        }, {
+            field: "FirmOption",
+            title: "Planning <br/>Classification",
+            width: 80
+        }, {
+            field: "RigName",
+            title: "Rig Name",
+            width: 90
+        }, {
+            field: "UARigSequenceId",
+            title: "UARigSequenceId",
+            width: 60,
+            //locked: true
+        });
+
+        //var transSumm = [];
+        //var titleHeader = [];
+        //var recordSummary = data[0].CapexSummary;
+        //var iMonthly = 0;
+        //for (var key in recordSummary) {
+        //    if (recordSummary.hasOwnProperty(key)) {
+        //        for (var keyitem in recordSummary[key]) {
+        //            if ((keyitem == "EDM") || (keyitem == "EDMSS")) {
+        //                titleHeader.push(key);
+        //                transSumm.push({ field: ("CapexSummary." + key + "." + keyitem), title: updateHeaderColumn(key) + " (" + keyitem + ") ", width: 150, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+        //            }
+        //        }
+        //    }
+        //}
+
+        //var titleHeaderUnique = uniqueArray(titleHeader);
+        //for (var j = 0; j < titleHeaderUnique.length; j++) {
+        //    for (var i = 0; i < transSumm.length; i++) {
+        //        if (titleHeaderUnique[j] == transSumm[i].field.split('.')[1]) {
+        //            gridColumns.push(transSumm[i]);
+        //        }
+        //    }
+        //}
+
+        return gridColumns;
+    }
+
+    function renderGridUsingDataIsaggrt(data) {
+        var gridCol = model.renderGridColumnsMap(data);
+        var excelName = "DataCapexMap_" + moment(new Date()).format("DD-MMM-YYYY_HH:mm:ss") + ".xlsx";
+
+        $('#grid_capexaggrts').replaceWith($('<div />').attr('id', 'grid_capexaggrts'));
+        $('#grid_capexaggrts').kendoGrid({
+            toolbar: ["excel"],
+            excel: { fileName: excelName, allPages: true, filterable: true },
+            dataSource: {
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: gridCol
+        });
+
+    }
+
+    function GetListMapping(mapnames) {
+        model.IsProcessing(true);
+        var url = "@Url.Action("GetListCapexMapping", "Palantir")";
+        var param = model.getFilterValuesCapex();
+        ajaxPost(url, { pq: param, mapname: mapnames }, function (data) {
+            model.IsProcessing(false);
+            if (data.Data.Status == "NOK") {
+                alert(data.Data.Message);
+                return;
+            }
+            renderGridUsingDataIsaggrt(data.Data);
+        }, function (err) {
+            model.IsProcessing(false);
+            alert(err)
+        })
+    }
+
+    @*model.generatemapcapex = function() {
+        var url = "@Url.Action("GenerateCapex")";
+        location.href = url;
+    }*@
+
+    //model.Refresh = function () {};
+</script>

@@ -1,0 +1,131 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns:dm0="http://schemas.microsoft.com/VisualStudio/2008/DslTools/Core" xmlns:dm1="http://schemas.microsoft.com/dsltools/Kernel" xmlns:dm2="http://schemas.microsoft.com/dsltools/Component" xmlns:dm3="http://schemas.microsoft.com/dsltools/UseCase" xmlns:dm4="http://schemas.microsoft.com/dsltools/Activity" xmlns:dm5="http://schemas.microsoft.com/dsltools/Interaction" xmlns:dm6="http://schemas.microsoft.com/dsltools/UmlModelLibrary" xmlns:dm7="http://schemas.microsoft.com/dsltools/UmlDiagrams" xmlns:dm8="http://schemas.microsoft.com/dsltools/LogicalClassDesigner"
+  dslVersion="1.0.0.0"
+  Id="b3c23cea-c4fe-4602-954f-82c277918042"
+  name="Core"
+  visibility="Private" xmlns="http://schemas.microsoft.com/dsltools/ModelStore">
+  <referencesInternal>
+    <reference
+      Id="035996aa-397d-42be-8323-868641bd258e"
+      handle="viewcode://./CodeSchema_Namespace?Namespace%3DECIS.Core"
+      tag="ViewCode" />
+  </referencesInternal>
+  <packagedElements>
+    <packageHasNamedElement>
+      <class
+        Id="12de2020-3bd7-4fb9-b898-531020fc604b"
+        name="DateRange"
+        isAbstract="false"
+        isLeaf="false"
+        isActiveClass="false">
+        <referencesInternal>
+          <reference
+            Id="d077a9bf-7141-453d-9fcd-dba290d0b932"
+            handle="viewcode://./CodeSchema_Class?Assembly%3Dfile:%2F%2F%2FC:%2FUsers%2Fariefdarmawan%2FDocuments%2FSVNRepo%2FSemeru%2FWeb%2FWEIS%2FDataModel%2FWEIS%2Fbin%2FDebug%2FECIS.Core.dll Namespace%3DECIS.Core Type%3DDateRange"
+            tag="ViewCode" />
+        </referencesInternal>
+        <appliedStereotypesInternal>
+          <stereotypeInstance
+            Id="a4da34d8-fd4b-4a4c-81f0-f1cc462dac40"
+            name="class"
+            profile="CSharpProfile">
+            <propertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="0dea7a66-5131-43a0-bc99-d3cba523c151">
+                <propertyInstance
+                  Id="56778095-795f-4ec8-a33d-3ab3d3090294"
+                  name="ClrAttributes" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="c3269e1a-9776-46f6-bea9-3472733d0ae1">
+                <propertyInstance
+                  Id="d951a292-f695-4b71-a198-b25621909d56"
+                  name="IsPartial"
+                  value="false" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="07172733-dbca-4ff5-a539-2da2d4156dc8">
+                <propertyInstance
+                  Id="2da0241f-c98a-4d61-acc3-9b2e808bcb75"
+                  name="IsStatic"
+                  value="False" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="28398881-5fb6-4ac7-a1ba-703ed1dd61af">
+                <propertyInstance
+                  Id="fb5233b1-9cd7-427f-acbb-bc6489736c65"
+                  name="IsUnsafe"
+                  value="false" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="09f38ffb-0191-4f58-a123-6226197bd1a4">
+                <propertyInstance
+                  Id="3c0e7a82-4bc1-4cd2-ae42-4b28ecc116b9"
+                  name="PackageVisibility"
+                  value="internal" />
+              </stereotypeInstanceHasPropertyInstances>
+            </propertyInstances>
+          </stereotypeInstance>
+        </appliedStereotypesInternal>
+      </class>
+    </packageHasNamedElement>
+    <packageHasNamedElement>
+      <class
+        Id="c0d107c7-07b9-491d-9232-8e0d25a8b799"
+        name="ECISModel"
+        isAbstract="true"
+        isLeaf="false"
+        isActiveClass="false">
+        <referencesInternal>
+          <reference
+            Id="339eecee-f85c-46d3-a35f-562c1ec6988d"
+            handle="viewcode://./CodeSchema_Class?Assembly%3Dfile:%2F%2F%2FC:%2FUsers%2Fariefdarmawan%2FDocuments%2FSVNRepo%2FSemeru%2FWeb%2FWEIS%2FDataModel%2FWEIS%2Fbin%2FDebug%2FECIS.Core.dll Namespace%3DECIS.Core Type%3DECISModel"
+            tag="ViewCode" />
+        </referencesInternal>
+        <appliedStereotypesInternal>
+          <stereotypeInstance
+            Id="d58a82e2-7a0d-425f-9516-1dfc72ce61db"
+            name="class"
+            profile="CSharpProfile">
+            <propertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="22384189-5f21-4275-8460-ce0982e66f6b">
+                <propertyInstance
+                  Id="e4c5908e-9f24-4562-bbbb-628adec92fce"
+                  name="ClrAttributes" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="cde9806a-9bee-4722-8b31-ce0c27ee0d69">
+                <propertyInstance
+                  Id="7c091548-5c1b-4b35-8ef2-5accdab4e093"
+                  name="IsPartial"
+                  value="false" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="36f03c34-4676-4360-bd69-5d83af3e7ea1">
+                <propertyInstance
+                  Id="59c2af88-c075-49e8-a08f-b4b8401e5653"
+                  name="IsStatic"
+                  value="False" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="361f3c55-193f-469e-b46a-d30f767287a9">
+                <propertyInstance
+                  Id="3888ac81-4a52-455a-9f8c-78928b0f0bb8"
+                  name="IsUnsafe"
+                  value="false" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="2497f5d7-0111-4db2-b2fe-aef1cef0c1c9">
+                <propertyInstance
+                  Id="7009a633-302f-4665-8a16-db9676e88ade"
+                  name="PackageVisibility"
+                  value="internal" />
+              </stereotypeInstanceHasPropertyInstances>
+            </propertyInstances>
+          </stereotypeInstance>
+        </appliedStereotypesInternal>
+      </class>
+    </packageHasNamedElement>
+  </packagedElements>
+</package>

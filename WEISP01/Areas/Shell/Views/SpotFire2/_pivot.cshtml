@@ -1,0 +1,84 @@
+﻿<div class="col-md-12 no-padding">
+    <div id="wd" class="col-md-12"></div>
+</div>
+<div class="col-md-12 no-padding">
+
+    <div class="hidden-on-narrow" id="configurator"></div>
+    <div class="hidden-on-narrow" id="pivotgrid"></div>
+    <div class="responsive-message"></div>
+
+</div>
+<script>
+    function refresh_pivot() {
+        var a = setTimeout(function () { $("#pivotgrid").data("kendoPivotGrid").refresh() }, 300);
+    }
+
+    function render_pivot(data) {
+        $('#pivotgrid').replaceWith($('<div />').attr('id', 'pivotgrid'));
+        var pivotgrid = $("#pivotgrid").kendoPivotGrid({
+            filterable: true,
+            columnWidth: 100,
+            height: 570,
+            dataSource: {
+                data: data,
+                schema: {
+                    model: {
+                        fields: {
+                            ActivityCategory: { type: "string" },
+                            ActivityType: { type: "string" },
+                            Asset: { type: "string" },
+                            LoB: { type: "string" },
+                            Region: { type: "string" },
+                            Project: { type: "string" },
+                            FundingType: { type: "string" },
+                            RigType: { type: "string" },
+                            RigName: { type: "string" },
+                            MeanCostMODUSD: { type: "number" },
+                            PlanYear: { type: "number" },
+                            WellName: { type: "string" }
+                        }
+                    },
+                    cube: {
+                        dimensions: {
+                            PlanYear: { caption: "All Years" },
+                            WellName: { caption: "All Well Names" },
+                            ActivityType: { caption: "All Activity Types" },
+                            ActivityCategory: { caption: "All Activity Categories" },
+                        },
+                        measures: {
+                            "Sum": { field: "MeanCostMODUSD", format: "{0:c}", aggregate: "sum" },
+                            //"Average": { field: "UnitPrice", format: "{0:c}", aggregate: "average" }
+                        }
+                    }
+                },
+                columns: [{ name: "PlanYear", expand: true }],
+                rows: [{ name: "WellName", expand: true }, { name: "ActivityType" }],
+                measures: ["Sum"]
+            }
+        }).data("kendoPivotGrid");
+
+        //$("#configurator").kendoPivotConfigurator({
+        //    dataSource: pivotgrid.dataSource,
+        //    filterable: true,
+        //    height: 570
+        //});
+    }
+
+
+    $(document).ready(function () { });
+
+    
+
+</script>
+<style>
+    #pivotgrid {
+        display: inline-block;
+        vertical-align: top;
+        width: 70%;
+    }
+
+    #configurator {
+        display: inline-block;
+        vertical-align: top;
+    }
+</style>

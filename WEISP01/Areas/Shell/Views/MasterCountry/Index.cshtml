@@ -1,0 +1,240 @@
+﻿@{
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+
+<style>
+    .text {
+        height: auto !important;
+        padding: 0px 4px !important;
+        margin: 0px 12px 0px 3px;
+    }
+</style>
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.MiniIsProcessing = ko.observable(false);
+
+    model.Master = {
+        Title: ko.observable(""),
+        Name: ko.observable(""),
+        Continent: ko.observable(""),
+        Currency: ko.observable(""),
+        Code: ko.observable(""),
+        SearchKeyword: ko.observable(""),
+        Add: function () {
+            model.Master.Name("");
+            $("#modal").modal("show");
+        },
+        Save: function () {
+            var form = $("#form").kendoValidator().data("kendoValidator");
+
+            if (!form.validate())
+                return;
+
+            model.MiniIsProcessing(true);
+
+            ajaxPost("@Url.Action("Save")", { Name: model.Master.Name(), Continent: model.Master.Continent(), Currency: model.Master.Currency(), Code: model.Master.Code() }, function (data) {
+                model.MiniIsProcessing(false);
+
+                if (data.Success == true) {
+                    $("#modal").modal("hide");
+                    model.Master.Refresh();
+                } else {
+                    alert(data.Message);
+                }
+            }, function () {
+                model.MiniIsProcessing(false);
+            });
+        },
+        Update: function () {
+            model.IsProcessing(true);
+
+            ajaxPost("@Url.Action("Update","MasterCountry")", { updated: model.Master.GetUpdatedData() }, function (data) {
+                model.IsProcessing(false);
+
+                if (data.Success == true) {
+                    model.Master.Refresh();
+                    alert('Data updated');
+                } else {
+                    model.Master.Refresh();
+                    alert(data.Message);
+                }
+            }, function () {
+                model.IsProcessing(false);
+            });
+        },
+        Delete: function (id) {
+            if (confirm("Are you sure you want to delete this data ?") == true) {
+                model.IsProcessing(true);
+
+                ajaxPost("@Url.Action("Delete","MasterCountry")", { _id: id }, function (data) {
+                    model.IsProcessing(false);
+
+                    if (data.Success == true) {
+                        model.Master.Refresh();
+                        alert('Data deleted');
+                    } else {
+                        alert(data.Message);
+                    }
+                }, function () {
+                    model.IsProcessing(false);
+                });
+            }
+        },
+        Refresh: function () {
+            model.IsProcessing(true);
+
+            ajaxPost("@Url.Action("Populate")", { Keyword: model.Master.SearchKeyword() }, function (data) {
+                model.IsProcessing(false);
+
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                var dataSource = new kendo.data.DataSource({
+                    data: data.Data,
+                    pageSize: 10,
+                    schema: { model: { id: "_id", fields: { "StringId": { type: "string" }, "_id": { editable: false } } } },
+                    batch: true
+                });
+
+                $("#grid").data("kendoGrid").setDataSource(dataSource);
+            }, function () {
+                model.IsProcessing(false);
+            });
+        },
+        Column: function () {
+            return [
+                { field: "Name", title: (model.Master.Title() + ' Name').replace(/Name Name/g, "Name"), filterable: false },
+                { field: "Continent", title: "Continent", filterable: false },
+                { field: "Currency", title: "Currency", filterable: false },
+                { field: "Code", title: "Code", filterable: false },
+                { field: "_id", title: "Delete", editable: false, filterable: false, attributes: { class: "cell-date" }, width: 70, template: "<button type='button' class='btn btn-danger btn-custom btn-xs' onclick='model.Master.Delete(\"#: _id #\")'><span class='glyphicon glyphicon-remove-circle'></span> Delete</button>" }
+            ];
+        },
+        GetUpdatedData: function () {
+            var grid = $("#grid");
+            var updatedRecords = [];
+
+            grid.data("kendoGrid").dataSource._data.forEach(function (f) {
+                if (f.dirty) updatedRecords.push(f);
+            });
+
+            var updated = updatedRecords;
+
+            for (var a = 0; a < updated.length; a++) {
+                var b = updated[a];
+                for (i in b) if (b.hasOwnProperty(i)) {
+                    if (i.indexOf(".") > -1) {
+                        delete updated[a][i];
+                    }
+                }
+            }
+
+            return updated;
+        }
+    };
+</script>
+
+<script>
+    model.Master.Title("@ViewBag.Title".replace(/Master /g, ""));
+
+    $(document).ready(function () {
+        $('.search').on('keyup', function (e) {
+            if (e.keyCode != 13) return;
+            model.Master.Refresh();
+        });
+
+        model.Master.Refresh();
+    });
+</script>
+
+<div style="padding: 0px 15px 15px;">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing()">
+        <div class="ec-toolbar" style="margin-left:15px">
+            <div class="col-md-4 row">
+                <button class="btn btn-success btn-sm btn-custom" onclick="model.Master.Add()">
+                    <span class="glyphicon glyphicon-plus"></span> Add New
+                </button>
+                <button class="btn btn-primary btn-sm btn-custom" onclick="model.Master.Update()">
+                    <span class="glyphicon glyphicon-ok"></span> Save Changes
+                </button>
+                (inline editing is enabled)
+            </div>
+            <div class="col-md-8">
+                <label>Search :</label>
+                <input type="text" class="text search" data-bind="value: model.Master.SearchKeyword, attr: { placeholder: ('Type ' + (model.Master.Title() + ' here ...').toLocaleLowerCase()) }" />
+                <button class="btn btn-primary btn-sm btn-custom" data-bind="click: model.Master.Refresh">
+                    <span class="glyphicon glyphicon-refresh"></span> Refresh
+                </button>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+        <div class="col-md-12 no-padding">
+            <div class="grid" id="grid" data-bind="kendoGrid: { data: [], columns: model.Master.Column(), pageable: true, sortable: true, filterable: true, editable: true }"></div>
+        </div>
+    </div>
+
+    <div data-bind="with: Master" class="modal fade myModal" id="modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div data-bind="visible: model.MiniIsProcessing()">
+                    @Html.Partial("_processing")
+                </div>
+                <div data-bind="visible: !model.MiniIsProcessing()">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title" id="myModalLabel" data-bind="text: 'Add New ' + Title()"></h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group form-group-sm form-wrapper" id="form">
+                            <div class="row" style="margin-bottom:10px">
+                                <label class="col-md-3">Name</label>
+                                <div class="col-md-8">
+                                    <input type="text" style="width:100%;" id="Name" name="Name" required="required" data-bind="value: Name, attr: { placeholder: 'Type ' + Title() + ' here ...' }" />
+                                </div>
+                            </div>
+                            <div class="row" style="margin-bottom:10px">
+                                <label class="col-md-3">Continent</label>
+                                <div class="col-md-8">
+                                    <input type="text" style="width:100%;" id="Continent" name="Continent" required="required" data-bind="value: Continent, attr: { placeholder: 'Type Continent' + ' here ...' }" />
+                                </div>
+                            </div>
+                            <div class="row" style="margin-bottom:10px">
+                                <label class="col-md-3">Currency</label>
+                                <div class="col-md-8">
+                                    <input type="text" style="width:100%;" id="Currency" name="Currency" required="required" data-bind="value: Currency, attr: { placeholder: 'Type Currency'+ ' here ...' }" />
+                                </div>
+                            </div>
+                            <div class="row" style="margin-bottom:10px">
+                                <label class="col-md-3">Code</label>
+                                <div class="col-md-8">
+                                    <input type="text" style="width:100%;" id="Code" name="Code" required="required" data-bind="value: Code, attr: { placeholder: 'Type Code' + ' here ...' }" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-custom btn-warning" data-dismiss="modal">
+                            <span class="glyphicon glyphicon-remove-circle"></span> Close
+                        </button>
+                        <button type="button" class="btn btn-custom btn-primary" onclick="model.Master.Save()">
+                            <span class="glyphicon glyphicon-ok"></span> Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

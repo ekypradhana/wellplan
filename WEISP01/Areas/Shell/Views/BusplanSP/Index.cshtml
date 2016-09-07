@@ -1,0 +1,1247 @@
+﻿@{
+    ViewBag.Title = "Business Plan Input";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+    var PerformanceUnits = new List<string>();
+    PerformanceUnits = DataHelper.Populate("WEISPerformanceUnits").Select(x => BsonHelper.GetString(x, "_id")).ToList<string>();
+
+    var FreezedOPs = new List<string>();
+    FreezedOPs = DataHelper.Populate("WEISFreezedOPs").Select(x => BsonHelper.GetString(x, "_id")).ToList<string>();
+
+    var MaturityRisk = MaturityRiskMatrix.Populate<MaturityRiskMatrix>();
+    var ProjectReferences = ProjectReferenceFactor.Populate<ProjectReferenceFactor>();
+    var CaseGroup = DataHelper.Populate("WEISReferenceFactorModel").Select(d => Convert.ToString(d.GetString("GroupCase"))).Distinct().OrderBy(d => d);
+    var Countries = MacroEconomic.Populate<MacroEconomic>().GroupBy(d => d.Country).Select(d => d.Key).OrderBy(d => d);
+    
+    
+}
+
+<style>
+    .k-numeric-wrap.k-state-default .k-select {
+        display: none;
+    }
+
+    .k-numeric-wrap.k-state-disabled .k-select {
+        display: none;
+    }
+
+</style>
+
+<script>
+
+    model.DefaultOP = ko.observable("@ViewBag.DefaultOP");
+    model.SelectedActivityTemplate = { "_id": null, "Region": null,"LineOfBusiness":null, "RigType": null, "RigName": null, "OperatingUnit": null, "ProjectName": null, "AssetName": null, "WellName": null, "NonOP":false, "SaveToOP" : "", "WorkingInterest": 0, "FirmOrOption": null,"isInPlan":true, "UARigSequenceId": null, "UARigDescription": null, "Targets": { "M0": { "Identifier": null, "Days": 0, "Cost": 0 }, "M1": { "Identifier": null, "Days": 0, "Cost": 0 }, "M2": { "Identifier": null, "Days": 0, "Cost": 0 }, "M3": { "Identifier": null, "Days": 0, "Cost": 0 }, "M4": { "Identifier": null, "Days": 0, "Cost": 0 } }, "OpsDuration": 0, "OpsSchedule": { "Start": null, "Finish": null }, "PsSchedule": { "Start": null, "Finish": null },
+        "PhSchedule": { "Start": null, "Finish": null },"PerformanceUnit": null, "EXType":null, "Activity" : null, "VirtualPhase" : null, "ShiftFutureEventDate" : null,"BizPlanId":"OPPlan","Currency":"USD","ReferenceFactorModel":"default","ShellShare":20,"Country":"United States", "SaveToOP" : "OP15"};
+    model.PageId("Business Plan");
+    model.ShowBrowser = ko.observable(true);
+    model.ShowEditForm = ko.observable(false);
+    model.ShowOnePageEst = ko.observable(false);
+    model.ShowInsertActivityForm = ko.observable(false);
+    model.ShowBusPlanCatalog = ko.observable(false);
+    model.catalogresult = ko.observable(false);
+    model.ShowFilter = ko.observable(false);
+    model.selectedWellId = ko.observable();
+    model.selectedPhaseNo = ko.observable();
+    model.IsProcessing = ko.observable(false);
+    model.SelectedActivity = ko.mapping.fromJS(model.SelectedActivityTemplate);
+    model.isNewWell = ko.observable(false);
+    model.IsEditMode = ko.observable(false);
+    model.FYProcessing = ko.observable(false);
+    model.OpActive=ko.observable("");
+    model.sement = ko.observableArray([]);
+    model.catalog = ko.observableArray([]);
+    model.BusPlanNewWell = ko.observable({
+        LineOfBusiness : ko.observableArray([]),
+        Region : ko.observableArray([]),
+        Country : ko.observableArray([]),
+        OperatingUnit : ko.observableArray([]),
+        PerformanceUnit : ko.observableArray([]),
+        AssetName : ko.observableArray([]),
+        ProjectName : ko.observableArray([]),
+        WellName : ko.observableArray([]),
+        Currency : ko.observableArray([]),
+        ShellShare : ko.observable(),
+        Status : ko.observableArray([]),
+        LastUpdate : ko.observable(new Date()),
+        isInPlan : ko.observable(false),
+        ReferenceFactorModel : ko.observable(),
+        Phases : ko.observableArray([]),
+        WeeklyReport: ko.observable(""),
+        MonthlyReport: ko.observable(""),
+    });
+
+    //var LineOfBusiness = [""];
+    //var Region = [""];
+    //var Country = [""];
+    //var OperatingUnit = [""];
+    //var PerformanceUnit = [""];
+    //var AssetName = [""];
+    //var ProjectName = [""];
+    //var WellName = [""];
+    //var Currency = [""];
+    //var ShellShare = 0;
+    //var Status = [""];
+    //var LastUpdate = new Date();
+    //var isInPlan = false;
+    //var ReferenceFactorModel = "";
+
+    model.SetActivity = function (activityUnparsed) {
+        var template = ko.mapping.toJS(model.SelectedActivityTemplate),
+            activity = {};
+        for (var i in template) if (template.hasOwnProperty(i)) activity[i] = activityUnparsed[i];
+        ko.mapping.fromJS(activity, model.SelectedActivity);
+    };
+    model.BusPlan = ko.observable({
+        
+        UserName : ko.observable(""), // ViewBag.UserName
+        IsNeedToCalc: ko.observable(false),
+        IsNeedToCalcWording: ko.observable("*Need to Re-Calculate"),
+        CurrentOPLabel: ko.observable(""),
+        NewOPLabel: ko.observable(""), //"OP-16"),
+        record : ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new BizPlanActivity())))),
+        BackupRecord : ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new BizPlanActivity())))),
+        phases : ko.observableArray([]),
+        rigRates: ko.observableArray([]),
+        currencies: ko.observableArray([]),
+        currencyMasters: ko.observableArray([]),
+        longLeads: ko.observableArray([]),
+        conversionToUSD: ko.observable(1),
+        maturityRisks: @MvcHtmlString.Create(JsonConvert.SerializeObject(MaturityRisk)),
+        maturityRisksTitleOnly: @MvcHtmlString.Create(JsonConvert.SerializeObject(MaturityRisk.Select(x=>x.Title).Distinct().ToList())),
+        //referenceFactorModels: @MvcHtmlString.Create(JsonConvert.SerializeObject(CaseGroup)),
+        referenceFactorModels: ko.observableArray([]),
+        countries: @MvcHtmlString.Create(JsonConvert.SerializeObject(Countries)),
+        projectReferences: @MvcHtmlString.Create(JsonConvert.SerializeObject(ProjectReferences)),
+        FreezedOPs: @MvcHtmlString.Create(JsonConvert.SerializeObject(FreezedOPs)),
+        SaveToOP : ko.observable(),
+        SelectedActivityCategory: ko.observable(""),
+        OPEstimate: ko.observable(),
+        LSInfo:ko.observable("@ViewBag.LatestLS"),
+        LastUpdatedEst:ko.observable(new Date())
+    });
+    model.BusPlan().maturityRisksTitleOnly.unshift("");
+    model.BaseOpValue = ko.observableArray([]);
+    model.SaveToOPData = ko.observableArray([{dataText:"OP16",dataValue:"OP16"}]);
+    model.statusCatalogFilter = ko.observableArray();
+    model.OpEstimate = ko.observable([]);
+</script>
+
+<style>
+     
+    #grid .k-header.k-grid-toolbar {
+        background-color: #F9F9FB;
+    }
+
+    #grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+    #grid .k-header[role=columnheader][data-field=_id] {
+        text-align: center;
+    }
+
+    #grid .k-header[role=columnheader][data-field=OpsDuration],
+    #grid .k-header[role=columnheader][data-field=PlanDuration],
+    #grid .k-header[role=columnheader][data-field=PhRiskDuration] {
+        vertical-align: bottom;
+        text-align: center;
+    }
+
+    #grid .k-header[role=columnheader][data-colspan] {
+        text-align: center;
+        font-weight: bold;
+        color: #a8a8a8;
+    }
+
+    #grid [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #grid .k-grid-header [role=grid] {
+        border-width: 0 1px 0 0;
+        border-style: solid;
+        border-color: #e2e0e0;
+    }
+
+    #grid .k-grid-content [role=grid] {
+        border-width: 0 1px 0 0;
+        border-style: solid;
+        border-color: #e2e0e0;
+    }
+
+    #grid .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+
+</style>
+
+<div class="col-md-12" data-bind="visible:ShowFilter">
+    @Html.Partial("FilterForWaterfall")
+
+    <script>
+        model.FilterVisibility.PerformanceUnits(false);
+        model.FilterVisibility.MonthlySequence(false);
+        model.FilterVisibility.showLabelLSFilter(true);
+        model.FilterVisibility.LineOfBusiness(true);
+
+        //model.FilterVisibility.YearsCalc(true);
+
+        model.FilterVisibility.Activities(true);
+        model.FilterVisibility.OPs(true);
+        model.FilterVisibility.OpRelation(true);
+        model.FilterVisibility.Date(true);
+        model.FilterVisibility.Date2(true);
+        model.FilterVisibility.PeriodBase(false);
+        model.FilterVisibility.PeriodView(true);
+        model.FilterVisibility.PeriodRelation(false);
+        model.FilterVisibility.Status(true);
+        model.FilterVisibility.inlastuploadls(true);
+        model.FilterVisibility.isInPlan(true); 
+        model.FilterVisibility.ExType(true);
+
+        model.options = {
+            regions: model.regions(),
+            operatingUnits: model.operatingUnits(),
+            rigTypes: model.rigTypes(),
+            rigNames: model.rigNames(),
+            rigNamesForBizPlanInput: model.rigNames(),
+            projectNames: model.projectNames(),
+            wellNames: model.wellNames(),
+            assetNames: @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISAssetNames").Select(d=>d.GetString("_id")).OrderBy(d=>d))),
+            performanceUnits: @MvcHtmlString.Create(JsonConvert.SerializeObject(PerformanceUnits)),
+            firmOrOptions: ["Firm", "Option"],
+            SaveToOP: ko.observableArray([]), //["OP15", "OP16"],
+            EXType: @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISFundingTypes").Select(d => d.GetString("_id")).OrderBy(d => d))),
+            projectReferences: @MvcHtmlString.Create(JsonConvert.SerializeObject(ProjectReferences)),
+            RFMs: ko.observableArray([]),
+            projectReferencesForEdit: @MvcHtmlString.Create(JsonConvert.SerializeObject(ProjectReferences)),
+            RFMsForEdit: ko.observableArray([]),
+            activities : ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISActivities")
+            .Select(d =>  BsonHelper.GetString( d, "_id") ).ToList<string>()))),
+            isInPlan:[{name:"Yes",id:true},{name:"No",id:false}],
+            BusplanFirstSelect: ko.observable(true),
+        };
+
+        //model.options.rigNamesForBizPlanInput.unshift("");
+
+    </script>
+</div>
+ 
+<div class="col-md-12" style="margin-bottom: 10px;" data-bind="visible:ShowBrowser">
+    <!-- filters -->
+    @*@Html.Partial("Filter")*@
+    
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+    
+    <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden') }">
+        <div class="clearfix"></div>
+        <div class="">
+            <input type="checkbox" checked="checked" id="column_toggle" onchange="showHideColumn();" /> Show Extra Columns
+        </div>
+        <div class="col-md-12" style="text-align:center;margin-bottom:20px">
+            <i>
+                <span class="btn-sm btn-success" data-bind="text: model.BusPlan().LSInfo()" style="padding:10px;cursor:help;"></span>
+            </i>
+        </div>
+        <div class="col-md-12 no-padding">
+            <div id="grid"></div>
+        </div>
+
+        <div style="clear: both;"></div>
+    </div>
+
+</div>
+
+<div class="col-md-12" data-bind="visible:ShowEditForm">
+    @Html.Partial("_Edit")
+</div>
+<div class="col-md-12" data-bind="visible:ShowOnePageEst,with:model.BusPlan().record">
+    @*@Html.Partial("_onePageEstimate")*@
+    @Html.Partial("_BizPlanEntryForm")
+</div>
+
+<div class="col-md-12" data-bind="visible:ShowInsertActivityForm">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible: !model.IsProcessing()">
+        @Html.Partial("_InsertActivity")
+    </div>
+</div>
+
+<div class="col-md-12 row filter" style="margin-top:-180px" data-bind="visible:model.ShowBusPlanCatalog">
+    <div class="col-md-4"></div>
+    <div class="col-md-4"></div>
+    <div class="col-md-4" style="margin-left:-9px">
+        <div class="col-md-4">
+            <label>Status Complete: </label>
+        </div>
+        <div class="col-md-8">
+            <input type="text" data-bind="kendoMultiSelect:{data:['Complete','Draft','Modified'], value:statusCatalogFilter}"/>
+        </div>
+    </div>
+</div>
+<div class="col-md-12" data-bind="visible:model.ShowBusPlanCatalog" style="margin-bottom:10px">
+   
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible: !model.IsProcessing()">
+        @Html.Partial("_busplanComplete")
+    </div>
+</div>
+
+@Html.Partial("_ConfirmSavePlan")
+
+<script>
+
+    function pushData(data) {
+
+        //for (var x = 0; x < data.length; x++) {
+        //    var oneDay = 24 * 60 * 60 * 1000
+        //    var firstDate = moment(data[x].PhStart);
+        //    var secondDate = moment(data[x].PhFinish);
+        //    var diffDays = Math.round( Math.abs( (secondDate - firstDate) / oneDay));
+        //    data[x]["PlanDuration"] = diffDays;
+        //}
+
+        return data;
+    }
+
+    function showHideColumn(){
+        var grid = $("#grid").data("kendoGrid");
+        var checker = $("#column_toggle");
+        if (checker.is(":checked")) {
+            for(var i = 12; i <= 18; i++){
+                grid.showColumn(i);
+            }
+            grid.columns[8].columns[2].width = 60;
+            grid.columns[8].columns[3].width = 60;
+            grid.columns[9].columns[2].width = 60;
+            grid.columns[9].columns[3].width = 60;
+            grid.setOptions();
+        } else {
+            for(var i = 12; i <= 18; i++){
+                grid.hideColumn(i);
+            }
+            grid.columns[8].columns[2].width = 85;
+            grid.columns[8].columns[3].width = 85;
+            grid.columns[9].columns[2].width = 85;
+            grid.columns[9].columns[3].width = 85;
+            grid.setOptions();
+        }
+
+    }
+
+    var generateEditor = function (dr) {
+        var colx = "<span class='k-dirty'></span>"
+        var checked = $(dr).is(':checked');
+        var grid = $("#grid").data("kendoGrid");
+        var dataItem = grid.dataItem($(dr).closest('tr'));
+        dataItem.VirtualPhase = checked;
+        $(dr).parent().prepend(colx);
+        dataItem.dirty = true;
+    }
+
+    // generate the grid
+
+    function  getBaseOP () {
+        ajaxPost("@Url.Action("getBaseOP")", {}, function (res) {
+            model.BusPlan().CurrentOPLabel(res.Data.previousOP);
+            model.BusPlan().NewOPLabel(res.Data.nextOP);
+        }, function () {
+            return "";
+        });
+    }
+
+
+    model.delete = function (id,PhaseNo,ActivityType) {
+        if (!confirm('Are you sure want to delete this activity?'))
+            return;
+
+        model.IsProcessing(true);
+
+        ajaxPost("@Url.Action("DeleteActivity")", { id: parseInt(id, 10),PhaseNo:PhaseNo,ActivityType:ActivityType }, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadData();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    model.GetMasterOPs = function () {
+        ajaxPost("@Url.Action("GetMasterOPs")", {}, function (res) {
+            var dataOPs = [];
+            for(var i = 0;i<res.Data.length;i++){
+                if(res.Data[i] == model.DefaultOP()){
+                    dataOPs.push({dataText:res.Data[i]+"+",dataValue:res.Data[i]});
+                }else{
+                    dataOPs.push({dataText:res.Data[i],dataValue:res.Data[i]});
+                }
+            }
+            model.BaseOpValue(dataOPs);
+            model.options.SaveToOP(dataOPs);
+            model.reloadData();
+        }, function () {
+            console.log('Failed to Load master Base OP');
+        });
+    }
+
+    model.IsStatusFilled = function () {
+        console.log("Chekck stats:" + model.BusPlan().record().Phases()[0].Estimate.Status());
+        var stats = model.BusPlan().record().Phases()[0].Estimate.Status($("#status").val());
+        console.log("Chekck stats:" + stats);
+        //var record = model.BusPlan().record().Phases()[0].Estimate.Status(); // ko.mapping.toJS(model.BusPlan().record());
+        if (stats== null || $("#status").val() == "") {
+            alert("Status is empty. Please choose one");
+            return false;
+        }
+
+        return true;
+    };
+
+    model.IsValueDriverFilled = function () {
+        var phases = ko.mapping.toJS(model.BusPlan().record().Phases());
+        var valueDriverFilled = _.filter(phases, function (e) {
+            return e.Estimate.WellValueDriver == null || e.Estimate.WellValueDriver == "";
+        });
+
+        if (valueDriverFilled.length > 0) {
+            alert("Well Value Driver in " + valueDriverFilled[0].ActivityType + " is not yet selected. Please select one");
+            return false;
+        }
+
+        return true;
+    };
+
+    model.savePlan = function () {
+        var PhaseNo = getActivePhaseNo();
+        $("#confirmationModal").modal("hide");
+
+        var region          = $("#region").data("kendoDropDownList").value();
+        var country         = $("#country").data("kendoDropDownList").value();
+        var operatingunit   = $("#operatingunit").data("kendoDropDownList").value();
+        var assetName       = $("#assetName").data("kendoDropDownList").value();
+        var projectName     = $("#projectName").data("kendoDropDownList").value();
+        var fundingType     = $("#fundingType").data("kendoDropDownList").value();
+        var performanceUnit = $("#performanceUnit").data("kendoDropDownList").value();
+
+        if(region=="Select Region" || region.length==0){
+            alert("Please fill region"); return;
+        }
+           
+        if(country=="Select Country" || country.length ==0){
+            alert("Please fill country");return;
+        }
+            
+        if(operatingunit=="Select Operating Unit" || operatingunit.length==0){
+            alert("Please fill Operating Unit");return;
+        }
+            
+        if(performanceUnit=="Select Performance Unit" || performanceUnit.length==0){
+            alert("Please fill Performance Unit"); return;
+        }
+
+        if(assetName=="Select Asset" || assetName.length==0){
+            alert("Please fill Asset name");return;
+        }
+        if(projectName=="Select Project" || projectName.length==0){
+            alert("Please fill Project Name");return;
+        }
+
+        var cekStatus = $("#status").data("kendoDropDownList").value();
+
+        if(cekStatus=="Meta Data Missing"){
+            alert("Please change Status to Draft, Modified, or Complete");
+            return;
+        }
+
+        if(fundingType=="Select Funding Type" || fundingType.length==0){
+            alert("Please fill Funding Type"); return;
+        }
+
+        
+
+        var cekRFM = $("#reference_factor_model").data("kendoDropDownList").value();
+        if (cekRFM == "") {
+            alert("Please choose reference factor model first!");
+            return;
+        }
+
+        if(model.BusPlan().IsNeedToCalc()){
+            alert("Please re-calculate first!");
+            return;
+        }
+
+        if (!model.IsStatusFilled()) {
+            return;
+        }
+
+        if( (model.BusPlan().record().LineOfBusiness() == null) || (model.BusPlan().record().LineOfBusiness() == "")){
+            alert("Please select Line of Business");
+            return;
+        }
+
+        //check if it's downgrade OP, cannot save it
+        if(model.BusPlan().SaveToOP() < model.BusPlan().record().Phases()[0].Estimate.SaveToOP()){
+            alert("This BusPlan has already been saved to "+model.BusPlan().record().Phases()[0].Estimate.SaveToOP()+", so it can not be saved to "+model.BusPlan().SaveToOP());
+            return;
+        }
+
+        var calc = model.BusPlan().record().Phases()[0].Estimate.MechanicalRiskIndex();
+        if (model.BusPlan().record().Phases().length > 0) {
+            if(model.BusPlan().SelectedActivityCategory() == 'DRILLING'){
+                //if ((calc >= 1000 && calc <= 15000) && calc != 0) {
+                //    alert("Mechanical Risk Index is out of range. only Accept 1000 - 15000");
+                //    return;
+                //}
+                //return;
+            }else{
+                model.BusPlan().record().Phases()[0].Estimate.MechanicalRiskIndex(0);
+            }
+        } else {
+            alert("Phases not found");
+            return;
+        }
+        //if (!model.IsValueDriverFilled()) {
+        //    return;
+        //}
+
+        //bypass confirmation, set model.confirmation().bizPlanConfig() to false
+
+        @*ajaxPost("@Url.Action("CheckBizPlanConfig")", {}, function (res) {
+            model.confirmation().bizPlanConfig(res.Data);
+        }, function () {
+            alert(res.Message);
+        });*@
+
+
+        //        model.confirmation().bizPlanConfig(false);
+        model.IsProcessing(true);
+        var param = ko.mapping.toJS(model.BusPlan().record());
+        if($("#status").data("kendoDropDownList").value()=="Complete" || $("#status").data("kendoDropDownList").value()=="Modified" || $("#status").data("kendoDropDownList").value()=="Draft"){
+            model.BusPlan().record().Phases()[0].Estimate.SaveToOP(model.BusPlan().SaveToOP());
+        }
+        var rfmVal = $("#reference_factor_model").data("kendoDropDownList").value();
+        model.BusPlan().record().ReferenceFactorModel (rfmVal);
+        ajaxPost("@Url.Action("SavePlan")", { data: model.BusPlan().record(),saveToPlan: model.confirmation().bizPlanConfig(),status : $("#status").val()  }, function (res) {
+            if (res.Success) {
+                alert(res.Messages);
+                model.IsProcessing(false);
+                //model.reloadData();
+            } else {
+                alert(res.Messages);
+                model.IsProcessing(false);
+            }
+            model.BusPlan().record().Currency("USD");
+            select(PhaseNo);
+            //RenderFiscalYear();
+            model.isBusplanFormChanged(false);
+        }, function (res) {
+            alert(res.Messages);
+            model.IsProcessing(false);
+        });
+    }
+
+    model.confirmSavePlan = function(){
+        ajaxPost("@Url.Action("CheckBizPlanConfig")", {}, function (res) {
+            model.confirmation().bizPlanConfig(res.Data);
+        }, function () {
+            alert(res.Message);
+        });
+
+        var record = ko.mapping.toJS(model.BusPlan().record());
+        var WellName = record.WellName;
+        var confData = [];
+        for(var i=0;i<record.Phases.length;i++){
+            confData.push({WellName:WellName, RigName:record.Phases[i].Estimate.RigName, ActivityType: record.Phases[i].ActivityType});
+        }
+        model.confirmation().gridData(confData);
+        $("#confirmationModal").modal("show");
+    }
+
+    var gridColumns = [];
+    var isRO = "@ViewBag.isRO";
+    //alert(isRO);
+    if (isRO != "1") {
+        gridColumns.push(
+            { field: "_id", title: "Action", width: 90, template: "<div style='text-align: center'><button onclick='model.delete(\"#= _id #\",\"#= PhaseNo #\",\"#= ActivityType #\")' class='btn btn-custom btn-danger btn-xs'><span class='glyphicon glyphicon-remove-circle'></span> Delete</button></div>", locked: true, lockable: true }
+            );
+    }
+
+    gridColumns.push(
+            { field: "_id", title: "ID", width: 50, attributes: { style: 'text-align: center;' }, locked: true, lockable: true, editor: false },
+            { field: "Status", title: "Status", width: 80, attributes: { style: 'text-align: center;' }, locked: true, lockable: true, editor: false },
+            { field: "RigName", title: "Rig Name", width: 100, locked: true, lockable: true },
+            { field: "WellName", title: "Well Name", width: 150, locked: true, lockable: true },
+            { field: "ActivityType", title: "Activity Type", template: "<a style='cursor:pointer' onclick='changeMode(\"edit\",#: _id #, #: PhaseNo #)'>#: ActivityType #</a>", width: 170, locked: true, lockable: true },
+            { field: "UARigSequenceId", title: "Rig<br>Sequence ID", width: 100, locked: true, lockable: true },
+            //{ field: "NonOP", title: "Non OP", width: 80, locked: true, lockable: true,
+            //    template:"#: NonOP==true ? 'Yes' : '' #"
+            //},
+            { field: "SaveToOP", title: "Save to OP", width: 80, locked: true, lockable: true,
+            },
+            //{ title: "OP-14", columns: [
+            //    { field: "PreviousPsStart", template:"#: jsonDateStr(PreviousPsStart) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },
+            //    { field: "PreviousPsFinish", template:"#: jsonDateStr(PreviousPsFinish) #", title: "Finish", width: 90, attributes: { style: 'text-align: center;' } },
+            //    { field: "PreviousPlanDuration", title: "Days", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+            //    { field: "PreviousPlanCost", title: "Cost<br/>($mm)", width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } }
+            //] },
+            //{ title: model.OpEstimate()[0], columns: [
+            //    { field: "PsStart", template:"#: jsonDateStr(PsStart) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },
+            //    { field: "PsFinish", template:"#: jsonDateStr(PsFinish) #", title: "Finish", width: 90, attributes: { style: 'text-align: center;' } },
+            //    { field: "PlanDuration", title: "Days", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+            //    { field: "PlanCost", title: "Cost<br/>($mm)", width: 60, format: "{0:N2}", attributes: { style: 'text-align:right;' } }
+            //] },
+            { //title: "Est. " + model.OpEstimate()[0], columns: [
+                title: "OP15", columns: [
+                { field: "OPEstimate[0].EstimatePeriodStart", template:"#: jsonDateStr(OPEstimate[0].EstimatePeriodStart) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },
+                { field: "OPEstimate[0].EstimatePeriodEnd", template:"#: jsonDateStr(OPEstimate[0].EstimatePeriodEnd) #", title: "Finish", width: 90, attributes: { style: 'text-align: center;' } },
+                { field: "OPEstimate[0].EstimateDays", title: "Days", width: 60, format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                { field: "OPEstimate[0].EstimateCost", title: "Cost<br/>($mm)", width: 60, format: "{0:N3}", attributes: { style: 'text-align:right;' } }
+                ] },
+            { field: "OP16", columns: [//"Est. " +
+                { field: "OPEstimate[1].EstimatePeriodStart", template:"#: jsonDateStr(OPEstimate[1].EstimatePeriodStart) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },
+                { field: "OPEstimate[1].EstimatePeriodEnd", template:"#: jsonDateStr(OPEstimate[1].EstimatePeriodEnd) #", title: "Finish", width: 90, attributes: { style: 'text-align: center;' } },
+                { field: "OPEstimate[1].EstimateDays", title: "Days", width: 60, format: "{0:N2}", template:"#:kendo.toString(OPEstimate[1].EstimateDays,'N2')#", attributes: { style: 'text-align:right;' } },
+                { field: "OPEstimate[1].EstimateCost", title: "Cost<br/>($mm)", width: 60, format: "{0:N3}", attributes: { style: 'text-align:right;' } }
+            ] },
+
+            { field: "OpsStart", title: "LS Start", template:"#: jsonDateStr(OpsStart) #", width: 90, attributes: { style: 'text-align: center;' } },
+
+              
+            { field: "Region", title: "Region", width: 80 },
+            { field: "OperatingUnit", title: "Operating Unit", width: 80 },
+            { field: "RigType", title: "Rig Type", width: 80 },
+            { field: "ProjectName", title: "Project Name", width: 120 },
+            { field: "AssetName", title: "Asset Name", width: 120 },
+            { field: "ShellShare", title: "Working Interest", width: 80, attributes: { style: 'text-align:right;' },template:'#=kendo.format("{0:n2}", ShellShare)#' },
+            //{ field: "FirmOrOption", title: "Firm/Option", width: 80 },
+            { field: "UARigDescription", title: "UA Rig Description", width: 150 }
+            //,
+            //{
+            //    title: "No Well Schedule", field: 'VirtualPhase', width: 100, locked: true, lockable: false, editable: true,
+            //    template: '<input disabled="disabled" onclick="generateEditor(this)" type="checkbox" #= VirtualPhase ? checked="checked" : "" # ></input>'
+            //}
+    );
+
+    function GenerateGrid(data) {
+        //var x = model.uimodel();
+        var self = this;
+        model.ShowFilter(true);
+        //if (model.IsProcessing()) return;
+        //model.IsProcessing(true);
+        //model.setButton(true);
+        var filter = {wb:model.getFilterValues(),Status:$('[data-model="Status"]').data("kendoMultiSelect").value()}
+        $("#grid").replaceWith($('<div />').attr('id', 'grid'));
+        var $grid = $("#grid");
+        var column = gridColumns;
+        //console.log(data);
+        self.GridConfig = {
+            toolbar: ["excel"],
+            //excel: { fileName: "Business Plan-"+ jsonDateStr(new Date()) +".xlsx", allPages: true, filterable: true },
+            excel: { fileName: "Business Plan-"+  moment(new Date()).format("YYYY-MM-DD-HHmmss") +".xlsx", allPages: true, filterable: true },
+            dataSource: {
+                data: data,
+                schema: {
+                    //total: "Data.Total",
+                    model: {
+                        fields: {
+                            PhStart: 'date',
+                            PhFinish: 'date',
+                            //OpsStart: 'date',
+                            OpsFinish: 'date',
+                            fields: {
+                                "VirtualPhase": { type: "boolean", editable: false },
+                            }
+                        }
+                    },
+                },
+                pageSize: 10,
+                //serverPaging: true, // enable server paging
+                //serverSorting: true,
+            },
+            resizable: true,
+            scrollable: true,
+            sortable: true,
+            pageable: {
+                refresh: false,
+                pageSizes: 10,
+                buttonCount: 5
+            },
+            columns:column,
+            excelExport: function (e) {
+                var sheet = e.workbook.sheets[0];
+                //if (!exportFlag) {
+                //    e.sender.hideColumn(0);
+                //    e.preventDefault();
+                //    exportFlag = true;
+                //    setTimeout(function () {
+                //        e.sender.saveAsExcel();
+                        
+                //    });
+                //} else {
+                //    e.sender.showColumn(0);
+                //    exportFlag = false;
+                //}
+
+
+                var a = e.workbook.sheets;
+                
+                a.forEach(function(c) {
+                    c.rows.forEach(function(d) {
+                        //d.cells[3].Font = {
+                        //    Bold: true
+                        //};
+
+                        if(d.type == "header") {
+                            d.cells.forEach(function(i, j) {
+                                i.value = i.value.replace("<br/>", " ");
+                                i.value = i.value.replace("<br />", " ");
+                                i.value = i.value.replace("<br>", " ");
+                                i.value = i.value.replace("<b>", " ");
+                                i.value = i.value.replace("</b>", " ");
+                            });
+                        }
+                        if (d.type == "data") {
+                            d.cells.forEach(function(x,y) {
+                                //if(x.value == 9949){
+                                //    x.format = "c0";
+                                //    x.NumberFormat = "#,##0";
+                                //}
+                                //console.log(x);
+                                if(x.value != null){
+                                    if (typeof x.value == "string") {
+                                        if (x.value.substring(0, 6) == "/Date(") {
+                                            //x.format(c0);
+                                            //x.NumberFormat = "#,##0";
+                                            //x.DateFormat = 
+                                            x.NumberFormat  = "Short Date";
+                                            x.value = jsonDate(x.value);//.toDate();
+                                        }
+                                    }
+                                    if(y == 29){
+                                        x.value = x.value.toFixed(2)+ " %";
+                                        x.hAlign = "right";
+                                    }
+                                }
+                                
+                            });
+                        }
+                    });
+                });
+                $("#grid").data("kendoGrid").showColumn(0);
+                model.IsProcessing(false);
+            },
+        };
+
+        //self.Prepare = function () {
+        $grid.kendoGrid(self.GridConfig);
+        var grid = $('#grid').data('kendoGrid');
+        var pager = grid.pager;
+            //pager.bind('change', setFooterTemplate);
+        //}
+    }
+
+    model.reloadData = function(){
+        var filter = {
+            wb:model.getFilterValues(),
+            Status:$('[data-model="Status"]').data("kendoMultiSelect").value()
+        }
+        var ps = filter;
+        var param = ps;
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("GetBizPlanActivityServerPage")", param, function (result) {
+            if (result.Result != "OK") {
+                model.IsProcessing(false);
+                alert(result.Message);
+                return;
+            }
+            model.IsProcessing(false);
+            model.setButton(false);
+            //model.edit(res.Data[0]._id);
+            var checker = $("#column_toggle");
+            checker.prop("checked",true);
+            model.catalog("");
+            if(model.getFilterValues().inlastuploadls==="false"){
+                alert("These results will include items that are not in the latest LS. To limit your results to the latest LS, please check the Current Latest Sequence Only box and click refresh.");
+            }
+
+            GenerateGrid(result.Data.Data);
+        }, function (data) {
+            model.IsProcessing(false);
+            options.error(result);
+        });
+        
+    }
+   
+
+    model.setButton = function(isEnabled){
+        $(".btn.btn-custom.btn-sm.btn-primary.do-filter").prop("disabled",isEnabled);
+        $(".btn.btn-warning.btn-sm.do-excel-export").prop("disabled",isEnabled);
+    }
+
+    model.ExportExcel = function(){
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        ajaxPost("@Url.Action("GenerateBusPlanExcel")", model.getFilterValues(), function (res) {
+            model.IsProcessing(false);
+            if(res.indexOf('Failed') > 0)
+                alert(res);
+            else
+                window.location = res.replace('~', '..');
+        }, function () {
+            model.IsProcessing(false);
+        });
+    }
+
+    model.getRigRates = function () {
+        ajaxPost("@Url.Action("GetRigRates")", {}, function (res) {
+            model.BusPlan().rigRates(res.Data);
+        }, function () {
+            console.log(res);
+        });
+    }
+
+    model.getCurrencies = function () {
+        ajaxPost("@Url.Action("GetExchangeRates")", {}, function (res) {
+            model.BusPlan().currencies(res.Data);
+            var curr = [];
+            curr.push("");
+            for(var i = 0;i<res.Data.length;i++){
+                if(curr.indexOf(res.Data[i].Currency) == -1)
+                    curr.push(res.Data[i].Currency);
+            }
+            model.BusPlan().currencyMasters(_.filter(curr, function (e) { return e != null; }));
+        }, function () {
+            console.log(res);
+        });
+    }
+    model.getLongLeads = function () {
+        ajaxPost("@Url.Action("GetLongLeads")", {}, function (res) {
+            model.BusPlan().longLeads(res.Data);
+        }, function () {
+            console.log(res);
+        });
+    }
+
+
+    // prepare everything
+    $(document).ready(function () {
+
+        var dateValue = moment(new Date(2015, 11, 31)).add(15, 'years').toDate();
+        $('[data-model="dateFinish"]:last').data("kendoDatePicker").value(dateValue);
+        $('[data-model="periodBase"]').data("kendoDropDownList").value("By Last Estimate");
+        var setStatus = ['Complete', 'Draft','Modified'];
+        $('[data-model="Status"]').data("kendoMultiSelect").value(setStatus);
+        model.GetMasterOPs();
+        model.GetOpActive();
+
+        var isRO = "@ViewBag.isRO";
+
+        //$('<button />')
+        //.addClass('btn btn-info btn-sm catalog')
+        //.css('margin-right', '5px')
+        //.html('<span class="glyphicon glyphicon-book"></span> Business Plan Catalog')
+        //.insertBefore($('.do-filter'))
+
+        //.on('click', function () {
+        //    changeMode("catalog",0,"");
+        //});
+
+        //alert(isRO);
+        if(isRO != '1')
+        {
+            $('<button />')
+            .addClass('btn btn-custom btn-sm btn-success do-add')
+            .css('margin-right', '5px')
+            .html('<span class="glyphicon glyphicon-plus"></span> Add Well Plan')
+            .insertBefore($('.do-filter'))
+
+            .on('click', function () {
+                model.ShowBusPlanCatalog(false);
+                model.ShowFilter(false);
+                model.ShowBrowser(false);
+                model.ShowInsertActivityForm(true);
+                model.IsEditMode(false);
+                ko.mapping.fromJS(model.SelectedActivityTemplate, model.SelectedActivity);
+                model.SelectedActivity.WellName(model.wellNames()[0]);
+            });
+        }
+        ExportAsExcelSummary();
+        //$('<button />')
+        //.addClass('btn btn-warning btn-sm do-excel-export')
+        //.css('margin-right', '5px')
+        //.html('<span class="fa fa-file-excel-o"></span> Export to Excel')
+        //.insertBefore($('.do-filter'))
+
+        //.on('click', function () {
+            
+        //    if(model.ShowBusPlanCatalog()){
+        //        ExportToExcelCatalog();
+        //    }else {
+        //        model.IsProcessing(true);
+        //         ExportToExcelGrid();                
+        //        //ExportToExcel();
+        //    }
+
+        //});
+
+        //getBaseOP();
+        //model.reloadData();
+        model.getRigRates();
+        model.getLongLeads();
+        model.getCurrencies();
+        //model.getActivityCategory();
+        //model.BusPlan().maturityRisksTitleOnly.unshift("");
+
+        //model.BusPlan().CurrentOPLabel(getBaseOP(true));
+        //model.BusPlan().NewOPLabel(getBaseOP(false));
+
+
+    });
+
+    $(window).on("beforeunload", function() {
+        if (model.isBusplanFormChanged()) {
+            return "Do you want to leave this page and lose your changes?";
+        }
+        //closeWithoutSaving();
+    });
+
+
+    function editWellInfo(id) {
+        model.ShowBrowser(false);
+        model.ShowEditForm(true);
+        model.ShowOnePageEst(false);
+        model.selectedWellId(id);
+        select();
+    }
+
+    model.GetWeeklyAndMonthly = function(ActivityId) {
+        var x = model.BusPlan().record();
+        ajaxPost("@Url.Action("GetWeeklyAndMonthlyUpdate")",
+            {
+                WellName: x.WellName(),
+                UARigSequenceId: x.UARigSequenceId(),
+                ActivityType: ActivityId
+            }
+            ,
+            function (res) {
+                if (res.Result != "OK") {
+                    alert(res.Message);
+                    return;
+                }
+                x.WeeklyReport(moment(res.Data.WellActUpd).toDate());
+                x.MonthlyReport(moment(res.Data.WellActUpdMly).toDate());
+            }, function (err) {
+                alert('Error occured when get well activity updates');
+            });
+    }
+
+    function changeMode(mode,id,PhaseNo){
+        setPageTitle("Business Plan");
+
+        switch(mode){
+            case "browser":
+                model.ShowFilter(true);
+                model.catalogresult(false);
+                model.ShowBrowser(true);
+                model.ShowEditForm(false);
+                model.ShowOnePageEst(false);
+                model.ShowBusPlanCatalog(false);
+                model.selectedWellId();
+                model.catalog([]);
+                model.reloadData();
+                $(".btn.btn-info.btn-sm.catalog").show();
+                break;
+            case "edit":
+                model.ShowFilter(false);
+                model.catalogresult(false);
+
+                model.ShowBrowser(false);
+                model.ShowEditForm(true);
+                model.ShowOnePageEst(false);
+                model.selectedWellId(id);
+                model.selectedPhaseNo(PhaseNo);
+
+                select();
+                break;
+            case "detail":
+                model.ShowFilter(false);
+                model.catalogresult(false);
+
+                model.ShowBrowser(false);
+                model.ShowEditForm(false);
+                model.ShowOnePageEst(true);
+
+                if (model.BusPlan().record().Phases()[0].Estimate.UsingTAApproved() != undefined) {
+                    if (model.BusPlan().record().Phases()[0].Estimate.UsingTAApproved())
+                        model.getCurrentMaturity("cant null");
+                } else {
+                    model.getCurrentMaturity();
+                }
+
+                setPageTitle("Business Plan -- Input Template");
+                //model.selectedWellId(id);
+                //select();
+
+                var destid = "#Phase"+id;
+                $("#nav-tabs-detail").find("li > a[href="+destid+"]").trigger("click");
+                var interval2 = setInterval(function () {
+                    //$(".input-number").kendoNumericTextBox();
+                    input2datePicker($(".input-date"));
+                    //changeEventDate();
+                    clearInterval(interval2);
+                    //changeUseTAApproved('1');
+                }, 100);
+                model.GetWeeklyAndMonthly(PhaseNo);//phase no here is activity ID. :D
+                break;
+            case "catalog":
+                $(".btn.btn-info.btn-sm.catalog").hide();
+                model.ShowFilter(true);
+                model.ShowBusPlanCatalog(true);
+                model.ShowBrowser(false);
+                model.ShowEditForm(false);
+                model.ShowOnePageEst(false);
+                //renderGridUsingDataCatalog();
+                var interval = setInterval(function () {
+                    $("#gridCatalog").data("kendoGrid").refresh();
+                    clearInterval(interval);
+                }, 100);
+                break;
+        }
+    }
+
+    function select(toPhaseNo) {
+        $('[href="#general"]').trigger('click')
+
+        model.IsProcessing(true);
+        var id = model.selectedWellId();
+        var PhaseNo = model.selectedPhaseNo();
+        var BaseOP = [];var opRelation = "";
+        if($('[data-model="OPs"]').data('kendoMultiSelect') != undefined){
+            BaseOP = $('[data-model="OPs"]').data('kendoMultiSelect').value();
+        }
+        if($('[data-model="opRelation"]').data('kendoDropDownList') != undefined){
+            opRelation = $('[data-model="opRelation"]').data('kendoDropDownList').value();
+        }
+
+
+        if (id == "" || PhaseNo == "") {
+            changeMode('browser', '');
+            model.IsProcessing(false);
+            return;
+        }
+
+        ajaxPost("@Url.Action("select")", { id: id,PhaseNo:PhaseNo,BaseOP:BaseOP,opRelation:opRelation }, function (data) {
+
+            if(model.BusPlan().FreezedOPs.indexOf(data.Data.Phases[0].Estimate.SaveToOP) != -1){
+                model.isRO("1");
+            }else{
+                model.isRO("@ViewBag.isRO");
+            }
+            var getSelectedCurrency = data.Data.Phases[0].Estimate.SelectedCurrency;
+            if(typeof getSelectedCurrency == "string" && getSelectedCurrency != ""){
+                data.Data.Currency = getSelectedCurrency;
+            }
+            //inject estimate
+            var OPEst_Temp = [];var checkY;
+            if(model.BaseOpValue()[0].dataValue ==data.Data.Phases[0].Estimate.SaveToOP){
+                checkY = model.BaseOpValue()[1].dataValue;
+            }else{
+                checkY = model.BaseOpValue()[0].dataValue;
+            }
+
+            if(model.BaseOpValue()[0].dataValue ==data.Data.Phases[0].Estimate.SaveToOP || model.BaseOpValue()[1].dataValue ==data.Data.Phases[0].Estimate.SaveToOP){
+                OPEst_Temp.push({
+                    CurOPYear:data.Data.Phases[0].Estimate.SaveToOP,
+                    CurPeriodStart:data.Data.Phases[0].Estimate.EstimatePeriod.Start,
+                    CurPeriodFinish:data.Data.Phases[0].Estimate.EstimatePeriod.Finish,
+                    CurPeriodDays:data.Data.Phases[0].Estimate.EstimatePeriod.Days,
+                    CurCost:data.Data.Phases[0].Estimate.MeanUSD
+                });
+            }
+
+            OPEst_Temp.push({
+                PreOPYear:checkY,
+                PrePeriodStart:"",
+                PrePeriodFinish:"",
+                PrePeriodDays:"",
+                PreCost:0.0
+            });
+            model.BusPlan().OPEstimate(OPEst_Temp);
+            model.BusPlan().UserName(data.Data.Phases[0].Estimate.LastUpdateBy);
+            model.BusPlan().LastUpdatedEst(data.Data.Phases[0].Estimate.LastUpdate);
+
+            model.SetActivity(data.Data);
+            var CurrentOP = "";
+
+            CurrentOP = data.Data.Phases.length > 0 ? data.Data.Phases[0].Estimate.SaveToOP.toString() : "";
+            if(CurrentOP.indexOf(model.DefaultOP())>=0){
+                model.SelectedActivity.PsSchedule.Start(str2date(data.Data.Phases[0].PlanSchedule.Start));
+                model.SelectedActivity.PsSchedule.Finish(str2date(data.Data.Phases[0].PlanSchedule.Finish));
+            }else{
+                model.SelectedActivity.PsSchedule.Start(str2date(data.Data.Phases[0].Estimate.EventStartDate));
+                model.SelectedActivity.PsSchedule.Finish(str2date(data.Data.Phases[0].Estimate.EventEndDate));
+            }
+            model.SelectedActivity.OpsSchedule.Start(str2date(data.Data.Phases[0].PhSchedule.Start));
+            model.SelectedActivity.OpsSchedule.Finish(str2date(data.Data.Phases[0].PhSchedule.Finish));
+
+            //model.SelectedActivity.PsSchedule.Start(str2date(model.SelectedActivity.PsSchedule.Start()));
+            //model.SelectedActivity.PsSchedule.Finish(str2date(model.SelectedActivity.PsSchedule.Finish()));
+            //model.SelectedActivity.OpsSchedule.Start(str2date(model.SelectedActivity.OpsSchedule.Start()));
+            //model.SelectedActivity.OpsSchedule.Finish(str2date(model.SelectedActivity.OpsSchedule.Finish()));
+            //console.log("select data:",jsonDateStr(data.Data.Phases[0].Estimate.EstimatePeriod.Finish));
+            model.BusPlan().record(ko.mapping.fromJS(jsonObjConvDate2(data.Data)));
+            model.BusPlan().BackupRecord(ko.mapping.fromJS(jsonObjConvDate2(data.Data)));
+            grid_phase(jsonObjConvDate2(data.Data));
+
+            var phases = [];
+            for(var i = 0;i<data.Data.Phases.length;i++){
+                phases.push({PhaseNo:data.Data.Phases[i].PhaseNo,ActivityType:data.Data.Phases[i].ActivityType,Href:"#Phase"+data.Data.Phases[i].PhaseNo});
+                //model.BusPlan().SaveToOP(data.Data.Phases[i].Estimate.SaveToOP);
+
+                // overrided, force SaveToOP to OP16
+                model.BusPlan().SaveToOP(model.SaveToOPData()[0].dataText);
+            }
+            model.BusPlan().NewOPLabel(model.BusPlan().SaveToOP());
+            var CurrentOPLabel = "";
+            if(_.size(model.BusPlan().SaveToOP())==0){
+                CurrentOPLabel="";
+            }else{
+                CurrentOPLabel = parseInt(model.BusPlan().SaveToOP().substring(4,2))-1;
+            }
+            model.BusPlan().CurrentOPLabel("OP"+CurrentOPLabel);
+            model.BusPlan().phases(phases);
+            changeMode("detail", model.BusPlan().record().Phases()[0].PhaseNo(), model.BusPlan().record().Phases()[0].ActivityType());
+
+            $(".busplan_input").bind("focus", function () {
+                var input = $(this);
+                clearTimeout(input.data("blockAll")); //stop started time out if any
+
+                var blockAll = setTimeout(function()  {
+                    input.select();
+                });
+
+                input.data("blockAll", blockAll);
+            }).blur(function(e) {
+                clearTimeout($(this).data("blockAll")); //stop started timeout
+            });
+
+            $(".busplan_input").keyup(function () {
+                model.isBusplanFormChanged(true);
+                event.preventDefault();
+            });
+
+            //changeProjectEdit()();
+            if(typeof toPhaseNo != "undefined") {
+                console.log("phaseno= "+toPhaseNo);
+                changeMode("detail",toPhaseNo);
+            }
+            model.options.BusplanFirstSelect(true);
+            model.isBusplanFormChanged(false);
+            model.IsProcessing(false);
+        }, function (err) {
+            console.log(err.responseText);
+            model.IsProcessing(false);
+        });
+    }
+
+    function ExportToExcelGrid() {
+        $("#grid").data("kendoGrid").hideColumn(0);
+        $("#grid").data("kendoGrid").saveAsExcel();
+    }
+
+    function ExportToExcel(){
+        var param = model.getFilterValues();
+        model.IsProcessing(true);
+        var url ="@Url.Action("Export")";
+        ajaxPost(url,param,function(data){
+            url = "@Url.Action("DownloadBusPlanFile", "BusPlan")"+"?stringName="+data.Path+"&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss");
+            model.IsProcessing(false);
+            location.href = url;
+        },function(err){alert(err)})
+    }
+
+    function ExportToExcelCatalog(){
+        var param = model.getFilterValues();
+        model.IsProcessing(true);
+        var url ="@Url.Action("ExportCatalog")";
+        ajaxPost(url,param,function(data){
+            url = "@Url.Action("DownloadBusPlanFile", "BusPlan")"+"?stringName="+data.Path+"&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss");
+            model.IsProcessing(false);
+            location.href = url;
+        },function(err){alert(err)})
+    }
+
+    function ExportAsExcelSummary(){
+        $('<button />')
+        .addClass('btn btn-warning btn-sm do-excel-export')
+        .css('margin-right', '5px')
+        .html('<span class="fa fa-file-excel-o"></span> Export Detail')
+        .insertBefore($('.do-filter'))
+
+        .on('click', function () {
+            var param =model.getFilterValues();
+            model.IsProcessing(true);
+            var url ="@Url.Action("ExportDetailServerPage")";
+            ajaxPost(url, param, function(data) {
+                if (data.RFMChecking.length > 0) {
+                    alert("This data set contains activities with no RFM assigned.  Cost columns are not accurate under these circumstances");
+                    renderRFMNotice(data.RFMChecking);
+                }
+
+                url = "@Url.Action("DownloadBusPlanDetailFile", "BusPlan")" + "?stringName=" + data.Path + "&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss");
+                model.IsProcessing(false);
+                location.href = url;
+            }, function(err) { alert(err); });
+        });
+    }
+    model.reloadCatalog = function(){
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+        var param = {wb:model.getFilterValues(),status:model.statusCatalogFilter()};
+        ajaxPost("@Url.Action("GetBizPlanActivityComplete")", param, function (res) {
+            if(res.Result=="OK"){
+                //model.catalog(res.Data);
+                renderGridUsingDataCatalog(res.Data);
+                var interval = setInterval(function () {
+                    $("#gridCatalog").data("kendoGrid").refresh();
+                    clearInterval(interval);
+                }, 100);
+            }else{
+                model.catalogresult(true);
+            }
+            $(".btn.btn-info.btn-sm.catalog").prop('disabled', false);
+
+            model.IsProcessing(false);
+        }, function () {
+            model.IsProcessing(false);
+        });
+    }
+
+</script>
+@Html.Partial("NoRFMNotice")

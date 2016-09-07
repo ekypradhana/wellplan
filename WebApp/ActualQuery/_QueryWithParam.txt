@@ -1,0 +1,22 @@
+﻿SELECT
+    CD_WELL.well_common_name AS WellName,
+    DM_DAILY.date_report AS ReportDate, 
+    DM_DAILY.days_on_location AS DaysOnLocation, 
+        (SELECT SUM(D.daily_cost) FROM DM_DAILY D WHERE D.well_id = 
+        DM_DAILY.well_id AND D.event_id = DM_DAILY.event_id AND D.date_report <= 
+        DM_DAILY.date_report) AS ActualCost, 
+    DM_EVENT.event_id as EventId, 
+    DM_EVENT.event_code AS EventCode, 
+    DM_EVENT.date_ops_start AS DateOps, 
+    CD_WELL.well_id AS WellId, 
+    DM_EVENT.estimated_days as AFEDays, 
+    DM_EVENT.cost_authorized as AFECost
+FROM
+    DM_DAILY, DM_EVENT, CD_WELL, CD_SITE
+WHERE
+    ((
+    (trunc(DM_DAILY.date_report) = TO_DATE('{0}','yyyy-MM-dd') ))) AND ((DM_EVENT.well_id = DM_DAILY.well_id AND DM_EVENT.event_id = DM_DAILY.event_id) AND 
+    (CD_WELL.well_id = DM_EVENT.well_id) AND (CD_SITE.site_id = CD_WELL.site_id) AND 
+	(trunc(DM_EVENT.date_ops_start) >= TO_DATE('{1}','yyyy-MM-dd') ) ) {2}
+ORDER BY
+    2 ASC

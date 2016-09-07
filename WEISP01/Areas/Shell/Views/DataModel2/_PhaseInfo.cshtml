@@ -1,0 +1,828 @@
+﻿@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+
+<style>
+    .pad{
+        padding-bottom:5px;
+    }
+    .lima {
+        padding-bottom: 5px;
+        border-bottom: 1px solid #a0a0a0;
+        margin-bottom: 10px;
+    }
+</style>
+
+
+    <div class="col-md-12" id="general">
+        <div class="form-group col-md-6">
+        <div class="row">
+            <label class="col-md-3">Rig Name:</label>
+            <div class="col-md-5">
+                <input disabled data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.rigNames, value: model.SelectedActivity.RigName, optionLabel: 'Select Rig Name', enable: false }" style="width: 100%;" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Well Name:</label>
+            <div class="col-md-5">
+                <input data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.wellNames, value: model.SelectedActivity.WellName, optionLabel: 'Select Rig Name', enable: false }" style="width: 100%;" />
+                @*<input type="text" class="text" data-bind="value: model.SelectedActivity.WellName">*@
+            </div>
+        </div>
+
+        <div class="row">
+            <label class="col-md-3">OP-14 Start:</label>
+            <div class="col-md-5">
+                <input disabled style="width: 100%;" data-bind="kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.SelectedActivity.PsSchedule.Start, enable:false } ">
+            </div>
+        </div>
+
+        <div class="row">
+            <label class="col-md-3">Latest Sequence Start:</label>
+            <div class="col-md-5">
+                <input disabled style="width: 100%;" data-bind="kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.SelectedActivity.OpsSchedule.Start, enable: false, enable:false  } ">
+            </div>
+        </div>
+
+
+    </div>
+
+    <div class="form-group col-md-6">
+        <div class="row">
+            <label class="col-md-3">Sequence No:</label>
+            <div class="col-md-5">
+                <input type="text" class="text" data-bind="enable:!model.isRO()=='1',value: model.SelectedActivity.UARigSequenceId, enable: false">
+            </div>
+        </div>
+
+        <div class="row">
+            <label class="col-md-3">Non OP</label>
+            <div class="col-md-5">
+                <input type="checkbox" data-bind="checked:model.SelectedActivity.NonOP, enable: false" />
+            </div>
+        </div>
+
+        <div class="row">
+            <label class="col-md-3">OP-14 Finish:</label>
+            <div class="col-md-5">
+                <input disabled style="width: 100%;" data-bind="kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.SelectedActivity.PsSchedule.Finish, enable: false } ">
+            </div>
+        </div>
+
+        <div class="row">
+            <label class="col-md-3">Latest Sequence Finish:</label>
+            <div class="col-md-5">
+                <input disabled style="width: 100%;" data-bind="kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.SelectedActivity.OpsSchedule.Finish, enable: false, enable:false  } ">
+            </div>
+        </div>
+
+    </div>
+    </div>
+
+    <div class="col-md-12">
+        <button class="btn btn-custom btn-warning btn-sm" onclick="backToEdit();">
+            <span class="glyphicon glyphicon-arrow-left"></span> Back
+        </button>
+    </div>
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="style: { visibility: model.IsProcessing() ? 'hidden' : 'visible' }">
+        <h3>Phase Info</h3>
+        <div data-bind="with:model.PDdata()">
+            <div>
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Activity Category</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:ActivityCategory" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Activity Type</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:ActivityType" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>BIC Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:BICCost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>BIC Days</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:BICDays" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>BICGap</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:BICGap" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>BIC Treshold</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:BICTreshold" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Brine Density</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:BrineDensity" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Burn Rate</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:BurnRate" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>CSO</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:CSO" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Completion Type</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:CompletionType" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Completion Zone</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:CompletionZone" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Contigency Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:ContigencyCost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Contigency Days</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:ContigencyDays" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Cost Escalated Inflated</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right" data-bind="value:CostEscalatedInflated" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Currency</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input  data-bind="value:Currency" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Deterministic High</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:DeterministicHigh" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Deterministic Low Range</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:DeterministicLowRange" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Escalation Inflation</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:EscalationInflation" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Estimating Range Type</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:EstimatingRangeType" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>IntId</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:IntId" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>LL Amount</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:LLAmount" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>LL Month</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:LLMonth" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>LTA2 Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:LTA2Cost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>LTA2 Days</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:LTA2Days" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Last Update</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:LastUpdate" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Learning Curve Factor</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:LearningCurveFactor" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Line Of Business</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:LineOfBusiness" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>LoE</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:LoE" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>MRI</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:MRI" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Maturity Level</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:MaturityLevel" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Mean Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:MeanCost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Mean Days</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:MeanDays" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Mean Percent Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:MeanPercentCost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Mean Percent Time</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:MeanPercentTime" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Mean Cost EDM Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:MeanCostEDMCost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Mean Cost EDM Days</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:MeanCostEDMDays" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>NPT Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:NPTCost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>NPT Days</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:NPTDays" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>NPT Percent Time</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:NPTPercentTime" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>NPT Percent Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right" data-bind="value:NPTPercentCost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>OP Type</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:OPType" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Performance Score</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:PerformanceScore" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Phase No</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:PhaseNo" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Probabilistic P10</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:ProbabilisticP10" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Probabilistic P90</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:ProbabilisticP90" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Project Value Drive</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:ProjectValueDrive" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Reference Factor Model</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:ReferenceFactorModel" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Rig Name</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:RigName" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Rig Sequence Id</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:RigSequenceId" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Sequence Id</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:SequenceId" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Since LTA2</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input data-bind="value:SinceLTA2" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Spread Rate</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:SpreadRate" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>TECOP Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TECOPCost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>TECOP Days</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TECOPDays" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>TECOP Percent Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TECOPPercentCost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>TECOP Percent Time</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TECOPPercentTime" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>TQ Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TQCost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>TQ Days</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TQDays" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>TQ Gap</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TQGap" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>TQ Treshold</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TQTreshold" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Total Cost Include Portf</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TotalCostIncludePortf" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Total Cost With Esc Infl CSO</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TotalCostWithEscInflCSO" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Total Duration Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TotalDurationCost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Total Duration Days</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TotalDurationDays" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Total Well Depth MD</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TotalWellDepthMD" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Trouble Free Cost</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TroubleFreeCost" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Trouble Free Days</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:TroubleFreeDays" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>USD Cost CSO</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:USDCostCSO" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>USD Cost Escalation</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:USDCostEscalation" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>USD Cost Inflation</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:USDCostInflation" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 lima">
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>USD Cost Mean Cost EDM</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:USDCostMeanCostEDM" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>USD Cost Mean Cost MOD</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:USDCostMeanCostMOD" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Water Depth MD</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:WaterDepthMD" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>Value Driver Estimate</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:ValueDriverEstimate" style="width:95%" disabled />
+                        </div>
+                    </div>
+                    <div class="row pad">
+                        <div class="col-md-5">
+                            <label>USD Cost Trouble Free</label>
+                        </div>
+                        <div class="col-md-7">
+                            <label> : </label>
+                            <input class="align_right"  data-bind="value:USDCostTroubleFree" style="width:95%" disabled />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+

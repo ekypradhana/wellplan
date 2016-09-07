@@ -1,0 +1,240 @@
+﻿<script type="text/template" id="section-country">
+    <div class="col-md-12 contents contents-rfm">
+        <div style="display: none;" class="key"></div>
+        <div style="display: none;" class="keyop"></div>
+        <h3></h3>
+
+        <div class="control">
+            <button class="btn btn-sm btn-success btn-custom" onclick="n.SaveCurrentCountry(this)" data-bind="enable: !model.BisPlanRecalculateStatus() && n.CanEdit()">
+                <span class="glyphicon glyphicon-save"></span> Save Changes
+            </button>
+            <button class="btn btn-sm btn-custom btn-danger" onclick="n.DeleteCurrentCountry(this)" data-bind="enable: !model.BisPlanRecalculateStatus(), visible: n.CanEdit()">
+                <span class="glyphicon glyphicon-remove"></span> Delete Model <span style="font-weight: bold;" data-bind="text: v.GroupCase()"></span> of Country <span style="font-weight: bold;" class="title-country"></span> for <span style="font-weight: bold;" class="title-baseop"></span>
+            </button>
+            &nbsp;
+            <button class="btn btn-sm btn-primary btn-custom" onclick="n.AddYearCurrentCountry(this)" data-bind="enable: !model.BisPlanRecalculateStatus() && n.CanEdit()">
+                <span class="glyphicon glyphicon-plus"></span> Add Year
+            </button>
+            <button class="btn btn-sm btn-danger btn-custom" onclick="n.RemoveYearCurrentCountry(this)" data-bind="enable: !model.BisPlanRecalculateStatus() && n.CanEdit()">
+                <span class="glyphicon glyphicon-remove"></span> Remove Year
+            </button>
+            &nbsp;
+            <button class="btn btn-warning btn-sm do-excel-export" onclick="n.ExportModel()" data-bind="enable: !model.BisPlanRecalculateStatus() && n.CanEdit()">
+                <span class="fa fa-file-excel-o"></span> Export this Model
+            </button>
+            <div class="clearfix"></div>
+        </div>
+
+
+        <div class="col-md-3" style="margin-bottom: 12px; display: none;">
+            <label style="width: 88px;">CSO Rate :</label>
+            <input style="width: 200px;" class="cso-rate" />
+            <div class="clear"></div>
+        </div>
+        <div class="col-md-3" style="margin-bottom: 12px; display:none;">
+            <label style="width: 88px;">Base OP :</label>
+            <input style="width: 200px;" class="base-op" />
+            <div class="clear"></div>
+        </div>
+
+        <div class="clearfix"></div>
+
+        <div class="grid"></div>
+    </div>
+</script>
+
+<script>
+    n.BackupDataAllCountries = ko.observableArray([]);
+    n.BackupAlphabet = ko.observableArray([]);
+    n.GenerateAllGrid = function (res, whichAlphabet) {
+        whichAlphabet = (whichAlphabet == undefined ? "a" : whichAlphabet);
+
+        var $pager = $(".pager");
+        $pager.html("");
+        //res.Alphabet.forEach(function (e) {
+        //    var $button = $("<span />")
+        //        .addClass("page-button")
+        //        .html(e)
+        //       .appendTo($pager);
+
+        //    if (e.substring(0, 1).toLowerCase() == whichAlphabet.toLowerCase()) {
+        //        $button.addClass("active");
+        //    }
+        //});
+
+        n.BackupDataAllCountries(res.Data);
+        n.BackupAlphabet(res.Alphabet);
+
+        var $container = $('[data-country="all"]');
+        var $template = $("#section-country");
+
+        $container.html('');
+
+        _.filter(n.BackupDataAllCountries(), function (f) {
+            return (f.Country.substring(0, 1).toLowerCase() == whichAlphabet.toLowerCase());
+        }).forEach(function (d) {
+
+            $($template.html()).appendTo($container)
+                   .find(".key").html(d.Country + "|" + d.BaseOP);
+            var $target = $(".key:contains('" + d.Country + "|" + d.BaseOP + "')").closest(".contents");
+            $target.find(".title-country").html(d.Country);
+            $target.find(".title-baseop").html(d.BaseOP);
+            $target.find("h3").html("Model: <b>" + v.GroupCase() + "</b>&nbsp;&nbsp;&nbsp;&nbsp;Country: <b>" + d.Country + "</b>&nbsp;&nbsp;&nbsp;&nbsp;Base OP: <b>" + d.BaseOP + "</b>");
+            
+            var $cso = $target.find(".cso-rate");
+            var countryId = d.Country.replace(/[^A-Za-z0-9]/ig, "_");//replace(" ", "_").replace("(", "").replace(")", "");
+                $target.attr("id", "contents_" + countryId + "_" + d.BaseOP);
+                $cso.attr("id", "cso-rate-" + countryId + "-" + d.BaseOP);
+                $("#cso-rate-" + countryId + "-" + d.BaseOP).kendoNumericTextBox({
+                    value: 0,
+                    min: 0,
+                    max: 100,
+                    format: '{0:#.#### \\%}',
+                    change: function () {
+                        n.CSORateApply(this.value(), d.Data, $target.find(".grid"));
+                    }
+                });
+
+                var $baseop = $target.find(".base-op");
+                $baseop.attr("id", "base-ops-" + countryId + "-" + d.BaseOP);
+                $("#base-ops-" + countryId + "-" + d.BaseOP).val(d.BaseOP);
+
+                //$("#cso-rate-" + d.Country + "-" + d.BaseOP).data("kendoNumericTextBox").enable(n.CanEdit());
+                //$baseop.attr("id", "base-ops-" + d.Country + "-" + d.BaseOP).data("kendoMultiSelect").enable(n.CanEdit());
+
+                n.GenerateGrid(d.Data, function (config) {
+                    $target.find(".grid").replaceWith("<div class='grid'></div>");
+                    $target.find(".grid").kendoGrid(config);
+                });
+
+                $target.find(".control button").each(function (j, b) {
+                    try { ko.applyBindings(model, b); } catch (err) { }
+                });
+
+        });
+    };
+    n.DoRefreshCurrentCountry = function (country,BaseOP) {
+        var url = "@Url.Action("GetDataBySubjectMatter")";
+        var param = ko.mapping.toJS(v);
+        param.Country = country;
+        param.BaseOP = BaseOP;
+
+        param.SubjectMatters = [];
+        $("[data-subject]:checked").each(function (i, e) {
+            param.SubjectMatters.push($(this).data("subject").replace(/_/g, " "));
+        });
+
+        n.IsSaveable(false);
+        m.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                m.Processing(false);
+                return;
+            }
+
+            m.Processing(false);
+            n.IsSaveable(true);
+            n.GenerateGrid(res.Data, function (config) {
+                var $target = $(".key:contains('" + country + "|" + BaseOP + "')").closest(".contents");
+                $target.find(".grid").replaceWith("<div class='grid'></div>");
+                $target.find(".grid").kendoGrid(config);
+            });
+
+            var targetBackupData = _.find(n.BackupDataAllCountries(), { Country: country });
+            var targetBackupDataIndex = n.BackupDataAllCountries().indexOf(targetBackupData);
+            if (targetBackupDataIndex > -1) {
+                var newData = n.BackupDataAllCountries();
+                newData[targetBackupDataIndex].Data = res.Data;
+                n.BackupDataAllCountries(newData);
+            }
+            //v.GroupCaseHandler('');
+            //$("input.model-name").val('');
+        });
+    };
+    n.SaveCurrentCountry = function (o) {
+        var $content = $(o).closest(".contents");
+        var $grid = $content.find(".grid");
+        var key = $content.find(".key").html().split("|");
+        var country = key[0];
+        var BaseOP = key[1];
+
+        var countryId = country.replace(/[^A-Za-z0-9]/ig, "_");//replace(" ", "_").replace("(", "").replace(")", "");
+        $content.find("input#cso-rate-" + countryId + "-" + BaseOP).data("kendoNumericTextBox").value(0);
+        var BaseOPs = [$("input#base-ops-" + countryId + "-" + BaseOP).val()];
+        n.DoSave($grid, country,BaseOPs);
+    };
+    n.DeleteCurrentCountry = function (o) {
+        var $content = $(o).closest(".contents");
+        var key = $content.find(".key").html().split("|");
+        var country = key[0];
+        var BaseOP = key[1];
+
+        $content.find(".k-input:last").data("kendoNumericTextBox").value(0);
+        n.DoDelete(country,BaseOP);
+    }
+    n.AddYearCurrentCountry = function (o) {
+        var $content = $(o).closest(".contents");
+        var key = $content.find(".key").html().split("|");
+        var country = key[0];
+        var BaseOP = key[1];
+        var countryId = country.replace(/[^A-Za-z0-9]/ig, "_");//replace(" ", "_").replace("(", "").replace(")", "");
+        $("input#cso-rate-"+countryId+"-"+BaseOP).data("kendoNumericTextBox").value(0);
+        n.DoAddYear(country,BaseOP);
+    };
+    n.RemoveYearCurrentCountry = function (o) {
+        var $content = $(o).closest(".contents");
+        var key = $content.find(".key").html().split("|");
+        var country = key[0];
+        var BaseOP = key[1];
+
+        var countryId = country.replace(/[^A-Za-z0-9]/ig, "_");//replace(" ", "_").replace("(", "").replace(")", "");
+        $content.find(".k-input:last").data("kendoNumericTextBox").value(0);
+        n.DoRemoveYear(country,BaseOP);
+    };
+
+    n.ExportModel = function () {
+        $(".grid").data("kendoGrid").saveAsExcel();
+    }
+
+    $(function () {
+        $(".pager").on("click", "span", function () {
+            var config = { Data: n.BackupDataAllCountries(), Alphabet: n.BackupAlphabet() };
+            var text = $(this).html();
+
+            $('[data-country="all"]').html('');
+            setTimeout(function () {
+                n.GenerateAllGrid(config, text);
+            }, 300);
+        });
+    });
+</script>
+
+<style>
+    .pager {
+        margin: 0px;
+        margin-left: 10px;
+        text-align: center;
+        list-style: none;
+        display: inline-block;
+    }
+    .pager .active {
+        font-weight: bold;
+        color: #428BCA;
+        text-decoration: underline;
+    }
+    .pager span {
+        margin: 0px 2px;
+        cursor: pointer;
+        color: rgba(0,0,0,0.7);
+        font-size: 14px;
+    }
+    .pager span:hover {
+        font-weight: bold;
+    }
+
+    .contents:last-child {
+        margin-bottom: 20px;
+    }
+</style>

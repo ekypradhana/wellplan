@@ -1,0 +1,180 @@
+﻿@{
+    ViewBag.Title = "Business Plan Simulation -- Plan Roll Up";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    //model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.bpmodel = ko.observable({
+        mode: ko.observable(""),
+        changeMode: function (mode, pageTitle) {
+            if (mode == '') pageTitle = "Business Plan Simulation -- Plan Roll Up";
+            model.bpmodel().mode(mode);
+            setPageTitle(pageTitle);
+        },
+        expenseProfile:function(){
+            model.bpmodel().changeMode("expense", "Business Plan Simulation -- Plan Roll Up -- Project Expense Profile and FY Expense Profile");
+        },
+        comparisonTable: function () {
+            model.bpmodel().changeMode("comparison", "Business Plan Simulation -- Plan Roll Up -- Project Expense Profile and FY Expense Profile -- Comparison FY Expense Profile ");
+        },
+        simulationColumns: [
+                            {
+                                width: 30,
+                                template: "<input type='checkbox' class='checkme'>",
+                                headerTemplate: "<input type='checkbox' class='check_toggle' onchange='javascript:toggleCheck(this)'>"
+                            },
+                            { field: "Id", title: "ID"},
+                            { field: "RigName", title: "Rig Name", template: "<a style='cursor:pointer' onclick='model.bpmodel().detail(\"#=RigName#\")'>#=RigName#</a>" },
+                            { field: "Well", title: "Well"},
+                            { field: "RigSequence", title: "Rig Sequence"},
+                            { field: "NoWellSchedule", title: "No Well Schedule"},
+                            { title: "OP-14", columns: [{ field: "OP14Start", title: "Start" }, { field: "OP14Finish", title: "Finish" }, { field: "OP14Days", title: "Duration(Days)" }, { field: "OP14Cost", title: "Cost" }] },
+                            { title: "Latest Sequence", columns: [{ field: "LSStart", title: "Start" }, { field: "LSFinish", title: "Finish" }, { field: "LSDays", title: "Days" }, { field: "LSCost", title: "Cost($mm)" }] },
+                            { title: "LE", columns: [{ field: "LEStart", title: "Start" }, { field: "LEFinish", title: "Finish" },{ field: "LEDays", title: "Days" }, { field: "LECost", title: "Cost($mm)" }] },
+                            { title: "AFE", columns: [{ field: "AFEDuration", title: "Duration(Days)" }, { field: "AFECost", title: "Cost($mm)" }] },
+        ],
+        sampleDataSimulation: [
+            {
+                Id: "8821", RigName: "Auger", Well: "AUGER IDLE - COLD STACK 2015", RigSequence: "978",
+                OP14Start: "01-Jan-2015", OP14Finish: "15-Mar-2015", OP14Days: 73, OP14Cost: "0.4", LSStart: "13-Jun-2012", LSFinish: "15-Oct-2015", LSDays: "1,219", LSCost: "0.4", LEStart: "01-Jan-2015", LEFinish: "17-Oct-2015", LEDays: 200, LECost: "2.2", AFEDuration: 74, AFECost: "0.3"
+            },
+            {
+                Id: "8822", RigName: "Auger", Well: "AUGER RAMP UP 2015", RigSequence: "2078",OP14Start: "15-Mar-2015", OP14Finish: "27-Apr-2015", OP14Days: 43, OP14Cost: "6.9", LSStart: "15-Oct-2015", LSFinish: "27-Nov-2015", LSDays: "43", LSCost: "0.0",LEStart:"17-Oct-2015",LEFinish: "29-Nov-2015", LEDays: 43, LECost:"0.0", AFEDuration:0, AFECost:"0.0"
+            }
+        ],
+        simulationColumnsProjectExpense: [
+                            { field: "Activity", title: "Activity" },
+                            { field: "StartDate", title: "Start Date" },
+                            { field: "EndDate", title: "End Date" },
+                            { field: "Duration", title: "Duration" },
+                            { field: "MeanCostEDM", title: "Mean Cost EDM" },
+                            { field: "MeanCostMOD", title: "Mean Cost MOD" },
+                            { field: "ShellShare", title: "Shell Share" },
+
+        ],
+        sampleDataSimulationProjectExpense: [
+            {
+                Activity: "AUGER IDLE - COLD STACK 2015", StartDate: "01-Jan-2015", EndDate: "17-Oct-2015", Duration: "", MeanCostEDM: "", MeanCostMOD: "",
+                ShellShare: ""
+            },
+            {
+                Activity: "AUGER RAMP UP 2015", StartDate: "17-Oct-2015", EndDate: "29-Nov-2015", Duration: "", MeanCostEDM: "", MeanCostMOD: "",
+                ShellShare: ""
+            }
+        ],
+        simulationColumnsFYExpense: [
+                            { field: "SumAllActivities", title: " " },
+                            { field: "FY15", title: "FY15" },
+                            { field: "FY16", title: "FY16" },
+                            { field: "FY17", title: "FY17" },
+                            { field: "FY18", title: "FY18" },
+                            { field: "FY19", title: "FY19" },
+                            { field: "FY20", title: "FY20" },
+                            { field: "FY21", title: "FY21" },
+
+        ],
+        sampleDataSimulationFYExpense: [
+            {SumAllActivities: "Mean Cost EDM by plan year" },
+            {SumAllActivities: "Escalation Cost USD by plan year" },
+            {SumAllActivities: "CSO Cost USD by plan year" },
+            {SumAllActivities: "Inflation Cost USD by plan year" },
+            {SumAllActivities: "Mean Cost MOD USD by plan year" },
+            {SumAllActivities: "Shell Share MOD USD by plan year" },
+            {SumAllActivities: "New Producing Days by plan year" },
+        ],
+        simulationColumnsFYExpenseComparison: [
+                            { field: "SumAllActivities", title: " " },
+                            { title: "FY15", columns: [{ field: "FY15PlanRollUp", title: "Plan Roll Up" }, { field: "FY15BM", title: "'BM'" }, { field: "FY15Delta", title: "Delta" }] },
+                            { title: "FY16", columns: [{ field: "FY16PlanRollUp", title: "Plan Roll Up" }, { field: "FY16BM", title: "'BM'" }, { field: "FY16Delta", title: "Delta" }] },
+                            { title: "FY17", columns: [{ field: "FY17PlanRollUp", title: "Plan Roll Up" }, { field: "FY17BM", title: "'BM'" }, { field: "FY17Delta", title: "Delta" }] },
+                            { title: "FY18", columns: [{ field: "FY18PlanRollUp", title: "Plan Roll Up" }, { field: "FY18BM", title: "'BM'" }, { field: "FY18Delta", title: "Delta" }] },
+                            { title: "FY19", columns: [{ field: "FY19PlanRollUp", title: "Plan Roll Up" }, { field: "FY19BM", title: "'BM'" }, { field: "FY19Delta", title: "Delta" }] },
+
+        ],
+        sampleDataSimulationFYExpenseComparison: [
+           { SumAllActivities: "Mean Cost EDM by plan year" },
+           { SumAllActivities: "Escalation Cost USD by plan year" },
+           { SumAllActivities: "CSO Cost USD by plan year" },
+           { SumAllActivities: "Inflation Cost USD by plan year" },
+           { SumAllActivities: "Mean Cost MOD USD by plan year" },
+           { SumAllActivities: "Shell Share MOD USD by plan year" },
+           { SumAllActivities: "New Producing Days by plan year" },
+        ],
+        simulationColumnsStatComparison: [
+                            { field: "StatsofInterest", title: " " },
+                            { title: "FY15", columns: [{ field: "FY15PlanRollUp", title: "Plan Roll Up" }, { field: "FY15BM", title: "'BM'" }, { field: "FY15Delta", title: "Delta" }] },
+                            { title: "FY16", columns: [{ field: "FY16PlanRollUp", title: "Plan Roll Up" }, { field: "FY16BM", title: "'BM'" }, { field: "FY16Delta", title: "Delta" }] },
+                            { title: "FY17", columns: [{ field: "FY17PlanRollUp", title: "Plan Roll Up" }, { field: "FY17BM", title: "'BM'" }, { field: "FY17Delta", title: "Delta" }] },
+                            { title: "FY18", columns: [{ field: "FY18PlanRollUp", title: "Plan Roll Up" }, { field: "FY18BM", title: "'BM'" }, { field: "FY18Delta", title: "Delta" }] },
+                            { title: "FY19", columns: [{ field: "FY19PlanRollUp", title: "Plan Roll Up" }, { field: "FY19BM", title: "'BM'" }, { field: "FY19Delta", title: "Delta" }] },
+
+        ],
+        sampleDataSimulationStatComparison: [
+           { StatsofInterest: "# of Drilling Events" },
+           { StatsofInterest: "Mean Drilling Days" },
+           { StatsofInterest: "# of Completion Events" },
+           { StatsofInterest: "Mean Comp. Days" },
+           { StatsofInterest: "# of Abandonment Events" },
+           { StatsofInterest: "# of Abandonment Days" },
+        ],
+    });
+</script>
+@Html.Partial("_menuBusPlan")
+
+<script>
+    model.MenuBP().ActiveMenu("Plan Roll Up");
+    function toggleCheck(sender) {
+        var s = $(sender);
+        var cbxs = s.closest(".grid.k-grid").find("input[type='checkbox'].checkme");
+        cbxs.prop("checked", s.prop("checked"));
+    }
+    $(document).ready(function () {
+        model.FilterVisibility.Regions(true);
+        model.FilterVisibility.OperatingUnits(true);
+        model.FilterVisibility.RigTypes(true);
+        model.FilterVisibility.RigNames(true);
+        model.FilterVisibility.ProjectNames(true);
+        model.FilterVisibility.WellNames(true);
+        model.FilterVisibility.FloatedButton(true);
+        model.FilterVisibility.ExType(true);
+        model.FilterVisibility.Date(true);
+        model.FilterVisibility.Date2(true);
+
+    });
+</script>
+
+
+<div style="padding: 0px 15px 15px;">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    @*<div class="row business-plan-container">
+        <div class="col-md-12">
+            content here
+        </div>
+    </div>*@
+
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing() && model.bpmodel().mode() == ''">
+        @Html.Partial("Filter")
+        <div class="col-md-12 no-padding">
+            <div class="grid" id="grid" data-bind="kendoGrid: { data: model.bpmodel().sampleDataSimulation, columns: model.bpmodel().simulationColumns, pageable: true, sortable: false, filterable: false, editable: false, toolbar: ['pdf', 'excel' ] } "></div>
+        </div>
+        <div class="row">
+            <div class="col-md-12" style="text-align:right;margin-top:10px;">
+                <button class="btn btn-primary btn-sm btn-custom" onclick="model.bpmodel().expenseProfile()">Display Project Expense Profile and FY Expense Profile</button>
+            </div>
+        </div>
+    </div>
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing() && model.bpmodel().mode() == 'expense'">
+        @Html.Partial("_expenseProfile")
+    </div>
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing() && model.bpmodel().mode() == 'comparison'">
+        @Html.Partial("_comparisonTable")
+    </div>
+</div>
+
+
+

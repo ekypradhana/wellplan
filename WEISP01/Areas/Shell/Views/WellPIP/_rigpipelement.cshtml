@@ -1,0 +1,108 @@
+﻿<script>
+    var gridColumnsRIGPIP = [
+        { field: "Title", title: "Idea", filterable: false, width: 140 },//, footerTemplate: buildfooterTotalCR , attributes:{class:"#= isPositive == true ? 'bg-positive' : 'bg-negative' #"}
+        { field: "Period.Start", width: 80, title: "Activity Start", filterable: false, template: "#: jsonDateStr(Period.Start) #", attributes: { class: "cell-date" } },
+        { field: "Period.Finish", width: 80, title: "Activity End", filterable: false, template: "#: jsonDateStr(Period.Finish) #", attributes: { class: "cell-date" } },
+        { field: "Theme", title: "Theme", filterable: false, width: 100 },
+        //{
+        //    field: "isPositive", title: "Positive<br>Negative", filterable: false,
+        //    attributes: { style: "text-align: center;"},
+        //    width: 70,
+        //    template: '<span> #= isPositive == true ? "(+)" : "(-)" #</span>'
+        //},
+        {
+            field: "Completion", title: "Realized", filterable: false,
+            //template: '#: Completion # %',
+            attributes: { style: "text-align: center; color: white;" },
+            width: 70
+        },
+        {
+            field: "DaysPlanImprovement", title: "Original<br>Estimate<br>Days Opp", filterable: false, attributes: { class: "cell-number" }, width: headerUnitWith, format: "{0:N2}",
+            headerTemplate: buildHeaderTemplate("Original<br>Estimate<br>Days Opp", "days"),
+            editable: false
+            //footerTemplate: "<div id='footer11' class='cell-number' data-bind='text:model.uimodel().DaysPlanImprovementTotal_CR()'></div>"
+        },
+        {
+            field: "DaysPlanRisk", title: "Original<br>Estimate<br>Days Risk", filterable: false, attributes: { class: "cell-number" }, width: headerUnitWith, format: "{0:N2}",
+            headerTemplate: buildHeaderTemplate("Original<br>Estimate<br>Days Risk", "days"),
+            editable: false
+            //footerTemplate: "<div id='footer12' class='cell-number' data-bind='text:model.uimodel().DaysPlanRiskTotal_CR()'></div>"
+        },
+        {
+            field: "CostPlanImprovement", title: "Original<br>Estimate<br>Cost Opp", filterable: false, attributes: { class: "cell-number" }, width: headerUnitWith, format: "{0:N2}",
+            headerTemplate: buildHeaderTemplate("Original<br>Estimate<br>Cost Opp", "$mm"),
+            //footerTemplate: "<div id='footer13' class='cell-number' data-bind='text:model.uimodel().CostPlanImprovementTotal_CR()'></div>"
+        },
+        {
+            field: "CostPlanRisk", title: "Original<br>Estimate<br>Cost Risk", filterable: false, attributes: { class: "cell-number" }, width: headerUnitWith, format: "{0:N2}",
+            headerTemplate: buildHeaderTemplate("Original<br>Estimate<br>Cost Risk", "$mm"),
+            //footerTemplate: "<div id='footer14' class='cell-number' data-bind='text:model.uimodel().CostPlanRiskTotal_CR()'></div>"
+        },
+        {
+            field: "DaysCurrentWeekImprovement", title: "Current<br>Estimate<br>Days Opp", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+            headerTemplate: buildHeaderTemplate("Current<br>Estimate<br>Days Opp", "days"),
+            editable: false
+            //footerTemplate: "<div id='footer15' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekImprovementTotal_CR()'></div>"
+        },
+        {
+            field: "DaysCurrentWeekRisk", title: "Current<br>Estimate<br>Days Risk", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+            headerTemplate: buildHeaderTemplate("Current<br>Estimate<br>Days Risk", "days"),
+            editable: false
+            //footerTemplate: "<div id='footer16' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekRiskTotal_CR()'></div>"
+        },
+        {
+            field: "CostCurrentWeekImprovement", title: "Current<br>Estimate<br>Cost Opp", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+            headerTemplate: buildHeaderTemplate("Current<br>Estimate<br>Cost Opp", "$mm"),
+            //footerTemplate: "<div id='footer17' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekImprovementTotal_CR()'></div>"
+        },
+        {
+            field: "CostCurrentWeekRisk", title: "Current<br>Estimate<br>Cost Risk", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+            headerTemplate: buildHeaderTemplate("Current<br>Estimate<br>Cost Risk", "$mm"),
+            //footerTemplate: "<div id='footer18' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekRiskTotal_CR()'></div>"
+        },
+        
+        {
+            field: "Classification", title: "Classification", filterable: false, width: 110
+        },
+        {
+            field: "PerformanceUnit", title: "Performance Unit", filterable: false, width: 110
+        },
+        {
+            field: "ActionParties", title: "Action Party", filterable: false, template: "#: joinActionParties(ActionParties) #", width: 100
+        },
+        {
+            field: "AssignTOOps", title: "Assign To OP", filterable: false, width: 100,
+            template: '#:AssignTOOps.join()#',
+        }
+        //{
+        //    field: "ElementId", title: "Action", width: 100, filterable: false,
+        //    //template: "<button type='button' class='btn btn-success btn-xs' onclick='model.uimodel().openManageActionPartyModal(#: ElementId #)'>Manage Act Party</button>&nbsp; <button type='button' class='btn btn-warning btn-xs' onclick='model.uimodel().openAllocationModal(#: ElementId #,\"#: Title #\",\"#: Period.Start #\",\"#: Period.Finish #\",#: DaysPlanImprovement #,#: DaysPlanRisk #,#: CostPlanImprovement #,#: CostPlanRisk #)'>Allocate</button>&nbsp; <button type='button' class='btn btn-danger btn-xs' onclick='model.uimodel().deletePIP(#: ElementId #)'>Delete</button>"
+        //    template:
+        //        "<span style='cursor:pointer' onclick='model.uimodel().Comments(#: ElementId #)' data-eid='#: ElementId #' class='glyphicon glyphicon-comment' title='Click to Add Comments'><b class='comment-counter'></b></span>"
+        //}
+    ];
+
+    function RigElementGridSetting() {
+        var gd = $("#grid_pip_element").data("kendoGrid");
+        $("#grid_pip_element").find("tr[data-uid]").each(function (i, e) {
+            var data = gd.dataSource.getByUid($(e).attr("data-uid"));
+
+            $(e).find(".cell-number").each(function (j, f) {
+                if ($(f).children().size() === 0 && parseFloat($.trim($(f).html())) === 0) {
+                    $(f).css("color", "transparent");
+                } else {
+                    $(f).css("color", "inherit");
+                }
+            });
+
+            changeBackgroundOfRealizedOrNot(data.Completion == model.constRealized.YES, data, $(e).find(":eq(4)"));
+        });
+    }
+    var grids = $("#grid_pip_element");
+</script>
+
+<h3>Rig/ General SCM</h3>
+<div class="row" style="padding:5px">
+    <div class="col-md-12" id="grid_pip_element" data-bind="kendoGrid:{data:[],columns:gridColumnsRIGPIP,pageable:true,sortable:true,filterable:true,editable:false,dataBound:RigElementGridSetting}"></div>
+</div>
+

@@ -1,0 +1,47 @@
+﻿<script>
+    //model.MasterData().DetailData([
+    //     { "DateId": 20160313, Items: [{ "Title": "Bonga 60" }, { "Title": "Bonga 70" }, { "Title": "Bonga 80" }] },
+    //     { "DateId": 20160314, Items: [{ "Title": "Bonga 60" }, { "Title": "Bonga 70" }] },
+    //]);
+    model.MasterData().setTitle("Master " + "WEISActivities");
+</script>
+ 
+<div class="row kontainer" >
+    <div class="col-md-12 no-space">
+        <h3 data-bind="text:model.MasterData().setTitle" style="background-color:#F7F7F7"></h3>
+        <div class="section content" style="overflow-y: scroll;">
+            <div data-bind="foreach: model.MasterData().DetailData()" class="row data" style="margin-left: auto;margin-right:auto">
+                <div class="each">
+                    <table class="table">
+                        <tbody class="h">
+                            <tr>
+                                <td colspan="4" class="title">
+                                    <span class="h-status summary" data-bind="text: DateId"></span>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tbody class="b" data-bind="foreach: Items">
+                            <tr>
+                                <td data-bind="text: Title"></td>
+                            </tr>
+                        </tbody>
+
+                        <!-- /ko -->
+                        <!-- /ko -->
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <div class="clearfix"></div>
+</div>
+ 
+
+<script>
+    function BackToMain() {
+        model.VisibleMaster(true);
+        model.VisibleDetail(false);
+    }
+</script>
+

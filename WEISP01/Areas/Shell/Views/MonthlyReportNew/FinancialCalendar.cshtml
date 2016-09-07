@@ -1,0 +1,118 @@
+﻿@{
+    ViewBag.Title = "Financial Calendar";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<style>
+    .nav-container, .grid-container {
+        width: 350px;
+    }
+</style>
+
+<script>
+    model.FinancialCalendar = {};
+    model.PageId("Administration");
+    var m = model.FinancialCalendar;
+
+    m.IsProcessing = ko.observable(false);
+    m.Year = ko.observable(@ViewBag.LatestMonthYear);
+    m.AddMonth = function () {
+        var url = "@Url.Action("FinancialCalendarAddMonth")";
+        var param = { year: m.Year() };
+
+        m.IsProcessing(true);
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                m.IsProcessing(false);
+                return;
+            }
+
+            m.GetData();
+            m.Year(m.Year() + 1);
+        });
+    };
+    m.GetData = function () {
+        var url = "@Url.Action("FinancialCalendarGetData")";
+
+        m.IsProcessing(true);
+        ajaxPost(url, {}, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                m.IsProcessing(false);
+                return;
+            }
+
+            m.IsProcessing(false);
+            m.GridData(res.Data);
+        });
+    };
+    m.GridColumns = [
+        { field: "MonthYear", title: "Year Month", template: "#: moment(MonthYear).format('MMMM YYYY') #", attributes: { style: "text-align: right;" }, width: 110 },
+        { field: "Status", attributes: { style: "text-align: center;" } },
+        {
+            width: 100, attributes: { style: "text-align: center;" }, template: function (dataItem) {
+                if (dataItem.Status == "Not Yet Started") {
+                    return "<button class='btn btn-xs btn-primary btn-custom btn-initiate' onclick='m.Initiate(\"" + parseInt(dataItem._id) + "\")'>Make Active</button>";
+                }
+
+                return "";
+            }
+        },
+    ];
+    m.Initiate = function (id) {
+        if (!confirm("Are you sure want to activate monthly report using selected date ?")) {
+            return;
+        }
+
+        var url = "@Url.Action("FinancialCalendarInitiate")";
+        var param = { id: id };
+
+        m.IsProcessing(true);
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                m.IsProcessing(false);
+                return;
+            }
+
+            m.GetData();
+        });
+    };
+    m.GridBound = function () {
+        $(".k-grid-content .btn-initiate:gt(0)").hide();
+    };
+    m.GridData = ko.observableArray([]);
+
+    $(function () {
+        m.GetData();
+    });
+</script>
+
+<div class="col-md-12" data-bind="with: model.FinancialCalendar">
+    <div class="nav-container">
+        <div class="col-md-3">Year</div>
+        <div class="col-md-3">
+            <input type="text" data-bind="kendoNumericTextBox: { value: Year, format: '#' }" />
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-sm btn-primary btn-custom" data-bind="click: AddMonth">
+                <span class="glyphicon glyphicon-plus"></span> Add
+            </button>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="loader" data-bind="visible: IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+    <div class="grid-container" data-bind="visible: !IsProcessing()">
+        <div class="grid" data-bind="kendoGrid: { columns: GridColumns, dataBound: GridBound, data: GridData, sortable: true, pageable: false }"></div>
+        @*<div class="grid" data-bind="kendoGrid: { columns: GridColumns, dataBound: GridBound, data: GridData, dataSource: { pageSize: 12 }, sortable: true, pageable: true }"></div>*@
+        <div class="clearfix"></div>
+    </div>
+</div>

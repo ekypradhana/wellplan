@@ -1,0 +1,243 @@
+﻿
+<div style="width:1020px;margin:0px auto;" data-bind="with: model.WaterfallFilter">
+    <div style="width:1020px;float:left;display:block">
+        <div class="mini-nav bordered-mini-nav" style="width: 770px; margin: 0px;">
+            <div class="each-nav">
+                Show:
+                <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                    <option value="Days">Days</option>
+                    <option value="Cost">Cost</option>
+                </select>
+            </div>
+            <div class="each-nav">
+                Breakdown by:
+                <select data-bind="value:GroupBy" style="margin-right: 5px;">
+                    <option value="Classification">Classification</option>
+                    <option value="Theme">Theme</option>
+                    <option value="Title">Idea</option>
+                    <option value="PerformanceUnit">Performance Unit</option>
+                    <option value="ActionParty">Action Party (PIC)</option>
+                    <option value="WellName">Well Name</option>
+                    <option value="RigName">Rig Name</option>
+                </select>
+            </div>
+            <div class="each-nav">
+                Base OP:
+                <select data-bind="value:BaseOP" style="margin-right: 5px;">
+                    <option value="OP14">OP14</option>
+                    <option value="OP15">OP15</option>
+                    <option value="OP16">OP16</option>
+                </select>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeZero" />
+                </div>
+                <div>Include 0 value data point</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeGaps" />
+                </div>
+                <div>Include Gap</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:Scaled" />
+                </div>
+                <div>Autoscale</div>
+                <div class="clearfix"></div>
+            </div>
+
+            <div class="clearfix"></div>
+        </div>
+
+        <div style="text-align: center; font-weight: bold; font-size: 14px;" id="waterfall-chart-title"></div>
+    </div>
+    <div style="width:1020px;float:left;display:block">
+        <div id="waterfall-chart-tq" style="width:510px;height:400px;display:inline;float:left;"></div>
+        <div id="waterfall-chart-le" style="width:510px;height:400px;display:inline;float:left;"></div>
+    </div>
+    <div style="text-align:center">
+        <label style="background-color:#8AAAE0; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">OP</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A0C065; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Opportunity</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#C25654; width: 20px; ">&nbsp;</label>
+        <label style="font-weight:normal">Risk</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#888279; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Gap</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#373737; width: 20px; ">&nbsp;</label>
+        <label style="font-weight:normal">TQ/Agreed Target</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A48EC1; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">LE</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#E2A037; width: 20px; height: 1px;">&nbsp;</label>
+        <label style="font-weight:normal">AFE</label>
+    </div>
+</div>
+
+<script>
+    model.GenerateWaterfall = function (data) {
+        $("#waterfall-chart-title").html('Waterfall - Breakdown By ' + model.WaterfallFilter.GroupBy() + ' (' + model.WaterfallFilter.DayOrCost() + ')');
+
+        //model.RenderWaterfall($("#waterfall-chart-le"), model.RearrangeData(data.DataLE), data.MaxHeight);
+        //model.RenderWaterfall($("#waterfall-chart-tq"), model.RearrangeData(data.DataTQ), data.MaxHeight);
+
+        model.RenderWaterfall($("#waterfall-chart-le"), dummydata, data.MaxHeight);
+        model.RenderWaterfall($("#waterfall-chart-tq"), dummydata, data.MaxHeight);
+
+    };
+
+    model.RearrangeData = function (data) {
+        var ret = [];
+        for (var i = 0; i < data.length; i++) {
+            if (data[i].Category == "OP") {
+                //ret.push({ Category: "OP14", ValueOP: data[i].Value, Summary: data[i].Summary });
+                ret.push({ Category: "OP", Value: data[i].Value, Summary: data[i].Summary });
+            } else {
+                ret.push({ Category: data[i].Category, Value: data[i].Value, Summary: data[i].Summary });
+            }
+        }
+        //console.log(ret);
+        return ret;
+    }
+
+    model.TemplateWaterfallColor = function (point) {
+        switch (point.category) {
+            case "OP":
+            case "CurrentForecast":
+                return "#8AAAE0";
+                break;
+            //case "LSReduction":
+            //    return "red";
+            //    break;
+
+            case "Gap":
+            case "Gap to LE":
+                return "#888279";
+                break;
+
+            case "TQ / Target":
+            case "TQ / Agreed Target":
+            case "TQ/Target":
+            case "TQ/Agreed Target":
+                return "#373737";
+                break;
+
+            case "LE":
+            case "Last Estimate":
+                return "#A48EC1";
+                break;
+        }
+
+        if (point.value > 0) {
+            return "#C25654";
+        } else {
+            return "#A0C065";
+        }
+    };
+
+    var dummydata = [
+    { Category: "OP", Summary: "", Value: 2095.650760203859 },
+    { Category: "LSReduction", Summary: "", Value: -595.650760203859 },
+    { Category: "PostOP", Summary: "", Value: 300 },
+    { Category: "CurrentForecast", Summary: "runningTotal" },
+    {Category: "Technology and Innovation", Summary: "",Value: -1.565144032921811},
+    {Category: "Supply Chain Transformation", Summary: "", Value: -24.96313642718886},
+    {Category: "Efficient Execution", Summary: "", Value: -130.62822885891165},
+    {Category: "Competitive Scope", Summary: "", Value: -538.4866448195934},
+    {Category: "Gap", Summary: "", Value: 362.0795896276745},
+    {Category: "TQ/Agreed Target", Summary: "total", Value: 1762.087195692918},
+    ];
+
+    model.RenderWaterfall = function ($chart, data, maxHeight) {
+        console.log(data);
+        var config = {
+            dataSource: { data: data },
+            seriesDefaults: {
+                type: "column",
+                overlay: {
+                    gradient: "none"
+                },
+                border: {
+                    opacity: 0.4
+                }
+            },
+            series: [
+                //{
+                //    type: "column",
+                //    field: "ValueOP",
+                //    categoryField: "Category",
+                //    color: "#8AAAE0",
+                //    line: {
+                //        visible: false,
+                //        width: 0
+                //    },
+                //    labels: {
+                //        visible: true,
+                //        format: "N1",
+                //        position: "outsideEnd",
+                //        font: "9px verdana"
+                //    },
+                //    tooltip: {
+                //        visible: true,
+                //        template: "#: category #: #: kendo.format('{0:N1}', value) #"
+                //    },
+                //},
+                {
+                    type: "waterfall",
+                    field: "Value",
+                    categoryField: "Category",
+                    summaryField: "Summary",
+                    color: model.TemplateWaterfallColor,
+                    line: { visible: false, width: 0 },
+                    labels: { visible: true, font: "9px verdana", format: "N1", position: "outsideEnd" },
+                    tooltip: { visible: true, template: '#: category #: #: kendo.format("{0:N1}", value) #' }
+                },
+                {
+                    type: "line", name: "AFE", color: "#E2A037", field: "TrendLines[0]", markers: { visible: false }, width: 1,
+                    tooltip: { visible: true, template: 'AFE: #: kendo.format("{0:N1}", value) #' }
+                }
+            ],
+            legend: { visible: false, position: "bottom" },
+            valueAxis: {
+                min: 0,
+                max: maxHeight,
+                labels: { font: "9px verdana", format: "N1" },
+                majorGridLines: { visible: false }
+            },
+            categoryAxis: {
+                labels: { font: "9px verdana", rotation: 90, template: '#= TrimIfGreaterThan(value, 25) #' },
+                majorGridLines: { visible: false }
+            }
+        };
+
+        if (!model.WaterfallFilter.Scaled()) {
+            config.valueAxis.max = maxHeight;
+        } else {
+            $chart.height(400);
+        }
+
+        $chart.kendoChart(config);
+
+        if (!model.WaterfallFilter.IncludeGaps()) {
+            var allGapsData = _.filter(data, function (e) { return (e.Category.toLowerCase().indexOf("gap") > -1) });
+            _.each(allGapsData, function (e) {
+                var gapsData = e;
+                var gapsIndex = data.indexOf(gapsData);
+
+                $chart.find("tspan:contains('" + gapsData.Title + "')").closest("g").hide();
+                $chart.find("svg > g:eq(0) > g[opacity]:eq(" + gapsIndex + ")").hide();
+                $chart.find("svg > g:eq(0) > g:eq(0) > g[clip-path] > g:eq(" + gapsIndex + ")").hide();
+            });
+        }
+    };
+</script>

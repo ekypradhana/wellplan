@@ -1,0 +1,74 @@
+﻿<table class="table pip-data ecTableCommentary">
+    <thead>
+        <tr>
+            <td colspan="18">Performance Improvement Plan (RIG)</td>
+        </tr>
+        <tr class="title">
+            <td style="width: 200px;">Idea</td>
+            <td style="width: 80px;">Realized</td>
+
+            <td data-unit="(days)">Plan<br />Days<br />Improvement</td>
+            <td data-unit="(days)">Prev. LE<br />Days<br />Improvement</td>
+            <td data-unit="(days)">Actual<br />Days<br />Improvement</td>
+            <td data-unit="(days)">Last<br />Estimate<br />Days<br />Improvement</td>
+            <td data-unit="(days)">Prev. Last<br />Estimate<br />Days<br />Risk</td>
+            <td data-unit="(days)">Actual<br />Days<br />Risk</td>
+            <td data-unit="(days)">Last<br />Estimate<br />Days<br />Risk</td>
+
+            <td data-unit="($ mln)">Plan<br />Cost<br />Improvement</td>
+            <td data-unit="($ mln)">Prev. Last<br />Estimate<br />Cost<br />Improvement</td>
+            <td data-unit="($ mln)">Actual<br />Cost<br />Improvement</td>
+            <td data-unit="($ mln)">Last<br />Etimate<br />Cost<br />Improvement</td>
+            <td data-unit="($ mln)">Prev. Last<br />Estimate<br />Cost<br />Risk</td>
+            <td data-unit="($ mln)">Actual<br />Cost<br />Risk</td>
+            <td data-unit="($ mln)">Last<br />Estimate<br />Cost<br />Risk</td>
+
+            <td>Cost<br />Avoidance</td>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- ko foreach: CRElements -->
+        <tr>
+            <td data-bind="text: Title"></td>
+            <td style="color: white;" data-bind="text: Completion, css: { 'bg-td-green': Completion() == 'Realized', 'bg-td-red': Completion() != 'Realized' }"></td>
+            <td style="text-align: right;" data-bind="text: (DaysPlanImprovement() + DaysPlanRisk()).toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: DaysLastWeekImprovement().toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: DaysActualImprovement().toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: DaysCurrentWeekImprovement().toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: DaysLastWeekRisk().toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: DaysActualRisk().toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: DaysCurrentWeekRisk().toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: (CostPlanImprovement() + CostPlanRisk()).toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: CostLastWeekImprovement().toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: CostActualImprovement().toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: CostCurrentWeekImprovement().toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: CostLastWeekRisk().toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: CostActualRisk().toFixed(2)"></td>
+            <td style="text-align: right;" data-bind="text: CostCurrentWeekRisk().toFixed(2)"></td>
+            <td>
+                <input type="checkbox" disabled data-bind="checked: CostAvoidance">
+            </td>
+        </tr>
+        <!-- /ko -->
+
+        <tr class="total">
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td data-bind="text:model.wrmodel().DaysPlanImprovementTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().DaysLastWeekImprovementTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().DaysActualImprovementTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().DaysCurrentWeekImprovementTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().DaysLastWeekRiskTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().DaysActualRiskTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().DaysCurrentWeekRiskTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().CostPlanImprovementTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().CostLastWeekImprovementTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().CostActualImprovementTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().CostCurrentWeekImprovementTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().CostLastWeekRiskTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().CostActualRiskTotal_CR()"></td>
+            <td data-bind="text:model.wrmodel().CostCurrentWeekRiskTotal_CR()"></td>
+            <td>&nbsp;</td>
+        </tr>
+    </tbody>
+</table>

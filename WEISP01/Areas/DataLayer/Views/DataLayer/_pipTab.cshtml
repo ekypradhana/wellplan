@@ -1,0 +1,198 @@
+﻿<script>
+    model.getPIP = ko.observable({
+        NumberOfPeriod: ko.observable(3),
+        MasterCols: ko.observableArray(['Plan', 'LE']),
+        SelectData: ko.observable("PIP"),
+        Data: ko.observable([ //PIP
+            { "Version": "7 March 2016", "Items": [{ "Title": "Plan", "Days": 2, "Cost": 15 }, { "Title": "LE", "Days": 2, "Cost": 10 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "9 March 2016", "Items": [{ "Title": "Plan", "Days": 5, "Cost": 25 }, { "Title": "LE", "Days": 1, "Cost": 5 }], "WellItems": [] }]),
+        Data2: ko.observable([ //Rig PIP
+            { "Version": "7 March 2016", "Items": [{ "Title": "Plan", "Days": 2, "Cost": 15 }, { "Title": "LE", "Days": 2, "Cost": 10 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "8 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "LE", "Days": 3, "Cost": 15 }], "WellItems": [] },
+            { "Version": "9 March 2016", "Items": [{ "Title": "Plan", "Days": 5, "Cost": 25 }, { "Title": "LE", "Days": 1, "Cost": 5 }], "WellItems": [] }]),
+        DataDetail: ko.observable(),
+        LiWidth: ko.observable(1205),
+        NumberOfDatas: ko.observable(1),
+    });
+
+    function changeView(e) {
+        model.getPIP().SelectData(e);
+    };
+</script>
+
+<div class="row kontainer">
+    <span style=" cursor:pointer;margin-bottom:20px;margin-left:30%;width:100%;text-align:center;font-style:italic;">
+        Details in this page not showing all details data, please click show all data if you want to show all
+    </span>
+    <div class="col-md-12 no-space">
+        <div class="col-md-12" style="margin-bottom: 10px">
+           
+            <label class="col-md-1">
+                Show
+            </label>
+            <div class="col-md-5">
+                <div class="btn-group" data-toggle="buttons">
+                    <label class="btn btn-success btn-custom btn-sm" data-bind="click: function(){changeView('PIP')}, css: {active: getPIP().SelectData() == 'PIP' }" data-value="PIP"><input type="radio" value="PIP" data-bind="checked: getPIP().SelectData"> Well PIP</label>
+                    <label class="btn btn-success btn-custom btn-sm" data-bind="click: function(){changeView('RigPIP')}, css: {active: getPIP().SelectData() != 'PIP' }" data-value="rigPIP"><input type="radio" value="rigPIP" data-bind="checked: getPIP().SelectData"> Rig PIP</label>
+                </div>
+                @*<select data-bind="kendoDropDownList: {data: ['PIP', 'Rig PIP'], value: getPIP().SelectData} "></select>*@
+            </div>
+        </div>
+       
+        <div style="clear: both"></div>
+        <div class="section content">
+            <div data-bind="foreach: getPIP().Data(), visible: getPIP().SelectData() == 'PIP'" class="row data-container no-space">
+                <div class="each">
+                    <h4 data-bind="text: kendo.format('{0:dd-MMM-yyyy}', jsonDate(Version))"></h4>
+                    <h4 style="border:none;" data-bind="visible: Items.length == 0">No data found</h4>
+                    <table class="table" data-bind="visible: !Items.length == 0">
+                        <thead>
+                            <tr>
+                                <th style="vertical-align: middle; text-align: left;">Title</th>
+                                <th width="50" style="vertical-align: middle; text-align: right;">Days</th>
+                                <th width="80" style="vertical-align: middle; text-align: right; padding-bottom: 5px;">
+                                    Cost<br />(US$)
+                                </th>
+                            </tr>
+                        </thead>
+                    </table>
+
+                    <table class="table" data-bind="visible: !Items.length == 0">
+                        <tbody class="h">
+                            <tr>
+                                <td colspan="4" class="title">
+                                    <span class="h-status summary">Summary</span>
+                                </td>
+                            </tr>
+                        </tbody>
+
+                        <tbody class="b" data-bind="foreach: Items">
+                            <tr>
+                                <td data-bind="text: Title"></td>
+                                <td width="50" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Days)"></td>
+                                <td width="80" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Cost)"></td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+                    <h4 style="cursor:pointer;margin-bottom:10px;width:100%" class="btn btn-sm btn-success" data-bind="click:model.ShowAll(jsonDate(Version),'WEISWellPIPs_tr'),visible: !Items.length == 0">Show All Data</h4>
+                    <!--ko foreach: WellItems-->
+                    <table class="table">
+                        <tbody class="h">
+                            <tr>
+                                <td colspan="4" class="title">
+                                    <span class="h-status dtl" data-bind="text: WellName + ' - ' + ActivityType"></span>
+                                </td>
+                            </tr>
+                        </tbody>
+
+                        <tbody class="b" data-bind="foreach: Items">
+                            <tr>
+                                <td data-bind="text: Identifier"></td>
+                                <td width="50" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Days)"></td>
+                                <td width="80" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Cost)"></td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+                    <!--/ko-->
+                </div>
+            </div>
+            <div data-bind="foreach: getPIP().Data2(), visible: getPIP().SelectData() != 'PIP'" class="row data-container no-space">
+                <div class="each">
+                    <h4 data-bind="text: kendo.format('{0:dd-MMM-yyyy}', jsonDate(Version))"></h4>
+                    <h4 style="border:none;" data-bind="visible: Items.length == 0">No data found</h4>
+                    <table class="table" data-bind="visible: !Items.length == 0">                        
+                        <thead>
+                            <tr>
+                                <th style="vertical-align: middle; text-align: left;">Title</th>
+                                <th width="50" style="vertical-align: middle; text-align: right;">Days</th>
+                                <th width="80" style="vertical-align: middle; text-align: right; padding-bottom: 5px;">
+                                    Cost<br />(US$)
+                                </th>
+                            </tr>
+                        </thead>
+                    </table>
+
+                    <table class="table" data-bind="visible: !Items.length == 0">
+                        <tbody class="h">
+                            <tr>
+                                <td colspan="4" class="title">
+                                    <span class="h-status summary">Summary</span>
+                                </td>
+                            </tr>
+                        </tbody>
+
+                        <tbody class="b" data-bind="foreach: Items">
+                            <tr>
+                                <td data-bind="text: Title"></td>
+                                <td width="50" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Days)"></td>
+                                <td width="80" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Cost)"></td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+                    <h4 style="cursor:pointer;margin-bottom:10px;width:100%" class="btn btn-sm btn-success" data-bind="click:model.ShowAll(jsonDate(Version),'WEISWellPIPs_tr'),visible: !Items.length == 0">Show All Data</h4>
+                    <!--ko foreach: WellItems-->
+                    <table class="table">
+                        <tbody class="h">
+                            <tr>
+                                <td colspan="4" class="title">
+                                    <span class="h-status dtl" data-bind="text: WellName + ' - ' + ActivityType"></span>
+                                </td>
+                            </tr>
+                        </tbody>
+
+                        <tbody class="b" data-bind="foreach: Items">
+                            <tr>
+                                <td data-bind="text: Identifier"></td>
+                                <td width="50" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Days)"></td>
+                                <td width="80" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Cost)"></td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+                    <!--/ko-->
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+<script>
+    $(document).ready(function () {
+        var $window = $(window);
+        var $header = $(".header");
+        var $content = $(".content");
+        var $headerDataContainer = $header.find(".data-container");
+ 
+        $window.on("resize", function () {
+            var self = $(this);
+            var otherHeight = 200;
+            var navHeight = (function (d) { return (d === 0 ? 30 : d); }($(".navbar-header").height()));
+            $(".content").height($(this).height() - otherHeight - navHeight);
+        });
+
+        setTimeout(function () { $window.trigger("resize"); }, 0);
+        setTimeout(function () { $window.trigger("resize"); }, 500);
+
+        $content.on("scroll", function () {
+            $headerDataContainer.css("margin-left", -1 * $content.scrollLeft());
+        });
+
+        //setTimeout(model.RecalcObjects, 0); // enable for testing purpose
+    });
+</script>

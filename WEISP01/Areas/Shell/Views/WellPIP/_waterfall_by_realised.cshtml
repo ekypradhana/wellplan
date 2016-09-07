@@ -1,0 +1,549 @@
+﻿<div class="ec-panel" style="width:1000px;margin:0px auto;">
+    <div style="width:1020px;margin:0px auto;margin-top:0px;" data-bind="with:$root.waterfall">
+        <div class="mini-nav bordered-mini-nav" style="width: 960px; margin: 0px auto; ">
+            <div class="each-nav">
+                Show:
+                <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                    <option value="Day">Days</option>
+                    <option value="Cost">Cost</option>
+                </select>
+            </div>
+            <div class="each-nav">
+                Breakdown by:
+                <select data-bind="value:GroupBy" style="margin-right: 5px;">
+                    <option value="Classification">Classification</option>
+                    <option value="Theme">Theme</option>
+                    <option value="Title">Idea</option>
+                    <option value="PerformanceUnit">Performance Unit</option>
+                    <option value="ActionParty">Action Party (PIC)</option>
+                </select>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeZero" />
+                </div>
+                <div>Include 0 value data point</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeGaps" />
+                </div>
+                <div>Include Gap</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeCR" />
+                </div>
+                <div>Include Rig/ General SCM</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:Scaled" />
+                </div>
+                <div>Autoscale</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav">
+                Base OP:
+                <select data-bind="value:BaseOP" style="margin-right: 5px;">
+                    <option value="OP14">OP14</option>
+                    <option value="OP15" selected="selected">OP15</option>
+                </select>
+            </div>
+            <div class="each-nav checkbox-nav no-border-nav">
+                <button class="btn btn-primary btn-xs" onclick="refreshWaterfall()" style="margin-top: -2px;">Refresh</button>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+
+        <div style="text-align: center; font-weight: bold; font-size: 14px;" id="wtitle-by-realised"></div>
+
+        <div id="chart-waterfall-by-realised" style="width:1020px;height:400px;"></div>
+    </div>
+    <div style="text-align:center">
+        <label style="background-color:#8AAAE0; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">OP</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A0C065; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Realised</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#C25654; width: 20px; ">&nbsp;</label>
+        <label style="font-weight:normal">Unrealised</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#888279; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Realized Gap</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A48EC1; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">LE</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#E2A037; width: 20px; height: 1px;">&nbsp;</label>
+        <label style="font-weight:normal">AFE</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#37BDAC; width: 20px; height: 1px;">&nbsp;</label>
+        <label style="font-weight:normal">TQ/Agreed Target</label>
+    </div>
+</div>
+
+<script>
+    model.waterfall().IncludeCR.subscribe(function (v) {
+        if (v) model.waterfall().DayOrCost("Cost");
+    });
+
+    function makeSeriesFromDataV1(data, AFE, OP, Gaps, TQorLE, TQorLELabel) {
+        var createTooltip = function (title, value) {
+            return {
+                visible: true,
+                template: [title, ": ", kendo.format("{0:N1}", value)].join("")
+            };
+        };
+
+        var prepareSeriesData = function (howMany, callback) {
+            return _.times(howMany, function (i) {
+                if (typeof callback !== undefined) return callback(i, howMany);
+                return 0;
+            });
+        };
+
+        var series = [];
+        var categories = ["OP"];
+        var running = OP;
+        var totalSeries = data.length + (model.waterfall().IncludeGaps() ? 3 : 2);
+
+        var AFELabel = "AFE";
+        var OPLabel = "OP";
+        var GapsLabel = "Gap";
+
+        (function () {
+            series.push({
+                note: "afe",
+                type: "line",
+                color: "#E2A037",
+                data: prepareSeriesData(totalSeries, function (i) {
+                    return AFE;
+                }),
+                width: 1,
+                markers: { visible: false },
+                tooltip: createTooltip(AFELabel, AFE),
+            });
+        }()); // AFE (line)
+
+        (function () {
+            series.push({
+                note: "tq",
+                type: "line",
+                color: "#37BDAC",
+                data: prepareSeriesData(totalSeries, function (i) {
+                    return TQorLE - AFE;
+                }),
+                width: 1,
+                markers: { visible: false },
+                tooltip: createTooltip(TQorLELabel, TQorLE),
+            });
+        }()); // TQ (line)
+
+        (function () {
+            series.push({
+                note: "op",
+                type: "bar",
+                color: "#8AAAE0",
+                stacked: true,
+                data: prepareSeriesData(totalSeries, function (i) {
+                    return (i == 0) ? OP : 0;
+                }),
+                tooltip: createTooltip(OPLabel, OP),
+            });
+        }()); // OP (bar)
+
+        (function () {
+            series.push({
+                note: "tq/le",
+                type: "column",
+                color: "#A48EC1",
+                stacked: true,
+                data: prepareSeriesData(totalSeries, function (i, j) {
+                    return ((i + 1) == j) ? TQorLE : 0;
+                }),
+                tooltip: createTooltip(TQorLELabel, TQorLE),
+            });
+        }()); // TQ/LE (bar)
+
+        var totalItem = 0;
+        (function () {
+            data.forEach(function (each, i) {
+                var eachTotal = each.Realized + each.Unrealized;
+                totalItem += eachTotal;
+
+                if (eachTotal < 0) {
+                    running += eachTotal;
+                }
+
+                categories.push(each.Title);
+
+                series.push({
+                    type: "column",
+                    color: "transparent",
+                    stacked: true,
+                    data: prepareSeriesData(totalSeries, function (j) {
+                        return (j == (i + 1)) ? running : 0;
+                    }),
+                    border: { opacity: 0 },
+                });
+
+                var colorUnreal = "#A0C065";
+                var colorReal = "#C25654";
+                var unreal = each.Unrealized;
+                var real = each.Realized;
+
+                if ((each.Unrealized > 0 && each.Realized < 0) || (each.Realized > 0 && each.Unrealized < 0)) {
+                    if (Math.abs(each.Unrealized) > Math.abs(each.Realized)) {
+                        unreal = each.Unrealized + each.Realized;
+                        colorReal = "#213C69";
+                    }
+                }
+
+                if ((each.Unrealized > 0 && each.Realized < 0) || (each.Realized > 0 && each.Unrealized < 0)) {
+                    if (Math.abs(each.Realized) > Math.abs(each.Unrealized)) {
+                        real = each.Realized + each.Unrealized;
+                        colorUnreal = "#213C69";
+                    }
+                }
+
+                series.push({
+                    note: each.Title + " (Unrealized)" + each.Unrealized,
+                    type: "column",
+                    color: colorUnreal,
+                    stacked: true,
+                    data: prepareSeriesData(totalSeries, function (j) {
+                        return (j == (i + 1)) ? Math.abs(unreal) : 0;
+                    }),
+                    tooltip: createTooltip(each.Title + " (Unrealized)", each.Unrealized),
+                });
+
+                series.push({
+                    note: each.Title + " (Realized)" + each.Realized,
+                    type: "column",
+                    color: colorReal,
+                    stacked: true,
+                    data: prepareSeriesData(totalSeries, function (j) {
+                        return (j == (i + 1)) ? Math.abs(real) : 0;
+                    }),
+                    tooltip: createTooltip(each.Title + " (Realized)", each.Realized),
+                });
+
+                if (eachTotal > 0) {
+                    running += eachTotal;
+                }
+            });
+        }()); // each element
+        Gaps = TQorLE - (OP + totalItem);
+
+        (function () {
+            if (!model.waterfall().IncludeGaps())
+                return;
+
+            series.push({
+                note: "gap space",
+                type: "column",
+                color: "transparent",
+                stacked: true,
+                data: prepareSeriesData(totalSeries, function (i, j) {
+                    return ((i + 2) == j) ? (Gaps < 0 ? TQorLE : running) : 0;
+                }),
+                border: { opacity: 0 },
+            });
+
+            series.push({
+                note: "gap",
+                type: "column",
+                color: "#888279",
+                stacked: true,
+                data: prepareSeriesData(totalSeries, function (i, j) {
+                    return ((i + 2) == j) ? (Gaps < 0 ? Math.abs(Gaps) : Gaps) : 0;
+                }),
+                tooltip: createTooltip(GapsLabel, Gaps),
+            });
+        }()); // Gap (bar)
+
+        if (model.waterfall().IncludeGaps())
+            categories.push("Gap");
+
+        categories.push("Unrisked");
+        categories.push(TQorLELabel);
+        console.log(series);
+        console.log(categories);
+        return {
+            series: series,
+            categories: categories
+        };
+    }
+
+    function makeSeriesFromData(data, AFE, OP, Gaps, TQ, LE, Unrisk) {
+        var seriesRealized = [],
+            seriesUnrealized = [],
+            totalRealized = 0,
+            totalUnrealized = 0;
+
+        var series = [{
+            title: "OP",
+            tooltipLabel: "OP",
+            value: OP,
+            realValue: OP,
+            AFE: AFE,
+            LE: LE,
+            TQ: TQ,
+            Unrisk: Unrisk
+        }];
+
+        var isZero = model.waterfall().IncludeZero();
+
+        data.forEach(function (each) {
+           
+            if (isZero || (!isZero && each.Realized != 0)) {
+                seriesRealized.push({
+                    title: each.Title + "  ",
+                    tooltipLabel: each.Title + " (Realized)  ",
+                    value: each.Realized,
+                    realValue: each.Realized,
+                    AFE: AFE,
+                    LE: LE,
+                    TQ: TQ,
+                    Unrisk: Unrisk
+                });
+                totalRealized += each.Realized;
+            }
+
+            if (isZero || (!isZero && each.Unrealized != 0)) {
+                seriesUnrealized.push({
+                    title: each.Title + "   ",
+                    tooltipLabel: each.Title + " (Unrealized)  ",
+                    value: each.Unrealized,
+                    realValue: each.Unrealized,
+                    AFE: AFE,
+                    LE: LE,
+                    TQ: TQ,
+                    Unrisk: Unrisk
+                });
+
+                totalUnrealized += each.Unrealized;
+            }
+        });
+
+        //var gg = seriesUnrealized[seriesUnrealized.length - 1];
+        //if (gg != undefined) {
+        //    seriesUnrealized.push({
+        //        title: "Unrisked Upside",
+        //        tooltipLabel: "Unrisked Upside",//each.Title + " (Unrealized)  ",
+        //        value: gg.value,
+        //        realValue: gg.realValue,
+        //        AFE: AFE,
+        //        LE: LE,
+        //        TQ: TQ,
+        //    });
+        //}
+        //var arr = ["Competitive Scope  ", "Efficient Execution  ", "Supply Chain Transformation  ", "Technology and Innovation  ", "All Others (P)  "];
+        //arr.forEach(function (c) {
+        //    var wh = Enumerable.From(seriesRealized).FirstOrDefault(undefined, "$.title == '" + c + "'")
+        //    if (wh != undefined) {
+        //        wh.realValue = Math.abs(wh.realValue);
+        //        series.push(wh)
+        //    }
+        //});
+        series = series.concat(_.sortBy(seriesRealized, function (e) { return Math.abs(e.realValue); }));
+
+        console.log(series);
+        var realizedGap = LE - OP - totalRealized;
+        series.push({
+            title: "Realized Gap  ",
+            tooltipLabel: "Realized Gap  ",
+            value: realizedGap,
+            realValue: realizedGap,
+            AFE: AFE,
+            LE: LE,
+            TQ: TQ,
+            Unrisk: Unrisk
+        });
+
+        series.push({
+            title: "LE",
+            tooltipLabel: "LE",
+            summary: "runningTotal",
+            realValue: LE,
+            AFE: AFE,
+            LE: LE,
+            TQ: TQ,
+            Unrisk: Unrisk
+        });
+
+        seriesUnrealized.push({
+            title: "Unrisked Upside",
+            tooltipLabel: "Unrisked Upside",
+            summary: "total",
+            realValue: Unrisk,
+            AFE: AFE,
+            LE: LE,
+            TQ: TQ,
+            Unrisk: Unrisk
+        });
+        // THIS LOGIC BELOW ONLY WORK FOR CLASSIFICATION (to order the categories)
+        //var arr2 = ["Competitive Scope   ", "Efficient Execution   ", "Supply Chain Transformation   ", "Technology and Innovation   ", "All Others (P)   ", "Unrisked Upside"];
+        //arr2.forEach(function (c) {
+        //    var wh = Enumerable.From(seriesUnrealized).FirstOrDefault(undefined, "$.title == '" + c + "'")
+        //    if (wh != undefined) {
+        //        wh.realValue = Math.abs(wh.realValue);
+        //        series.push(wh);
+        //    }
+        //});
+        series = series.concat(_.sortBy(seriesUnrealized, function (e) { return Math.abs(e.realValue); }));
+
+        var num = [OP, AFE, TQ, LE, Gaps];
+        data.forEach(function (d) { num.push(d.Realized); num.push(d.Unrealized); });
+
+        return {
+            data: series,
+            num: num
+        };
+    }
+
+    function waterfall2color(point) {
+        switch (point.dataItem.title) {
+            case "OP":
+                return "#8AAAE0";
+                break;
+
+            case "Realized Gap  ":
+            case "Unrealized Gap  ":
+                return "#888279";
+                break;
+
+            case "TQ / Target":
+            case "TQ / Agreed Target":
+            case "TQ/Target":
+            case "TQ/Agreed Target":
+                return "#A48EC1";
+                break;
+
+            case "LE":
+            case "Last Estimate":
+                return "#A48EC1";
+
+            case "Unrisked Upside":
+                return "#1F1F1F";
+                break;
+        }
+
+        if (point.dataItem.tooltipLabel.indexOf("Realized") > -1) {
+            return "#A0C065";
+        } else {
+            return "#C25654";
+        }
+    }
+
+    function redrawWaterfallByRealised(wf, data) {
+        $("#wtitle-by-realised").html('Waterfall (By Realised / Unrealised) - Breakdown By ' + model.waterfall().GroupBy() + ' (' + model.waterfall().DayOrCost() + ')');
+
+        var d = data.Data;
+        var configMeta = makeSeriesFromData(d.Items, d.AFE, d.OP, d.Gaps, d.TQ, d.LE, d.Unrisk);
+        var config = {
+            dataSource: {
+                data: configMeta.data
+            },
+            chartArea: {
+                background: "",
+                height: 400
+            },
+            seriesDefaults: {
+                overlay: {
+                    gradient: "none"
+                },
+                border: {
+                    opacity: 0.4
+                }
+            },
+            series: [{
+                type: "waterfall",
+                field: "value",
+                categoryField: "title",
+                summaryField: "summary",
+                color: waterfall2color,
+                line: {
+                    visible: false,
+                    width: 0
+                },
+                labels: {
+                    visible: true,
+                    format: "N1",
+                    position: "outsideEnd"
+                },
+                tooltip: {
+                    visible: true,
+                    template: "#: dataItem.tooltipLabel #: #: kendo.format('{0:N1}', dataItem.realValue) #"
+                },
+            }, {
+                type: "line",
+                color: "#E2A037",
+                field: "AFE",
+                markers: {
+                    visible: false
+                },
+                width: 1,
+                tooltip: {
+                    visible: true,
+                    template: 'AFE: #: kendo.format("{0:N1}", dataItem.AFE) #'
+                }
+            }, {
+                type: "line",
+                color: "#37BDAC",
+                field: "TQ",
+                markers: {
+                    visible: false
+                },
+                width: 1,
+                tooltip: {
+                    visible: true,
+                    template: 'TQ/Agreed Target: #: kendo.format("{0:N1}", dataItem.TQ) #'
+                }
+            }],
+            legend: { visible: false, position: "bottom" },
+            valueAxis: {
+                labels: { font: "9px verdana", format: "N1" },
+                majorGridLines: { visible: false }
+            },
+            categoryAxis: {
+                categories: configMeta.categories,
+                labels: { font: "9px verdana", rotation: 40, template: '#= trimIfGreaterThan(value, 25) #' },
+                majorGridLines: { visible: false }
+            },
+        };
+
+        var sumRealized = _.reduce(d.Items, function (m, x) { return m + x.Realized; }, 0);
+        var sumUnrealized = _.reduce(d.Items, function (m, x) { return m + x.Unrealized; }, 0);
+
+        config.valueAxis.max = _.max([d.OP, d.AFE, d.LE, d.TQ, sumRealized, sumUnrealized]) + 5;
+
+        if (!model.waterfall().Scaled()) {
+            if ((d.OP + sumRealized) < 0 || (d.LE + sumUnrealized) < 0) {
+                config.valueAxis.min = _.min([sumRealized, sumUnrealized]) - 5;
+            } else {
+                config.valueAxis.min = 0;
+            }
+        }
+
+        wf.kendoChart(config);
+
+        if (!model.waterfall().IncludeGaps()) {
+            var allGapsData = _.filter(configMeta.data, function (e) { return (e.title.toLowerCase().indexOf("gap") > -1) });
+            _.each(allGapsData, function (e) {
+                var gapsData = e;
+                var gapsIndex = configMeta.data.indexOf(gapsData);
+                console.log("gapsIndex: ", gapsIndex);
+
+                wf.find("tspan:contains('" + gapsData.title + "')").closest("g").hide();
+                wf.find("svg > g:eq(0) > g[opacity]:eq(" + gapsIndex + ")").hide();
+                wf.find("svg > g:eq(0) > g:eq(0) > g[clip-path] > g:eq(" + gapsIndex + ")").hide();
+            });
+        }
+    }
+</script>

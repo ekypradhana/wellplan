@@ -1,0 +1,143 @@
+﻿@{
+    ViewBag.Title = "Maturity Risk Matrix";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<script>
+    model.Yo = {}; var y = model.Yo;
+
+    y.DetailVisibility = ko.observable(false);
+    y.Refresh = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        model.Processing(true);
+        y.DetailVisibility(false);
+
+        var url = "@Url.Action("GetMaturityRiskMatrixData")";
+        var param = y.GetParam({});
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            model.Processing(false);
+            y.DetailVisibility(true);
+            y.GenerateGrid(res.Data);
+        });
+    };
+    y.GenerateGrid = function (data) {
+        var width = $(".the-container:visible").width();
+        var columns = [
+            { field: "Title" },
+            { field: "NPTCost", title: "NPT Cost", format: "{0:N2}", attributes: { style: "text-align: right;" } },
+            { field: "NPTTime", title: "NPT Time", format: "{0:N2}", attributes: { style: "text-align: right;" } },
+            { field: "TECOPCost", title: "TECOP Cost", format: "{0:N2}", attributes: { style: "text-align: right;" } },
+            { field: "TECOPTime", title: "TECOP Time", format: "{0:N2}", attributes: { style: "text-align: right;" } },
+        ];
+        var fields = {
+            Title: { editable: false },
+            NPTCost: { type: "number" },
+            NPTTime: { type: "number" },
+            TECOPCost: { type: "number" },
+            TECOPTime: { type: "number" },
+        };
+
+        var config = {
+            width: width,
+            dataSource: {
+                schema: {
+                    model: {
+                        fields: fields
+                    }
+                },
+                data: data,
+                pageSize: 15
+            },
+            columns: columns,
+            filterable: false,
+            pageable: true,
+            resizable: false,
+            editable: true,
+            sortable: true
+        };
+
+        $('.grid').replaceWith('<div class="grid"></div>');
+        $('.grid').kendoGrid(config);
+    };
+    y.GetChanges = function () {
+        var data = $(".grid").data("kendoGrid").dataSource.data();
+        var filteredData = JSON.parse(kendo.stringify(data));
+
+        return filteredData;
+    };
+    y.SaveUpdate = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        model.Processing(true);
+
+        var url = "@Url.Action("SaveMaturityRiskMatrixData")";
+        var param = y.GetParam({ Changes: y.GetChanges() });
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+
+    $(function () {
+        if ((!y.IsCountry) && (!y.IsRigName) && (!y.IsActivityType)) {
+            y.Refresh();
+            y.DetailVisibility(true);
+        }
+    });
+</script>
+
+<div class="col-md-12" data-bind="with: model.Yo">
+    <div class="controls">
+        @Html.Partial("_Filter")
+
+        <div class="filter">
+            <div class="form-group">
+                <div class="col-md-1"></div>
+                <div class="col-md-11">
+                    <button class="btn btn-sm btn-custom btn-primary" data-bind="click: Refresh">
+                        <span class="glyphicon glyphicon-refresh"></span> Refresh
+                    </button>
+                    <button class="btn btn-sm btn-custom btn-success" data-bind="click: SaveUpdate, visible: DetailVisibility()">
+                        <span class="glyphicon glyphicon-save"></span> Save Changes
+                    </button>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form col-md-12" data-bind="visible: DetailVisibility()">
+        <div class="grid"></div>
+    </div>
+</div>
+
+<style>
+    .form {
+        margin-top: 10px;
+    }
+
+    .no-padding {
+        padding: 0px;
+    }
+</style>

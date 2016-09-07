@@ -1,0 +1,617 @@
+﻿@using ECIS.AppServer.Areas.Shell.Controllers
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using MongoDB.Bson;
+@using Newtonsoft.Json;
+@{
+    string args = @"{ $group:  { _id: { Currency : '$Currency'}, } }";
+    List<BsonDocument> pipelines = new List<BsonDocument>();
+    pipelines.Add(MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(args));
+    var cures = DataHelper.Aggregate("WEISMacroEconomics", pipelines);
+    var CurrencySAll = cures.Select(x => x.GetString("_id.Currency")).ToList();// MacroEconomic.Populate<MacroEconomic>(q, fields: new string[] { "Currency" }).Select(x => x.Currency).Distinct().ToList();
+    List<string> lsiCurrency = new List<string>();
+    //lsiCurrency.Add("Select Currency ...");
+    foreach (var itemCurr in CurrencySAll)
+    {
+        if (!string.IsNullOrEmpty(itemCurr))
+        {
+            lsiCurrency.Add(itemCurr);   
+        }
+    }
+    
+    var LineOfB = LineOfBusiness.Populate<LineOfBusiness>().Select(x => x.Name).ToList();
+    var AssetNames = MasterAssetName.Populate<MasterAssetName>().Select(x => x._id).Distinct().ToList();
+    var FundingTypes = MasterFundingType.Populate<MasterFundingType>().Select(x => x.Name).Distinct().ToList();
+
+    //var mapfilesmonthly = PMaster.Populate<PMaster>(Query.EQ("UpdateBy", WebTools.LoginUser.UserName)).Select(x => x.MapName).Distinct().ToList();
+    var mapfilesmonthly = PMaster.Populate<PMaster>().Select(x => x.MapName).Distinct().ToList();
+    List<string> mapOptionMo = new List<string>();
+    mapOptionMo.Add("Select Map File");
+    foreach (string map in mapfilesmonthly)
+    {
+        mapOptionMo.Add(map);
+    }
+
+    //var mapfilesstandard = PMasterStandard.Populate<PMasterStandard>(Query.EQ("UpdateBy", WebTools.LoginUser.UserName)).Select(x => x.MapName).Distinct().ToList();
+    var mapfilesstandard = PMasterStandard.Populate<PMasterStandard>().Select(x => x.MapName).Distinct().ToList();
+    List<string> mapOptionSt = new List<string>();
+    mapOptionSt.Add("Select Map File");
+    foreach (string map in mapfilesstandard)
+    {
+        mapOptionSt.Add(map);
+    }
+
+    var mapfilesstos = STOS.Populate<STOS>().Select(x => x.MapName).Distinct().ToList();
+    List<string> mapOptionStos = new List<string>();
+    mapOptionStos.Add("Select Map File");
+    foreach (string map in mapfilesstos)
+    {
+        mapOptionStos.Add(map);
+    }  
+}
+
+<style>
+    .filterpalantir {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+        .filterpalantir .col-md-3, .filterpalantir .col-md-4 {
+            padding: 0px;
+            margin: 0px;
+        }
+
+        .filterpalantir .col-md-4 {
+            text-align: right;
+            min-height: 28px;
+        }
+
+            .filterpalantir .col-md-4 label {
+                padding-top: 4px;
+            }
+
+        .filterpalantir .col-md-8 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .filterpalantir .col-md-8 {
+            text-align: left;
+        }
+
+        .filterpalantir .floated {
+            text-align: right;
+            padding-right: 6px;
+            height: 35px;
+            /*text-align: left;
+            padding-left: 80px;
+            height: 35px;
+            margin-top:10px;*/
+        }
+
+        .filterpalantir .not-floated {
+            text-align: left;
+            margin-top: 3px !important;
+            padding-right: 6px;
+            height: 35px;
+        }
+
+    .shell-button {
+        color: white;
+        background-color: #f4b350;
+        border: 1px solid #E2A952;
+        border-radius: 2px;
+        width: 115px;
+        height: 30px;
+    }
+
+    .filterpalantir.disabled {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+</style>
+
+<div class="col-md-12 row filterpalantir" data-bind="with: $root.FilterVisibilityPalantir">
+
+    <!-- by projects -->
+    <div class="col-md-4" data-bind="visible: ProjectNames">
+        <div class="col-md-4">
+            <label>Projects: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="projectNames" data-placeholder="Select projects ..."></select>
+        </div>
+    </div>
+
+    <!-- by wellname -->
+    <div class="col-md-4" data-bind="visible: WellNames">
+        <div class="col-md-4">
+            <label>Well: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="wellNames" data-placeholder="Select wells ..."></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: LineOfBusiness">
+        <div class="col-md-4">
+            <label>Line Of Business: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="LineOfBusiness" data-placeholder="Select Line Of Business ..." style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: Asset">
+        <div class="col-md-4">
+            <label>Asset: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="Asset" data-placeholder="Select Asset ..." style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: FundingType">
+        <div class="col-md-4">
+            <label>Funding Type: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="FundingType" data-placeholder="Select Funding Type ..." style="width: 100%;"></select>
+        </div>
+    </div>
+
+    @*<div class="col-md-4" data-bind="visible: CaseNames">
+        <div class="col-md-4">
+            <label>Case Name: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="CaseNames" data-placeholder="Select case name ..."></select>
+        </div>
+    </div>*@
+
+    <!-- InPlan-->
+    @*<div class="col-md-4 active-well" data-bind="visible: isInPlan">*@
+    <div class="col-md-4" data-bind="visible: InPlan">
+        <div class="col-md-4">
+            <label>In Plan:</label>
+        </div>
+        <div class="col-md-8">
+            <select id="InPlan" data-model="InPlan" style="width: 100%; margin-bottom: 8px !important;"></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: MoneyType">
+        <div class="col-md-4">
+            <label>Money Type:</label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="MoneyType" data-placeholder="Select Money Type ..." style="width: 100%; margin-bottom: 8px !important;"></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: Currency">
+        <div class="col-md-4">
+            <label>Currency:</label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="Currency" data-placeholder="Select Currency ..." style="width: 100%; margin-bottom: 8px !important; "></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: SSTG">
+        <div class="col-md-4">
+            <label>SS or TG:</label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="SSTG" data-placeholder="Select SS or TG ..." style="width: 100%; margin-bottom: 8px !important; "></select>
+        </div>
+    </div>
+
+
+    <div class="col-md-4" data-bind="visible: ReportingEntity">
+        <div class="col-md-4">
+            <label>Reporting Entity: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="ReportingEntity" data-placeholder="Select reporting entity ..."></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: PlanningEntity">
+        <div class="col-md-4">
+            <label>Planning Entity: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="PlanningEntity" data-placeholder="Select planning entity ..."></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: PlanningEntityID">
+        <div class="col-md-4">
+            <label>Planning EntityID: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="PlanningEntityID" data-placeholder="Select planning entityId..."></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: ActivityEntity">
+        <div class="col-md-4">
+            <label>Activity Entity: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="ActivityEntity" data-placeholder="Select activity entity ..."></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: ActivityEntityID">
+        <div class="col-md-4">
+            <label>Activity EntityID: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="ActivityEntityID" data-placeholder="Select activity entityId ..."></select>
+        </div>
+    </div>
+
+
+    <div class="col-md-4" data-bind="visible: PlanClass">
+        <div class="col-md-4">
+            <label>Planning Classification: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="PlanClass" data-placeholder="Select planning classification ..." style="width: 100%; margin-bottom: 8px !important; "></select>
+        </div>
+    </div>
+
+    <div class="clearfix"></div>
+    <div>
+        <div class="col-md-4" data-bind="visible: MapFilemo">
+            <div class="col-md-4">
+                <label>Map File: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="MapFilemo" data-placeholder="Select map file ..." style="width:100%"></select>
+            </div>
+        </div>
+
+        <div class="col-md-4" data-bind="visible: MapFilest">
+            <div class="col-md-4">
+                <label>Map File: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="MapFilest" data-placeholder="Select map file ..." style="width:100%"></select>
+            </div>
+        </div>
+
+        <div class="col-md-4" data-bind="visible: MapFilestos">
+            <div class="col-md-4">
+                <label>Map File: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="MapFilestos" data-placeholder="Select map file ..." style="width:100%"></select>
+            </div>
+        </div>
+        
+        <!-- button reload filter -->
+        <div data-bind="css: { 'col-md-8 floated': FloatedButton(), 'col-md-4 not-floated': !FloatedButton() }">
+            <button class="btn btn-custom btn-sm btn-primary do-filterpalantir">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+            <button class="btn btn-custom btn-sm btn-success do-genspos" data-bind="visible: BtnGenerateSPOS">
+                <span class="glyphicon glyphicon-plus"></span> Generate New Mapping / Import Map File
+            </button>
+            @*<button class="btn btn-custom btn-sm btn-success do-gencapex" data-bind="visible: BtnGenerateCapex">
+                    <span class="glyphicon glyphicon-plus"></span> Generate New Mapping
+                </button>*@
+            <button class="btn btn-custom btn-sm btn-success do-genmpmaster" data-bind="visible: BtnGenerateMpmaster">
+                <span class="glyphicon glyphicon-plus"></span> Generate New Mapping / Import Map File
+            </button>
+            <button class="btn btn-custom btn-sm btn-success do-genspmaster" data-bind="visible: BtnGenerateSpmaster">
+                <span class="glyphicon glyphicon-plus"></span> Generate New Mapping / Import Map File
+            </button>
+
+        </div>
+    </div>
+
+</div>
+
+<script>
+
+    function setShowDataBy(param) {
+        var tt = $(param).attr("data-value");
+        model.showdataby(tt);
+    }
+
+
+    @{
+
+        IMongoQuery qs;
+        qs = Query.NE("IsVirtualWell", true);
+        if (new WaterfallReportController().GetWellListBasedOnEmail().Any(x => x != "*"))
+        {
+            qs = Query.And(Query.In("_id", new BsonArray(new WaterfallReportController().GetWellListBasedOnEmail())), Query.NE("IsVirtualWell", true));
+        }
+        var wells = DataHelper.Populate("WEISWellNames", qs).Select(d => d.GetString("_id")).OrderBy(d => d);
+    }
+
+    // set kendo datasource
+    (function () {
+        model.FilterVisibilityPalantir = {
+            FloatedButton: ko.observable(true),
+            WellNames: ko.observable(true),
+            ProjectNames: ko.observable(true),
+            LineOfBusiness: ko.observable(false),
+            Asset: ko.observable(false),
+            FundingType: ko.observable(false),
+            CaseNames: ko.observable(false),
+            MoneyType: ko.observable(false),
+            Currency: ko.observable(false),
+            SSTG: ko.observable(false),
+            InPlan: ko.observable(false),
+
+            ReportingEntity: ko.observable(false),
+            PlanningEntity: ko.observable(false),
+            PlanningEntityID: ko.observable(false),
+            ActivityEntity: ko.observable(false),
+            ActivityEntityID: ko.observable(false),
+            PlanClass: ko.observable(false),
+
+            BtnGenerateCapex: ko.observable(false),
+            BtnGenerateMpmaster: ko.observable(false),
+            BtnGenerateSpmaster: ko.observable(false),
+            BtnGenerateSPOS: ko.observable(false),
+
+            MapFilemo: ko.observable(false),
+            MapFilest: ko.observable(false),
+            MapFilestos: ko.observable(false)
+        };
+
+        model.MapFilemo = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(mapOptionMo)));
+        model.MapFilest = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(mapOptionSt)));
+        model.MapFilestos = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(mapOptionStos)));
+        var LOBss = ['ARCTIC', 'DEEPWATER', 'INTEGRATED GAS', 'OPERATED', 'JV/NOV', 'UNCONVENTIONALS'];
+        model.LineOfBusiness = ko.observableArray(LOBss);
+        @*model.LineOfBusiness = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(LineOfB)));*@
+        model.Asset = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(AssetNames)));
+        model.FundingType = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(FundingTypes)));
+
+        var InPlanSource = [{ "name": "Yes", "value": "Yes" }, { "name": "No", "value": "No" }, , { "name": "Both", "value": "Both" }];
+        model.InPlan = ko.observableArray(InPlanSource);
+        model.wellNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(wells)));
+        model.projectNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISProjectNames")
+           .Select(d => d.GetString("_id")).OrderBy(d => d))));
+
+        //var MoneyTypeSource = [{ "name": "EDM", "value": "EDM" }, { "name": "MOD", "value": "MOD" }, { "name": "RT", "value": "RT" }, ];
+        model.MoneyType = ko.observableArray([]);
+        //model.MoneyType = ko.observableArray(["EDM", "MOD", "RT"]);
+        @*model.Currency = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(MacroEconomic.Populate<MacroEconomic>(q, fields: new string[]{"Currency"}).Select(x => x.Currency).Distinct().ToList())));*@
+        model.CurrencyS = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(lsiCurrency)));
+        model.SSTG = ko.observableArray([]);
+        @*model.CaseNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(MasterCaseNames.Populate<MasterCaseNames>().Select(x => x.Title).ToList())));*@
+        //model.CaseNames = ko.observableArray([]);
+        model.ReportingEntity = ko.observableArray([]);
+        model.PlanningEntity = ko.observableArray([]);
+        model.PlanningEntityID = ko.observableArray([]);
+        model.ActivityEntity = ko.observableArray([]);
+        model.ActivityEntityID = ko.observableArray([]);
+
+        var PlanClassSource = [{ "name": "In Plan", "value": true }, { "name": "Out Of Plan", "value": false }];
+        model.PlanClass = ko.observableArray(PlanClassSource);
+
+        // return params of filter
+        model.getFilterValuesPalantir = function () {
+            var result = {};
+            $('.filterpalantir').find('select:not([data-model="InPlan"], [data-model="SSTG"], [data-model="PlanClass"], [data-model="Currency"], [data-model="MoneyType"], [data-model="MapFilemo"], [data-model="MapFilest"], [data-model="MapFilestos"])').each(function (i, e) {
+                result[$(e).attr('data-model')] = $(e).data('kendoMultiSelect').value();//, [data-model="Currency"]
+            });
+
+            result['InPlan'] = $('[data-model="InPlan"]').data('kendoDropDownList').value();
+            result['SSTG'] = $('[data-model="SSTG"]').data('kendoDropDownList').value();
+            result['PlanClass'] = $('[data-model="PlanClass"]').data('kendoDropDownList').value();
+            result['Currency'] = $('[data-model="Currency"]').data('kendoDropDownList').value();
+            result['MoneyType'] = $('[data-model="MoneyType"]').data('kendoDropDownList').value();
+            
+            result['MapFilemo'] = $('[data-model="MapFilemo"]').data('kendoDropDownList').value();
+            result['MapFilest'] = $('[data-model="MapFilest"]').data('kendoDropDownList').value();
+            result['MapFilestos'] = $('[data-model="MapFilestos"]').data('kendoDropDownList').value();
+            
+            return result;
+        }
+
+        // detect is filter implemented
+        model.validateFilterImplementationpalantir = function () {
+            if (typeof model.reloadData !== 'undefined') return true;
+
+            //console.error('Filter.cshtml is used but model.reloadData() not yet implemented. model.reloadData() function required for filter action!');
+            return false;
+        }
+
+        model.validateMapFile = function () {
+            if (typeof model.selectedMapFile !== 'undefined') return true;
+
+            return false;
+        }
+    }());
+
+    // prepare filters
+    $(function () {(function () {
+            $('[data-model="InPlan"]').kendoDropDownList({
+                dataSource: [
+                    //{ value: "", name: "Select In Plan ..." },
+                    { value: "Both", name: "Both" },
+                    { value: "Yes", name: "Yes" },
+                    { value: "No", name: "No" }
+                ],
+                dataTextField: "name",
+                dataValueField: "value",
+                //value: model.InPlan().length == 0 ? [] : [model.InPlan()[0]]
+            });
+            var inplan = $('[data-model="InPlan"]').data("kendoDropDownList");
+        @{
+            string path = HttpContext.Current.Request.Url.AbsolutePath;
+            string[] splitPath = path.Split('/');
+            string currentPath = splitPath[splitPath.Length - 1];
+            string defaultInPlan = "";
+            if (currentPath == "STOS")
+            {
+                defaultInPlan = "Yes";
+            }
+            else
+            {
+                defaultInPlan = "Both";
+            }
+        }
+            inplan.value("@defaultInPlan");
+
+            $('[data-model="SSTG"]').kendoDropDownList({
+                dataSource: [
+                    //{ value: "", name: "Select SS or TG ..." },
+                    { value: "Shell Share", name: "Shell Share" },
+                    { value: "Total Gross", name: "Total Gross" }
+                ],
+                dataTextField: "name",
+                dataValueField: "value"
+            });
+            var SSTG = $('[data-model="SSTG"]').data("kendoDropDownList");
+            SSTG.value("Shell Share");
+
+            $('[data-model="PlanClass"]').kendoDropDownList({
+                dataSource: [
+                    { value: "", name: "Select Planning Classification ..." },
+                    { value: "Both", name: "Both" },
+                    { value: "In Plan", name: "In Plan" },
+                    { value: "Out Of Plan", name: "Out Of Plan" },
+
+                ],
+                dataTextField: "name",
+                dataValueField: "value",
+                value: model.PlanClass().length == 0 ? [] : [model.PlanClass()[0]]
+            });
+
+            $('[data-model="Currency"]').kendoDropDownList({
+                dataSource: model.CurrencyS()//,
+                //value: model.CurrencyS().length == 0 ? [] : ["USD"]
+            });
+            var currency = $('[data-model="Currency"]').data("kendoDropDownList");
+            currency.value("USD");
+
+            $('[data-model="MoneyType"]').kendoDropDownList({
+                dataSource: [
+                     //{ value: "", name: "Select Money Type ..." },
+                     { value: "EDM", name: "EDM" },
+                     { value: "MOD", name: "MOD" },
+                     { value: "RT", name: "RT" }
+                ],
+                dataTextField: "name",
+                dataValueField: "value"
+            });
+            var MoneyType = $('[data-model="MoneyType"]').data("kendoDropDownList");
+            MoneyType.value("EDM");
+
+            $('[data-model="MapFilemo"]').kendoDropDownList({
+                dataSource: model.MapFilemo(),
+                value: model.MapFilemo().length == 0 ? [] : [model.MapFilemo()[0]],
+                select: function (e) {
+                    var dataItem = this.dataItem(e.item);
+
+                    if (model.validateMapFile())
+                        model.selectedMapFile(dataItem);
+                }
+            });
+            
+            $('[data-model="MapFilest"]').kendoDropDownList({
+                dataSource: model.MapFilest(),
+                value: model.MapFilest().length == 0 ? [] : [model.MapFilest()[0]],
+                select: function (e) {
+                    var dataItem = this.dataItem(e.item);
+
+                    if (model.validateMapFile())
+                        model.selectedMapFile(dataItem);
+                }
+            });
+            
+            $('[data-model="MapFilestos"]').kendoDropDownList({
+                dataSource: model.MapFilestos(),
+                value: model.MapFilestos().length == 0 ? [] : [model.MapFilestos()[0]],
+                select: function (e) {
+                    var dataItem = this.dataItem(e.item);
+
+                    if (model.validateMapFile())
+                        model.selectedMapFile(dataItem);
+                }
+            });
+        }());
+
+        function prepareFilterspalantir(callbackEachFilterpalantir) {
+            if (typeof callbackEachFilterpalantir === 'undefined') {
+                callbackEachFilterpalantir = function (c, i, e) { return c; };
+            }
+
+            // prepare filters
+            $('.filterpalantir').find('select:not([data-model="InPlan"], [data-model="SSTG"], [data-model="PlanClass"], [data-model="Currency"], [data-model="MoneyType"], [data-model="MapFilemo"], [data-model="MapFilest"], [data-model="MapFilestos"])').each(function (i, e) {
+
+                var config = {
+                    placeholder: $(e).attr('data-placeholder'),
+                    dataSource: { data: model[$(e).attr('data-model')]() },
+                    filter: "contains",
+                    value: (function (v) { return typeof v === 'undefined' ? '' : v; }($(e).attr('data-value')))
+                };
+
+                $(e).kendoMultiSelect(config);
+            });
+        }
+
+        // seqeuence filter feature
+        $(function () {
+            var enableFilterTargetsPalantir = function (bool) {
+                (function ($f) { (bool ? $f.removeClass('disabled') : $f.addClass('disabled')) }($('.filterpalantir')));
+            };
+
+            prepareFilterspalantir(function (config, i, e) {
+
+            });
+        }());
+
+        // filter action
+        $('.filterpalantir').find('.do-filterpalantir').on('click', function () {
+            if (model.validateFilterImplementationpalantir())
+                model.reloadData();
+        });
+
+        $('.do-genmpmaster').on('click', function () {
+            var url = "@Url.Action("GeneratePMaster")";
+            location.href = url;
+        });
+        $('.do-genspmaster').on('click', function () {
+            var url = "@Url.Action("GenerateStandardPMaster")";
+            location.href = url;
+        });
+        $('.do-genspos').on('click', function () {
+            var url = "@Url.Action("GenerateSTOS")";
+            location.href = url;
+
+            @*var url = "@Url.Action("GenerateSTOSReport")";
+            model.IsProcessing(true);
+            ajaxPost(url, {}, function (res) {
+                if (res.Result == "OK") {
+                    alert("Generating STOS Data Complete!");
+                    model.IsProcessing(false);
+                    model.reloadData();
+                } else {
+                    alert("Generating Failed!");
+                    //model.AnyDataMasterWellPlan(false);
+                }
+            }, function (res) {
+                alert("Generating Failed!");
+            });*@
+
+        });
+    });
+
+    $(function () {
+        model.validateFilterImplementationpalantir();
+        model.validateMapFile();
+    });
+</script>

@@ -1,0 +1,28 @@
+﻿[
+{$group:{
+	_id:{
+		CATEGORY: "${0}",
+		MOBILE_NUM: "$IMEI"
+	},
+	CALL_DURATION:{$sum:"$DURATION"},
+	DATA_DURATION:{$sum:"$DURATION"},
+	DURATION:{$sum:"$DURATION"},
+	SMS:{$sum:"$SMS"},
+	VOLUME:{$sum:"$VOLUME_TOTAL"},
+	VOLUME_UPLINK:{$sum:"$VOLUME_UPLINK"},
+	VOLUME_DOWNLINK:{$sum:"$VOLUME_DOWNLINK"},
+	COUNT:{$sum:1}
+}},
+{$group:{
+	_id: "$_id.CATEGORY",
+	CALL_DURATION:{$sum:"$CALL_DURATION"},
+	DATA_DURATION:{$sum:"$DATA_DURATION"},
+	SMS:{$sum:"$SMS"},
+	DURATION:{$sum:"$DURATION"},
+	VOLUME:{$sum:"$VOLUME"},
+	VOLUME_UPLINK:{$sum:"$VOLUME_UPLINK"},
+	VOLUME_DOWNLINK:{$sum:"$VOLUME_DOWNLINK"},
+	SUBSCOUNT: {$sum:1},
+	TRXCOUNT:{$sum:"$COUNT"}
+}}
+]

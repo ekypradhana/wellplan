@@ -1,0 +1,303 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+@{
+    ViewBag.Title = "Rig Escalation Factor";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    model.RigEscalation = {}; var self = model.RigEscalation;
+    self.Data = ko.observableArray([]);
+    self.MaxYear = ko.observable(moment(new Date()).year());
+    self.MinYear = ko.observable(moment(new Date()).year());
+    self.Mode = ko.observable('');
+    self.AddTitle = ko.observable('');
+    self.RigNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+            DataHelper.Populate("WEISRigNames").Select(d => d.GetString("_id")).OrderBy(d => d)
+    )));
+    self.GetData = function (callback) {
+        var url = "@Url.Action("GetRigEscalationData")";
+        var param = {};
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+            }
+
+            self.Data(res.Data);
+            model.Processing(false);
+            callback();
+        });
+    };
+    self.Delete = function (id) {
+        var url = "@Url.Action("DeleteRigRate")";
+        var param = { id: id };
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+            }
+
+            self.Refresh();
+            model.Processing(false);
+        });
+    };
+    self.GenerateColumnsAndFields = function () {
+        var columns = [{
+            title: "Rig Name",
+            field: "Title",
+            width: 150,
+            locked: true,
+            //locked: true
+        }];
+        var fields = {}
+        var years = [];
+
+        if (self.Data().length > 0) {
+            var sampleData = self.Data()[0];
+
+            for (var i in sampleData) {
+                if (sampleData.hasOwnProperty(i)) {
+                    if (i.indexOf("Year_") > -1) {
+                        years.push(parseInt(i.replace(/Year_/g, ''), 10));
+                    }
+                }
+            }
+        }
+
+        var min = _.min(years);
+        var max = _.max(years);
+
+        for (var i = min; i <= max; i++) {
+            columns.push({
+                title: "FY" + String(i).slice(2) + " (%)",
+                field: "Year_" + i,
+                attributes: { style: "text-align: right" },
+                format: "{0:N2}",
+                width: 100,
+                editable: true,
+                editor: function (container, option) {
+                    var input = $("<input data-bind=\"value:" + option.field + "\" data-min=\"0" + "\" data-max=\"100" + "\"></input>");
+                    input.appendTo(container);
+                    input.kendoNumericTextBox({
+                    })
+                },
+            });
+
+            fields["Year_" + i] = { type: "number" };
+        }
+
+        self.MinYear(min);
+        self.MaxYear(max);
+
+        return {
+            columns: columns,
+            fields: fields
+        };
+    };
+    self.RenderGrid = function () {
+        var columnsAndFields = self.GenerateColumnsAndFields();
+        var config = {
+            dataSource: {
+                schema: {
+                    model: {
+                        fields: {
+                            Title: { editable: false, locked: true },
+                        }
+                    }
+                },
+                data: self.Data(),
+                pageSize: 15
+            },
+            columns: columnsAndFields.columns,
+            filterable: false,
+            pageable: true,
+            resizable: false,
+            editable: true,
+            sortable: true
+        };
+        console.log(config);
+
+        $(".grid").replaceWith("<div class='grid'></div>");
+        $(".grid").kendoGrid(config);
+    };
+    self.SaveUpdate = function () {
+        var data = $(".grid").data("kendoGrid").dataSource.data();
+        var filteredData = JSON.parse(kendo.stringify(_.filter(data, { dirty: true })));
+
+        if (filteredData.length == 0) {
+            alert("No changes");
+            return;
+        }
+
+        model.Processing(true);
+
+        var url = "@Url.Action("UpdateRigEscalation")";
+        var param = { changes: filteredData };
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+            }
+
+            self.Refresh();
+            model.Processing(false);
+        });
+    };
+    self.AddMoreYear = function () {
+        model.Processing(true);
+
+        var url = "@Url.Action("AddRigEscalationYear")";
+        var param = {};
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+            }
+
+            self.Refresh();
+        });
+    };
+    self.AddRig = function () {
+        $(".form-add .form-group:gt(0)").remove();
+        self.AddTitle('');
+        self.Mode('Add');
+
+        //for (var i = self.MinYear() ; i <= self.MaxYear() ; i++) {
+        //    var input = $("#add-form-input").html();
+        //    $(".form-add").append(input);
+        //    $(".form-add .form-group:last .year").html('Year ' + i);
+        //    $(".form-add .form-group:last .value").kendoNumericTextBox({
+        //        value: 0
+        //    });
+        //}
+    };
+    self.BackToMain = function () {
+        self.Mode('');
+    };
+    self.ParseNewData = function () {
+        var result = { Title: self.AddTitle() };
+
+        $(".form-add .form-group:gt(0)").each(function (i, e) {
+            var year = $(e).find(".year").html().replace(/ /g, "_");
+            var value = $(e).find("input:eq(1)").data("kendoNumericTextBox").value();
+
+            result[year] = value;
+        });
+
+        return result;
+    };
+    self.SaveAdd = function () {
+        var url = "@Url.Action("AddRigEscalation")";
+        var param = { insert: self.ParseNewData() };
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+            }
+
+            self.Mode('');
+            self.Refresh();
+        });
+    };
+    self.Refresh = function () {
+        self.GetData(function () {
+            self.RenderGrid();
+        });
+    };
+
+    $(function () {
+        self.Refresh();
+    });
+</script>
+
+<script type="text/template" id="add-form-input">
+    <div class="form-group">
+        <div class="col-md-4">
+            <span class="year"></span>
+        </div>
+        <div class="col-md-8">
+            <input class="value" type="text" style="width: 100%;" />
+        </div>
+    </div>
+</script>
+
+<div class="col-md-12" data-bind="with: model.RigEscalation">
+    <div data-bind="visible: (Mode() == '')">
+        <div class="controls">
+            <button class="btn btn-sm btn-custom btn-primary" data-bind="click: Refresh">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+            <button class="btn btn-sm btn-custom btn-success" data-bind="click: SaveUpdate">
+                <span class="glyphicon glyphicon-save"></span> Save Changes
+            </button>
+            &nbsp;
+            <button class="btn btn-sm btn-custom btn-warning" data-bind="click: AddMoreYear">
+                <span class="glyphicon glyphicon-plus"></span> Add More Year
+            </button>
+            @*<button class="btn btn-sm btn-custom btn-warning" data-bind="click: AddRig">
+                    <span class="glyphicon glyphicon-plus"></span> Add Rig
+                </button>*@
+        </div>
+        @*<div class="clearfix">
+                <label>* All values in 1000 US$ </label>
+            </div>*@
+        <div class="grid"></div>
+    </div>
+
+    <div data-bind="visible: (Mode() == 'Add')">
+        <div class="controls">
+            <button class="btn btn-sm btn-custom btn-primary" data-bind="click: BackToMain">
+                <span class="glyphicon glyphicon-chevron-left"></span> Back to Grid
+            </button>
+            <button class="btn btn-sm btn-custom btn-success" data-bind="click: SaveAdd">
+                <span class="glyphicon glyphicon-save"></span> Save Changes
+            </button>
+            <div class="clearfix"></div>
+        </div>
+        <form class="form-add">
+            <div class="form-group">
+                <div class="col-md-4">
+                    <span>Rig Name</span>
+                </div>
+                <div class="col-md-8">
+                    <input id="rig-names" type="text" style="width: 100%;" data-bind="kendoAutoComplete:{data:RigNames, value:AddTitle}" />
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .form-add {
+        width: 400px;
+    }
+
+        .form-add .form-group {
+            height: 14px;
+        }
+
+            .form-add .form-group .col-md-4 {
+                padding-top: 5px;
+            }
+
+    .controls {
+        margin-bottom: 10px;
+    }
+</style>

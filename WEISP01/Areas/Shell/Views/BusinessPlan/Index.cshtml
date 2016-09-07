@@ -1,0 +1,683 @@
+﻿
+@{
+    ViewBag.Title = "Business Plan Simulation";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+<style>
+    .k-grid .k-state-selected {
+        background-color:aliceblue;
+    }
+    #gridsimulationheader .k-grid-content-locked {
+        height: auto !important;
+    }
+    #gridsimulationheader .k-grid-content {
+        height: auto !important;
+    }
+</style>
+<script>
+    model.PageId("Multi Simulation");
+    model.IsProcessing = ko.observable(false);
+    model.IsCompProcessing = ko.observable(false);
+    model.NewSimulationId = ko.observable();
+    model.SimulationId = ko.observable(),
+    model.SimulationTitle = ko.observable(),
+    model.SimulationWellName = ko.observable(),
+    model.SimulationRigName = ko.observable(),
+    model.SimulationSequenceId = ko.observable(),
+    model.NewSimulationTitle = ko.observable(),
+    model.EventTitle = ko.observable("")
+    model.NewSimulationCopyFrom = ko.observableArray();
+    model.filterheader = ko.observable(""),
+    model.filterdetail = ko.observableArray(),
+    model.CopyFromValue = ko.observable(),
+    model.Locked = ko.observable(),
+    model.LockStatus = ko.observable(),
+    
+    model.bpmodel = ko.observable({
+        isNew   : ko.observable(false),
+        RigName: ko.observable(""),
+        RigNameVal: ko.observable(),
+        WellNameVal: ko.observable(),
+        ActivityTypeVal: ko.observable(),
+        WellName: ko.observableArray(),
+        ActivityType: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate<WellActivity>("WEISWellActivities")
+            .SelectMany(d => d.Phases).GroupBy(d => d.ActivityType).Where(d=>d.Key != "n/a").Select(d => d.Key).OrderBy(d => (d.Equals("n/a") ? "" : d))))),
+        Comparison: ko.observableArray(),
+        ComparisonVal: ko.observable(),
+        simulationIds: ko.observableArray([]),
+        ExType: ko.observable(""),
+        SimulationDays: ko.observable(0),
+        SimulationCost: ko.observable(0),
+        SimulationStart: ko.observable(new Date()),
+        OPDays: ko.observable(0),
+        OPCost: ko.observable(0),
+        LSDays: ko.observable(0),
+        LSCost: ko.observable(0),
+        LEDays: ko.observable(0),
+        LECost: ko.observable(0),
+        mode: ko.observable(""),
+        changeMode: function (mode, pageTitle) {
+            if (mode == '') pageTitle = "Business Plan Simulation"; SearchDataSimulation(); model.NewSimulationCopyFrom(); getCopyFrom();
+                
+            if (mode == 'addSimulation') {
+                getSimulationId();
+            }
+
+            model.bpmodel().mode(mode);
+            setPageTitle(pageTitle);
+        },
+        detail:function(simulationId){
+            model.bpmodel().changeMode("detailSimulation", "Business Plan Simulation -- Detail Simulation");
+            model.SimulationId(simulationId);
+            SelectDataSimulation(simulationId);
+            SelectData(simulationId);
+            //$("#gridsimulationheader tbody .k-state-selected").css({
+            //    "background-image": "none",
+            //    "background-color": "blue"
+            //});
+        },
+        DeleteSimulation: function () {
+            var conf = confirm("Are you sure you want to delete '" + model.SimulationTitle().replace("Simulation : ", "") + "' simulation and all related data?");
+            if (!conf) {
+                return;
+            }
+
+            model.IsProcessing(true);
+            ajaxPost("@Url.Action("DeleteSimulation")", { ID: model.SimulationId()}, function (res) {
+                model.IsProcessing(false);
+                if (res.Result != "OK") {
+                    //getCopyFrom();
+                    alert("Something error when deleting simulation. " + res.Message);
+                    return;
+                }
+                model.bpmodel().changeMode("");
+            });
+        },
+        detailByWell: function (WellId,RigName,SequenceId,SimulationId) {
+            //SelectEvent(WellId);
+            model.SimulationWellName(WellId);
+            model.SimulationRigName(RigName);
+            model.SimulationSequenceId(SequenceId);
+            var evtitle = model.SimulationTitle() + "  WellName : " + model.SimulationWellName();
+            model.EventTitle(evtitle);
+            GetDetailByWell(WellId, RigName, SequenceId, SimulationId);
+            model.bpmodel().changeMode("detailByWell", "Business Plan Simulation -- Detail Simulation -- Detail By Well");
+        },
+        simulationColumns: [
+                            { field: "SimulationId", title: "Simulation Id",template:"<a style='cursor:pointer' onclick='model.bpmodel().detail(\"#=SimulationId#\")'>#=SimulationId#</a>" },
+                            { field: "Title", title: "Title" },
+                            { field: "CreatedBy", title: "Created By" },
+                            { title: "2015", columns: [{ field: "Days", title: "Days" }, { field: "Cost", title: "Cost" }] },
+                            { title: "2016", columns: [{ field: "Days", title: "Days" }, { field: "Cost", title: "Cost" }] },
+                            { title: "2017", columns: [{ field: "Days", title: "Days" }, { field: "Cost", title: "Cost" }] },
+        ],
+        sampleDataSimulation: [
+            { SimulationId: "201508001236", Title: "15 July 2015 - v3", CreatedBy: "Hector Romeo Juliet", Days: "100", Cost: "100" }
+        ] 
+    });
+   
+    SaveWell = function () {
+
+        var param = {
+            pSimulationId      : model.SimulationId(),
+            pIsNew             : model.bpmodel().isNew(),
+            pRigName           : model.bpmodel().RigNameVal(),
+            pWellName          : model.bpmodel().WellNameVal(),
+            pActivityType      : model.bpmodel().ActivityTypeVal(),
+            pExType            : model.bpmodel().ExType(),
+            pSimulationStart   : model.bpmodel().SimulationStart(),
+            pSimulationDays    : model.bpmodel().SimulationDays(),
+            pSimulationCost    : model.bpmodel().SimulationCost(),
+            pOPDays            : model.bpmodel().OPDays(),
+            pOPCost : model.bpmodel().OPCost(),
+            pLSDays : model.bpmodel().LSDays(),
+            pLSCost : model.bpmodel().LSCost(),
+            pLEDays : model.bpmodel().LEDays(),
+            pLECost : model.bpmodel().LECost()
+        };
+        if (param.pWellName == "") {
+            alert("Please choose the WellName!");
+            return;
+        }
+        if (param.pRigName == "") {
+            alert("Please choose the RigName!");
+            return;
+        }
+        if (param.pExType == "") {
+            alert("Please choose the Expense Type!");
+            return;
+        }
+        if (param.pActivityType == "") {
+            alert("Please choose the Activity Type!");
+            return;
+        }
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("SaveWellData")", param, function (res) {
+            if (res.Result == "OK") {
+                model.IsProcessing(false);
+                alert("New Well Succesfully Saved!");
+                $("#modal-add-well").modal("hide");
+                SelectData(model.SimulationId());
+            } else {
+                model.IsProcessing(false);
+                alert(res.Message);
+            }
+            
+        });
+    }
+    add = function () {
+        model.bpmodel().isNew(false);
+        model.bpmodel().RigNameVal("");
+        model.bpmodel().WellNameVal("");
+        model.bpmodel().ActivityTypeVal("");
+        model.bpmodel().SimulationStart(new Date());
+        model.bpmodel().SimulationDays(0);
+        model.bpmodel().SimulationCost(0);
+        model.bpmodel().OPDays(0);
+        model.bpmodel().OPCost(0);
+        model.bpmodel().LEDays(0);
+        model.bpmodel().LECost(0);
+        model.bpmodel().LSDays(0);
+        model.bpmodel().LSCost(0);
+        $("#modal-add-well").modal("show");
+    },
+    addcomparison = function () {
+        $("#modal-add-comparison").modal("show");
+    }
+    getSimulationId = function () {
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("GetSimulationId")", {}, function (res) {
+            model.NewSimulationId(res.Data);
+            model.IsProcessing(false);
+
+        });
+    }
+
+    getCopyFrom = function () {
+        ajaxPost("@Url.Action("GetCopyFrom")", {}, function (res) {
+            model.NewSimulationCopyFrom(res.Data);
+        });
+    }
+
+    getWellName = function () {
+        ajaxPost("@Url.Action("getWellName")", {},function(res){
+            model.bpmodel().WellName(res.Data);
+        });
+    }
+    getRigName = function () {
+        ajaxPost("@Url.Action("getRigName")", {},function(res){
+            model.bpmodel().RigName(res.Data);
+        });
+    }
+    getComparison = function () {
+        ajaxPost("@Url.Action("GetComparisonSelect")", {},function(res){
+            model.bpmodel().Comparison(res.Data);
+        });
+    }
+
+    function SearchDataSimulation(simulationId) {
+        //alert(simulationId);
+        var filter = model.filterheader();
+        if (simulationId != "")
+            filter = filter;
+        var url = "@Url.Action("GetSimulationHeader")";
+        model.IsProcessing(true);
+        ajaxPost(url, {filter:filter},
+            function (data,i) {
+                model.IsProcessing(false);
+                model.bpmodel().MinYear = _.min(data.Data.Year);
+                model.bpmodel().MaxYear = _.max(data.Data.Year);
+                //getWellName(); getRigName(); getComparison();
+                if (simulationId == "" || simulationId == null) {
+                    RenderGridSimulation(data.Data.Detail);
+                    model.SimulationTitle("Simulation : " + data.Data.Detail[0].Title);
+                } else {
+                    
+                    RenderGridSimulationHeader(data.Data.Detail);
+                    model.SimulationTitle("Simulation : " + data.Data.Detail[0].Title);
+                }
+            },
+            function (err) {
+                alert(err.responseText)
+            }
+        );
+    }
+
+    function SelectDataSimulation(simulationId) {
+        //alert(simulationId);
+        var filter = simulationId;
+        var url = "@Url.Action("SelectSimulationHeader")";
+        model.IsCompProcessing(true);
+        model.SequenceChart.reloadData();
+        ajaxPost(url, {filter:filter},
+            function (data) {
+                model.IsCompProcessing(false);
+                model.bpmodel().MinYear = _.min(data.Data.Year);
+                model.bpmodel().MaxYear = _.max(data.Data.Year);
+
+                if (data.Result == "OK") {
+                    //getWellName(); getRigName();
+                    if (simulationId == "" || simulationId == null) {
+                        model.SimulationTitle("Simulation : " + data.Data.Detail[0].Title);
+                        RenderGridSimulation(data.Data.Detail);
+                    } else {
+                        model.Locked(data.Data.Detail[0].Locked);
+                        model.SimulationTitle("Simulation : " + data.Data.Detail[0].Title);
+                        RenderGridSimulationHeader(data.Data.Detail);
+
+                        try {
+                            if (model.Locked()) {
+                                model.LockStatus("Unlock This!");
+                                $("*.btn-del-comparison").hide(); $("*.btn-del-well").hide();
+                                document.getElementById("addwell").disabled = true;
+                                document.getElementById("addcomparison").disabled = true;
+                                document.getElementById("addeventwell").disabled = true;
+                                document.getElementById("saveEvent").disabled = true;
+                                document.getElementById("lock").className = "btn btn-danger btn-sm btn-custom";
+                            } else {
+                                model.LockStatus("Lock This!");
+                                $("*.btn-del-comparison").show(); $("*.btn-del-well").show();
+                                document.getElementById("addeventwell").disabled = false;
+                                document.getElementById("addcomparison").disabled = false;
+                                document.getElementById("addevent").disabled = false;
+                                document.getElementById("saveEvent").disabled = false;
+                                document.getElementById("lock").className = "btn btn-success btn-sm btn-custom";
+                            }
+                        } catch (err) {
+                            console.log(err);
+                        }
+                    }
+                    
+                }
+            },
+            function (err) {
+                alert(err.responseText)
+            }
+        );
+    }
+
+    function RenderGridSimulation(data) {
+        var gridColumns = [];
+        
+        var $grid = $("#gridsimulation").html("");
+        //$("#gridsimulation").replaceWith('<div class="gridsimulation"></div>');
+        gridColumns = [{
+            field: "SimulationId",
+            title: "Simulation Id",
+            width: 150,
+            locked: true,
+            template: "<a style='cursor:pointer' onclick='model.bpmodel().detail(\"#=SimulationId#\")'>#=SimulationId#</a>"
+        }, {
+            field: "Title",
+            title: "Title",
+            width: 150,
+            locked:true
+        }, {
+            field: "CreatedBy",
+            title: "Created By",
+            width: 150
+        }
+        ,
+        {
+            field: "Copy",
+            title: "Type",
+            width: 150
+        }
+        ];
+        for (var i = model.bpmodel().MinYear; i <= model.bpmodel().MaxYear; i++) {
+
+            gridColumns.push({
+                title: "Year " + i,
+                columns: [
+                     {
+                         title: "Days", field: "Days_" + i, width: 120, attributes: { style: "text-align: right;" }, format: "{0:N2}"
+                     },
+                    {
+                        title: "Cost (US$m)", width: 120, field: "Cost_" + i, attributes: { style: "text-align: right;" }, format: "{0:N2}"
+                    }
+                ]
+            });
+        }
+        var source = new kendo.data.DataSource({
+            pageSize: 10,
+            data: data,
+            batch : true
+        });
+
+        $grid.kendoGrid({
+            dataSource: source,
+            pageable: {
+                //pageSizes: true,
+                buttonCount: 10
+            },
+            navigatable: true,
+            editable: false,
+            //toolbar: ["create", "cancel"],
+            sortable: true,
+            filterable: false,
+            columns: gridColumns
+        });
+    }
+
+    function GetDetailByWell(WellName, RigName, SequenceId,SimulationId) {
+        if (typeof RigName == "undefined") RigName = model.SimulationRigName();
+        if (typeof SequenceId == "undefined") SequenceId = model.SimulationSequenceId();
+        var param = {wellName: WellName, rigName: RigName, sequenceId : SequenceId ,SimulationId:SimulationId}
+        ajaxPost("@Url.Action("GetDetailByWell")", param,
+            function (res) {
+
+                if (res.Result != "OK") {
+                    alert(res.Message);
+                    return;
+                }
+               
+                var source = new kendo.data.DataSource({
+                    pageSize: 10,
+                    data: res.Data,
+                    model: {
+                                fields: {
+                                    "WellName": { editable: false },
+                                    "RigName": { editable: false },
+                                    "SimSchedule.Start": { editable: false },
+                                    "SimSchedule.Finish": { editable: false },
+                                    "SimSchedule.Days": { editable: false },
+                                    "SimSchedule.Cost": { editable: false },
+                                    "OP.Days": { editable: false },
+                                    "OP.Cost": { editable: false },
+                                    "LS.Days": { editable: false },
+                                    "LS.Cost": { editable: false },
+                                    "LE.Days": { editable: false },
+                                    "LE.Cost": { editable: false }
+                                }
+                    },
+                    batch: true
+                });
+                var a = $("#gridDetailEvent").data("kendoGrid");
+                a.setDataSource(source);
+                //model.bpmodel().sampleDataDetailEvent(res.Data);
+            }
+        );
+    }
+
+    function RenderGridSimulationHeader(data) {
+        var gridColumns = [];
+        var $grid = $("#gridsimulationheader").html("");
+        //$("#gridsimulationheader").replaceWith('<div class="gridsimulationheader"></div>');
+        var htmldel = "";
+        
+
+        gridColumns = [
+         { field: "", title: "Delete", template: function (d) {
+             var style = "";
+             if (d.CompNo == 0 || model.Locked()) {
+                 style = "style='display:none;'";
+             } else {
+                 style = "style=''";
+             }
+
+             return "<button class='btn-xs btn btn-danger btn-del-comparison' onclick='DeleteSimulationHeader(\"" + d.SimulationId +"\"," + d.CompNo +")' " + style + ">Delete</button>";
+         }, width: 70, attributes: { style: 'text-align:center;' }, locked: true },
+         {
+            field: "SimulationId",
+            title: "Simulation Id",
+            width: 150,
+            locked: true
+        }, {
+            field: "Title",
+            title: "Title",
+            width: 150,
+            locked: true
+        }, {
+            field: "CreatedBy",
+            title: "Created By",
+            width: 150
+        },
+         {
+             field: "Copy",
+             title: "Type",
+             width: 150
+         }];
+
+        for (var i = model.bpmodel().MinYear; i <= model.bpmodel().MaxYear; i++) {
+  
+            gridColumns.push({
+                title: "Year " + i,
+                columns: [
+                     {
+                         title: "Days", field: "Days_" + i, width: 120, attributes: { style: "text-align: right;" }, format: "{0:N2}"
+                     },
+                    {
+                        title: "Cost (US$m)", width: 120, field: "Cost_" + i, attributes: { style: "text-align: right;" }, format: "{0:N2}"
+                    }
+                ]
+            });
+        }
+        var source = new kendo.data.DataSource({
+            pageSize: 10,
+            data: data,
+            batch: true
+        });
+        
+        $grid.kendoGrid({
+            dataSource: source,
+            pageable: {
+                //pageSizes: true,
+                buttonCount: 10
+            },
+            navigatable: true,
+            editable: false,
+            //toolbar: ["create", "cancel"],
+            sortable: true,
+            filterable: false,
+            columns: gridColumns
+        });
+  
+        setTimeout(function () {
+            $grid.data("kendoGrid").refresh();
+        }, 500);
+    }
+
+    saveSimulation = function () {
+        var param = {
+            SimulationId: model.NewSimulationId(),
+            Title: model.NewSimulationTitle(),
+            CopyFrom: model.CopyFromValue(),
+            locked : false
+        };
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("SaveSimulation")", param, function (res) {
+            model.IsProcessing(false);
+
+            if (res.Result == "OK") {
+                //getCopyFrom();
+                alert("New Simulation Have been saved!");
+                model.bpmodel().detail(model.NewSimulationId());
+            } else {
+                alert(res.Message);
+            }
+            model.NewSimulationTitle("");
+            //model.NewSimulationCopyFrom("");
+            getSimulationId();
+            getComparison();
+        });
+
+    }
+
+    LockSimulation = function () {
+        var mess=""; var locked;
+        if (model.Locked()) {
+            locked = false; mess = "Unlock!";
+        } else {
+            locked = true; mess = "Lock!";
+        }
+        var param = {
+            SimId: model.SimulationId(),
+            locked: locked
+        };
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("LockedSimulation")", param, function (res) {
+            if (res.Result == "OK") {
+                //getCopyFrom();
+                alert("Simulation Success " + mess);
+                model.bpmodel().detail(model.SimulationId());
+            } else {
+                alert(res.Message);
+            }
+            model.NewSimulationTitle("");
+        });
+    }
+
+    SaveComparison = function () {
+        var length = 0;
+        try { length = $("#gridsimulationheader").data("kendoGrid").dataSource.data().length; } catch (err) {}
+        if (length >= 5) {
+            alert("Max comparison is 5");
+            return;
+        }
+        if (model.bpmodel().ComparisonVal() === undefined) {
+            model.bpmodel().ComparisonVal("Current OP");
+        }
+        var param = {
+            CurId : model.SimulationId(),
+            CompareId: model.bpmodel().ComparisonVal()
+        }
+        model.IsCompProcessing(true);
+        ajaxPost("@Url.Action("SaveComparison")", param, function (res) {
+
+            if (res.Result == "OK") {
+                SelectDataSimulation(model.SimulationId());
+                alert("Comparison successfully added!");
+                $("#modal-add-comparison").modal("hide");
+                //model.bpmodel().detail(model.NewSimulationId());
+            } else {
+                alert(res.Message);
+            }
+            model.IsCompProcessing(false);
+            
+        });
+    };
+
+    DeleteSimulationHeader = function (id, comp) {
+        var conf = confirm("Are you sure you want to delete this comparison?");
+        if (conf) {
+           
+            ajaxPost("@Url.Action("DeleteComparison")", { SimId: id, CompNo: comp }, function (res) {
+                model.bpmodel().detail(model.SimulationId());
+            });
+        }
+    }
+
+</script>
+<style>
+    .no-padding{
+        padding:0px;
+    }
+    .PSTitle {
+        font-size: 24px;
+        font-weight: bold;
+    }
+</style>
+
+
+<div style="padding: 0px 0px 15px;">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing() && model.bpmodel().mode() == ''">
+        <div class="ec-toolbar" style="margin-left:15px">
+            <div class="col-md-8">
+                <label>Search :</label>
+                <input type="text" class="text search" style="width:200px;" data-bind="value:filterheader" />
+                <button class="btn btn-primary btn-sm btn-custom" onclick="SearchDataSimulation()">
+                    <span class="glyphicon glyphicon-refresh"></span> Refresh
+                </button>
+                <button class="btn btn-success btn-sm btn-custom" onclick="model.bpmodel().changeMode('addSimulation', 'Business Plan Simulation -- Add Well Plan Simulation')" id="addevent">
+                    <span class="glyphicon glyphicon-plus"></span> Add Simulation
+                </button>
+            </div>
+            
+            <div class="col-md-4"></div>
+            <div class="clearfix"></div>
+        </div>
+        <div class="col-md-12 no-padding">
+            <div class="grid" id="gridsimulation"></div>
+        </div>
+    </div>
+    <div class="modal fade" id="modal-add-comparison" tabindex="-1" role="dialog" aria-hidden="true" data-bind="with:bpmodel">
+        <div class="modal-dialog" style="width: 600px;">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <h6 class="modal-title" style="font-size: 16px; font-weight: bold;">Add Comparison</h6>
+                </div>
+
+                <div class="modal-body">
+                    <div data-bind="visible:model.IsCompProcessing()">
+                        @Html.Partial("_processing")
+                    </div>
+                    <div class="row" style="margin-top:15px;" data-bind="visible:!model.IsCompProcessing()">
+                        <div class="col-md-6">
+                            <div class="col-md-5 text-right">
+                                <label>Compare With</label>
+                            </div>
+                            <div class="col-md-7">
+                                <input type="text" data-bind="kendoDropDownList:{data:Comparison,value:ComparisonVal}" style="width:300px" />
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+                <div class="modal-footer">
+                    @*<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>*@
+                    <button type="button" class="btn btn-primary" onclick="SaveComparison()">Compare</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing() && model.bpmodel().mode() == 'addSimulation'">
+        @Html.Partial("_addSimulation")
+    </div>
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing() && model.bpmodel().mode() == 'detailSimulation'">
+        @Html.Partial("_detail")
+    </div>
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing() && model.bpmodel().mode() == 'detailByWell'">
+        @Html.Partial("_detailByWell")
+    </div>
+
+</div>
+
+
+<script>
+  
+    $(document).ready(function (i,v) {
+        //setPageTitle("PIP Configuration");
+        $("#modal-add-comparison").modal("hide");
+        $("#commitop").hide(); $("#commitls").hide();
+        $("#hideComparison").click(function () {
+            $("#gridDetail").toggle(500);
+            $("#gridsimulationheader").toggle(500);
+            $(this).text(function (i, v) {
+                if (v == 'Show Comparison') { SelectDataSimulation(model.SimulationId()); }
+                return v === 'Hide Comparison' ? 'Show Comparison' : 'Hide Comparison'
+            })
+            
+        });
+        SearchDataSimulation();
+        getWellName(); getRigName(); getComparison(); getCopyFrom();
+        $("#FormInputDetail").kendoValidator();
+       
+    });
+</script>

@@ -1,0 +1,446 @@
+﻿@{
+    ViewBag.Title = "Business Plan Tracker";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+    var PerformanceUnits = new List<string>();
+
+    var elements = DataHelper.Populate("WEISPerformanceUnits").Select(x => BsonHelper.GetString(x, "_id"));
+    PerformanceUnits = elements.ToList(); //.Where(d => d.PerformanceUnit != null).GroupBy(d => d.PerformanceUnit).Select(d => d.Key).OrderBy(d => d).ToList();
+
+    //var elements = DataHelper.Populate<WellPIP>("WEISWellPIPs").SelectMany(d => d.Elements);
+    //if (elements.Where(d => d.PerformanceUnit != null).Count() > 0)
+    //{
+    //    PerformanceUnits = elements.Where(d => d.PerformanceUnit != null).GroupBy(d => d.PerformanceUnit).Select(d => d.Key).OrderBy(d => d).ToList();
+    //}
+}
+<style>
+    .over90 {
+        background-color: green;
+    }
+
+    .over75 {
+        background-color: yellow;
+    }
+
+    .under75 {
+        background-color: red;
+    }
+
+    .NoData {
+        background-color: white;
+    }
+
+    .Bordered {
+        border: 1px solid black;
+    }
+
+    .no-padding {
+        padding: 0px;
+    }
+</style>
+
+
+<script>
+    model.PageId("Business Plan");
+    model.lsInfo = ko.observable("@ViewBag.LatestLS");
+    model.DashboardLE = ko.observable({
+        onlyLE: ko.observable(false),
+        loadData: ko.observable("Monthly"),
+        Processing: ko.observable(false),
+        DetailTitle: ko.observable("Click on the year column to see the detail data"),
+        FilterProject: ko.observableArray([]),
+        FilterOPs: ko.observableArray([]),
+        projectNames: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISProjectNames")
+            .Select(d => d.GetString("_id")).OrderBy(d => d)))),
+        ops : ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISOPs").Select(x=>BsonHelper.GetString(x,"_id")).ToList<string>()))),
+        DummyData: ko.observableArray([
+            {
+                "Project": "Appomattox",
+                "y2015": "over90",
+                "y2016": "over90",
+                "y2017": "over90",
+                "y2018": "over90",
+                "y2019": "over75",
+                "y2020": "under75",
+                "y2021": "NoData",
+                "y2022": "NoData"
+            },
+            {
+                "Project": "Auger",
+                "y2015": "over90",
+                "y2016": "over90",
+                "y2017": "over90",
+                "y2018": "over90",
+                "y2019": "over75",
+                "y2020": "under75",
+                "y2021": "NoData",
+                "y2022": "NoData"
+            }
+        ]),
+        Column: ko.observableArray([
+            { title: "Project", field: "Project" },
+            { title: "2015", field: "y2015", template: "", attributes: { class: "#: y2015 #" } },
+            { title: "2016", field: "y2016", template: "", attributes: { class: "#: y2016 #" } },
+            { title: "2017", field: "y2017", template: "", attributes: { class: "#: y2017 #" } },
+            { title: "2018", field: "y2018", template: "", attributes: { class: "#: y2018 #" } },
+            { title: "2019", field: "y2019", template: "", attributes: { class: "#: y2019 #" } },
+            { title: "2020", field: "y2020", template: "", attributes: { class: "#: y2020 #" } },
+            { title: "2021", field: "y2021", template: "", attributes: { class: "#: y2021 #" } },
+            { title: "2022", field: "y2022", template: "", attributes: { class: "#: y2022 #" } }
+        ]),
+        Refresh: function () {
+            if (model.DashboardLE().Processing()) {
+                return;
+            }
+            model.DashboardLE().Processing(true);
+            $("#grid_detail").replaceWith($('<div />').attr('id', 'grid_detail'));
+            model.DashboardLE().DetailTitle("Click on the year column to see the detail data");
+            var param = {
+                onlyLE: model.DashboardLE().onlyLE(),
+                yearStart: $('#parmDate').val(),
+                yearFinish: $('#parmDate2').val(),
+                basedOn: model.DashboardLE().loadData(),
+                Projects: model.DashboardLE().FilterProject(),
+                OpRelation:$("[data-model=opRelation]").data("kendoDropDownList").value()
+            }
+            console.log(param);
+            model.DashboardLE().Column([]);
+            model.DashboardLE().Column([{ title: "Project", field: "Project" },
+            { title: "2015", field: "y2015", template: "", attributes: { class: "#: y2015 #" } }])
+
+            ajaxPost("@Url.Action("GetDataTracker")", param, function (data) {
+                GenerateGrid(data.Data);
+                model.DashboardLE().Processing(false);
+            }, function () {
+                model.DashboardLE().Processing(false);
+            });
+        },
+        DataMonth: [
+            { DataText: "January", DataValue: 1 },
+            { DataText: "February", DataValue: 2 },
+            { DataText: "March", DataValue: 3 },
+            { DataText: "April", DataValue: 4 },
+            { DataText: "May", DataValue: 5 },
+            { DataText: "June", DataValue: 6 },
+            { DataText: "July", DataValue: 7 },
+            { DataText: "August", DataValue: 8 },
+            { DataText: "September", DataValue: 9 },
+            { DataText: "October", DataValue: 10 },
+            { DataText: "November", DataValue: 11 },
+            { DataText: "December", DataValue: 12 }
+        ]
+    });
+</script>
+
+
+<div data-bind="" class="col-md-12">
+    <div data-bind="">
+        <div style="margin-bottom:5px;" class="row">
+            <div class="col-sm-6" data-bind="visible:false">
+                <div class="col-md-3">
+                    <label style="">Business Plan:</label>
+                </div>
+
+                <div class="col-md-7">
+                    <select>
+                        <option value="OP14">OP14</option>
+                    </select>
+                </div>
+            </div>
+            <div class="clearfix"></div>
+            <div class="col-sm-6" style="margin-top:15px;" data-bind="visible:false">
+                <div class=" col-md-3">
+                    <label style="padding-top: 5px;">Monthly Sequence:</label>
+                </div>
+                <div class="col-md-8">
+                    <input type="text" data-bind="kendoDropDownList:{dataSource:model.DashboardLE().DataMonth,dataTextField:'DataText',dataValueField:'DataValue'}" id="parmMonth" style="width:100px;" />
+                </div>
+            </div>
+            <div class="clearfix"></div>
+            <div class="col-sm-6" style="margin-top:15px;">
+                <div class=" col-md-3">
+                    <label style="padding-top: 5px;">Year:</label>
+                </div>
+                <div class="col-md-8">
+                    <input type="text" class="" id="parmDate" style="width:100px;" />
+                    &nbsp;&nbsp;
+                    To
+                    &nbsp;&nbsp;
+                    <input type="text" class="" id="parmDate2" style="width:100px;" />
+                </div>
+            </div>
+            <div class="clearfix"></div>
+            <div class="col-sm-6" style="margin-top:15px;">
+                <div class=" col-md-3">
+                    <label style="padding-top: 5px;">Project Names:</label>
+                </div>
+                <div class="col-md-8">
+                    <input type="text" class="" id="projectNames" data-bind="kendoMultiSelect:{data:model.DashboardLE().projectNames(),value:model.DashboardLE().FilterProject}" style="width:100%;" />
+                </div>
+            </div>
+
+            <div class="clearfix"></div>
+
+            <div class="col-sm-6" style="margin-top:15px;">
+                <div class=" col-md-3">
+                    <label style="padding-top: 5px;">OP Relation:</label>
+                </div>
+                <div class="col-md-8">
+                    <select data-model="opRelation" style="width:100%;"></select>
+                </div>
+            </div>
+            <div class="clearfix"></div>
+            <div class="col-sm-6" style="margin-top:15px;display:none;">
+                <div class="col-md-3">
+                    <label style="padding-top: 5px;">Show Only LE's</label>
+                </div>
+                <div class="col-md-2">
+                    <input type="checkbox" id="onlyLE" data-bind="checked:model.DashboardLE().onlyLE" />
+                    &nbsp;&nbsp;
+                </div>
+                <div class="col-md-2">
+                    <label style="padding-top: 5px;">Based On</label>
+                </div>
+                <div class="col-md-4">
+                    <select data-bind="kendoDropDownList:{dataSource:['Monthly','Weekly', 'Combine'],value: model.DashboardLE().loadData}"></select>
+                    &nbsp;&nbsp;
+                </div>
+            </div>
+
+
+            <div class="clearfix"></div>
+            <div class="col-sm-6" style="margin-top:15px;">
+                <div class="col-md-3">
+                    <label style="padding-top: 5px;">&nbsp;</label>
+                </div>
+                <div class="col-md-8">
+                    <button class="btn btn-custom btn-primary btn-sm" data-bind="" onclick="model.DashboardLE().Refresh()">
+                        <span class="glyphicon glyphicon-refresh"></span> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="col-sm-5 col-md-offset-1" style="margin-top:15px;">
+                <div style="text-align: center" class="col-md-12">
+                    <label class="label-success" style="padding:5px;" data-bind="text:model.DashboardLE().DetailTitle"></label>
+                </div>
+            </div>
+
+            <div class="col-md-12" style="text-align:center;margin-bottom:20px">
+                <i>
+                    <span class="btn-sm btn-success" data-bind="text: model.lsInfo()"></span>
+                </i>
+                <br>
+            </div>
+
+        </div>
+        <div style="margin-bottom: 10px; margin-top: 10px;">
+        </div>
+
+        <div data-bind="visible: model.DashboardLE().Processing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div data-bind="visible: !model.DashboardLE().Processing()">
+            <div class="col-md-12 no-padding">
+                <div id="grid-container" class="col-md-7">
+                    <div id="grid"></div>
+                    <div class="col-md-12" style="margin-top:15px;">
+                        <div style="text-align: center;margin-bottom:15px;"><label>LEGEND</label></div>
+                        <div class="col-md-12">
+                            <div class="col-md-1">&nbsp;</div>
+                            <div class="col-md-5">
+                                <div class="over90 col-md-2 Bordered">&nbsp;</div>
+                                <div class="col-md-10"><label>over 90% of the events have been estimated to OP 16</label></div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="under75 col-md-2 Bordered">&nbsp;</div>
+                                <div class="col-md-10"><label>Less than 75% of the events have been estimated to OP 16</label></div>
+                            </div>
+                            <div class="col-md-1">&nbsp;</div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="col-md-1">&nbsp;</div>
+                            <div class="col-md-5">
+                                <div class="over75 col-md-2 Bordered">&nbsp;</div>
+                                <div class="col-md-10"><label>Between 75% and 90% of the events have been estimated to OP 16</label></div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="NoData col-md-2 Bordered">&nbsp;</div>
+                                <div class="col-md-10"><label>No Activity for that project for that year in the selected OP</label></div>
+                            </div>
+                            <div class="col-md-1">&nbsp;</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div id="grid_detail"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    @*function GetLSInfo() {
+        ajaxPost("@Url.Action("lsInfo")", {}, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                return;
+            }
+            model.lsInfo("Latest Sequence : " + moment(res.Data).format("DD-MMM-YYYY"));
+        });
+    }*@
+
+    $(document).ready(function () {
+        //input2datePicker($("#parmDate"));
+        //input2datePicker($("#parmDate2"));
+
+        $("[data-model=opRelation]").kendoDropDownList({
+            dataSource: ["AND", "OR"],
+            value:["AND"]
+        })
+
+        $("#parmDate").kendoDatePicker({
+            start: "decade",
+            depth: "decade",
+            value: "2014",
+            format: "yyyy"
+        });
+
+        $("#parmDate2").kendoDatePicker({
+            start: "decade",
+            depth: "decade",
+            value: "2022",
+            format: "yyyy"
+        });
+        var todayDate = new Date();
+        // $('#parmDate').data("kendoDatePicker").value(todayDate);
+        //$('#parmDate2').data("kendoDatePicker").value(todayDate);
+
+        model.DashboardLE().Refresh();
+        //GetLSInfo();
+    });
+
+    function generateDetailGrid(data) {
+        $("#grid_detail").replaceWith($('<div />').attr('id', 'grid_detail'));
+        var $grid = $("#grid_detail");
+        var dataSource = new kendo.data.DataSource({
+            data: data,
+            pageSize: 10,
+            schema: {
+                //data: "Phases",
+                model: {
+                    fields: {
+                        "TotalLEDays": { type: "number" },
+                        "TotalLECost": { type: "number" }
+                    }
+                },
+            },
+            aggregate: [{ field: "TotalLEDays", aggregate: "sum" },
+            { field: "TotalLECost", aggregate: "sum" }]
+        });
+
+        var column = [
+            { title: "WellName", field: "WellName", width: 150 },
+            { title: "RigName", field: "RigName", width: 150 },
+            { title: "ActivityType", field: "ActivityType", width: 150, footerTemplate: "" },
+            //{ title: "Idea", field: "Idea", width: 250, footerTemplate: "" },
+            { title: "Status", field: "Status", width: 150 },
+            //{ title: "Total<br>LE Days", field: "TotalLEDays", width: 100, format: "{0:N2}", attributes: {"style":"text-align:right"}, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N2') #</div>" },
+            //{ title: "Total<br>LE Cost", field: "TotalLECost", width: 100, format: "{0:N2}", attributes: {"style":"text-align:right"}, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N2') #</div>" },
+        ];
+
+        $grid.kendoGrid({
+            columns: column,
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            scrollable: true,
+            dataSource: dataSource,
+            //width: 500,
+        });
+    }
+
+    function GenerateGrid(data) {
+        var self = this;
+        $("#grid").replaceWith($('<div />').attr('id', 'grid'));
+        var $grid = $("#grid");
+        var start = $("#parmDate").val();
+        var finish = $("#parmDate2").val();
+        var column = [
+            { title: "Project", field: "Project", width: 150 },
+        ];
+        for (var i = start; i <= finish; i++) {
+            var fieldName = "y"+String(i);
+            column.push({ title: String(i), field: fieldName, template: "", attributes: { class: "#: " + fieldName + " #" }, width: 100 });
+        }
+        var dataSource = new kendo.data.DataSource({
+            data: data,
+            pageSize: 10,
+            selectable: true
+        });
+
+        $grid.kendoGrid({
+            columns: column,
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            scrollable: true,
+            dataSource: dataSource,
+            width: 500,
+            selectable: "cell",
+            change: function (e) {
+                //find index of td
+                var tdindex = $("#grid").find("td.k-state-selected").index();
+                if (tdindex == 0) {
+                    return;
+                }
+                var selectedCells = this.select();
+                var dataItem = this.dataItem(selectedCells[0].parentNode);
+                var year = parseInt($("#parmDate").val()) + tdindex - 1;
+                var c = "CountHaveLE" + year;
+                var getData = dataItem[c];
+                model.DashboardLE().DetailTitle("Detail Data of Project : "+dataItem.Project + " in "+year);
+                generateDetailGrid(getData.Detail);
+            }
+        });
+
+        function onSelected(arg) {
+            var selected = $.map(this.select(), function (item) {
+                return $(item);
+            });
+
+            console.log(selected);
+        }
+
+        //var y = parseInt($("#parmDate").val());
+        //var yearFinish = parseInt($("#parmDate2").val());
+        //var diff = 2 + (yearFinish - y);
+        //for (var i = 2; i <= diff; i++) {
+        //    var c = "CountHaveLE" + y;
+        //    var d = "CountDontHaveLE" + y;
+        //    var t = "Total" + y;
+        //    $("#grid").kendoTooltip({
+        //        filter: "td:nth-child(" + i + ")", //this filter selects the first column cells
+        //        position: "top",
+        //        content: function (e) {
+        //            var dataItem = $("#grid").data("kendoGrid").dataItem(e.target.closest("tr"));
+        //            console.log(dataItem);
+        //            console.log(i);
+        //            var content = "LE : " + String(dataItem[c].Count * 100) + "%";
+        //            content = content + "<br>Don't Have LE : " + String(dataItem[d]);
+        //            content = content + "<br>Total Data : " + String(dataItem[t]);
+        //            return content;
+        //        }
+        //    }).data("kendoTooltip");
+        //    y++;
+        //}
+    }
+
+</script>

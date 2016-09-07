@@ -1,0 +1,14 @@
+﻿[
+{$group:{
+	_id:{
+		DATEID: "$UNBAR_DATE ",
+		CATEGORY: "${0}"
+	},
+	COUNT:{$sum:1},
+	RETAIL_TO_UNBAR:{$sum:"$RETAIL_TO_UNBAR"},
+	RETAIL_TO_ACTIVATION:{$sum:"$RETAIL_TO_ACTIVATION"},
+	UNBAR_TO_ACTIVATION:{$sum:"$UNBAR_TO_ACTIVATION"},
+	DATA_VOLUME:{$sum:"$DATA_VOLUME"},
+	CALL_DURATION:{$sum:"$CALL_DURATION"}
+}}
+] 

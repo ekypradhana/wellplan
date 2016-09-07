@@ -1,0 +1,81 @@
+﻿@{
+    ViewBag.Title = "Test Email Configuration";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using  ECIS.AppServer.Areas.Shell.Controllers
+@using ECIS.Core
+
+<script>
+    model.EmailModel = ko.observable(ko.mapping.fromJS(@MvcTools.Obj2HtmlStr(new EmailModel())));
+    model.Send = function () {
+        var f = $("#EmailForm");
+        var v = undefined;
+        if (f.data("kendoValidator") == null) {
+            f.kendoValidator();
+        }
+        v = f.data("kendoValidator");
+        if (v.validate()) {
+            var url = "@Url.Action("SendEmail")";
+            model.EmailModel().Status("Please wait ....");
+            ajaxPost(url, model.EmailModel(), function (data) {
+                if (data.Result != "OK") {
+                    model.EmailModel().Status(data.Message);
+                    return;
+                }
+                model.EmailModel().Status("OK");
+            },
+            showErr)
+        }
+    }
+</script>
+
+
+<div class="form-horizontal" style="width:800px;margin:0px auto" data-bind="with:EmailModel" id="EmailForm">
+    <div>
+        <center>
+            <label class="label-warning" 
+                   data-bind="text:Status, visible: Status()!='' && Status()!=null" 
+                   style="padding:3px"></label>
+        </center>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2">Host</label>
+        <div class="col-sm-4"><input type="text" name="Host" data-bind="value:Host" class="full" required /></div>
+        <label class="col-sm-2">Port</label>
+        <div class="col-sm-4"><input type="number" name="Port" data-bind="value:Port" required /></div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2">User Name</label>
+        <div class="col-sm-4"><input type="text" class="full" data-bind="value:UserName" name="UserName" /></div>
+        <label class="col-sm-2">Password</label>
+        <div class="col-sm-4"><input type="text" class="full" data-bind="value:Password" name="Password" /></div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2">TLS/SSL</label>
+        <div class="col-sm-4"><input type="checkbox" data-bind="checked:TLS" /></div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2">From</label>
+        <div class="col-sm-10"><input type="text" class="full" name="From" data-bind="value:From" required /></div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2">To</label>
+        <div class="col-sm-10"><input type="text" class="full" name="To" data-bind="value:To" required /></div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2">Subject</label>
+        <div class="col-sm-10"><input type="text" class="full" name="Subject" data-bind="value:Subject" required /></div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2">Message</label>
+        <div class="col-sm-10">
+            <textarea class="full" style="height:50px" data-bind="value:Message"></textarea>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-2">&nbsp;</label>
+        <div class="col-sm-10">
+            <button class="btn btn-sm btn-primary" data-bind="click:$root.Send">Send</button>
+        </div>
+    </div>
+</div>

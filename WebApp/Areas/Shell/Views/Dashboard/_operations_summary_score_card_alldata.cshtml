@@ -1,0 +1,200 @@
+﻿
+
+
+<script>
+    model.DataOSSCAllData = ko.observableArray([]);
+    model.ThresholdAllData = ko.observable(5);
+
+    function get_score_card_AllData() {
+        var param = model.getFilterValues();
+        param.group = "Well";
+        param.activeWell = "None";
+        param.type = "LEYE";
+        var url = "@Url.Action("GetOperationSummaryScoreCard")";
+        ajaxPost(url, param, function (res) {
+            //console.log(res);
+            model.DataOSSCAllData([]);
+            for (var i = 0; i < res.Data.length; i++) {
+                model.DataOSSCAllData.push(res.Data[i]);
+            }
+            //model.DataOSSC(res.Data);
+            renderGridScoreAllData(res.Period, res.Total);
+        }, function (a, b, c) {
+            console.log(a);
+            console.log(b);
+            console.log(c);
+        });
+    }
+
+    function ReplaceNewLine(title) {
+        //alert(title);
+        var char = '|';
+        var res = title.replace("|", "<br />");
+
+        return res;
+    }
+
+
+    function renderGridScoreAllData(period, total) {
+
+        var cols = [
+            { field: "WellName", title: "Well", width: 300, locked: true, lockable: true },
+            {
+                title: "Period", width: 250, columns: [
+                    { field: "LEStart", width: 125, title: "Start" },
+                    { field: "LEFinish", width: 125, title: "Finish" }
+                ]
+            },
+            //{ field: "Period", title: "Period", width: 250, locked: true, lockable: true },
+            {
+                field: "OP", title: "OP-14 ($)", width: 80, format: "{0:N1}", attributes: { class: "cell-number" }, aggregates: ["sum"],
+                footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                //footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + total.OP14Total + ") #</div>"
+            },
+            {
+                //field: "LE", title: "LE ($)", format: "{0:N1}", attributes: { class: "cell-number #: Class #" }
+                title: "LE", columns: [
+                    {
+                        field: "LE_PreviousYear", title: ReplaceNewLine(period.LE_PreviousYear), format: "{0:N1}", attributes: { class: "cell-number #: LE_PreviousYearColor #" }, width: 80, aggregates: ["sum"],
+                        footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                        //footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + total.LE_PreviousYearTotal + ") #</div>"
+                    },
+                    {
+                        field: "LE_CurrentYear", title: ReplaceNewLine(period.LE_CurrentYear), format: "{0:N1}", attributes: { class: "cell-number #: LE_CurrentYearColor #" }, width: 80, aggregates: ["sum"],
+                        footerTemplate: "#=kendo.format('{0:N1}',sum)#"//, template: "#: ReplaceNewLine(LE_CurrentYearColor) #"
+                        //footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + total.LE_CurrentYearTotal + ") #</div>"
+                    },
+                    {
+                        field: "LE_CurrentNextYear", title: ReplaceNewLine(period.LE_CurrentNextYear), format: "{0:N1}", attributes: { class: "cell-number #: LE_CurrentNextYearColor #" }, width: 80, aggregates: ["sum"],
+                        footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                        //footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + total.LE_CurrentNextYearTotal + ") #</div>"
+                    },
+                    {
+                        field: "LE_NextYear", title: ReplaceNewLine(period.LE_NextYear), format: "{0:N1}", attributes: { class: "cell-number #: LE_NextYearColor #" }, width: 80, aggregates: ["sum"],
+                        footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                        //footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + total.LE_NextYearTotal + ") #</div>"
+                    },
+                ]
+            }
+        ];
+        var data = countWithThreshold(model.DataOSSCAllData(), model.ThresholdAllData());
+
+        for (var i = 0; i < data.length; i++) {
+            var LEStart = data[i].LEStart;
+            var LEFinish = data[i].LEFinish;
+
+            data[i].LEStart = jsonDateStr(LEStart);
+            data[i].LEFinish = jsonDateStr(LEFinish);
+
+            var Period = jsonDateStr(LEStart) + " -- " + jsonDateStr(LEFinish);
+            data[i].Period = Period;
+        }
+
+        //console.log(data);
+        $('#grid_score_AllData').replaceWith($('<div />').attr('id', 'grid_score_AllData'));
+        $('#grid_score_AllData').kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "LE YE Summary.pdf" },
+            excel: { fileName: "LE YE Summary.xlsx", allPages: true },
+            dataSource: {
+                schema: {
+                    model: {
+                        LEStart: 'date',
+                        LEFinish: 'date'
+                    }
+                },
+                data: data,
+                type: "json",
+                pageSize: data.length,
+                aggregate: [
+                    { field: "OP", aggregate: "sum" },
+                    { field: "LE_PreviousYear", aggregate: "sum" },
+                    { field: "LE_CurrentYear", aggregate: "sum" },
+                    { field: "LE_CurrentNextYear", aggregate: "sum" },
+                    { field: "LE_NextYear", aggregate: "sum" }
+                ]
+
+            },
+            excelExport: function (e) {
+                var sheet = e.workbook.sheets[0];
+                //var template = kendo.template(this.columns[1].template);
+
+
+
+                var row = sheet.rows[1];
+                console.log(row.cells.length);
+                console.log(row.cells);
+                for (var i = 0; i < row.cells.length; i++) {
+                    console.log(row.cells[i]);
+                    if (i == 2) {
+                        row.cells[2].value = row.cells[2].value.replace("<br />", " ");;
+                        console.log(row.cells[2].value);
+                    }
+                    if (i == 3) {
+                        row.cells[3].value = row.cells[3].value.replace("<br />", " ");;
+                        console.log(row.cells[3].value);
+
+                    }
+                    if (i == 4) {
+                        row.cells[4].value = row.cells[4].value.replace("<br />", " ");;
+                        console.log(row.cells[4].value);
+                    }
+                    if (i == 5) {
+                        row.cells[5].value = row.cells[5].value.replace("<br />", " ");
+                        console.log(row.cells[5].value);
+                    }
+                }
+
+                var row2 = sheet.rows[sheet.rows.length - 1];
+                for (var i = 1; i < sheet.rows[sheet.rows.length - 1].cells.length; i++) {
+                    //if (row2.cells[i].value != "undefined") {
+                    if (i > 2) {
+                        //console.log("Original : " + row2.cells[i].value.replace(",",""));
+                        //console.log("Number : " + Number(row2.cells[i].value.replace(",","")));
+                        //console.log("Parse Float : " + parseFloat(row2.cells[i].value.replace(",","")));
+                        row2.cells[i].value = parseFloat(row2.cells[i].value.replace(",", ""));
+                    }
+                }
+
+                //for (var i = 1; i < sheet.rows.length; i++) {
+                //    var row = sheet.rows[i];
+
+                //    var dataItem = {
+                //        UnitPrice: row.cells[1].value
+                //    };
+
+                //    row.cells[1].value = template(dataItem);
+                //}
+
+            },
+            pageable: false,
+            sortable: true,
+            resizable: true,
+            height: 400,
+            columns: cols,
+            scrollable: true
+
+        });
+    }
+
+    $(function () {
+        $('[href=#operations-summary-score-card-AllData]').on('click', function () {
+            setTimeout(function () {
+                $('#grid_score_AllData').data('kendoGrid').refresh();
+            }, 500);
+        });
+    });
+</script>
+<div class="col-md-1 grids">&nbsp;</div>
+<div class="col-md-10 grids" style="margin-bottom:20px;">
+    <div style="margin-bottom:20px;">
+        <label>Threshold (%) : </label>
+        <input id="thresholdAllData" type="number" min="0" max="100" style="width:80px; margin-right: 10px;" data-bind="value:model.ThresholdAllData">
+        <button class="btn btn-sm btn-custom btn-warning" onclick="renderGridScoreAllData();">
+            <span class="glyphicon glyphicon-refresh"></span> Refresh
+        </button>
+    </div>
+    <div id="grid_score_AllData"></div>
+</div>
+<div class="col-md-1 grids">&nbsp;</div>
+<div class="clearfix"></div>

@@ -1,0 +1,29 @@
+﻿<script>
+    model.getMainMenu = function(){
+        var url = "@Url.Content("~/webmenu/menu/getmenu")";
+        var baseURL = "@Url.Content("~")";
+        model.MainMenus([]);
+        ajaxPost(url,{collection_name:"Main_Menu"},function(respondse){
+            var arr = respondse.Data;
+            for(var i in arr){
+                model.MainMenus.push(
+                    new MenuItem(
+                        arr[i]._id,
+                        arr[i].Url,
+                        arr[i].Title,
+                        arr[i].Submenus,
+                        baseURL
+                    )
+                );
+            }
+            if (respondse.Result == "OK") {
+                //console.log(respondse);
+                show();
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        model.getMainMenu();
+    });
+</script>

@@ -1,0 +1,345 @@
+﻿@{
+    ViewBag.Title = "Metadata Checker";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+    var PerformanceUnits = new List<string>();
+    var elements = DataHelper.Populate("WEISPerformanceUnits").Select(x => BsonHelper.GetString(x, "_id"));
+    PerformanceUnits = elements.ToList();
+}
+
+<script>
+    model.DefaultOP = ko.observable("@ViewBag.DefaultOP");
+    model.SelectedActivityTemplate = { "_id": null, "Region": null, "RigType": null, "RigName": null, "OperatingUnit": null, "ProjectName": null, "AssetName": null, "WellName": null, "NonOP":false, "WorkingInterest": 0, "FirmOrOption": null, "UARigSequenceId": null, "UARigDescription": null, "Targets": { "M0": { "Identifier": null, "Days": 0, "Cost": 0 }, "M1": { "Identifier": null, "Days": 0, "Cost": 0 }, "M2": { "Identifier": null, "Days": 0, "Cost": 0 }, "M3": { "Identifier": null, "Days": 0, "Cost": 0 }, "M4": { "Identifier": null, "Days": 0, "Cost": 0 } }, "OpsDuration": 0, "OpsSchedule": { "Start": null, "Finish": null }, "PsSchedule": { "Start": null, "Finish": null },
+        "PerformanceUnit": null, "EXType":null, "Activity" : null, "VirtualPhase" : null, "ShiftFutureEventDate" : null,"AssignTOOPs" :null,"FundingType":null};
+    model.PageId("Administration");
+    model.ShowSetting = ko.observable(false);
+    model.ShowBrowser = ko.observable(true);
+    model.ShowEditForm = ko.observable(false);
+    model.ShowPhaseInfo = ko.observable(false);
+    model.ShowInsertActivityForm = ko.observable(false);
+    model.selectedWellId = ko.observable();
+    model.selectedWellName = ko.observable();
+    model.selectedRigName = ko.observable();
+    model.IsProcessing = ko.observable(false);
+    model.SelectedActivity = ko.mapping.fromJS(model.SelectedActivityTemplate);
+    model.IsEditMode = ko.observable(false);
+    model.DataCompareOP = ko.observable(false);
+    model.PhaseData = ko.observableArray([]);
+    model.getFields = ko.observable();
+    model.SetActivity = function (activityUnparsed) {
+        var template = ko.mapping.toJS(model.SelectedActivityTemplate),
+            activity = {};
+        console.log(template);
+        for (var i in template) if (template.hasOwnProperty(i)) activity[i] = activityUnparsed[i];
+        ko.mapping.fromJS(activity, model.SelectedActivity);
+    };
+    model.DetailOP = ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellActivityPhaseInfo()))));
+    model.fieldValue = ko.observable();
+    model.ruleValue = ko.observable();
+    model.setFields = ko.observable();
+</script>
+
+<style>
+    #grid .k-header.k-grid-toolbar {
+        background-color: #F9F9FB;
+    }
+
+    #grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+        #grid .k-header[role=columnheader][data-field=_id] {
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-field=OpsDuration],
+        #grid .k-header[role=columnheader][data-field=PlanDuration],
+        #grid .k-header[role=columnheader][data-field=PhRiskDuration] {
+            vertical-align: bottom;
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-colspan] {
+            text-align: center;
+            font-weight: bold;
+            color: #a8a8a8;
+        }
+
+    #grid [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #grid .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+
+    tr.k-footer-template td {
+        text-align: right;
+    }
+</style>
+
+<div class="col-md-12" style="margin-bottom: 10px;" data-bind="visible:ShowBrowser">
+    <!-- filters -->
+    @*@Html.Partial("Filter")*@
+    @Html.Partial("FilterForWaterfall")
+
+    <script>
+        //model.FilterVisibility.InPlan(true);
+        model.FilterVisibility.ExType(true);
+        model.FilterVisibility.Activities(true);
+        model.FilterVisibility.PerformanceUnits(false);
+        model.FilterVisibility.Date(true);
+        model.FilterVisibility.Date2(true);
+        model.FilterVisibility.PeriodBase(false);
+        model.FilterVisibility.PeriodView(true);
+        model.FilterVisibility.PeriodRelation(true);
+        model.FilterVisibility.OPs(true);
+        model.FilterVisibility.OpRelation(true);
+        model.FilterVisibility.firmoption(true);
+        model.FilterVisibility.lsresource(false);
+
+        model.options = {
+            regions: model.regions(),
+            operatingUnits: model.operatingUnits(),
+            rigTypes: model.rigTypes(),
+            rigNames: model.rigNames(),
+            projectNames: model.projectNames(),
+            wellNames: model.wellNames(),
+            assetNames: @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISAssetNames").Select(d=>d.GetString("_id")).OrderBy(d=>d))),
+            performanceUnits: @MvcHtmlString.Create(JsonConvert.SerializeObject(PerformanceUnits)),
+            firmOrOptions: ["Firm", "Option"],
+            EXType: @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISFundingTypes").Select(d => d.GetString("_id")).OrderBy(d => d))),
+            AlreadyAssignTo :model.AlreadyAssignTo(),
+            lsresource:model.lsresource(),
+        };
+        model.sement = ko.observableArray([]);
+        model.workbook = ko.observable();
+        model.ShowNoticeProrate = ko.observable("");
+    </script>
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden') }">
+        <div class="clearfix"></div>
+        <div class="clearfix"></div>
+        <div class="col-md-12 no-padding">
+            <div id="grid"></div>
+        </div>
+        <div style="clear: both;"></div>
+    </div>
+
+</div>
+
+<div class="col-md-12" data-bind="visible:ShowInsertActivityForm">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+</div>
+<div class="col-md-12" data-bind="visible:ShowSetting">
+    @Html.Partial("_Setting")
+</div>
+
+<script>
+    model.reloadData = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+        var param = model.getFilterValues();
+        delete param.BaseOP;
+        if(param.periodview == "Fiscal View"){
+            var start = jsonDateStr($("[data-model=dateStart]:eq(1)").data("kendoDatePicker").value());
+            var finish = jsonDateStr($("[data-model=dateFinish]:eq(1)").data("kendoDatePicker").value());
+            model.ShowNoticeProrate("Value is prorated by "+start+" to "+finish);
+        }else{
+            model.ShowNoticeProrate("");
+        }
+        model.selectFields(),model.setConfig();
+        
+        ajaxPost("@Url.Action("GetWellSequenceInfo2")",param , function (res) {
+            model.IsProcessing(false);
+            if(res.Result != "OK"){
+                alert(res.Message);
+                return;
+            }
+            setTimeout(function(){renderGridUsingData(res.Data);},200);
+            var checker = $("#column_toggle");
+            checker.prop("checked",true);
+        }, function (res) {
+            model.IsProcessing(false);
+            alert(res);
+        });
+    }
+
+    model.selectFields = function(){
+        var url ="@Url.Action("getFields")"
+        ajaxPost(url,{},function(res){
+            if(res.Result == "OK"){
+                model.getFields(res.Data);
+            }
+        });
+    }
+
+    model.setConfig = function(){
+        var url = "@Url.Action("getConfig")";
+        ajaxPost(url,{},function(res){
+            model.setFields(res.Data.fields);
+        });
+    }
+
+    model.getDefaulrConfig = function(){
+        var url = "@Url.Action("getConfig")";
+        ajaxPost(url,{},function(res){
+            if(res.Result=="OK"){
+                model.fieldValue(res.Data.fields),model.ruleValue(res.Data.rules);
+            }
+        });
+    }
+
+    model.btnSetting = function(){
+        $('<button />')
+        .addClass('btn btn-custom btn-sm btn-success do-add')
+        .css('margin-right', '5px')
+        .html('<span class="glyphicon glyphicon-plus"></span> Setting')
+        .insertBefore($('.do-filter'))
+
+        .on('click', function () {
+            model.getDefaulrConfig();
+            model.ShowSetting(true);
+            model.ShowInsertActivityForm(false);
+            model.ShowBrowser(false);
+            model.reloadData();
+        });
+    }
+
+    model.saveChanges = function(){
+        var updates = [];
+        var keys = [];
+        $("#grid").each(function(i,e){
+            var data = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true });
+            data.forEach(function (f) {
+                var update = _.find(updates, { _id: f._id });
+                if (update == undefined) {
+                    for (var k in f) {
+                        if (f.hasOwnProperty(k) && k.indexOf(".") > -1) {
+                            delete f[k];
+                        }
+                    }
+                    updates.push(f);
+                    return;
+                }               
+            });
+        });
+        
+        var url = "@Url.Action("UpdateChanges")";
+        var param = {update:updates};
+        ajaxPost(url,param,function(res){
+            
+        });
+    }
+
+    model.btnSave = function(){
+        $('<button />')
+        .addClass('btn btn-custom btn-sm btn-warning do-save')
+        .css('margin-right', '5px')
+        .html('<span class="glyphicon glyphicon-floppy-saved"></span> Save')
+        .insertBefore($('.do-filter'))
+
+        .on('click', function () {
+            model.saveChanges();
+            model.reloadData();
+        });
+    }
+
+    // prepare everything
+    $(document).ready(function () {
+        model.setConfig(),model.btnSave();//$(".btn.btn-custom.btn-sm.btn-warning.do-save").prop("disabled",true);
+        var isRO = "@ViewBag.isRO";
+        var isAdmin = "@ViewBag.isAdmin";
+
+        $('[data-model="OPs"]').data("kendoMultiSelect").value(["OP15"]);
+        model.reloadData();
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            var target = $(e.target).attr("href") // activated tab
+            if(target=="#tab2"){
+                $("#grid_CompareInfo").data("kendoGrid").refresh();
+            }
+        });
+    });
+
+    // generate the grid
+    function renderGridUsingData(data) {
+        data = jsonObjsConvDate(data);
+        model.sement(data);
+        $('#grid').replaceWith($('<div />').attr('id', 'grid'));
+        var gridColumns = [];
+        gridColumns.push(
+            { field: "WellName", title: "Well Name", width: 190,locked: true ,editable:false},
+            { field: "RigName", title: "Rig Name", width: 100,locked: true ,editable:false},
+            { field: "SequenceId", title: "Sequence Id", width: 120 ,locked: true,editable:false},
+            { field: "ActivityType", title: "Activity Type", width: 200,locked: true,editable:false }
+        );
+        var Custom = model.setFields();
+        Custom.forEach(function(e){
+            gridColumns.push({
+                field: e.Key, title: e.Key, locked: false, editable: true,width: 200, 
+                attributes: { style: "text-align:right;width:30%" }
+            });
+        });
+        
+        
+        var source = new kendo.data.DataSource({
+            pageSize: 10,
+            data: data,
+            schema: {
+                model: {
+                    fields: {
+                        "WellName":{ type: "string", editable: false },
+                        "SequenceId":{ type: "string", editable: false },
+                        "ActivityType":{ type: "string", editable: false },
+                        "Region":{ type: "string", editable: true }
+                    }
+                },
+            }
+        });
+
+        $('#grid').kendoGrid({
+            toolbar: [ "excel"],
+            pdf: { fileName: "Meta Data Report.pdf" },
+            excel: { fileName: "Meta Data Report.xlsx",allPages: true },
+            dataSource: source,
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            editable : true,
+            columns: gridColumns,
+            excelExport: function (e) {
+                console.log(e);
+                var a = e.workbook.sheets;
+                a.forEach(function(c) {
+                    c.rows.forEach(function(d) {
+                        if(d.type == "header"){
+                            d.cells.forEach(function(i,j){
+                                i.value = i.value.replace("<br/>"," ");
+                                i.value = i.value.replace("<br />"," ");
+                                i.value = i.value.replace("<br>"," ");
+                            })
+                        }
+                    });
+                });
+
+            },
+        });
+
+    }
+</script>

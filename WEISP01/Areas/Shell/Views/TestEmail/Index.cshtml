@@ -1,0 +1,786 @@
+﻿@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.AppServer.Areas.Shell.Controllers
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<script>
+    model.PageId("Administration");
+
+    model.isStillSendEmail = ko.observable(false);
+    
+    model.EmailModel = ko.observable(ko.mapping.fromJS(@MvcTools.Obj2HtmlStr(new EmailModel())));
+    model.Send = function () {
+        var url = "@Url.Action("SendEmailAdvance")";
+        model.EmailModel().Status("Please wait ....");
+        ajaxPost(url, model.EmailModel(), function(ret) {
+                if (ret.Result != "OK") {
+                    //kendoConsole.log(ret.Data.Message + " to " + model.EmailModel().To());
+                    //kendoConsole.log("Message subject \"" + model.EmailModel().Subject() + "\"");
+                    kendoConsole.log("Fail Message : " + ret.Message);
+                    kendoConsole.log("Failed!");
+                    model.isStillSendEmail(false);
+                    
+                    return;
+                }
+                kendoConsole.log(ret.Data.Message + " to " + model.EmailModel().To());
+                kendoConsole.log("Message subject \"" + model.EmailModel().Subject() + "\"");
+                kendoConsole.log("Success");
+                model.isStillSendEmail(false);
+                model.EmailModel().Status("OK");
+            },
+            showErr);
+    }
+</script>
+
+<h2>Test Email</h2>
+
+<div class="col-md-8 col-md-offset-2 mg-tp-20">
+    
+
+    <!-- Nav tabs -->
+    <ul class="nav nav-tabs" role="tablist">
+        <li role="presentation" class="active"><a href="#simple" aria-controls="simple" role="tab" data-toggle="tab">Simple Test</a></li>
+        <li role="presentation"><a href="#advance" aria-controls="advance" role="tab" data-toggle="tab">Advance Test</a></li>
+    </ul>
+
+
+    <!-- Tab panes -->
+    <div class="tab-content">
+        <!--Simple Test-->
+        <div role="tabpanel" class="tab-pane active" id="simple">
+            <div class="col-md-12 mg-tp-20">
+                <div class="col-md-offset-2 col-md-8">
+                    <button data-bind="disable: model.isStillSendEmail()" class="btn btn-lg btn-success" onclick="TestEmailHandler('simple')" style="width:100%">Send an email to me!</button>
+                </div>
+            </div>
+        </div>
+        <!--Advance Test-->
+        <div role="tabpanel" class="tab-pane" id="advance">
+            
+            <div class="col-md-12 mg-tp-20 form-horizontal" data-bind="with:EmailModel" id="EmailForm">
+                <div class="form-group">
+                    <label class="col-sm-2">Host</label>
+                    <div class="col-sm-4"><input type="text" name="Host" data-bind="value:Host" class="full" required /></div>
+                    <label class="col-sm-2">Port</label>
+                    <div class="col-sm-4"><input type="number" name="Port" data-bind="value:Port" required /></div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2">User Name</label>
+                    <div class="col-sm-4"><input type="text" class="full" data-bind="value:UserName" name="User Name Email" /></div>
+                    <label class="col-sm-2">Password</label>
+                    <div class="col-sm-4"><input type="text" class="full" data-bind="value:Password" name="Password Email" /></div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2">TLS/SSL</label>
+                    <div class="col-sm-4"><input type="checkbox" data-bind="checked:TLS" /></div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2">From</label>
+                    <div class="col-sm-10"><input type="text" class="full" name="From" data-bind="value:From" required /></div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2">To</label>
+                    <div class="col-sm-10"><input type="text" class="full" name="To" data-bind="value:To" required /></div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2">Subject</label>
+                    <div class="col-sm-10"><input type="text" class="full" name="Subject" data-bind="value:Subject" required /></div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2">Message</label>
+                    <div class="col-sm-10">
+                        <textarea class="full" style="height:50px" data-bind="value:Message"></textarea>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-2">&nbsp;</label>
+                    <div class="col-sm-10">
+                        <button data-bind="disable: model.isStillSendEmail()" class="btn btn-lg btn-success" onclick="TestEmailHandler('advance')" style="width:100%">Send an Email</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="col-md-8 col-md-offset-2 mg-tp-20">
+    <div class="box">
+        <div style="text-align: right">
+            <button onclick="ClearConsole()" title="Clear Console" class="btn btn-sm btn-success"><span class="glyphicon glyphicon-remove"></span></button>
+        </div>
+        <span><b>Log</b></span>
+        <div class="console"></div>
+    </div>
+</div>
+
+<script>
+    function ClearConsole() {
+        $(".console").html("");
+    }
+
+    function TestEmailHandler(e) {
+        model.isStillSendEmail(true);
+        if (e == "simple") {
+            kendoConsole.log("Begin Simple Test");
+            setTimeout(function() {
+                SendEmail();
+            }, 1000);
+        } else {
+            var f = $("#EmailForm");
+            var v = undefined;
+            if (f.data("kendoValidator") == null) {
+                f.kendoValidator();
+            }
+            v = f.data("kendoValidator");
+            if (v.validate()) {
+                kendoConsole.log("Begin Advance Test");
+                setTimeout(function() {
+                    model.Send(v.validate());
+                }, 1000);
+            } else {
+                model.isStillSendEmail(false);
+            }
+        }
+
+    }
+
+    function SendEmail() {
+        var url = "@Url.Action("SendEmail")";
+        ajaxPost(url, {}, function (ret) {
+            if (ret.Result == "NOK") {
+                alert(ret.Message);
+                return;
+            }
+
+            if (ret.Data.Message == "Message sent") {
+                kendoConsole.log(ret.Data.Message + " to " + ret.Data.Data.To);
+                kendoConsole.log("Message subject \"" + ret.Data.Data.Subject + "\"");
+                kendoConsole.log("Success");
+            }
+            model.isStillSendEmail(false);
+            //if (ret.Data.Message != "Message sent") {
+            //    kendoConsole.log("FAILED : " + ret.Data.Message);
+            //    return;
+            //}
+        }, function (error) { kendoConsole.log(error); });
+    }
+</script>
+
+
+<style>
+    .mg-tp-10 {
+        margin-top: 10px;
+    }
+
+    .mg-tp-20 {
+        margin-top: 20px;
+    }
+    /*console*/
+
+    .console {
+        background-color: transparent;
+        color: #333;
+        font: 11px Consolas, Monaco, "Bitstream Vera Sans Mono", "Courier New", Courier, monospace;
+        margin: 0;
+        overflow-x: scroll;
+        text-align: left;
+        height: 200px;
+        border: 1px solid rgba(20,53,80,0.1);
+        background-color: #ffffff;
+        text-indent: 0;
+    }
+
+    .demo-section .box-col .console {
+        min-width: 200px;
+    }
+
+    .console .count {
+        background-color: #26c6da;
+        -moz-border-radius: 15px;
+        -webkit-border-radius: 15px;
+        border-radius: 15px;
+        color: #ffffff;
+        font-size: 10px;
+        margin-left: 5px;
+        padding: 2px 6px 2px 5px;
+    }
+
+    .console div {
+        background-position: 6px -95px;
+        border-bottom: 1px solid #DDD;
+        padding: 5px 10px;
+        /*height: 2em;*/
+        line-height: 2em;
+        vertical-align: middle;
+    }
+
+    .console .error {
+        background-position: 6px -135px;
+    }
+
+    /*configurator*/
+
+    .centerWrap .configuration,
+    .configuration,
+    .configuration-horizontal {
+        margin: 4.5em auto;
+        padding: 3em;
+        background-color: rgba(20,53,80,0.038);
+        border: 1px solid rgba(20,53,80,0.05);
+    }
+
+    .absConf .configuration {
+        position: absolute;
+        top: -1px;
+        right: -1px;
+        height: auto;
+        margin: 0;
+        z-index: 2;
+    }
+
+    .configuration-horizontal {
+        position: static;
+        height: auto;
+        min-height: 0;
+        margin: 0 auto;
+        zoom: 1;
+    }
+
+    .configuration-horizontal-bottom {
+        margin: 20px -21px -21px;
+        position: static;
+        height: auto;
+        min-height: 0;
+        width: auto;
+        float: none;
+    }
+
+    .configuration .configHead,
+    .configuration .infoHead,
+    .configuration-horizontal .configHead,
+    .configuration-horizontal .infoHead {
+        display: block;
+        margin-bottom: 1em;
+        font-size: 12px;
+        line-height: 1em;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+
+    .configuration .configTitle,
+    .configuration-horizontal .configTitle {
+        font-size: 12px;
+        display: block;
+        line-height: 22px;
+    }
+
+    .configuration .options,
+    .configuration-horizontal .options {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .configuration button,
+    .configuration-horizontal button {
+        margin: 0;
+        vertical-align: middle;
+    }
+
+    .configuration .k-textbox,
+    .configuration-horizontal .k-textbox {
+        margin-left: 7px;
+        width: 30px;
+    }
+
+    .configuration .options li {
+        display: block;
+        margin: 0;
+        padding: 0.2em 0;
+        zoom: 1;
+    }
+
+        .configuration .options li:after,
+        .configuration-horizontal:after {
+            content: "";
+            display: block;
+            clear: both;
+            height: 0;
+        }
+
+    .configuration-horizontal .config-section {
+        display: block;
+        float: left;
+        min-width: 200px;
+        margin: 0;
+        padding: 10px 20px 10px 10px;
+    }
+
+    .configuration label,
+    .configuration input {
+        vertical-align: middle;
+        line-height: 20px;
+        margin-top: 0;
+    }
+
+    .configuration label {
+        float: left;
+    }
+
+    .configuration input {
+        width: 40px;
+    }
+
+    .configuration input,
+    .configuration select,
+    .configuration .k-numerictextbox {
+        float: right;
+    }
+
+        .configuration input.k-input {
+            float: none;
+        }
+
+    .configuration .k-button,
+    .configuration .k-widget {
+        margin-bottom: 3px;
+    }
+
+    /* Code Viewer */
+    .source {
+        background-color: #f5f7f8;
+        margin: 0 0 5em;
+        border: 1px solid rgba(20,53,80,0.05);
+    }
+
+        .source .code {
+            background-color: #fff;
+            border-top: 1px solid rgba(20,53,80,0.08);
+            padding: 20px 0 0;
+        }
+
+            .source .code pre {
+                margin: 0;
+                padding: 0 20px 20px;
+            }
+
+        .source .offline-button {
+            background: none;
+            text-decoration: none;
+            color: #0487c4;
+            margin: 10px 0 10px 14px;
+            padding: 10px;
+        }
+
+            .source .offline-button.selected {
+                color: #000;
+            }
+
+        .source .code .controller {
+            display: none;
+        }
+
+    /* Pretty Print */
+    .prettyprint {
+        font-size: 12px;
+        overflow: auto;
+    }
+
+    pre .nocode {
+        background-color: transparent;
+        color: #000;
+    }
+
+    pre .str, /* string */
+    pre .atv {
+        color: #2db245;
+    }
+    /* attribute value */
+    pre .kwd {
+        color: #ff3399;
+    }
+    /* keyword */
+    pre .com {
+        color: #9933cc;
+    }
+    /* comment */
+    pre .typ {
+        color: #000;
+    }
+    /* type */
+    pre .lit {
+        color: #0099ff;
+    }
+    /* literal */
+    pre .pun {
+        color: #333;
+    }
+    /* punctuation */
+    pre .pln {
+        color: #3e526b;
+    }
+    /* plaintext */
+    pre .tag {
+        color: #3e526b;
+    }
+    /* html/xml tag */
+    pre .atn {
+        color: #3e526b;
+    }
+    /* attribute name */
+    pre .dec {
+        color: #3e526b;
+    }
+    /* decimal */
+
+    /* Specify class=linenums on a pre to get line numbering */
+    ol.linenums {
+        margin-top: 0;
+        margin-bottom: 0;
+        color: #333;
+    }
+
+    li.L0, li.L1, li.L2, li.L3, li.L5, li.L6, li.L7, li.L8 {
+        list-style-type: none;
+    }
+
+    li.L1, li.L3, li.L5, li.L7, li.L9 {
+        background: #eee;
+    }
+
+    /*keyboard navigation legend */
+    .key-button {
+        display: inline-block;
+        text-decoration: none;
+        color: #555;
+        min-width: 20px;
+        margin: 0;
+        padding: 3px 5px;
+        font-size: 12px;
+        text-align: center;
+        border-radius: 2px;
+        -webkit-border-radius: 2px;
+        -moz-border-radius: 2px;
+        background: #eee;
+        box-shadow: 0 1px 0 1px rgba(0,0,0,0.1), 0 2px 0 rgba(0,0,0,0.1);
+    }
+
+    .widest {
+    }
+
+    .wider {
+    }
+
+    .wide {
+    }
+
+    .leftAlign, .rightAlign, .centerAlign {
+        text-align: left;
+    }
+
+    .letter {
+        padding-top: 14px;
+        padding-bottom: 11px;
+        font-weight: bold;
+        font-size: 17px;
+    }
+
+    ul.keyboard-legend {
+        list-style-type: none;
+        margin: 0 auto;
+        padding: 0;
+        text-align: left;
+    }
+
+    #example ul.keyboard-legend li,
+    .demo-section .box-col ul.keyboard-legend li {
+        display: block;
+        margin: 0;
+        padding: 4px 0;
+        line-height: 1.5em;
+    }
+
+    ul.keyboard-legend li a {
+        color: #0487C4;
+    }
+
+
+    .button-preview {
+        display: inline-block;
+        vertical-align: top;
+        padding: 0 5px 0 0;
+    }
+
+    .button-descr {
+        display: inline-block;
+        vertical-align: top;
+        text-align: left;
+        padding: 3px 0;
+    }
+
+    .demo-section p a.hyperlink,
+    .config-section a {
+        color: #e15613;
+        text-decoration: none;
+    }
+
+    .chart-wrapper,
+    .map-wrapper,
+    .diagram-wrapper {
+        position: relative;
+        height: 430px;
+        margin: 0 auto 15px auto;
+        padding: 10px;
+    }
+
+    #example.absConf .chart-wrapper,
+    #example.absConf .map-wrapper,
+    #example.absConf .diagram-wrapper {
+        margin-left: 0;
+    }
+
+    .chart-wrapper .k-chart,
+    .map-wrapper .k-map,
+    .diagram-wrapper .k-diagram {
+        height: 430px;
+    }
+
+    .config-section.console-section {
+        width: 400px;
+        float: right;
+    }
+
+    #page > h2 {
+        float: none;
+        text-align: center;
+        width: auto;
+        padding: 5em 0 1em;
+        font-size: 3em;
+    }
+
+    #suites .imgPlate,
+    #suites .box {
+        border-width: 0;
+        -webkit-box-shadow: none;
+        -moz-box-shadow: none;
+        box-shadow: none;
+    }
+
+    #suites {
+        text-align: center;
+    }
+
+        #suites .box {
+            float: none;
+            clear: none;
+            display: inline-block;
+            width: auto;
+            min-width: auto;
+        }
+
+            #suites .box h2 {
+                margin-top: 1em;
+            }
+
+    #draggable.hollow {
+        cursor: default;
+        background: #ececec;
+        border-color: #cbcbcb;
+    }
+
+    /* Box Styles */
+
+    .box {
+        /*margin: 4.5em 7.5em;*/
+        padding: 3em;
+        background-color: #E1F0F5;/*rgba(20,53,80,0.038);*/
+        border: 1px solid rgba(20,53,80,0.05);
+    }
+
+    .demo-section {
+        margin: 0 auto 4.5em;
+        padding: 3em;
+        border: 1px solid rgba(20,53,80,0.14);
+    }
+
+        .demo-section:not(.wide),
+        #example .box:not(.wide) {
+            max-width: 400px;
+        }
+
+        .box:after,
+        .demo-section:after {
+            content: "";
+            display: block;
+            clear: both;
+            height: 0;
+        }
+
+    #example .box {
+        margin: 4.5em auto;
+    }
+
+        #example .box:first-child {
+            margin-top: 0;
+        }
+
+    .demo-section.k-content {
+        box-shadow: 0 1px 2px 1px rgba(0,0,0,.08), 0 3px 6px rgba(0,0,0,.08);
+    }
+
+    .box h4,
+    .demo-section h4 {
+        margin-bottom: 1em;
+        font-size: 12px;
+        line-height: 1em;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    .box-col {
+        display: block;
+        float: left;
+        padding: 0 3em 1.667em 0;
+    }
+
+    .box ul:not(.km-widget) li,
+    .demo-section .box-col ul:not(.km-widget) li {
+        line-height: 3em;
+    }
+
+    .box li:last-child {
+        margin-bottom: 0;
+    }
+
+    .box li a {
+        font-size: 13px;
+    }
+
+    .box .k-widget {
+        background-color: #ebeef0;
+        border-color: #ccc;
+        color: #7c7c7c;
+    }
+
+        .box .k-widget.k-slider {
+            background-color: transparent;
+        }
+
+    .box .k-button {
+        cursor: pointer;
+        border-radius: 2px;
+        font-size: inherit;
+        color: #333;
+        background: #e2e4e7;
+        border-color: #e2e4e7;
+        min-width: 90px;
+        box-shadow: none;
+    }
+
+    .box .k-upload-status .k-button-bare {
+        min-width: 0;
+    }
+
+    .box .k-button:hover,
+    .box .k-button:focus:active:not(.k-state-disabled):not([disabled]),
+    .box .k-button:focus:not(.k-state-disabled):not([disabled]) {
+        background: #cad0d6;
+        border-color: #cad0d6;
+        color: #000;
+        box-shadow: none;
+    }
+
+    .box .k-primary {
+        color: #fff;
+        background: #015991;
+        border-color: #015991;
+    }
+
+        .box .k-primary:hover,
+        .box .k-primary:focus:active:not(.k-state-disabled):not([disabled]),
+        .box .k-primary:focus:not(.k-state-disabled):not([disabled]) {
+            background: #013A5E;
+            border-color: #013A5E;
+            color: #fff;
+        }
+
+    .box .k-textbox,
+    .box textarea {
+        background: #fff;
+        border-color: #e2e4e7;
+        color: #555;
+        border-radius: 2px;
+    }
+
+        .box .k-textbox:hover,
+        .box .k-textbox:active,
+        .box .k-textbox:focus,
+        .box textarea:hover,
+        .box textarea:active,
+        .box textarea:focus {
+            border-color: #cad0d6;
+            background: #fff;
+            color: #333;
+            box-shadow: none;
+        }
+
+    .box.demo-description p {
+        line-height: 1.5em;
+        max-width: 1000px;
+        padding-bottom: 1em;
+    }
+
+        .box.demo-description p:last-child {
+            padding-bottom: 0;
+        }
+
+    .box.demo-description ul,
+    .box.demo-description ul li {
+        list-style: disc inside;
+        line-height: 1.5em;
+        max-width: 1000px;
+    }
+
+    .box.demo-description ol,
+    .box.demo-description ol li {
+        list-style: decimal inside;
+        line-height: 1.5em;
+        max-width: 1000px;
+    }
+
+    .box.demo-description ul,
+    .box.demo-description ol {
+        margin: 1em;
+        padding: 0;
+    }
+
+    .demo-hint {
+        line-height: 22px;
+        color: #aaa;
+        font-style: italic;
+        font-size: .9em;
+        padding-top: 1em;
+    }
+
+    .responsive-message {
+        font-size: 17px;
+        display: none;
+        margin: 4em auto;
+        padding: 2.5em;
+        text-align: center;
+        background-color: #ffda3f;
+        color: #000;
+    }
+
+        .responsive-message:before {
+            content: "This demo requires browser or device screen width to be equal or greater than 1024px.";
+        }
+</style>

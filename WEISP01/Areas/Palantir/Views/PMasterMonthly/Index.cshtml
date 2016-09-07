@@ -1,0 +1,752 @@
+﻿@{
+    ViewBag.Title = "Report Monthly PMaster";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+    //var ActivityEntityIDSel = DataHelper.Populate("WEISPalantirMasterMap").Select(x => BsonHelper.GetString(x, "ActivityEntityID")).Distinct().ToList<string>();
+    //List<string> aeOption = new List<string>();
+    //aeOption.Add("Select Activity Entity Id");
+    //foreach (string aeId in ActivityEntityIDSel)
+    //{
+    //    aeOption.Add(aeId);
+    //}
+
+    //var mapfilesview = PMaster.Populate<PMaster>().Select(x => x.MapName).Distinct().ToList();
+    //List<string> mapOption = new List<string>();
+    //mapOption.Add("Select Map File");
+    //foreach (string map in mapfilesview)
+    //{
+    //    mapOption.Add(map);
+    //}
+}
+
+<script>
+    model.PageId("Administration");
+
+    model.IsProcessing = ko.observable(false);
+    model.actionMapProcessing = ko.observable(false);
+    @*model.MapFileSelectAll = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(mapOption)));*@
+</script>
+
+<style>
+    .newmp {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+        .newmp .col-md-3, .newmp .col-md-4 {
+            padding: 0px;
+            margin: 0px;
+        }
+
+        .newmp .col-md-4 {
+            text-align: right;
+            min-height: 28px;
+        }
+
+            .newmp .col-md-4 label {
+                padding-top: 4px;
+            }
+
+        .newmp .col-md-8 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .newmp .col-md-8 {
+            text-align: left;
+        }
+
+    .grids .grid {
+        height: 100%;
+        width: 100%;
+    }
+
+    .grids {
+        margin-top: 15px;
+    }
+
+    .grids {
+        padding: 0px 15px 0px 0px !important;
+    }
+
+        .grids .cell-number {
+            text-align: right;
+        }
+
+        .grids .cell-date {
+            text-align: center;
+        }
+
+        .grids .k-grid .k-grid-content {
+            min-height: 100px;
+            /*max-height: 600px;*/
+        }
+
+
+
+        .grids .k-header.k-grid-toolbar {
+            /*background-color: #F9F9FB;*/
+        }
+
+        .grids .k-header[role=columnheader] {
+            vertical-align: middle;
+        }
+
+            .grids .k-header[role=columnheader][data-colspan] {
+                text-align: center;
+                font-weight: bold;
+                color: #a8a8a8;
+            }
+
+        .grids [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+            text-align: center;
+            vertical-align: top;
+        }
+
+    .k-grid .k-grid-content-locked {
+        height: auto !important;
+    }
+</style>
+
+
+
+<div class="col-md-12" style="margin-bottom: 10px;">
+    <!-- filters -->
+    @Html.Partial("FilterForPalantir")
+
+    <script>
+        //model.FilterVisibilityPalantir.LineOfBusiness(true);
+        //model.FilterVisibilityPalantir.Asset(true);
+        //model.FilterVisibilityPalantir.FundingType(true);
+
+        model.FilterVisibilityPalantir.MoneyType(true);
+        model.FilterVisibilityPalantir.Currency(true);
+        model.FilterVisibilityPalantir.SSTG(true);
+        model.FilterVisibilityPalantir.InPlan(true);
+
+        model.FilterVisibilityPalantir.WellNames(false);
+        model.FilterVisibilityPalantir.ProjectNames(false);
+        model.FilterVisibilityPalantir.BtnGenerateMpmaster(true);
+        model.FilterVisibilityPalantir.MapFilemo(true);
+    </script>
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    @*<div class="col-md-12 row newmp">
+        <div class="col-md-4">
+            <div class="col-md-4">
+                <label>Activity Entity ID: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="ActivityEntityIdnsell" data-placeholder="Select activity entity id ..."></select>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-12 row newmp">
+        <div class="col-md-4">
+            <div class="col-md-4">
+                <label>Map File: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="MapFileSelect" data-placeholder="Select map file ..." style="width:100%"></select>
+            </div>
+        </div>
+    </div>*@
+
+    <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden'), height: (!model.IsProcessing() ? '' : '0px'), overflow: (!model.IsProcessing() ? '' : 'hidden') }">
+
+        <div class="col-md-12 grids by-monthlypm">
+            @*<div class="row" style="margin-bottom:10px;visibility:hidden">
+                    <div class="col-md-1">
+                        <button class="btn btn-custom btn-sm btn-danger" data-bind="click: deleteaggrmpmaster">
+                            <span class="glyphicon glyphicon-trash"></span> Delete
+                        </button>
+                    </div>
+                    <div class="col-md-3" style="visibility:hidden">
+                        <div class="col-md-5">
+                            <label>Activity Entity ID: </label>
+                        </div>
+                        <div class="col-md-6">
+                            <select data-model="ActivityEntityIDSelect" data-placeholder="Select Activity Entity ID ..."></select>
+                        </div>
+                    </div>
+                    <div class="col-md-2" style="visibility:hidden">
+                        <button class="btn btn-custom btn-sm btn-danger" data-bind="click: deletemapmpmaster">
+                            <span class="glyphicon glyphicon-trash"></span> Delete Map
+                        </button>
+                    </div>
+                </div>*@
+            <div class="row">
+                <div class="col-md-12" id="button_group_mapping" style="margin-left: 140px; margin-bottom: 20px; display:none;">
+                    <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: GenerateMap, enable:!model.actionMapProcessing()">
+                        <span class="glyphicon glyphicon-play"></span> Generate Report
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: EditMappingReport">
+                        <span class="glyphicon glyphicon-pencil"></span> Edit Mapping
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-danger" data-bind="click: DeleteMappingReport, enable:!model.actionMapProcessing()">
+                        <span class="glyphicon glyphicon-trash"></span> Delete Mapping
+                    </button>
+                </div>
+                <div class="col-md-12">
+                    <div id="grid_monthly" class="grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <div style="clear: both;"></div>
+    </div>
+
+</div>
+
+<div class="modal fade" id="modal-action-map">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title">PMaster Mapping Action</h4>
+                </div>
+                <div class="modal-body">
+                    <div data-bind="visible:model.actionMapProcessing()" id="actionMapProcessing">
+                        @Html.Partial("_processing")
+                    </div>
+                    <div class="form-group" id="actionMapProcessing" data-bind="visible:!model.actionMapProcessing()">
+                        <div class="col-md-12" style="text-align:right">
+                            <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: GenerateMap, enable:!model.actionMapProcessing()">
+                                <span class="glyphicon glyphicon-play"></span> Generate Report
+                            </button>
+                            <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: EditMappingReport">
+                                <span class="glyphicon glyphicon-pencil"></span> Edit Mapping
+                            </button>
+                            <button type="button" class="btn btn-sm btn-custom btn-danger" data-bind="click: DeleteMappingReport, enable:!model.actionMapProcessing()">
+                                <span class="glyphicon glyphicon-trash"></span> Delete Mapping
+                            </button>
+                        </div>
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    @*model.ActivityEntityIDSelectnew = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(aeOption)));*@
+    $(document).ready(function () {
+        //$('[data-model="ActivityEntityIdnsell"]').kendoDropDownList({
+        //    dataSource: model.ActivityEntityIDSelectnew(),
+        //    value: model.ActivityEntityIDSelectnew().length == 0 ? [] : [model.ActivityEntityIDSelectnew()[0]],
+        //    select: function (e) {
+        //        var dataItem = this.dataItem(e.item);
+
+        //        if (typeof dataItem !== 'undefined') {
+        //            if (dataItem != "Select Activity Entity Id") {
+        //                GetListMapping(dataItem);
+        //                $("#modal-action-map").modal("show");
+        //            }
+        //        }
+        //    }
+        //});
+
+        //$('[data-model="MapFileSelect"]').kendoDropDownList({
+        //    dataSource: model.MapFileSelectAll(),
+        //    value: model.MapFileSelectAll().length == 0 ? [] : [model.MapFileSelectAll()[0]],
+        //    select: function (e) {
+        //        var dataItem = this.dataItem(e.item);
+        //        if (typeof dataItem !== 'undefined') {
+        //            GetListMapping(dataItem);
+        //            if (dataItem != "Select Map File") {
+        //                $("#modal-action-map").modal("show");
+        //            }
+        //        }
+        //    }
+        //});
+        //model.reloadData();
+    });
+
+    model.selectedMapFile = function (dataItem) {
+        if (typeof dataItem !== 'undefined') {
+            if (dataItem != "Select Map File") {
+                GetListMapping(dataItem);
+                $("#button_group_mapping").show();
+            } else {
+                model.IsProcessing(true);
+                alert("Please select map file!");
+                $('#grid_monthly').replaceWith($('<div />').attr('id', 'grid_monthly'));
+                $("#button_group_mapping").hide();
+                model.IsProcessing(false);
+            }
+        }
+    }
+
+    model.reloadData = function () {
+        model.ReloadMapNames();
+        model.GetDataReport();
+    }
+
+    model.ReloadMapNames = function () {
+        ajaxPost("@Url.Action("GetMapNames")", {}, function (res) {
+            console.log(res.Data);
+            $('[data-model="MapFilemo"]').data("kendoDropDownList").setDataSource(res.Data);
+        }, function (res) {
+            console.log(res);
+        });
+    }
+
+    model.GetDataReport = function () {
+        var param = model.getFilterValuesPalantir();
+        var mapname = param.MapFilemo;
+        model.selectedMapFile(mapname);
+    }
+
+    var uniqueArray = function (a) {
+        return a.reduce(function (p, c) {
+            if (p.indexOf(c) < 0) p.push(c);
+            return p;
+        }, []);
+    };
+
+    function toggleCheckMonthly(sender) {
+        var s = $(sender);
+        var cbxs = s.closest("#grid_monthly.k-grid").find("input[type='checkbox'].checkme");
+        cbxs.prop("checked", s.prop("checked"));
+    }
+
+    model.renderGridColumnsMonthly = function (data) {
+        var gridColumns = [];
+        gridColumns.push(
+            //{
+            //width: 30,
+            //template: "<input type='checkbox' class='checkme' value='#: _id #'>",
+            //headerTemplate: "<input type='checkbox' class='check_toggle' onchange='javascript:toggleCheckMonthly(this)'>",
+            //locked: true,
+            //lockable: false
+            //},
+        {
+            field: "ReportEntity",
+            title: "Reporting Entity",
+            width: 110
+        },
+        {
+            field: "PlanningEntity",
+            title: "Planning Entity",
+            width: 110
+        }, {
+            field: "PlanningEntityID",
+            title: "Planning<br/> Entity ID",
+            width: 90,
+            format: "{0:N0}",
+            attributes: { "style": "text-align:right" }
+        }, {
+            field: "ActivityEntity",
+            title: "Activity Entity",
+            width: 110
+        }, {
+            field: "ActivityEntityID",
+            title: "Activity<br/> Entity ID",
+            width: 90,
+            format: "{0:N0}",
+            attributes: { "style": "text-align:right" }
+        }, {
+            field: "Prob",
+            title: "Probability<br/> Of Success",
+            width: 90,
+            format: "{0} %",
+            attributes: { "style": "text-align:right" }
+        }, {
+            field: "ActivityCategory",
+            title: "Activity Category",
+            width: 90
+        }, {
+            field: "ActivityType",
+            title: "Activity Type",
+            width: 90
+        }, {
+            field: "BaseOP",
+            title: "Base OP",
+            width: 90
+        }, {
+            field: "FirmOption",
+            title: "Planning Classification",
+            width: 90
+        }, {
+            field: "FundingType",
+            title: "Funding Type",
+            width: 90
+        }, {
+            field: "RigName",
+            title: "Rig Name",
+            width: 90
+        }, {
+            field: "WellName",
+            title: "Well Name",
+            width: 90
+        }, {
+            field: "UARigSequenceId",
+            title: "Sequence Id",
+            width: 90
+        });
+
+        ////for (var i = 0; i < data[0].UIOMonthly.length; i++) {
+        ////    var dasuChild = [];
+        ////    for (var j = 0; j < data[0].UIOMonthly[i].month.length; j++) {
+        ////        //resultDynm = { field: "OPList[" + i + "].OPSchedule.Start", template: "#: jsonDateStr(OPList[" + i + "].OPSchedule.Start) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },;
+        ////        dasuChild.push({ field: "UIOMonthly[" + i + "].MonthValue[" + j + "]", title: data[0].UIOMonthly[i].month[j], width: 60, format: "{0:N1}", attributes: { style: 'text-align: right;' } });
+        ////        //dasuChild[j] = "{dsadsd}";
+        ////    }
+        ////    gridColumns.push({ title: data[0].UIOMonthly[i].TopHeader, columns: dasuChild });
+        ////}
+
+        ////for (var i = 0; i < data[0].UIOAnnual.length; i++) {
+        ////    gridColumns.push({ field: "UIOAnnual[" + i + "].value", title: data[0].UIOAnnual[i].year.toString(), width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+        ////}
+
+        ////var record = data[0].UIDummyYear;
+        ////for (var key in record) {
+        ////    if (record.hasOwnProperty(key)) {
+        ////        //alert(key + " -> " + data[0].UIDummyYear[key]);
+        ////        gridColumns.push({ field: ("UIDummyYear." + key), title: key.replace(/_/g, " "), width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+        ////    }
+        ////}
+
+
+        //var transMonthly = [];
+        //var yearMonthly = [];
+        //var recordMonthly = data[0].Monthly;
+        //var iMonthly = 0;
+        //for (var key in recordMonthly) {
+        //    if (recordMonthly.hasOwnProperty(key)) {
+        //        for (var keyitem in recordMonthly[key]) {
+        //            yearMonthly.push(keyitem.split('_')[2]);
+        //            transMonthly.push({ field: ("Monthly[" + iMonthly + "]." + keyitem), title: keyitem.split('_')[1], width: 50, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+        //        }
+        //        iMonthly++;
+        //    }
+        //}
+
+        //var yearMonthlyUnique = uniqueArray(yearMonthly);
+        //for (var j = 0; j < yearMonthlyUnique.length; j++) {
+        //    var tempyearMonthly = [];
+        //    for (var i = 0; i < transMonthly.length; i++) {
+        //        if (yearMonthlyUnique[j] == transMonthly[i].field.split('.')[1].split('_')[2]) {
+        //            tempyearMonthly.push(transMonthly[i]);
+        //        }
+        //    }
+        //    gridColumns.push({ title: yearMonthlyUnique[j], columns: tempyearMonthly });
+        //}
+
+        //var recordAnnual = data[0].Annual;
+        //var iAnnual = 0;
+        //for (var key in recordAnnual) {
+        //    if (recordAnnual.hasOwnProperty(key)) {
+        //        //alert(key + " -> " + data[0].UIDummyYear[key]);
+        //        for (var keyitem in recordAnnual[key]) {
+        //            gridColumns.push({ field: ("Annual[" + iAnnual + "]." + keyitem), title: keyitem.split('_')[1], width: 70, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+        //        }
+        //        iAnnual++;
+        //    }
+        //}
+        return gridColumns;
+    }
+
+    function renderGridUsingData(data) {
+        var excelName = "DataMonthly_" + moment(new Date()).format("DD-MMM-YYYY_HH:mm:ss") + ".xlsx";
+
+        $('#grid_monthly').replaceWith($('<div />').attr('id', 'grid_monthly'));
+        $('#grid_monthly').kendoGrid({
+            toolbar: ["excel"],
+            excel: { fileName: excelName, allPages: true, filterable: true },
+            dataSource: {
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: model.renderGridColumnsMonthly(data),
+            excelExport: function (e) {
+                var sheet = e.workbook.sheets[0];
+                for (var rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
+                    var row = sheet.rows[rowIndex];
+                    for (var cellIndex = 0; cellIndex < row.cells.length; cellIndex++) {
+                        if (rowIndex == 0) {
+                            row.cells[cellIndex].value = row.cells[cellIndex].value.replace("<br/>", "");
+                        } else {
+                            if (cellIndex == 5) {
+                                row.cells[cellIndex].format = '0%';
+                                row.cells[cellIndex].value = row.cells[cellIndex].value / 100;
+                            }
+                            if (cellIndex == 2 || cellIndex == 4) {
+                                row.cells[cellIndex].format = '0';
+                                row.cells[cellIndex].value = row.cells[cellIndex].value / 1;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+    }
+
+    model.deleteaggrmpmaster = function () {
+        var conf = confirm("Are you sure want to delete?");
+        if (conf) {
+            model.deleteaggr("grid_monthly", "pmasterMonthly");
+        }
+    }
+
+    model.deleteaggr = function (idgrid, report) {
+        var ids = $("#" + idgrid).find("input.checkme:checked");
+        var idValues = $.map(ids, function (obj, idx) {
+            var $obj = $(obj);
+            return $obj.val();
+        });
+        if (idValues.length == 0) {
+            alert("Please select record Report to be reminded");
+            return;
+        }
+
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("DeleteAggr")", { ids: idValues, report: report }, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadData();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    model.deletemapmpmaster = function () {
+        var conf = confirm("Are you sure want to delete?");
+        if (conf) {
+            model.deletemap("pmasterMonthly");
+        }
+    }
+
+    model.deletemap = function (report) {
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("DeleteMap")", { caseName: casename, report: report }, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadData();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    function ExportToExcelDetails(listaggr) {
+        model.actionMapProcessing(true);
+        model.IsProcessing(true);
+        var parampq = model.getFilterValuesPalantir();
+        //var mapname = $('[data-model="MapFileSelect"]').data('kendoDropDownList').value();
+        var mapName = parampq.MapFilemo;
+        var param = {
+            //genelistPmaster: listaggr,
+            isDetails: true,
+            pq: parampq,
+            mapname: mapName
+        };
+        var url = "@Url.Action("ExportPMasterMonthly")";
+        ajaxPost(url, param, function (data) {
+            if (!data.Success) {
+                alert(data.Message);
+                model.IsProcessing(false);
+                model.actionMapProcessing(false);
+                return;
+            }
+            alert("Map PMaster Generated Success. Process Export to excel");
+            url = "@Url.Action("DownloadPMasterFile", "PMasterMonthly")" + "?stringName=" + data.Path + "&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss") + "&isDetails=" + true;
+            location.href = url;
+            model.IsProcessing(false);
+            model.actionMapProcessing(false);
+        }, function (err) {
+            alert(err);
+            model.IsProcessing(false);
+            model.actionMapProcessing(false);
+        })
+
+    }
+
+    @*function ExportToExcel(listaggr){
+        var param = listaggr;
+        var url = "@Url.Action("ExportPMasterMonthly")";
+        ajaxPost(url, { listPmaster: param, isDetails: false }, function(data){
+            url = "@Url.Action("DownloadPMasterFile", "PMasterMonthly")" + "?stringName=" + data.Path + "&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss") + "&isDetails="+false;
+            location.href = url;
+        },function(err){alert(err)})
+
+    }*@
+
+    function GenerateMap() {
+        ExportToExcelDetails()
+        @*model.IsProcessing(true);
+        model.actionMapProcessing(true);
+
+        var grid = $("#grid_monthly").data("kendoGrid");
+        var data = grid.dataSource.data();
+        var param = model.getFilterValuesPalantir();
+        //var mapname = $('[data-model="MapFileSelect"]').data('kendoDropDownList').value();
+        var mapname = param.MapFilemo;
+        ajaxPost("@Url.Action("GenerateResultTransform")", { pq: param, mapname: mapname }, function (res) {
+            console.log(res)
+            if (res.Data.Success == false) {
+                alert(res.Data.Message);
+                model.actionMapProcessing(false);
+                model.IsProcessing(false);
+                return;
+            }
+
+            alert("Map PMaster Generated Success. Process Export to excel");
+            $("#modal-action-map").modal("hide");
+            if (res.Data.listPmaster.length > 0) {
+                ExportToExcelDetails(res.Data.listPmaster);
+            } else {
+                alert("Cannot find data with InPlan: " + param.InPlan + " or the Data doesn't have any activity entity ID");
+                model.IsProcessing(false);
+            }
+            model.actionMapProcessing(false);
+            //model.IsProcessing(false);
+
+        }, function () {
+            model.actionMapProcessing(false);
+            model.IsProcessing(false);
+        });*@
+    }
+
+    @*function GenerateMap() {
+        var param = model.getFilterValuesPalantir();
+        param.report = "pmastermonthly";
+
+        model.IsProcessing(true);
+        var url = "@Url.Action("GenerateMapPMaster", "PMasterMonthly")";
+        ajaxPost(url, param, function (data) {
+            model.IsProcessing(false);
+            if (data.Data.Status == "NOK") {
+                alert(data.Data.Message);
+                return;
+            }
+            renderGridUsingData(data.Data);
+        }, function (err) {
+            model.IsProcessing(false);
+            alert(err)
+        });
+    }*@
+
+
+    model.EditMappingReport = function () {
+        $("#myForm").remove();
+        //var activityEid = $('[data-model="ActivityEntityIdnsell"]').data('kendoDropDownList').value();
+        //console.log(activityEid);
+        //if (activityEid.length > 0) {
+        //var mapNameAr = $('[data-model="MapFileSelect"]').data('kendoDropDownList').value();
+        var mapNameAr = model.getFilterValuesPalantir().MapFilemo;
+        if (mapNameAr != "Select Map File") {
+            var f = document.createElement("form");
+            f.setAttribute("id", "myForm");
+            f.setAttribute('method', "post");
+            f.setAttribute('action', "@Url.Action("PMasterMapping", "PMasterMonthly")");
+
+            var selectList = document.createElement("select");
+            selectList.setAttribute("name", "mapname");
+            selectList.setAttribute("style", "width:200px");
+            f.appendChild(selectList);
+
+            var option = document.createElement("option");
+            option.setAttribute("value", mapNameAr);
+            option.text = mapNameAr;
+            option.setAttribute("selected", "selected");
+            selectList.appendChild(option);
+
+            var s = document.createElement("input");
+            s.setAttribute('type', "submit");
+            s.setAttribute('value', "Submit");
+            f.appendChild(s);
+            document.body.appendChild(f);
+
+            $("#myForm").hide();
+            $('#myForm input[type="submit"]').trigger('click');
+        } else {
+            alert("Please Input Map File");
+        }
+    }
+
+    function GetListMapping(param) {
+        model.IsProcessing(true);
+        var parampq = model.getFilterValuesPalantir();
+        var url = "@Url.Action("GetListPMasterMapping", "PMasterMonthly")";
+        ajaxPost(url, { pq: parampq, mapname: param }, function (data) {
+            model.IsProcessing(false);
+            if (data.Data.Status == "NOK") {
+                alert(data.Data.Message);
+                return;
+            }
+            renderGridUsingData(data.Data);
+
+        }, function (err) {
+            model.IsProcessing(false);
+            alert(err)
+        });
+    }
+
+    model.DeleteMappingReport = function () {
+        var conf = confirm("Are you sure want to delete mapping?");
+        if (conf) {
+            model.deletemapreport();
+        }
+    }
+
+    model.deletemapreport = function () {
+        var mapnamesss = model.getFilterValuesPalantir().MapFilemo;
+        if (mapnamesss != "Select Map File") {
+            model.actionMapProcessing(true);
+            ajaxPost("@Url.Action("DeletePmasterMonthly")", { mapname: mapnamesss }, function (res) {
+                if (res.Success) {
+                    model.actionMapProcessing(false);
+                    location.reload();
+                    //var ddlMapdell = $('[data-model="ActivityEntityIdnsell"]').data("kendoDropDownList");
+                    //var newListMap = []
+                    //newListMap.push("Select Activity Entity Id");
+                    //for (i = 0; i < res.mapList.length; i++) {
+                    //    newListMap.push(res.mapList[i]);
+                    //}
+                    //ddlMapdell.setDataSource(newListMap);
+                    //ddlMapdell.refresh();
+
+                    //$("#grid_monthly").data("kendoGrid").dataSource.data([]);
+                } else {
+                    model.actionMapProcessing(false);
+                    alert(res.Message);
+                }
+            }, function () {
+                model.actionMapProcessing(false);
+                alert(res.Message);
+            });
+            $("#modal-action-map").modal("hide");
+        } else {
+            alert("Please Input Map File");
+        }
+    }
+
+</script>

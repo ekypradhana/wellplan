@@ -1,0 +1,467 @@
+﻿@{
+    ViewBag.Title = "Backup and Restore";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+
+    model.datestart = ko.observable('');
+    model.datefinish = ko.observable('');
+</script>
+
+
+<div>
+    <div class="box">
+        <b>This module is use for backup current Well Activity datas and Restore from previous Well Activity data point</b>
+        <ul type="circle">
+            <li><a class=" btn-primary btn-xs"> Backup Current Well Activity Data</a>  to backup current WEIS Well Activity Data. </li>
+            <li><a class=" btn-warning btn-xs"> Restore</a>  to restore your Well Activity Data, with selected backup </li>
+            <li><a class=" btn-danger btn-xs"> Delete</a>  to delete Well Activity Data backup</li>
+        </ul>
+    </div>
+    <div class="col-md-12 no-padding">
+        <div data-bind="visible: model.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div data-bind="visible: !model.IsProcessing()">
+            <div class="clearfix">&nbsp;</div>
+            <div style="text-align: left; padding-bottom: 6px;">
+                <a id="NewData" class="btn btn-primary btn-custom btn-sm" onclick="OpenModal();">
+                    <span class="glyphicon glyphicon-plus"></span>
+                    Backup Current Well Activity Data
+                </a>
+
+                <a id="deleteMass" class="btn btn-primary btn-danger btn-sm" onclick="OpenModal2();">
+                    <span class="glyphicon glyphicon-minus-sign"></span>
+                    Mass Delete Well Activity Data
+                </a>
+            </div>
+            <div class="grid grid2"></div>
+
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            $("#files").kendoUpload({
+                async: {
+                    saveUrl: '@Url.Action("Upload", "UploadOP")',
+                    removeUrl: "remove",
+                    autoUpload: false
+                },
+                complete: onComplete,
+                select: onSelect
+            });
+        });
+    </script>
+
+    <div class="modal fade myModal" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title">Backup Current Well Activity</h4>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form_new_phase" class="k-content">
+                            <div class="form-inline" style="font-weight:800">
+                                Well Activity Backup title :
+                            </div>
+                            <div class="form-group">
+                                <div class="col-md-8" style="text-align:right">
+                                    <label style="text-align:right; font-style:italic; color:brown">_WellActivity_[datetimeformat]_</label>
+                                    <input id="inputName" type="text" class="text">
+                                </div>
+
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <label style="text-align:left; font-weight:400; font-size:smaller "> name will be formed as : _WellActivity_201502170243_[yourtitle]</label>
+
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-custom btn-sm btn-shell" data-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-custom btn-sm btn-primary" onclick="Backup();">
+                            <span class="glyphicon glyphicon-ok"></span> Backup
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade myModal" id="myModal2" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title">Delete Well Activity Collections Backup</h4>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form_new_phase" class="k-content">
+                            <div class="form-group">
+                                <div class="col-md-4">
+                                    <label style="text-align:right; font-weight:bold;" class="control-label">Backup Date From:</label>
+                                </div>
+                                <div class="col-md-8">
+                                    <input style="width: 200px;"
+                                           required data-required-msg="Insert Period Finish" name="PhasePhStart"
+                                           data-bind="kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.datestart } " />
+                                    <span class="k-invalid-msg" data-for="PhasePhStart"></span>
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-4">
+                                    <label style="text-align:right; font-weight:bold;" class="control-label">Backup Date To:</label>
+                                </div>
+                                <div class="col-md-8">
+                                    <input style="width: 200px;"
+                                           required data-required-msg="Insert Period Finish" name="PhasePhFinish"
+                                           data-bind="kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.datefinish } " />
+                                    <span class="k-invalid-msg" data-for="PhasePhFinish"></span>
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-custom btn-sm btn-shell" data-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary btn-danger btn-sm" onclick="DeleteMass();">
+                            <span class="glyphicon glyphicon-minus-sign"></span> Delete Mass
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function ClearDataUpload() {
+
+        var up = $('#files').data().kendoUpload;
+        var allLiElementsToBeRemoved = up.wrapper.find('.k-file');
+        up._removeFileEntry(allLiElementsToBeRemoved);
+
+    }
+
+    function onSelect(e) {
+        $.each(e.files, function (index, value) {
+            //alert(value.extension);
+            var ok = value.extension == ".xlsx"
+                     || value.extension == ".xls"
+
+            if (!ok) {
+                e.preventDefault();
+                alert("Please upload only Excel (xls, xlsx) files");
+            }
+        });
+    }
+
+    function onUpload(e) {
+        alert('onUpload');
+        console.log("onupload");
+
+        var url = '@Url.Action("Upload", "UploadOP")';
+        //model.IsProcessing(true);
+
+        ajaxPost(url, "", function (res) {
+            alert('after upload');
+        }, function (a, b, c) {
+            alert('error upload');
+            //alert('Error occured when loading data');
+        });
+
+    }
+
+    function onSuccess(e) {
+        alert('onSuccess');
+        console.log("onSuccess");
+        //kendoConsole.log("Success (" + e.operation + ") :: " + getFileInfo(e));
+    }
+
+    function onError(e) {
+        alert('onError');
+        console.log("onError");
+
+        //kendoConsole.log("Error (" + e.operation + ") :: " + getFileInfo(e));
+    }
+
+    function onComplete(e) {
+        model.LoadDataGrid();
+    }
+
+    function onCancel(e) {
+        alert('onCancel');
+
+        console.log("onCancel");
+
+    }
+
+    function onRemove(e) {
+        alert('onRemove');
+        console.log("Remove :: " + getFileInfo(e));
+    }
+
+    function onProgress(e) {
+        alert('onProgress');
+
+        console.log("Upload progress :: " + e.percentComplete + "% :: " + getFileInfo(e));
+    }
+
+    function getFileInfo(e) {
+        return $.map(e.files, function (file) {
+            var info = file.name;
+
+            // File size is not available in all browsers
+            if (file.size > 0) {
+                info += " (" + Math.ceil(file.size / 1024) + " KB)";
+            }
+            return info;
+        }).join(", ");
+    }
+
+    function DateTimeParse(date) {
+        return moment(jsonDateStr(date), 'DD-MMM-YYYY').format("DD-MMM-YY hh:mm:ss");
+    }
+
+    function Execute(id) {
+        if (!confirm('Are you sure want to replace data from this OP file?'))
+            return;
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("Execute")", { id: id }, function (res) {
+            if (res.Result == "OK") {
+                model.IsProcessing(false);
+                alert("Load WellActivity Done");
+            } else {
+                alert(res.Message + ret.Trace);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    function OpenModal() {
+        $("#myModal").modal('show');
+    }
+
+    function OpenModal2() {
+        $("#myModal2").modal('show');
+    }
+
+    function Backup() {
+        var value = $("#inputName").val();
+        model.IsProcessing(true);
+
+        ajaxPost("@Url.Action("Backup")", { id: value }, function (res) {
+            if (res.Result == "OK") {
+                $("#myModal").modal('hide');
+                alert("Backup Done");
+                model.IsProcessing(false);
+                model.LoadDataGrid();
+                ClearDataUpload();
+                model.LoadDataGridCollection();
+
+
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    function Restore(id) {
+        if (!confirm('Are you sure want to restore data from this revision?'))
+            return;
+
+        model.IsProcessing(true);
+
+        ajaxPost("@Url.Action("Restore")", { id: id }, function (res) {
+            if (res.Result == "OK") {
+                alert("Well Activities data has been restored");
+                model.IsProcessing(false);
+            } else {
+                //alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            //alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    function DeleteMass() {
+        if (!confirm('Are you sure want to do this?'))
+            return;
+        var datestart = model.datestart();
+        var datefinish = model.datefinish();
+
+        if (datestart == "" || datefinish == "") {
+            alert('You must fill Date From and To');
+        }
+        else {
+            model.IsProcessing(true);
+
+            ajaxPost("@Url.Action("DeleteBackupMass")", { start: datestart, finish: datefinish }, function (res) {
+                if (res.Result == "OK") {
+                    alert("Backup Data has been deleted");
+                    model.IsProcessing(false);
+                } else {
+                    //alert(res.Message);
+                    model.IsProcessing(false);
+                }
+            }, function () {
+                //alert(res.Message);
+                model.IsProcessing(false);
+            });
+
+        $("#myModal2").modal('hide');
+
+        model.LoadDataGrid();
+        ClearDataUpload();
+        model.LoadDataGridCollection();
+        }
+
+
+        
+    }
+
+    function DeleteBackup(id) {
+        if (!confirm('Are you sure want to delete?'))
+            return;
+
+        model.IsProcessing(true);
+
+        ajaxPost("@Url.Action("DeleteBackup")", { id: id }, function (res) {
+            if (res.Result == "OK") {
+                alert("Backup Data has been deleted");
+                model.IsProcessing(false);
+            } else {
+                //alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            //alert(res.Message);
+            model.IsProcessing(false);
+        });
+
+        model.LoadDataGrid();
+        ClearDataUpload();
+        model.LoadDataGridCollection();
+    }
+
+    function Download(id) {
+        model.IsProcessing(true);
+        var url = '@Url.Action("Download")' + "?id=" + id;
+        location.href = url;
+        model.IsProcessing(false);
+    }
+
+
+    $(document).ready(function () {
+        //model.LoadDataGrid();
+        //ClearDataUpload();
+        model.LoadDataGridCollection();
+    });
+
+    model.LoadDataGrid = function () {
+
+        var url = '@Url.Action("LoadGridData", "UploadOP")';
+        ajaxPost(url, "", function (res) {
+            console.log(res);
+            LoadGrid(res.Data);
+            model.LoadDataGridCollection();
+        }, function (a, b, c) {
+            console.log(a);
+            console.log(b);
+            console.log(c);
+            alert('Error occured when fetching data from server');
+            model.IsProcessing(false);
+        });
+
+        LoadGrid = function (data) {
+            $('.grid1').replaceWith($('<div />').addClass('grid grid1'));
+            $('.grid1').kendoGrid({
+                dataSource: { data: data, type: "json", pageSize: 5 },
+                pageable: true,
+                sortable: true,
+                resizable: true,
+                columns: [
+                    { field: "FileName", title: "File Name" },
+                    { field: "CreateDate", title: "Create Date", width: 90, template: "#: DateTimeParse(CreateDate) #", },
+                    { field: "LastWrite", title: "Last Write", width: 90, template: "#: DateTimeParse(LastWrite) #", },
+                    {
+                        title: "", width: 105,
+                        template: "<button class='btn btn-xs btn-warning' onclick='Download(\"#: FileName #\")'>Download</a>"
+                        //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='Download(\"#: FileName #\")'>Download</a></div>", width: 100
+                    },
+                    {
+                        title: "", width: 70,
+                        template: "<button class='btn btn-xs btn-danger' onclick='Execute(\"#: FileName #\")'>Execute</a>"
+                        //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='Execute(\"#: FileName #\")'>Load</a></div>", width: 90
+                    }
+
+
+                ],
+
+            });
+        };
+    };
+
+    model.LoadDataGridCollection = function () {
+
+        var url = '@Url.Action("LoadCollection", "UploadOP")';
+        ajaxPost(url, "", function (res) {
+
+            LoadGridCollection(res.Data);
+
+        }, function (a, b, c) {
+            console.log(a);
+            console.log(b);
+            console.log(c);
+            alert('Error occured when fetching data from server');
+            model.IsProcessing(false);
+        });
+
+        LoadGridCollection = function (data) {
+            $('.grid2').replaceWith($('<div />').addClass('grid grid2'));
+            $('.grid2').kendoGrid({
+                dataSource: { data: data, type: "json", pageSize: 5 },
+                pageable: true,
+                sortable: true,
+                resizable: true,
+                columns: [
+                    { field: "CollectionName", title: "Collection Name" },
+                    { field: "CreateDate", title: "Create Date", width: 90, template: "#: DateTimeParse(CreateDate) #", },
+                    {
+                        title: "", width: 70,
+                        template: "<button class='btn btn-xs btn-warning' onclick='Restore(\"#: CollectionName #\")'>Restore</a>"
+                        //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='Restore(\"#: CollectionName #\")'>Restore</a></div>", width: 100
+                    },
+                    {
+                        title: "", width: 100,
+                        template: "<button class='btn btn-xs btn-danger' onclick='DeleteBackup(\"#: CollectionName #\")'><span class='glyphicon glyphicon-minus-sign'> </span> Delete</a>"
+                        //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='DeleteBackup(\"#: CollectionName #\")'>Delete</a></div>", width: 90
+                    }
+                ],
+
+            });
+        };
+    };
+</script>

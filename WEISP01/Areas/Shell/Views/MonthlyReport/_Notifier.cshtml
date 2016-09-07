@@ -1,0 +1,76 @@
+﻿<script>
+    toastr.options = {
+        "closeButton": false,
+        "debug": false,
+        "newestOnTop": false,
+        "progressBar": false,
+        "positionClass": "toast-bottom-right",
+        "preventDuplicates": false,
+        "onclick": null,
+        "showDuration": "300000",
+        "hideDuration": "1000",
+        "timeOut": "300000",
+        "extendedTimeOut": "1000",
+        "showEasing": "swing",
+        "hideEasing": "linear",
+        "showMethod": "fadeIn",
+        "hideMethod": "fadeOut"
+    }
+
+    model.BisPlanRecalculateStatus = ko.observable(false);
+    model.BisPlanRecalculateProgress = ko.observable(0);
+    model.GetCalculationStatus = function () {
+        var BisPlanCalcStatusURL = "@Url.Action("GetCalculationStatus")";
+        var i = 0;
+        model.BisPlanRecalculateStatus(false);
+        model.BisPlanRecalculateProgress(0);
+        $(".btn.btn-xs.btn-primary.btn-custom.btn-initiate").prop("disabled", true);
+        var DoGetCalculationStatus = function () {
+            $(".btn.btn-xs.btn-primary.btn-custom.btn-initiate").prop("disabled", true);
+            ajaxPost(BisPlanCalcStatusURL, { Counter: i }, function (res) {
+                var prevStatus = model.BisPlanRecalculateStatus();
+
+                model.BisPlanRecalculateStatus(res.Data.IsRecalculate);
+                model.BisPlanRecalculateProgress(res.Data.Progress);
+
+                console.log(res.Data);
+                i++;
+
+                if (model.BisPlanRecalculateStatus()) {
+                    if ($("#toast-container").size() == 0) {
+                        toastr["info"]("Execute data is running. Some features will be disabled for a while ");
+                    }
+
+                    if ($(".toast-message:first").find("span").size() == 0) {
+                        $(".toast-message:first").append("<span style='padding-left: 5px;'></span>");
+                    }
+
+                    $(".toast-message:first span").html('(' + (model.BisPlanRecalculateProgress()).toFixed(2) + "%)");
+
+                    setTimeout(function () {
+                        DoGetCalculationStatus();
+                    }, 1000);
+
+                    return;
+                }
+
+                if (!model.BisPlanRecalculateStatus()) {
+                    $("#toast-container").remove();
+                    $(".btn.btn-xs.btn-primary.btn-custom.btn-initiate").prop("disabled", false);
+                    //toastr["success"]("Recalculation process finished.");
+                    //setTimeout(function () {
+                    //    $("#toast-container").remove();
+                    //}, 3000);
+                }
+            });
+        };
+
+        DoGetCalculationStatus();
+    };
+</script>
+
+<style>
+    #toast-container * {
+        opacity: 1 !important;
+    }
+</style>

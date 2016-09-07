@@ -1,0 +1,85 @@
+﻿<script>
+    model.cumulativeDatas = ko.observableArray([]);
+</script>
+
+<div>
+    <div id="chart-cumulative" style="width:1000px;margin:0px auto;">
+    </div>
+    <div style="width:1000px;margin:0px auto;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Summary Performance<br/>Informance Plan Phasing</th>
+                    <th>Base Line</th>
+                    <!-- ko foreach: $root.cumulativeDatas -->
+                    <th data-bind="text:MthName"></th>
+                    <!-- /ko -->
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Cumm Planned Improvement</td>
+                    <td>OP-15</td>
+                    <!-- ko foreach: $root.cumulativeDatas -->
+                    <td class="ec-right" data-bind="text:kendo.format('{0:N1}',PIP())"></td>
+                    <!-- /ko -->
+                </tr>
+            </tbody>
+            <tbody>
+                <tr>
+                    <td>Cumm LE Improvement</td>
+                    <td>Jan LE</td>
+                    <!-- ko foreach: $root.cumulativeDatas -->
+                    <td class="ec-right" data-bind="text:kendo.format('{0:N1}',LE())"></td>
+                    <!-- /ko -->
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+    function createCumulative(wfmodel) {
+        var url = "@Url.Action("GetCumulativeData")";
+        ajaxPost(url,wfmodel,
+            function (data) {
+                if (data.Result != "OK") {
+                    showErr(data.Message + data.Trace);
+                    return;
+                }
+
+                assignObservableArray(model.cumulativeDatas, data.Data);
+
+                var chart = $("#chart-cumulative");
+                chart.html("");
+                chart.kendoChart({
+                    dataSource: ({
+                        data: data.Data,
+                        sort: {field:"MthId"}
+                    }),
+                    legend:{
+                        position:"bottom"
+                    },
+                    series:[
+                        { field: "PIP", name: "PIP", color:"#4F81BD", },
+                        { field: "LE", name: "LE Improvement", color:"#BE4E48", type:"line" }
+                    ],
+                    valueAxis: {
+                        title:"Budget Value (US$ MM)",
+                        labels: {
+                            font:"9px arial"
+                        }
+                    },
+                    categoryAxis: {
+                        field: "MthName",
+                        labels: { font: "9px arial" },
+                        majorGridLines: { visible: false }
+                    },
+                    chartArea: {
+                        width: 1000,
+                        height: 300
+                    }
+                });
+            },
+            showErr)
+    }
+</script>

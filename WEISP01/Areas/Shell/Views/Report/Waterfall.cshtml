@@ -1,0 +1,333 @@
+﻿@{
+    ViewBag.Title = "Business Plan vs LE Variance";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core
+@using ECIS.Client.WEIS
+
+@Html.Partial("Filter")
+
+<script>
+    model.FilterVisibility.ExType(true);
+    model.FilterVisibility.Activities(true);
+    model.FilterVisibility.PerformanceUnits(true);
+    model.FilterVisibility.Date(true);
+    model.FilterVisibility.Date2(true);
+    model.FilterVisibility.PeriodBase(true);
+    model.PageId("Performance Improvement Plan");
+    model.waterfall = ko.observable({
+        GroupBy: ko.observable("GroupBy"),
+        Layout: ko.observable("AFE2TQ2LE"),
+        IncludeZero: ko.observable(true),
+        IncludeGaps: ko.observable(true),
+        IncludeCR: ko.observable(true),
+        DayOrCost: ko.observable("Cost"),
+        Scaled: ko.observable(false)
+    });
+    model.IsProcessing = ko.observable(false);
+    model.ProcessCounter = 0;
+    model.DismissIfProcessFinished = function () {
+        model.IsProcessing(model.ProcessCounter < 2);
+        model.ProcessCounter++;
+    };
+
+    //model.waterfall().GroupBy.subscribe(function (nv) { createChart(); });
+    //model.waterfall().Layout.subscribe(function (nv) { createChart(); });
+    //model.waterfall().IncludeZero.subscribe(function (nv) { createChart(); });
+    //model.waterfall().DayOrCost.subscribe(function (nv) { createChart(); });
+</script>
+
+<div data-bind="visible: model.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+
+<style>
+    .bordered-mini-nav {
+        padding: 10px 0px 6px;
+        border-bottom: 1px solid rgb(224, 224, 224);
+        margin-bottom: 10px !important;
+    }
+    .bordered-mini-nav .each-nav {
+        float: left;
+        border-right: 1px solid rgb(236, 236, 236);
+        padding-right: 3px;
+        margin-right: 5px;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav {
+        padding-right: 5px;
+    }
+     .bordered-mini-nav .each-nav.checkbox-nav div {
+        float: left;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav input {
+        margin: 1px 3px 1px 2px;
+    }
+    .bordered-mini-nav .each-nav.no-border-nav {
+        border-right: none !important;
+        margin-right: 0px !important;
+        padding-right: 0px !important;
+    }
+    .nav-filter-space {
+        margin-right: 3px;
+        border-left: 1px solid rgb(236, 236, 236);
+    }
+</style>
+
+<div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden'), height: (!model.IsProcessing() ? '' : '0px'), overflow: (!model.IsProcessing() ? '' : 'hidden') }">
+
+    <ul class="nav nav-tabs" style="margin-top:10px;">
+        <!--<li class="active"><a href="#waterfall" data-toggle="tab">Waterfall</a></li>-->
+        <li class="active"><a href="#waterfall2" data-toggle="tab">Waterfall (By Opportunity & Risk)</a></li>
+        <li><a href="#waterfall2byrealisedornot" data-toggle="tab">Waterfall (By Realised & Unrealised)</a></li>
+        <!--<li><a href="#waterfall3" data-toggle="tab">Waterfall 3</a></li>-->
+        <li data-bind="visible:true"><a href="#waterfall-data" data-toggle="tab">Waterfall Data</a></li>
+        <li data-bind="visible:true"><a href="#cummulative" data-toggle="tab">Cumulative</a></li>
+        <li data-bind="visible:true"><a href="#cummulative-data-cost" data-toggle="tab">Cumulative Data Cost</a></li>
+        <li data-bind="visible:true"><a href="#cummulative-data-days" data-toggle="tab">Cumulative Data Days</a></li>
+    </ul>
+
+    <div class="tab-content">
+        <!--
+        <div class="tab-pane active" id="waterfall" data-bind="with:waterfall,visible:false">
+            <div style="width:1020px;margin:0px auto;">
+                <div class="mini-nav bordered-mini-nav" style="width: 778px; margin: 0px;">
+                    <div class="each-nav">
+                        Show:
+                        <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                            <option value="Day">Days</option>
+                            <option value="Cost">Cost</option>
+                        </select>
+                    </div>
+                    <div class="each-nav">
+                        Breakdown by:
+                        <select data-bind="value:GroupBy" style="margin-right: 5px;">
+                            <option value="Classification">Classification</option>
+                            <option value="Theme">Theme</option>
+                            <option value="Title">Idea</option>
+                            <option value="PerformanceUnit">Performance Unit</option>
+                            <option value="ActionParty">Action Party (PIC)</option>
+                        </select>
+                    </div>
+                    <div class="each-nav">
+                        Layout:
+                        <select data-bind="value:Layout" style="margin-right: 5px;">
+                            <option value="OP2TQ2LE">OP14 - TQ/Agreed Target - LE</option>
+                            <option value="OP2TQ">OP14 - TQ/Agreed Target</option>
+                            <option value="OP2LE">OP14 - LE</option>
+                            <option value="TQ2LE">TQ/Agreed Target - LE</option>
+                        </select>
+                    </div>
+                    <div class="each-nav checkbox-nav">
+                        <div>
+                            <input type="checkbox" data-bind="checked:IncludeZero" />
+                        </div>
+                        <div>Include 0 value data point</div>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="each-nav checkbox-nav no-border-nav">
+                        <div>
+                            <input type="checkbox" data-bind="checked:IncludeGaps" />
+                        </div>
+                        <div>Include Gap</div>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div id="chart-waterfall" style="width:1020px;height:400px;"></div>
+            </div>
+        </div>
+        -->
+        <div class="tab-pane active" id="waterfall2">
+            @Html.Partial("_waterfall2")
+        </div>
+        <div class="tab-pane" id="waterfall2byrealisedornot">
+            @Html.Partial("_waterfall2_by_realised_or_not")
+        </div>
+        <!--
+        <div class="tab-pane" id="waterfall3" data-bind="visible:false">
+             <div style="width:1020px;margin:0px auto;" data-bind="with:waterfall">
+                <div class="mini-nav bordered-mini-nav" style="width: 548px; margin: 0px;">
+                    <div class="each-nav">
+                        Show:
+                        <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                            <option value="Day">Days</option>
+                            <option value="Cost">Cost</option>
+                        </select>
+                    </div>
+                    <div class="each-nav">
+                        Breakdown by:
+                        <select data-bind="value:GroupBy" style="margin-right: 5px;">
+                            <option value="Classification">Classification</option>
+                            <option value="Theme">Theme</option>
+                            <option value="Title">Idea</option>
+                            <option value="PerformanceUnit">Performance Unit</option>
+                            <option value="ActionParty">Action Party (PIC)</option>
+                            <option value="WellName">Well Name</option>
+                            <option value="RigName">Rig Name</option>
+                        </select>
+                    </div>
+                    <div class="each-nav checkbox-nav">
+                        <div>
+                            <input type="checkbox" data-bind="checked:IncludeZero" />
+                        </div>
+                        <div>Include 0 value data point</div>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="each-nav checkbox-nav no-border-nav">
+                        <div>
+                            <input type="checkbox" data-bind="checked:IncludeGaps" />
+                        </div>
+                        <div>Include Gap</div>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+        </div>
+        -->
+        <div class="tab-pane" id="waterfall-data">
+            @Html.Partial("_waterfall_data")
+        </div>
+        <div class="tab-pane" id="cummulative">
+            @Html.Partial("_cumulative")
+        </div>
+        <div class="tab-pane" id="cummulative-data-cost">
+            @Html.Partial("_cumulative_data_cost")
+        </div>
+        <div class="tab-pane" id="cummulative-data-days">
+            @Html.Partial("_cumulative_data_days")
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // extend the ajax post function
+    ajaxPost = function (url, data, fnOk, fnNok) {
+        $.ajax({
+            url: url,
+            type: 'POST',
+            data: ko.mapping.toJSON(data),
+            contentType: "application/json; charset=utf-8",
+            success: function (data) {
+                if (typeof fnOk == "function") fnOk(data);
+                koResult = "OK";
+                model.DismissIfProcessFinished();
+            },
+            error: function (error) {
+                if (typeof fnNok == "function") {
+                    fnNok(error);
+                }
+                else {
+                    alert("There was an error posting the data to the server: " + error.responseText);
+                }
+                model.DismissIfProcessFinished();
+            }
+        });
+    };
+
+    function trimIfGreaterThan(string, length) {
+        var code = "";
+        var addNbsp = function (howMany) {
+            var res = "";
+            for (var i = 0; i < howMany; i++) res += "&nbsp;";
+            return res;
+        };
+
+        if (string.indexOf("(P)") > -1) {
+            code = "(P)";
+        } else if (string.indexOf("(E)") > -1) {
+            code = "(E)";
+        }
+
+        if (string.length > length) {
+            string = string.replace(code, "").substring(0, length - 4) + code + "...";
+        }
+
+        return string;
+    }
+
+    model.reloadData = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+        model.ProcessCounter = 0;
+
+        var wf = $("#chart-waterfall");
+        var url = "@Url.Action("GetWaterfallData1")";
+        wf.html("");
+
+        var rawfilter = model.getFilterValues();
+
+        var wfmodel = ko.mapping.toJS(model.waterfall);
+        for (var p in rawfilter) if (rawfilter.hasOwnProperty(p)) wfmodel[p] = rawfilter[p];
+        wfmodel.CumulativeDataType = model.showDataType();
+        wfmodel.year = (function (r) { return isNaN(r) ? -1 : r; }(parseInt(model.yearSelected(), 10)));
+
+        createWaterfallAll(wfmodel);
+        createCumulativeAll(wfmodel);
+        //createCumulative(wfmodel);
+        //createCumulativeData(wfmodel);
+        //createWaterfall2(wfmodel);
+        //createWaterfall2ByRealisedOrNot(wfmodel);
+        //createWaterfall3(wfmodel);
+        //createWaterfallData(wfmodel);
+    };
+
+    function createWaterfallAll(wfmodel) {
+        var url = "@Url.Action("GetWaterfallDataAll")";
+
+        ajaxPost(url, wfmodel, function (data) {
+            if (data.Result != "OK") {
+                showErr(data.Message + data.Trace);
+                return;
+            };
+
+            createWaterfall2(data.Data.Waterfall2);
+            createWaterfall2ByRealisedOrNot(data.Data.WaterfallByRealised);
+            createWaterfallData(data.Data.WaterfallForGrid);
+            model.DismissIfProcessFinished();
+        });
+    }
+
+    function createCumulativeAll(wfmodel) {
+        var url = "@Url.Action("GetCumulativeDataAll")";
+
+        ajaxPost(url, wfmodel, function (data) {
+            if (data.Result != "OK") {
+                showErr(data.Message + data.Trace);
+                return;
+            };
+
+            createCumulativeDataForChart(data.Data.Chart);
+            createCumulativeDataForGrid(data.Data.Grid);
+            model.DismissIfProcessFinished();
+        });
+    }
+
+    $(document).ready(function () {
+        $('[data-model="activeWell"]').data("kendoDropDownList").value("None");
+        model.reloadData();
+        $(".variance-data-filter").hide();
+
+        $('#activeWellFilter').change(function () {
+            $('#activeWellFilter').val($(this).is(':checked'));
+        });
+
+        $('#activeWellFilter').click(function () {
+            if (!$(this).is(':checked')) {
+                $('[data-model=date]').data('kendoDropDownList').value("");
+                $('[data-model=date]').data('kendoDropDownList').enable();
+                $('[data-model=date2]').data('kendoDropDownList').value("");
+                $('[data-model=date2]').data('kendoDropDownList').enable();
+            } else {
+                $('[data-model=date]').data('kendoDropDownList').value("None");
+                $('[data-model=date]').data('kendoDropDownList').enable(false);
+                $('[data-model=date2]').data('kendoDropDownList').value("None");
+                $('[data-model=date2]').data('kendoDropDownList').enable(false);
+            }
+
+        });
+
+    });
+
+</script>

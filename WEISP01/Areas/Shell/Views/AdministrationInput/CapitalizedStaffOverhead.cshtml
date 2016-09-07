@@ -1,0 +1,387 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+@{
+    ViewBag.Title = "Capitalized Staff Overhead";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    model.Capital = {};
+    model.Capital.IsProcessing = ko.observable(false);
+    model.Capital.IsEdited = ko.observable(false);
+    model.Capital.Data = ko.observable(@MvcTools.Obj2HtmlStr(new MacroEconomic()));
+
+    model.Capital.AddItem = {};
+    model.Capital.AddItem.Year = ko.observable(0);
+    model.Capital.AddItem.Value = ko.observable(0);
+    model.Capital.AddItem.Source = ko.observable("");
+    model.Capital.AddItem.Desc = ko.observable("");
+    model.Capital.AddItem.ID = ko.observable("");
+    model.Capital.AddItem.Type = ko.observable("CSO");
+    model.Capital.AddItem.InterestRatesType = ko.observable("short");
+
+    model.Capital.PrepareUploadForm = function () {
+        $("#upload .grid").kendoUpload({
+            async: {
+                saveUrl: '@Url.Action("Upload")',
+                removeUrl: "remove",
+                autoUpload: false
+            },
+            complete: function (e) {
+                model.Capital.Refresh();
+            },
+            select: function (e) {
+                $.each(e.files, function (index, value) {
+                    var ok = value.extension == ".xlsx" || value.extension == ".xls"
+
+                    if (!ok) {
+                        e.preventDefault();
+                        alert("Please upload only Excel (xls, xlsx) files");
+                    }
+                });
+            }
+        });
+    };
+    model.Capital.Refresh = function () {
+        var url = "@Url.Action("GetCapitalizedStaffOverhead")";
+        var param = {Country:$("#Country").val()};
+        console.log(param);
+        model.Capital.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                model.Capital.IsProcessing(false);
+                return;
+            }
+
+            model.Capital.IsProcessing(false);
+            model.Capital.Data(res.Data);
+            model.Capital.RenderGridCapital();
+ 
+
+            //$(".tab-content .tab-pane:not(.active) .grid").css("visibility", "hidden");
+
+            //if (callback != undefined) {
+            //    callback();
+            //}
+        });
+    };
+    model.Capital.GridSave = function () {
+        var updates = [];
+        var keys = [];
+
+        $(".grid").each(function (i, e) {
+            var data = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true });
+
+            data.forEach(function (f) {
+                var update = _.find(updates, { _id: f._id });
+
+                if (update == undefined) {
+                    for (var k in f) {
+                        if (f.hasOwnProperty(k) && k.indexOf(".") > -1) {
+                            delete f[k];
+                        }
+                    }
+                    updates.push(f);
+
+                    return;
+                }
+
+                if ($(e).parent().attr("id") == "grid-cso")
+                    update.CSO = f.CSO;
+                
+            });
+        });
+
+        var url = "@Url.Action("UpdateInline")";
+        var param = { updates: updates };
+
+        model.Capital.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                model.Capital.IsProcessing(false);
+                return;
+            }  
+            model.Capital.IsProcessing(false);
+            model.Capital.Refresh();
+        });
+    };
+    model.Capital.GridReset = function () {
+        $(".grid").each(function (i, e) {
+            $(e).data("kendoGrid").dataSource.read();
+        });
+        model.Capital.CheckGrid();
+    };
+    model.Capital.CheckGrid = function () {
+        var isDirty = false;
+
+        $(".grid").each(function (i, e) {
+            if (isDirty) return;
+            isDirty = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true }).length > 0;
+            if (isDirty) model.Capital.IsEdited(true);
+        });
+
+        if (!isDirty) {
+            model.Capital.IsEdited(false);
+        }
+    };
+    model.Capital.KendoNumericTextBoxEditor = function (container, option) {
+        var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+        input.appendTo(container);
+        input.kendoNumericTextBox({
+            change: function () {
+                model.Capital.CheckGrid();
+            }
+        });
+    };
+    model.Capital.ShowAddItem = function (o, id) {
+        var gridID = $(o).closest("[id]").attr("id");
+        var data = $(o).closest(".k-grid").data("kendoGrid").dataSource.data();
+        var year = moment(new Date()).year();
+
+        if (gridID == "grid-cso") {
+            model.Capital.AddItem.Type("CSO");
+            if (data.length > 0) {
+                year = _.max(data[0].CSO.CSOValues, function (e) { return e.Year }).Year + 1;
+            }
+        } 
+
+        model.Capital.AddItem.ID(id);
+        model.Capital.AddItem.Value(0);
+        model.Capital.AddItem.Year(year);
+
+        $("#modal-add-item").modal("show");
+    }
+    model.Capital.SaveItem = function () {
+        var url = "@Url.Action("AddAnnualValues")";
+        var param = {
+            id: model.Capital.AddItem.ID(),
+            Title : "CSO Factor",
+            Year: model.Capital.AddItem.Year(),
+            Value: model.Capital.AddItem.Value(),
+        };
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                return;
+            }
+
+            model.Capital.Refresh(function () {
+                $("#modal-add-item").modal("hide");
+            });
+        });
+    };
+    model.Capital.BuildGridConfig = function (data, columns, editableFields, interest) {
+        var width = $(".nav-tabs").closest(".col-md-12").width();
+        var schema = {};
+        var addItem = {
+            locked: true,
+            width: 40,
+            attributes: { class: "ec-center" },
+            template: function (dataItem) {
+                return "<button class='btn btn-xs btn-custom btn-primary' onclick='model.Capital.ShowAddItem(this, \"" + dataItem._id + "\")'><span class='glyphicon glyphicon-plus'></span></button>"
+            }
+        };
+
+        if (interest != undefined) {
+            schema = {
+                model: {
+                    fields: {
+                        CSO: { editable: false },
+                    }
+                }
+            };
+ 
+            editableFields.forEach(function (e) {
+                schema.model.fields[e] = { type: "number" };
+            });
+
+             
+        } else {
+            schema = {
+                model: {
+                    fields: {
+                        CSO: { editable: false }, 
+                    }
+                }
+            };
+
+            editableFields.forEach(function (e) {
+                schema.model.fields[e] = { type: "number" };
+            });
+
+            columns = [
+                addItem,
+                
+                { field: "CSO.CSOValues[0].Title", title: "Fiscal Year", editable: false, locked: false, width: 100 },
+               
+            ].concat(columns);
+        }
+
+        return {
+            chartArea: {
+                width: width
+            },
+            dataSource: {
+                data: data,
+                schema: schema,
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            filterable: false,
+            editable: true,
+            columns: columns
+        };
+    };
+
+    model.Capital.RenderGridCapital = function () {
+        var data = model.Capital.Data();
+        var columns = [];
+        var editableFields = [];
+        if (data.length > 0) {
+            data[0].CSO.CSOValues.forEach(function (e, i) {
+                    columns.push({
+                        field: "CSO.CSOValues[" + i + "].Value",
+                        title: String(e.Year),
+                        width: 80,
+                        format: "{0:N2}",
+                        attributes: { class: "cell-right" },
+                        editor: model.Capital.KendoNumericTextBoxEditor,
+                    });
+
+                    editableFields.push("CSO.CSOValues[" + i + "].Value");
+            });
+        }
+        var config = model.Capital.BuildGridConfig(data, columns, editableFields);
+        $("#grid-cso .grid").replaceWith('<div class="grid"></div>');
+        $("#grid-cso .grid").kendoGrid(config);
+        $("#grid-cso .grid").on("change", function () {
+            model.Capital.CheckGrid();
+        });
+    };
+    
+    model.Capital.Prepare = function () {
+        $(".nav-tabs a").on("click", function (e) {
+            $($(e.currentTarget).attr("href") + " .grid").each(function (i, e) {
+                var $grid = $(e);
+
+                if ($grid.css("visibility") != "hidden") {
+                    return;
+                }
+
+                setTimeout(function () {
+                    $grid.data("kendoGrid").dataSource.read();
+                    $grid.css("visibility", "visible");
+                }, 100);
+            });
+        });
+    };
+
+    model.reloadData = function () {
+        model.Capital.Refresh();
+    }
+
+ 
+
+</script>
+
+<script type="text/html" id="grid-control-template">
+  
+ 
+</script>
+ 
+<div class="col-md-12" style="margin-top:10px">
+    <div class="col-md-5">@Html.Partial("_Country")</div>
+    <div class="col-md-2" style="margin-left:-80px">
+        <button class="btn-sm btn btn-custom btn-success" data-bind="enable: model.Capital.IsEdited(), click: model.Capital.GridSave">
+            <span class="glyphicon glyphicon-save"></span> Save
+        </button>
+    </div>
+    <div class="col-md-5"></div>
+</div>
+<div class="col-md-12" data-bind="visible: model.Capital.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+
+<div class="col-md-12" data-bind="with: model.Capital">
+    <div id="grid-cso">
+        <div class="control" data-bind="template: { name: 'grid-control-template' }"></div>
+        <div class="grid"></div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-add-item" data-bind="with: model.Capital">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title">Add Year</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <div class="col-md-4">
+                            <label>Year</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px" data-bind="kendoNumericTextBox: { format: '#', value: AddItem.Year }" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-md-4">
+                            <label>Value</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px" data-bind="kendoNumericTextBox: { format: '{0:N2}', decimals: 2, value: AddItem.Value }" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="visible: false">
+                        <div class="col-md-4">
+                            <label>Source</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px; min-height: 27px;" data-bind="value: AddItem.Source" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="visible: false">
+                        <div class="col-md-4">
+                            <label>Desc</label>
+                        </div>
+                        <div class="col-md-8">
+                            <textarea style="width: 200px; min-height: 50px;" data-bind="value: AddItem.Desc"></textarea>
+                        </div>
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-custom btn-warning" data-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-primary" data-bind="click: SaveItem">
+                        <span class="glyphicon glyphicon-refresh"></span> Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        model.Capital.Prepare();
+        model.reloadData();
+    });
+</script>
+ 

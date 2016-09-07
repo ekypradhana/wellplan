@@ -1,0 +1,286 @@
+﻿@using Newtonsoft.Json
+@using ECIS.Core
+@using ECIS.Client.WEIS
+
+@Html.Partial("_allocation")
+
+<!-- Modal PIP -->
+<div class="modal fade myModal" id="modalPIP" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                <h4 class="modal-title" id="myModalLabel" data-bind="">Add New PIP</h4>
+            </div>
+            <div class="modal-body">
+                <div data-bind="visible:model.uimodel().processing()==true">
+                    @Html.Partial("_processing")
+                </div>
+
+                <div data-bind="visible:!model.uimodel().processing()==true" class="form-group form-group-sm form-wrapper" id="form_add_pip">
+                    <div class="row">
+                        <label class="col-md-2">Idea</label>
+                        <div class="col-md-9">
+                            @*<input class="combo_single" style="width:100%;" data-bind="value:RigNames" id="RigName">*@
+                            <input type="text" style="width:100%;" id="Idea" name="Idea" data-bind="value:PIPNewIdea" required="required">
+                        </div>
+                    </div>
+                    <div class="row" style="margin-bottom:5px;">
+                        <label class="col-md-2">Activity Start</label>
+                        <div class="col-md-5">
+                            @*<input class="combo_single" style="width:100%;" data-bind="value:RigNames" id="RigName">*@
+                            <input type="text" style="width:120px;" id="ActivityStart" name="ActivityStart" data-bind="value:PIPNewActivityStart" required="required">
+                        </div>
+                    </div>
+                    <div class="row" style="margin-bottom:5px;">
+                        <label class="col-md-2">Activity End</label>
+                        <div class="col-md-5">
+                            @*<input class="combo_single" style="width:100%;" data-bind="value:RigNames" id="RigName">*@
+                            <input type="text" style="width:120px;" id="ActivityEnd" name="ActivityEnd" data-bind="value:PIPNewActivityEnd" required="required">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-2">Plan Days Opp</label>
+                        <div class="col-md-5">
+                            @*<input class="combo_single" style="width:100%;" data-bind="value:RigNames" id="RigName">*@
+                            <input type="text" style="width:60px;" max="0" id="PlanDaysOpp" name="PlanDaysOpp" data-bind="value:PIPNewPlanDaysOpp" required="required">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-2">Plan Days Risk</label>
+                        <div class="col-md-5">
+                            @*<input class="combo_single" style="width:100%;" data-bind="value:RigNames" id="RigName">*@
+                            <input type="text" style="width:60px;" min="0" id="PlanDaysRisk" name="PlanDaysRisk" data-bind="value:PIPNewPlanDaysRisk" required="required">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-2">Plan Cost Opp</label>
+                        <div class="col-md-5">
+                            @*<input class="combo_single" style="width:100%;" data-bind="value:RigNames" id="RigName">*@
+                            <input type="text" style="width:60px;" max="0" id="PlanCostOpp" name="PlanCostOpp" data-bind="value:PIPNewPlanCostOpp" required="required">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-2">Plan Cost Risk</label>
+                        <div class="col-md-5">
+                            @*<input class="combo_single" style="width:100%;" data-bind="value:RigNames" id="RigName">*@
+                            <input type="text" style="width:60px;" min="0" id="PlanCostRisk" name="PlanCostRisk" data-bind="value:PIPNewPlanCostRisk" required="required">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-2">Theme</label>
+                        <div class="col-md-5">
+                            <input style="width: 120px;" id="Theme" data-bind="kendoDropDownList: { data: model.uimodel().ThemeNames()}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-2">Performance Unit</label>
+                        <div class="col-md-5">
+                            <input style="width: 120px;" id="PerformanceUnit" data-bind="kendoDropDownList: { data: model.uimodel().PerformanceUnits()}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-2">Classification</label>
+                        <div class="col-md-8">
+                            <input type="text" style="width:100%;" id="Classification">
+                            <br />
+                            <span onclick="addClassification()" style="cursor:pointer;color:blue;">Add Classification</span>
+                            @*<input type="text" style="width:100%;" id="Classification" name="Classification" data-bind="value:PIPNewClassification" required="required">*@
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-2">Action Party</label>
+                        <script>
+                            model.uimodel().addActionParties = function () {
+                                model.uimodel().ActionParties.push(ko.observable(@MvcTools.Obj2HtmlStr(new WEISPersonInfo())));
+                            }
+                            model.uimodel().removeActionParties = function (d) {
+                                //console.log(d);
+                                model.uimodel().ActionParties.remove(d);
+                            }
+                        </script>
+                        <div class="col-md-9">
+                            <button class="btn btn-primary btn-sm" data-bind="click:addActionParties">+ Add Person</button>
+                            <div style="margin-top:10px;" id="ActionParties" data-bind="foreach:ActionParties">
+                                <div class="ec-form form-horizontal" style="margin-bottom:20px;">
+                                    <div class="form-group">
+                                        <div class="col-md-4">
+                                            @*<label class="col-sm-4">Full Name</label>*@
+                                            <div class="col-sm-12">
+                                                <input type="text" placeholder="FullName" data-bind="value:FullName" style="width:100%;" />
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            @*<label class="col-sm-4">Email</label>*@
+                                            <div class="col-sm-12">
+                                                <input type="email" placeholder="Email" data-bind="value:Email" style="width: 100%; text-transform: lowercase;" />
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            @*<label class="col-sm-4">Role</label>*@
+                                            <div class="col-sm-12">
+                                                @*<input type="text" style="width:100%;" data-bind="kendoMultiSelect: { data:model.RoleData, value:RoleId, maxSelectedItems:1 }" />*@
+                                                <select style="width:80%;" data-bind="options: model.RoleData, value: RoleId"></select>
+                                                @*<button type="button" class="btn btn-danger btn-xs" data-bind="click:model.uimodel().removeActionParties" title="Click to Delete">&nbsp;-&nbsp;</button>*@
+                                            </div>
+                                        </div>
+                                        @*<div class="col-sm-3">
+                                    <button type="button" class="btn btn-danger btn-xs" data-bind="click:model.uimodel().removeActionParties">Delete</button>
+                                </div>*@
+                                    </div>
+                                </div>
+                            </div>
+                            @*<input type="text" style="width:100%;" id="ActionParty" name="ActionParty" data-bind="value:PIPNewActionParty" required="required">*@
+                        </div>
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="model.uimodel().SaveNewPIP()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Modal PIP -->
+<!-- Modal Performance Metrics -->
+<div class="modal fade myModal" id="modalPerfMetrics" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                <h4 class="modal-title" id="myModalLabel" data-bind="">Add New Performance Metrics</h4>
+            </div>
+            <div class="modal-body">
+                <div class="form-group form-group-sm form-wrapper" id="">
+                    <div class="row">
+                        <label class="col-md-3">Title</label>
+                        <div class="col-md-8">
+                            @*<input class="combo_single" style="width:100%;" data-bind="value:RigNames" id="RigName">*@
+                            <div class="col-md-5">
+                                <select style="width: 180px;" id="PerformanceUnit" data-bind="kendoDropDownList: { data: model.uimodel().MetricDropDown(), optionLabel: 'Select one' },value:PerfMetricsTitle"></select>
+                            </div>
+                            @*<input type="text" style="width:100%;" id="" data-bind="value:PerfMetricsTitle">*@
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-3">Schedule (Days)</label>
+                        <div class="col-md-5">
+                            @*<input class="combo_single" style="width:100%;" data-bind="value:RigNames" id="RigName">*@
+                            <input type="number" style="width:60px;" id="" data-bind="value:PerfMetricsSchedule">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-3">Cost</label>
+                        <div class="col-md-5">
+                            <input type="number" style="width:60px;" id="PlanCostOpp" data-bind="value:PerfMetricsCost">
+                        </div>
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="model.uimodel().SaveNewPerfMetrics()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Modal Perf Metrics -->
+<!-- Modal Project Milestone -->
+<div class="modal fade myModal" id="modalProjectMilestone" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                <h4 class="modal-title" id="myModalLabel" data-bind="">Add New Project Milestone</h4>
+            </div>
+            <div class="modal-body">
+                <div class="form-group form-group-sm form-wrapper" id="">
+                    <div class="row">
+                        <label class="col-md-3">Title</label>
+                        <div class="col-md-8">
+                            @*<input class="combo_single" style="width:100%;" data-bind="value:RigNames" id="RigName">*@
+                            <input type="text" style="width:100%;" id="" data-bind="value:ProjectMilestoneTitle">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-3">Period</label>
+                        <div class="col-md-5">
+                            @*<input class="combo_single" style="width:100%;" data-bind="value:RigNames" id="RigName">*@
+                            <input type="text" id="ProjectMilestonePeriod" style="width:120px;" id="" data-bind="value:ProjectMilestonePeriod">
+                        </div>
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="model.uimodel().SaveNewProjectMilestone()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Modal Project Milestone -->
+
+<script>
+    model.uimodel().processingActionParty = ko.observable(false);
+</script>
+
+<!-- Modal Action Party -->
+<div class="modal fade myModal" id="modalActionParty" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                <h4 class="modal-title" id="myModalLabel" data-bind="">Manage Action Parties</h4>
+            </div>
+            <div data-bind="visible: model.uimodel().processingActionParty()">
+                @Html.Partial("_processing")
+            </div>
+            <div data-bind="visible: !model.uimodel().processingActionParty()">
+                <div class="modal-body">
+                    <div class="row">
+                        <button style="margin-left:15px;" class="btn btn-primary btn-sm" data-bind="click:addActionParties">+ Add Person</button>
+                        <div style="margin-top:10px;" id="ActionParties" data-bind="foreach:ActionParties">
+                            <div class="ec-form form-horizontal" style="margin-bottom:20px;">
+                                <div class="form-group">
+                                    <div class="col-md-4">
+                                        @*<label class="col-sm-4">Full Name</label>*@
+                                        <div class="col-sm-12">
+                                            <input type="text" placeholder="FullName" data-bind="value:FullName" style="width:100%;" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        @*<label class="col-sm-4">Email</label>*@
+                                        <div class="col-sm-12">
+                                            <input type="email" placeholder="Email" data-bind="value:Email" style="width: 100%; text-transform: lowercase;" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        @*<label class="col-sm-4">Role</label>*@
+                                        <div class="col-sm-12">
+                                            @*<input type="text" style="width:100%;" data-bind="kendoMultiSelect: { data:model.RoleData, value:RoleId, maxSelectedItems:1 }" />*@
+                                            <select style="width:80%;" data-bind="options: model.RoleData, value: RoleId"></select>
+                                            <button type="button" class="btn btn-danger btn-xs" data-bind="click:model.uimodel().removeActionParties" title="Click to Delete">&nbsp;-&nbsp;</button>
+                                        </div>
+                                    </div>
+                                    @*<div class="col-sm-3">
+                                    <button type="button" class="btn btn-danger btn-xs" data-bind="click:model.uimodel().removeActionParties">Delete</button>
+                                </div>*@
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="model.uimodel().saveActionParty()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Modal Classification -->

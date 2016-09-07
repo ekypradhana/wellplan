@@ -1,0 +1,254 @@
+﻿<script>
+    model.waterfall = ko.observable({
+        GroupBy: ko.observable("GroupBy"),
+        Layout: ko.observable("OP2TQ"),
+        IncludeZero: ko.observable(true),
+        IncludeGaps: ko.observable(true),
+        IncludeCR: ko.observable(true),
+        DayOrCost: ko.observable("Cost"),
+        BaseView: ko.observable("OP"),
+        BaseOP: ko.observable("OP15"),
+        BridgeTo:ko.observable("AFEOP15")
+    });
+    wfdata = [];
+</script>
+
+<style>
+    .bordered-mini-nav {
+        padding: 10px 0px 6px;
+        border-bottom: 1px solid rgb(224, 224, 224);
+        margin-bottom: 10px !important;
+    }
+    .bordered-mini-nav .each-nav {
+        float: left;
+        border-right: 1px solid rgb(236, 236, 236);
+        padding-right: 3px;
+        margin-right: 5px;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav {
+        padding-right: 5px;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav div {
+        float: left;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav input {
+        margin: 1px 3px 1px 2px;
+    }
+    .bordered-mini-nav .each-nav.no-border-nav {
+        border-right: none !important;
+        margin-right: 0px !important;
+        padding-right: 0px !important;
+    }
+    .nav-filter-space {
+        margin-right: 3px;
+        border-left: 1px solid rgb(236, 236, 236);
+    }
+</style>
+
+
+<div class="ec-panel" style="width:1000px;margin:0px auto;">
+    <div data-bind="with:$root.waterfall">
+        <div class="mini-nav bordered-mini-nav" style="width: 880px; margin: 0px auto;">
+            <div class="each-nav">
+                Breakdown by:
+                <select data-bind="value:GroupBy">
+                    <option value="Classification">Classification</option>
+                    <option value="Theme">Theme</option>
+                    <option value="Title">Idea</option>
+                    <option value="PerformanceUnit">Performance Unit</option>
+                    <option value="ActionParty">Action Party (PIC)</option>
+                </select>
+            </div>
+            @*<div class="each-nav checkbox-nav">
+                Base View:&nbsp;
+                <select data-bind="value:BaseView">
+                    <option value="OP">OP</option>
+                    <option value="AFE">AFE</option>
+                </select>
+            </div>
+            <div class="each-nav" data-bind="visible:model.waterfall().BaseView() =='OP'">
+                Base OP:
+                <select data-bind="value:BaseOP,options:model.OPs()" data-model="OPWaterfall" style="margin-right: 5px;"></select>
+            </div>*@
+            <div class="each-nav checkbox-nav">
+                Bridge To:&nbsp;
+                <select data-bind="value:BridgeTo">
+                    <option value="AFEOP14">AFE With OP14 PIP's</option>
+                    <option value="AFEOP15">AFE With OP15 PIP's</option>
+                    <option value="AFEOP16">AFE With OP16 PIP's</option>
+                    <option value="OP14">OP14</option>
+                    <option value="OP15">OP15</option>
+                    <option value="OP16">OP16</option>
+                </select>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeZero" />
+                </div>
+                <div>Include 0 value data point</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeGaps" />
+                </div>
+                <div>Include Gap</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeCR" />
+                </div>
+                <div>Include Rig/ General SCM</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav no-border-nav">
+                <button class="btn btn-primary btn-xs" onclick="refreshWaterfall(); refreshWaterfallByRealised();" style="margin-top: -2px;">Refresh</button>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+
+        <div style="text-align: center; font-weight: bold; font-size: 14px;" id="wtitle"></div>
+
+        <div class="col-md-6">
+            <div id="chart-waterfall1" style="height: 400px; text-align: center;"></div>
+        </div>
+        <div class="col-md-6">
+            <div id="chart-waterfall2" style="height: 400px; text-align: center; "></div>
+        </div>
+    </div>
+    <div style="text-align:center;padding-bottom: 10px;">
+        <label style="background-color:#8AAAE0; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal" data-bind="text: model.waterfall().BaseView()"></label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A0C065; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Opportunity</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#C25654; width: 20px; ">&nbsp;</label>
+        <label style="font-weight:normal">Risk</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#888279; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Gap</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A48EC1; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">LE</label>
+    </div>
+</div>
+
+<script>
+    function trimIfGreaterThan(string, length) {
+        var code = "";
+        var addNbsp = function (howMany) {
+            var res = "";
+            for (var i = 0; i < howMany; i++) res += "&nbsp;";
+            return res;
+        };
+
+        if (string.indexOf("(P)") > -1) {
+            code = "(P)";
+        } else if (string.indexOf("(E)") > -1) {
+            code = "(E)";
+        }
+
+        if (string.length > length) {
+            string = string.replace(code, "").substring(0, length - 4) + code + "...";
+        }
+
+        return string;
+    }
+
+    var chartConfig = function (title, data) {
+        return {
+            title: title,
+            dataSource: { data: data.Data },
+            legend: { visible: false },
+            seriesDefaults: {
+                type: "column",
+                overlay: {
+                    gradient: "none"
+                },
+                border: {
+                    opacity: 0.4
+                }
+            },
+            series: [{
+                type: "waterfall",
+                field: "Value",
+                categoryField: "Title",
+                summaryField: "ItemType",
+                color: function (point) {
+                    switch (point.dataItem.Title) {
+                        case "OP":
+                        case "AFE":
+                            return "#8AAAE0";
+                            break;
+
+                        case "Gap To LE":
+                        case "Accelerate Scope":
+                            return "#888279";
+                            break;
+
+                        case "LE":
+                            return "#A48EC1";
+                            break;
+                    }
+
+                    if (point.value > 0) {
+                        return "#C25654";
+                    } else {
+                        return "#A0C065";
+                    }
+                },
+                line: { visible: false, width: 0 },
+                labels: { visible: true, font: "9px verdana", format: "N1", position: "outsideEnd" },
+                tooltip: { visible: true, template: '#: category #: #: kendo.format("{0:N1}", value) #' }
+            }],
+            legend: { visible: true, position: "bottom" },
+            valueAxis: {
+                labels: { font: "9px verdana", format: "N1" },
+                majorGridLines: { visible: false }
+            },
+            categoryAxis: {
+                labels: { font: "9px verdana", rotation: 90, template: '#= trimIfGreaterThan(value, 25) #' },
+                majorGridLines: { visible: false }
+            }
+        };
+    }
+
+    function renderWaterfallChart(id, dayOrCost) {
+        var wf = $("#" + id).html("");
+        var url = "@Url.Action("GetWaterfallData")";
+        var wfmodel = ko.mapping.toJS(model.waterfall);
+        wfmodel.wau = ko.mapping.toJS(model.wrmodel().record());
+        wfmodel.DayOrCost = dayOrCost;
+
+        ajaxPost(url, wfmodel, function (data) {
+            if (data.Result != "OK") {
+                showErr(data.Message + data.Trace);
+                return;
+            };
+
+            $("#wtitle").html('Waterfall - Breakdown By ' + model.waterfall().GroupBy());
+            wf.width(wf.closest('.ec-panel').width() / 2 - 30);
+            wf.kendoChart(chartConfig("By " + dayOrCost, data));
+
+            if (!model.waterfall().IncludeGaps()) {
+                var allGapsData = _.filter(data.Data, function (e) { return (e.Title.toLowerCase().indexOf("gap") > -1) });
+                _.each(allGapsData, function (e) {
+                    var gapsData = e;
+                    var gapsIndex = data.Data.indexOf(gapsData);
+
+                    wf.find("tspan:contains('" + gapsData.Title + "')").closest("g").hide();
+                    wf.find("svg > g:eq(0) > g[opacity]:eq(" + gapsIndex + ")").hide();
+                    wf.find("svg > g:eq(0) > g:eq(0) > g[clip-path] > g:eq(" + gapsIndex + ")").hide();
+                });
+            }
+        });
+    }
+
+    function refreshWaterfall() {
+        renderWaterfallChart("chart-waterfall1", "Day");
+        renderWaterfallChart("chart-waterfall2", "Cost");
+    }
+</script>
+

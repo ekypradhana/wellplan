@@ -1,0 +1,104 @@
+﻿@{
+    ViewBag.Title = "WEIS Application Configuration";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+
+<script>
+    model.IsProcessing = ko.observable(false);
+    model.PageId("Administration");
+    model.AppsConfig = ko.observable({
+        WordCount: ko.observable(),
+        Save: function () {
+            var x = model.AppsConfig();
+            var wc = x.WordCount();
+            if (isNaN(wc)) wc = 0;
+            var datas = {
+                WordCount: wc
+            };
+                ajaxPost("@Url.Action("Save")", datas,
+                    function (data) {
+                        if (data.Success == true) {
+                            alert("Data succesfully saved!");
+                        } else {
+                            alert(data.Message);
+                        }
+                    });
+        },
+        GetData: function () {
+            var x = model.AppsConfig();
+            ajaxPost("@Url.Action("Get")", {},
+                    function (data) {
+                        console.log(data);
+                        if (data.Result == "OK") {
+                            if (data.Data != null) {
+                                x.WordCount(data.Data.WordCount);
+                            }
+                        } else {
+                            alert(data.Message);
+                        }
+                    });
+        }
+    });
+</script>
+<style>
+    .container {
+        margin-bottom: 15px;
+    }
+
+    .form-control {
+        font-size: 9pt;
+    }
+
+    #form-wrapper div {
+        padding-bottom: 3px;
+    }
+
+        #form-wrapper div label {
+            line-height: 23px;
+        }
+
+    #form-wrapper .col-md-4 {
+        padding: 0px;
+        text-align: right;
+    }
+
+    input[type='text'] {
+        line-height: 20px;
+    }
+
+    [data-field="CreateDate"], [data-field="none"] {
+        text-align: center !important;
+    }
+</style>
+<div style="padding: 0px 15px 15px;" class="col-md-12">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+    <div class="form-group col-md-12 filter" id="form-wrapper" data-bind="visible: !model.IsProcessing()">
+        <div class="col-md-4" data-bind="with:AppsConfig">
+            <label class="col-md-4">Total Character:</label>
+            <div class="col-md-8" style="padding-bottom: 0px !important">
+                <input id="WordCount" type="text" class="text" data-bind="value:WordCount" placeholder="">
+            </div>
+        </div>
+
+        <div class="clearfix"></div>
+
+        <div class="col-md-4" style="text-align: right; padding-right: 6px;">
+            <button class="btn btn-custom btn-sm btn-primary" onclick="model.AppsConfig().Save()">
+                <span class="glyphicon glyphicon-save"></span> Save
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        model.AppsConfig().GetData();
+    });
+
+</script>

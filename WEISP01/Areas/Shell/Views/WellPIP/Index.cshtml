@@ -1,0 +1,2774 @@
+﻿@{
+    ViewBag.Title = "PIP Configuration";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using MongoDB.Bson;
+@using Newtonsoft.Json;
+
+<style>
+    .cell-date {
+        text-align: center;
+    }
+    
+    .cell-number {
+        text-align: right;
+    }
+    .cell-number.k-dirty-cell {
+        color: inherit !important;
+    }
+
+    .cell-checkbox {
+        text-align: center;
+    }
+
+    #tableAllocation th {
+        text-align: center;
+    }
+
+    #tableAllocation td {
+        padding: 5px;
+    }
+
+    #tableAllocation tfoot td {
+        font-weight: bold;
+        text-align: right;
+        background-color: lightgrey;
+    }
+
+    #tableAllocation tbody td {
+        text-align: right;
+    }
+
+    .form-wrapper div {
+        padding-bottom: 3px;
+    }
+
+        .form-wrapper div label {
+            line-height: 23px;
+        }
+
+    .form-control {
+        font-size: 9pt;
+    }
+
+    input[type='text'] {
+        line-height: 20px;
+    }
+
+    .k-invalid-msg {
+        margin-left: 30px;
+    }
+
+    #modalPIP .modal-dialog {
+        width: 1000px;
+    }
+
+    .k-grid-header tr th.k-header {
+        position: relative;
+    }
+
+    .k-grid-header .k-unit {
+        position: absolute;
+        top: 9px;
+        right: 7px;
+    }
+
+    span.glyphicon.glyphicon-comment.comment-exist {
+        color: rgb(66, 139, 202);
+    }
+
+        span.glyphicon.glyphicon-comment.comment-exist .comment-counter {
+            color: black;
+            font-size: 10px;
+            position: absolute;
+            top: -5px;
+            right: -7px;
+            font-weight: normal !important;
+        }
+    .bg-positive {
+        background-color: #8CFF9D !important;
+    }
+    .bg-negative {
+        background-color: #FF8789 !important;
+    }
+    .iprovement-ideas .tab-pane {
+        padding-top: 10px;
+    }
+
+    .block-summary-head {
+        width: 100%;
+    }
+
+    .block-summary {
+        width: 400px;
+        padding: 15px;
+        padding-bottom: 5px;
+        padding-top: 0px;
+    }
+
+    .block-summary .col-md-12 {
+        margin: 0px;
+        padding: 3px;
+    }
+
+    .block-summary .col-md-3 {
+        padding: 0px;
+        margin: 0px;
+    }
+
+    .block-summary .col-md-9 {
+        padding-left: 4px;
+        margin: 0px;
+    }
+
+    .block-summary .col-md-9:before {
+        z-index: 5;
+        content: ":";
+        margin-right: 5px;
+    }
+
+    .block-summary .col-md-3 {
+        font-weight: bold;
+    }
+
+    td.bg-td-green {
+        background-color: #27ae60;
+    }
+
+    td.bg-td-red {
+        background-color: #d14233;
+    }
+</style>
+
+
+@{
+    var MetricDropDown = new List<string>();
+    string[] arr1 = new string[] { "AFE", "Agreed Target", "Best In Class", "Operations Plan 2014", "P50", "Top Quartile", "Type 1 Baseline", "Type 2 Baseline", "Type 3 Baseline" };
+    MetricDropDown = arr1.ToList();
+    var PerformanceUnits = new List<string>();
+
+    var elements = DataHelper.Populate("WEISPerformanceUnits").Select(x => BsonHelper.GetString(x, "_id"));
+    PerformanceUnits = elements.ToList();
+}
+
+<script>
+    model.PageId("Performance Improvement Plan");
+    model.getFilterValues = function () {
+        var result = {};
+
+        $('.filter').find('select').each(function (i, e) {
+            result[$(e).attr('data-model')] = $(e).data('kendoMultiSelect').value();
+        });
+
+        //console.log(result);
+        return result;
+    }
+    var opDatasource = ['OP14', 'OP15'];
+
+    model.uimodel = ko.observable({
+        mode: ko.observable(""),
+        processing: ko.observable(false),
+        selectedPIPId: ko.observable(""),
+        selectedElementId: ko.observable(),
+        ActivityType: ko.observable(""),
+        WellName: ko.observable(""),
+        isRO: ko.observable(@ViewBag.isRO),
+        isAdmin: ko.observable(@ViewBag.isAdmin),
+
+        TeamLeadEmail: ko.observable(""),
+        LeadEngEmail: ko.observable(""),
+        OptmzEngEmail: ko.observable(""),
+
+        ProjectInfos: {
+            WellActivity: ko.observable({}),
+            Phase: ko.observable({}),
+            PhaseMin: ko.observable(""),
+            PhaseMax: ko.observable(""),
+        },
+        Realized:ko.observable(),
+        UnRealized:ko.observable(),
+        //gridData: ko.observableArray([]),
+        //dsGrid: ko.observable(new kendo.data.DataSource({data:[]})),
+        record: ko.observable(ko.mapping.fromJS(@MvcTools.Obj2HtmlStr(new WellPIP()))),
+        PIPNewIdea: ko.observable(""),
+        PIPNewActivityStart: ko.observable(""),
+        PIPNewActivityEnd: ko.observable(""),
+        PIPNewPlanDaysOpp: ko.observable(),
+        PIPNewPlanDaysRisk: ko.observable(),
+        PIPNewPlanCostOpp: ko.observable(),
+        PIPNewPlanCostRisk: ko.observable(),
+        PIPNewClassification: ko.observable(),
+        PIPNewActionParty: ko.observable(),
+        PerfMetricsTitle: ko.observable(""),
+        PerfMetricsSchedule: ko.observable(),
+        PerfMetricsCost: ko.observable(),
+        ProjectMilestoneTitle: ko.observable(""),
+        ProjectMilestonePeriod: ko.observable(),
+        ProjectInfosScaled: ko.observable(""),
+        ProjectInfosCostLevel: ko.observable(""),
+        ProjectInfosProjectType: ko.observable(""),
+        ProjectInfosField: ko.observable(""),
+        ProjectInfosPIPType: ko.observable(""),
+        ProjectInfosRigName: ko.observable(""),
+        SelectedPIPType: ko.observable(""),
+        isPositive: ko.observable(false),
+        isWAUExist: ko.observable(),
+
+        DaysPlanImprovementTotal: ko.observable(),
+        DaysPlanRiskTotal: ko.observable(),
+        CostPlanImprovementTotal: ko.observable(),
+        CostPlanRiskTotal: ko.observable(),
+        CostCurrentWeekImprovementTotal: ko.observable(),
+        CostCurrentWeekRiskTotal: ko.observable(),
+        DaysCurrentWeekImprovementTotal: ko.observable(),
+        DaysCurrentWeekRiskTotal: ko.observable(),
+
+        DaysPlanImprovementTotal_CR: ko.observable(),
+        DaysPlanRiskTotal_CR: ko.observable(),
+        CostPlanImprovementTotal_CR: ko.observable(),
+        CostPlanRiskTotal_CR: ko.observable(),
+        CostCurrentWeekImprovementTotal_CR: ko.observable(),
+        CostCurrentWeekRiskTotal_CR: ko.observable(),
+        DaysCurrentWeekImprovementTotal_CR: ko.observable(),
+        DaysCurrentWeekRiskTotal_CR: ko.observable(),
+
+        DaysPlanImprovementTotal_Real: ko.observable(),
+        DaysPlanRiskTotal_Real: ko.observable(),
+        CostPlanImprovementTotal_Real: ko.observable(),
+        CostPlanRiskTotal_Real: ko.observable(),
+        CostCurrentWeekImprovementTotal_Real: ko.observable(),
+        CostCurrentWeekRiskTotal_Real: ko.observable(),
+        DaysCurrentWeekImprovementTotal_Real: ko.observable(),
+        DaysCurrentWeekRiskTotal_Real: ko.observable(),
+
+        DaysPlanImprovementTotal_NotReal: ko.observable(),
+        DaysPlanRiskTotal_NotReal: ko.observable(),
+        CostPlanImprovementTotal_NotReal: ko.observable(),
+        CostPlanRiskTotal_NotReal: ko.observable(),
+        CostCurrentWeekImprovementTotal_NotReal: ko.observable(),
+        CostCurrentWeekRiskTotal_NotReal: ko.observable(),
+        DaysCurrentWeekImprovementTotal_NotReal: ko.observable(),
+        DaysCurrentWeekRiskTotal_NotReal: ko.observable(),
+
+        DaysPlanImprovementTotal_Sum: ko.observable(),
+        DaysPlanRiskTotal_Sum: ko.observable(),
+        CostPlanImprovementTotal_Sum: ko.observable(),
+        CostPlanRiskTotal_Sum: ko.observable(),
+        CostCurrentWeekImprovementTotal_Sum: ko.observable(),
+        CostCurrentWeekRiskTotal_Sum: ko.observable(),
+        DaysCurrentWeekImprovementTotal_Sum: ko.observable(),
+        DaysCurrentWeekRiskTotal_Sum: ko.observable(),
+        //RealizedDays : ko.observable(),
+        //RealizedCost: ko.observable(),
+
+        ClassificationName: ko.observable(""),
+        Classifications: ko.observableArray([]),
+        ThemeNames: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISPIPThemes")
+            .Select(d=> new{
+                DataText = d.GetString("Name") == "" ? "All Others" : d.GetString("Name"),
+                DataValue = d.GetString("Name")
+            }).OrderBy(d=>d.DataValue)))),
+        PerformanceUnits: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(PerformanceUnits))),
+        MetricDropDown: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(MetricDropDown))),
+        ActionParties: ko.observableArray([]),
+        setClassifications: function () {
+            var x = this;
+            ajaxPost("@Url.Action("GetPIPClassification")", {}, function (data) {
+                var src_class = data.Data;
+                //console.log(data.Data);
+                var new_src_class = [];
+                for(var v=0;v<data.Data.length;v++){
+                    new_src_class.push({DataText:data.Data[v],DataValue:data.Data[v]});
+                }
+                new_src_class.unshift({DataText:"All Others",DataValue:""});
+                $("#Classification").data("kendoDropDownList").setDataSource(new_src_class);
+                x.Classifications(new_src_class);
+            });
+
+        },
+
+        WellNames: model.wellNames(),
+        @*ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISWellNames", Query.NE("IsVirtualWell", true))
+            .Select(d=>d.GetString("_id")).OrderBy(d=>d)))),*@
+
+        OPs: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISOPs").Select(x=>BsonHelper.GetString(x,"_id")).ToList<string>()))),
+
+        RigNames:  model.rigNames(),
+        @*ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigNames")
+            .Select(d=>d.GetString("_id")).OrderBy(d=>d)))),*@
+
+        Activities: model.activities(),
+            
+            @*ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate<WellActivity>("WEISWellActivities")
+        .SelectMany(d => d.Phases).GroupBy(d => d.ActivityType).Select(d => d.Key).OrderBy(d => (d.Equals("n/a") ? "" : d))))),*@
+
+        Persons: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("Users")
+            .Select(d=> new {
+                Email = d.GetString("Email"),
+                FullName = d.GetString("FullName")
+            })
+            .OrderBy(d => d.FullName)
+            ))),
+        PersonsForTeamLead: ko.observableArray([]),
+        PersonsForLeadEng: ko.observableArray([]),
+        PersonsForOptmzEng: ko.observableArray([]),
+
+        SequenceIds: ko.observableArray([]),
+        downloadAllPIP:function(){
+            var x = this;
+            var ps = model.getFilterValues();
+            ps.performanceUnits = (function (a) { return typeof a === 'undefined' ? [] : a.value() }($('[data-model=performanceUnits]').data('kendoMultiSelect')));
+            ps.performanceMetrics = (function (a) { return typeof a === 'undefined' ? [] : a.value() }($('[data-model=performanceMetrics]').data('kendoMultiSelect')));
+            ps.PIPType = (function (a) { return typeof a === 'undefined' ? [] : a.value() }($('#PIPTypeFilter').data('kendoDropDownList')));
+            x.processing(true);
+            ajaxPost("@Url.Action("DownloadPIP")", ps, function (data) {
+                //console.log(data);
+                x.processing(false);
+                var url = "@Url.Action("DownloadPIPFile")"+"?stringName="+data.Path+"&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss");
+                location.href = url;
+            });
+        },
+        PIPTotalElements: ko.observable(),
+        TotRealPIPValue: ko.observable(),
+        TotRealPIPCost: ko.observable(),
+        refresh: function () {
+            @*var x = this;
+            var ps = model.getFilterValues();
+            ps.performanceUnits = (function (a) { return typeof a === 'undefined' ? [] : a.value() }($('[data-model=performanceUnits]').data('kendoMultiSelect')));
+            ps.performanceMetrics = (function (a) { return typeof a === 'undefined' ? [] : a.value() }($('[data-model=performanceMetrics]').data('kendoMultiSelect')));
+            ps.PIPType = (function (a) { return typeof a === 'undefined' ? [] : a.value() }($('#PIPTypeFilter').data('kendoDropDownList')));
+            //alert(ps.PIPType);
+            x.processing(true);
+            ajaxPost("@Url.Action("Search")", ps,
+            function (data) {
+                //console.log(data);
+
+                x.processing(false);
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                //console.log(data.Data);
+                var TotalElements = 0;
+                for(var i=0;i<data.Data.length;i++){
+                    var el = data.Data[i].Elements;
+                    TotalElements = TotalElements + el.length;
+                }
+
+                var datas = data.Data;
+                //for(var i=0;i<datas.length;i++){
+                //    datas[i].numberOfElement = datas[i].Elements.length;
+                //}
+
+                var ds = new kendo.data.DataSource({
+                    data: datas,
+                    pageSize: 10,
+                    schema: {
+                        //data: "Phases",
+                        model: {
+                            fields: {
+                                "OPStart": { type: "date" },
+                                "OPFinish": { type: "date" },
+                                "AFEStart": { type: "date" },
+                                "AFEFinish": { type: "date" },
+                                //"OPSchedule.Finish": { type: "date" },
+                            }
+                        },
+                    },
+                    //aggregate: [ { field: "numberOfElement", aggregate: "sum" }]
+                });
+
+
+                //console.log(TotalElements);
+
+                $("#grid").data("kendoGrid").setDataSource(ds);
+
+                x.PIPTotalElements(TotalElements);
+                $("#PIPTotalElements").text(TotalElements);
+                x.mode("");
+                setPageTitle("PIP Configuration");
+
+                var grid = $('#grid').data('kendoGrid');
+                var pager = grid.pager;
+                pager.bind('change', setFooterTemplate);
+            });*@
+            new GenerateGrid().Prepare();
+        },
+        cancel: function () {
+            var x = model.uimodel();
+            x.refresh();
+            x.mode("");
+        },
+        add: function () {
+            var x = model.uimodel();
+            x.mode('New');
+            setPageTitle("PIP - Add - Select Activity");
+        },
+        addNew: function () {
+            var x = model.uimodel();
+            $("#WellNames").data("kendoMultiSelect").value("");
+            $("#RigNames").data("kendoMultiSelect").value("");
+            $("#Activities").data("kendoMultiSelect").value("");
+            var ds = new kendo.data.DataSource({
+                data: [],
+                pageSize: 10,
+                //schema: {
+                //    //data: "Phases",
+                //    model: {
+                //        fields: {
+                //            "OPSchedule.Start": { type: "date" },
+                //            "OPSchedule.Finish": { type: "date" },
+                //        }
+                //    },
+                //},
+            });
+            $("#gridAdd").data("kendoGrid").setDataSource(ds)
+            x.mode('New');
+            setPageTitle("PIP - Add - Select Activity");
+            changePIPType();
+        },
+        SearchAddNew: function () {
+            var x = model.uimodel();
+            x.processing(true);
+            var data = {
+                WellNames: $("#WellNames").data("kendoMultiSelect").value(),
+                WellActivityIds: $("#Activities").data("kendoMultiSelect").value(),
+                RigNames: $("#RigNames").data("kendoMultiSelect").value(),
+                Type: $("#PIPType").val()
+            };
+            ajaxPost("@Url.Action("SearchForAddNew")", data, function (data) {
+                //console.log(data);
+                var ds = new kendo.data.DataSource({
+                    data: data.Data,
+                    pageSize: 10,
+                    //schema: {
+                    //    //data: "Phases",
+                    //    model: {
+                    //        fields: {
+                    //            "OPSchedule.Start": { type: "date" },
+                    //            "OPSchedule.Finish": { type: "date" },
+                    //        }
+                    //    },
+                    //},
+                });
+
+                $("#gridAdd").data("kendoGrid").setDataSource(ds);
+
+                x.processing(false);
+            });
+        },
+        createPIPDoc: function (id, PhaseNo, WellName) {
+            //alert(WellName);
+            var x = model.uimodel();
+            var type = $("#PIPType").val();
+            if(type == "Efficient"){
+                var data = {
+                    _id: id,
+                    PhaseNo: PhaseNo
+                };
+                ajaxPost("@Url.Action("CreatePIPDoc")", data, function (data) {
+                    console.log(data);
+                    var id = data.PIPId;
+                    var WellName = data.WellName;
+                    var ActivityType = data.ActivityType;
+                    x.select(id, WellName, ActivityType,type);
+                });
+            }else{
+                var data = {
+                    WellName:WellName
+                };
+                ajaxPost("@Url.Action("CreatePIPDocForCR")", data, function (data) {
+                    console.log(data);
+                    var id = data.PIPId;
+                    var WellName = data.WellName;
+                    var ActivityType = data.ActivityType;
+                    x.select(id, WellName, ActivityType,type);
+                });
+            }
+        },
+        deletePIPDoc: function (_id) {
+            var conf = confirm("Are you sure you want to delete this record?");
+            if (conf) {
+                var x = model.uimodel();
+                var data = { _id: _id };
+                ajaxPost("@Url.Action("DeletePIPDoc")", data, function (data) {
+                    if (data.Success != true) {
+                        alert(data.Message);
+                        return;
+                    }
+                    x.refresh();
+                });
+            }
+        },
+        save: function () {
+            var x = model.uimodel();
+            var r = ko.mapping.toJS(x.record());
+            ajaxPost("@Url.Action("Save")", r, function (data) {
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+                x.refresh();
+            });
+        },
+        loadFromOPS: function () {
+            var x = model.uimodel();
+            x.processing(true);
+            ajaxPost("@Url.Action("LoadFromOps")", {},
+                function (data) {
+                    if (data.Result != "OK") {
+                        //showErr(data.Message, data.Trace);
+                        return;
+                    }
+                    x.processing(false);
+                    x.refresh();
+                },
+                function (e) {
+                    x.processing(false);
+                    //showErr(e);
+                });
+        },
+        select: function (id, WellName, ActivityType,PIPType) {
+            //alert(PIPType);
+            var x = model.uimodel();
+            x.processing(true);
+            x.setClassifications();
+            x.selectedPIPId(id);
+            x.WellName(WellName);
+            x.ActivityType(ActivityType);
+            x.SelectedPIPType(PIPType);
+            x.ActionParties([]);
+            x.isPositive(false),
+            x.CostPlanRiskTotal(0);
+            x.CostPlanImprovementTotal(0);
+            x.DaysPlanRiskTotal(0);
+            x.DaysPlanImprovementTotal(0);
+            x.CostPlanRiskTotal_CR(0);
+            x.CostPlanImprovementTotal_CR(0);
+            x.DaysPlanRiskTotal_CR(0);
+            x.DaysPlanImprovementTotal_CR(0);
+
+            x.DaysPlanImprovementTotal_Real          (0);
+            x.DaysPlanRiskTotal_Real                 (0);
+            x.CostPlanImprovementTotal_Real          (0);
+            x.CostPlanRiskTotal_Real                 (0);
+            x.CostCurrentWeekImprovementTotal_Real   (0);
+            x.CostCurrentWeekRiskTotal_Real          (0);
+            x.DaysCurrentWeekImprovementTotal_Real   (0);
+            x.DaysCurrentWeekRiskTotal_Real          (0);
+
+            x.DaysPlanImprovementTotal_NotReal       (0);
+            x.DaysPlanRiskTotal_NotReal              (0);
+            x.CostPlanImprovementTotal_NotReal       (0);
+            x.CostPlanRiskTotal_NotReal              (0);
+            x.CostCurrentWeekImprovementTotal_NotReal(0);
+            x.CostCurrentWeekRiskTotal_NotReal       (0);
+            x.DaysCurrentWeekImprovementTotal_NotReal(0);
+            x.DaysCurrentWeekRiskTotal_NotReal(0);
+            //alert("ok");
+
+            x.ProjectInfosScaled("");
+            x.ProjectInfosCostLevel(0);
+            x.ProjectInfosProjectType("");
+            x.ProjectInfosField("");
+            x.ProjectInfosPIPType("");
+            x.ProjectInfosRigName("");
+
+            getProjectInfos(id, WellName, ActivityType);
+
+            ajaxPost("@Url.Action("Get")", { id: id },
+                function (data) {
+                    if (data.Success != true) {
+                        alert(data.Message);
+                        return;
+                    }
+                    //console.log(data.Data.Elements)
+
+                    //console.log(data);
+
+                    var redefine = function (what, val) {
+                        if (typeof what === "undefined")
+                            return val;
+                        if (what == null)
+                            return val;
+
+                        return what;
+                    };
+
+                    x.ProjectInfosScaled(redefine(data.Data.Scaled, ""));
+                    x.ProjectInfosCostLevel(redefine(data.Data.CostLevel, 0));
+                    x.ProjectInfosProjectType(redefine(data.Data.ProjectType, ""));
+                    x.ProjectInfosField(redefine(data.Data.Field, ""));
+                    x.ProjectInfosPIPType(redefine(data.Data.Type, ""));
+                    if(x.ProjectInfosPIPType != "Efficient"){
+                        var wn = data.Data.WellName;
+                        var res = wn.replace("_CR","");
+                        x.ProjectInfosRigName(res);
+
+                        if(wn.indexOf("_CR") > -1){
+                            $("#tab_well_pip").html("Rig/ General SCM");
+                            $("#tab_rig_pip").hide();
+                            $(".block-summary").hide();
+                            $("#tab_waterfall").hide();
+                            $("#tab_waterfall_by_realised").hide();
+                            $("#tab_project_info").trigger("click");
+                        }else{
+                            $("#tab_well_pip").html("Well/ Project PIP");
+                            $("#tab_rig_pip").show();
+                            $(".block-summary").show();
+                            $("#tab_waterfall").show();
+                            $("#tab_waterfall_by_realised").show();
+
+                        }
+
+                    }
+
+                    getTotal(data.Data.Elements, data.Data.CRElements);
+                    //SumRealized();
+                    var r = ko.mapping.fromJS(data.Data);
+                    x.record(r);
+                    x.mode('Edit');
+
+                    var wau = data.WAU;
+                    x.isWAUExist(wau);
+
+                    var spud = $("input.spudDate");
+                    input2datePicker(spud);
+                    console.log(data.Data.Elements);
+                    refreshPIPElements(data.Data.Elements,wau);
+                    refreshRIGPIPElements(data.Data.CRElements);
+
+
+                    var ds_metrics = new kendo.data.DataSource({
+                        data: data.Data.PerformanceMetrics,
+                        pageSize: 10,
+                        schema: {
+                            model: {
+                                id: "Title",
+                                fields: {
+                                    "Title": { type: "string" },
+                                    "Schedule": { type: "number" },
+                                    "Cost": { type: "number" }
+                                }
+                            },
+                        },
+                        batch: true
+                    });
+
+                    $("#grid_performance_metrics").data("kendoGrid").setDataSource(ds_metrics);
+
+                    var ds_project = new kendo.data.DataSource({
+                        data: data.Data.ProjectMilestones,
+                        pageSize: 10,
+                        schema: {
+                            model: {
+                                id: "Title",
+                                fields: {
+                                    "Title": { type: "string" },
+                                    "Period": { type: "date" }
+                                }
+                            },
+                        },
+                        batch: true
+                    });
+
+                    $("#grid_project_milestone").data("kendoGrid").setDataSource(ds_project);
+
+                    var data_project_info = [
+                        { Title: "Project Name", Detail: "Tb Activity" },
+                        { Title: "Project Type", Detail: "" },
+                        { Title: "Field/Prospect", Detail: "" },
+                        { Title: "Common Well Name", Detail: "Tb Activity" },
+                        { Title: "Activity Type", Detail: "" },
+                        { Title: "Rig", Detail: "Tb Activity" },
+                        { Title: "Scaled?", Detail: "" },
+                        { Title: "Rig Schedule Start Date", Detail: "Phase start" },
+                        { Title: "Rig Schedule End Date", Detail: "Phase end" },
+                        { Title: "Cost Level", Detail: "" },
+                        { Title: "Team Lead", Detail: "" },
+                        { Title: "Lead Engineer", Detail: "" },
+                        { Title: "Optimization Engineer", Detail: "" }
+                    ];
+
+
+                    var ds_information = new kendo.data.DataSource({
+                        data: data_project_info,
+                        pageSize: 13
+                    });
+
+                    $("#grid_project_information").data("kendoGrid").setDataSource(ds_information);
+
+                    $("#footer1").html(number_format(x.DaysPlanImprovementTotal()));
+                    $("#footer2").html(number_format(x.DaysPlanRiskTotal()));
+                    $("#footer3").html(number_format(x.CostPlanImprovementTotal()));
+                    $("#footer4").html(number_format(x.CostPlanRiskTotal()));
+                    $("#footer5").html(number_format(x.DaysCurrentWeekImprovementTotal()));
+                    $("#footer6").html(number_format(x.DaysCurrentWeekRiskTotal()));
+                    $("#footer7").html(number_format(x.CostCurrentWeekImprovementTotal()));
+                    $("#footer8").html(number_format(x.CostCurrentWeekRiskTotal()));
+
+                    $("#footer11").html(number_format(x.DaysPlanImprovementTotal_CR()));
+                    $("#footer12").html(number_format(x.DaysPlanRiskTotal_CR()));
+                    $("#footer13").html(number_format(x.CostPlanImprovementTotal_CR()));
+                    $("#footer14").html(number_format(x.CostPlanRiskTotal_CR()));
+                    $("#footer15").html(number_format(x.DaysCurrentWeekImprovementTotal_CR()));
+                    $("#footer16").html(number_format(x.DaysCurrentWeekRiskTotal_CR()));
+                    $("#footer17").html(number_format(x.CostCurrentWeekImprovementTotal_CR()));
+                    $("#footer18").html(number_format(x.CostCurrentWeekRiskTotal_CR()));
+
+                    $("#footer20").html(number_format(x.DaysPlanImprovementTotal_Real       ()));
+                    $("#footer21").html(number_format(x.DaysPlanRiskTotal_Real              ()));
+                    $("#footer22").html(number_format(x.CostPlanImprovementTotal_Real       ()));
+                    $("#footer23").html(number_format(x.CostPlanRiskTotal_Real              ()));
+                    $("#footer24").html(number_format(x.CostCurrentWeekImprovementTotal_Real()));
+                    $("#footer25").html(number_format(x.CostCurrentWeekRiskTotal_Real       ()));
+                    $("#footer26").html(number_format(x.DaysCurrentWeekImprovementTotal_Real()));
+                    $("#footer27").html(number_format(x.DaysCurrentWeekRiskTotal_Real       ()));
+
+                    $("#footer28").html(number_format(x.DaysPlanImprovementTotal_NotReal       ()));
+                    $("#footer29").html(number_format(x.DaysPlanRiskTotal_NotReal              ()));
+                    $("#footer30").html(number_format(x.CostPlanImprovementTotal_NotReal       ()));
+                    $("#footer31").html(number_format(x.CostPlanRiskTotal_NotReal              ()));
+                    $("#footer32").html(number_format(x.CostCurrentWeekImprovementTotal_NotReal()));
+                    $("#footer33").html(number_format(x.CostCurrentWeekRiskTotal_NotReal       ()));
+                    $("#footer34").html(number_format(x.DaysCurrentWeekImprovementTotal_NotReal()));
+                    $("#footer35").html(number_format(x.DaysCurrentWeekRiskTotal_NotReal       ()));
+                    //$("#footer9").html(number_format(x.RealizedCost()));
+                    //$("#footer10").html(number_format(x.RealizedDays()));
+
+                    refreshWaterfall(PIPType);
+
+                    $('[href=#wellpip]').trigger("click");
+                    x.processing(false);
+                });
+        },
+        addElement: function () {
+            var r = model.uimodel().record();
+            var e = ko.mapping.fromJS(@MvcTools.Obj2HtmlStr(new PIPElement()));
+            e.Title("New PIP Element");
+            r.Elements.push(e);
+        },
+        removeElement: function (e) {
+            var r = model.uimodel().record();
+            r.Elements.remove(e);
+        },
+        //addClassification: function () {
+        //    var x = this;
+        //    x.ClassificationName("");
+        //    $("#modalClassification").modal("show");
+        //},
+        SaveClassification: function () {
+            //alert("ok");
+            var x = this;
+            var datas = {
+                Name: x.ClassificationName()
+            };
+
+            ajaxPost("@Url.Action("Save","MasterClassification")", datas,
+                function (data) {
+                    if (data.Success == true) {
+                        //$("#modalClassification").modal("hide");
+                        x.setClassifications();
+                        var dropdownlist = $("#Classification").data("kendoDropDownList");
+                        dropdownlist.select(function (dataItem) {
+                            return dataItem.text === x.ClassificationName();
+                        });
+                    } else {
+                        alert(data.Message);
+                    }
+                });
+        },
+        addPIP: function () {
+            var x = this;
+            x.PIPNewActivityStart("");
+            x.PIPNewActivityEnd("");
+            $("#ActivityStart").data("kendoDatePicker").value("");
+            $("#ActivityEnd").data("kendoDatePicker").value("");
+
+            x.PIPNewPlanDaysOpp(0);
+            x.PIPNewPlanDaysRisk(0);
+            x.PIPNewPlanCostOpp(0);
+            x.PIPNewPlanCostRisk(0);
+            x.PIPNewIdea("");
+            x.ActionParties([]);
+
+            $("#PlanDaysOpp").data("kendoNumericTextBox").value(0);
+            $("#PlanDaysRisk").data("kendoNumericTextBox").value(0);
+            $("#PlanCostOpp").data("kendoNumericTextBox").value(0);
+            $("#PlanCostRisk").data("kendoNumericTextBox").value(0);
+
+            $("#PerformanceUnit").data("kendoDropDownList").value("");
+            $("#Classification").data('kendoDropDownList').value("");
+
+            $("#Theme").data('kendoDropDownList').value("");
+
+            //x.PIPNewClassification("");
+            //x.PIPNewActionParty("");
+            $("#modalPIP").modal("show");
+        },
+        SaveNewPIP: function () {
+
+            var add_pip_validator = $("#form_add_pip").kendoValidator({
+                rules: {
+                    hasItems: function (input) {
+                        if (input.is("[name=Classification]")) {
+                            //Get the MultiSelect instance
+                            var ms = input.data("kendoDropDownList");
+                            if (ms.value().length === 0) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }
+                },
+                messages: {
+                    hasItems: "Please select at least one Classification"
+                }
+            }).data("kendoValidator");
+
+            if (add_pip_validator.validate()) {
+                var x = this;
+                var datas = {
+                    AssignToOP: model.uimodel().PIPAssignTOOp(),
+                    Title: x.PIPNewIdea(),
+                    ActivityStart: x.PIPNewActivityStart() == "" ? $("#ActivityStart").val() : x.PIPNewActivityStart(),
+                    ActivityEnd: x.PIPNewActivityEnd() == "" ? $("#ActivityEnd").val() : x.PIPNewActivityEnd(),
+                    PlanDaysOpp: x.PIPNewPlanDaysOpp() == "" ? $("#PlanDaysOpp").val() : x.PIPNewPlanDaysOpp(),
+                    PlanDaysRisk: x.PIPNewPlanDaysRisk() == "" ? $("#PlanDaysRisk").val() : x.PIPNewPlanDaysRisk(),
+                    PlanCostOpp: x.PIPNewPlanCostOpp() == "" ? $("#PlanCostOpp").val() : x.PIPNewPlanCostOpp(),
+                    PlanCostRisk: x.PIPNewPlanCostRisk() == "" ? $("#PlanCostRisk").val() : x.PIPNewPlanCostRisk(),
+                    isPositive: x.isPositive(),
+                    PIPId: x.selectedPIPId(),
+                    PerformanceUnit: $("#PerformanceUnit").data('kendoDropDownList').value(),
+                    Classification: $("#Classification").data('kendoDropDownList').value(),
+                    Theme: $("#Theme").data('kendoDropDownList').value(),
+                    ActionParty: x.PIPNewActionParty(),
+                    ActionParties: ko.mapping.toJS(x.ActionParties())
+                };
+                console.log(datas);
+                ajaxPost("@Url.Action("SaveNewPIP")", datas,
+                    function (data) {
+                        if (data.Success == true) {
+                            $("#modalPIP").modal("hide");
+                            x.select(x.selectedPIPId(), x.WellName(), x.ActivityType(),x.SelectedPIPType());
+                        } else {
+                            alert(data.Message);
+                        }
+                    });
+            } else {
+                return;
+            }
+
+        },
+        editPIP: function () {
+            var x = this;
+            var updated = getChangedData("GridPIP", "dirty");
+
+            if (updated.length > 0) {
+
+                x.processing(true);
+                for (var a = 0; a < updated.length; a++) {
+                    var b = updated[a];
+                    var PeriodStart = updated[a].Period.Start;
+                    //console.log(PeriodStart);
+                    if (PeriodStart instanceof Date) {
+                        //alert("found");
+                        updated[a].Period.Start = PeriodStart;
+                    } else {
+                        updated[a].Period.Start = jsonDateStr(PeriodStart);
+                    }
+
+                    var PeriodFinish = updated[a].Period.Finish;
+                    //console.log(PeriodStart);
+                    if (PeriodFinish instanceof Date) {
+                        //alert("found");
+                        updated[a].Period.Finish = PeriodFinish;
+                    } else {
+                        updated[a].Period.Finish = jsonDateStr(PeriodFinish);
+                    }
+
+                    //var Completion = number_format(updated[a].Completion / 100);
+                    //updated[a].Completion = Completion;
+                }
+
+
+                var datas = { updated: updated, PIPId: x.selectedPIPId() };
+                ajaxPost("@Url.Action("UpdatePIP")", datas,
+                    function (data) {
+                        if (data.Success == true) {
+                            x.processing(false);
+                            x.select(x.selectedPIPId(), x.WellName(), x.ActivityType(),x.SelectedPIPType());
+                        } else {
+                            alert(data.Message);
+                        }
+                    });
+
+                //console.log(data);
+
+            }
+
+        },
+        deletePIP: function (ElementId) {
+            var x = this;
+            var konf = confirm("Are you sure you want to delete this data?");
+            if (konf == true) {
+                var datas = { ElementId: ElementId, PIPId: x.selectedPIPId() };
+                ajaxPost("@Url.Action("DeletePIP")", datas,
+                    function (data) {
+                        if (data.Success == true) {
+                            x.select(x.selectedPIPId(), x.WellName(), x.ActivityType(),x.SelectedPIPType());
+                        } else {
+                            alert(data.Message);
+                        }
+                    });
+            }
+        },
+        addPerformanceMetrics: function () {
+            var x = this;
+            x.PerfMetricsTitle("");
+            x.PerfMetricsSchedule("");
+            x.PerfMetricsCost("");
+            $("#modalPerfMetrics").modal("show");
+        },
+        SaveNewPerfMetrics: function () {
+            //alert("ok");
+            var x = this;
+            var datas = {
+                Title: x.PerfMetricsTitle(),
+                Schedule: x.PerfMetricsSchedule(),
+                Cost: x.PerfMetricsCost(),
+                PIPId: x.selectedPIPId(),
+            };
+
+            ajaxPost("@Url.Action("SaveNewPerformanceMetrics")", datas,
+                function (data) {
+                    if (data.Success == true) {
+                        $("#modalPerfMetrics").modal("hide");
+                        x.select(x.selectedPIPId(), x.WellName(), x.ActivityType(),x.SelectedPIPType());
+                    } else {
+                        alert(data.Message);
+                    }
+                });
+        },
+        editPerfMetrics: function () {
+            var x = this;
+            var updated = getChangedData("grid_performance_metrics", "all");
+            var datas = { updated: updated, PIPId: x.selectedPIPId() };
+            ajaxPost("@Url.Action("UpdatePerfMetrics")", datas,
+                function (data) {
+                    if (data.Success == true) {
+                        x.select(x.selectedPIPId(), x.WellName(), x.ActivityType(),x.SelectedPIPType());
+                    } else {
+                        alert(data.Message);
+                    }
+                });
+
+            //console.log(data);
+        },
+        deletePerfMetrics: function (Title, Schedule, Cost) {
+            var x = this;
+            var konf = confirm("Are you sure you want to delete this data?");
+            if (konf == true) {
+                var datas = { DataToRemove: { Title: Title, Schedule: Schedule, Cost: Cost }, PIPId: x.selectedPIPId() };
+                ajaxPost("@Url.Action("DeletePerformanceMetrics")", datas,
+                    function (data) {
+                        if (data.Success == true) {
+                            x.select(x.selectedPIPId(), x.WellName(), x.ActivityType(),x.SelectedPIPType());
+                        } else {
+                            alert(data.Message);
+                        }
+                    });
+            }
+        },
+        addProjectMilestone: function () {
+            var x = this;
+            x.ProjectMilestoneTitle("");
+            x.ProjectMilestonePeriod("");
+            $("#modalProjectMilestone").modal("show");
+        },
+        SaveNewProjectMilestone: function () {
+            //alert("ok");
+            var x = this;
+            var datas = {
+                Title: x.ProjectMilestoneTitle(),
+                Period: x.ProjectMilestonePeriod(),
+                PIPId: x.selectedPIPId(),
+            };
+
+            ajaxPost("@Url.Action("SaveNewProjectMilestone")", datas,
+                function (data) {
+                    if (data.Success == true) {
+                        $("#modalProjectMilestone").modal("hide");
+                        x.select(x.selectedPIPId(), x.WellName(), x.ActivityType(),x.SelectedPIPType());
+                    } else {
+                        alert(data.Message);
+                    }
+                });
+
+        },
+        editProjectMilestone: function () {
+            var x = this;
+            var updated = getChangedData("grid_project_milestone", "all");
+            for (var a = 0; a < updated.length; a++) {
+                var b = updated[a];
+                var Period = updated[a].Period;
+                //console.log(PeriodStart);
+                if (Period instanceof Date) {
+                    //alert("found");
+                    updated[a].Period = Period;
+                } else {
+                    updated[a].Period = jsonDateStr(Period);
+                }
+            }
+
+            //console.log(updated);
+
+            var datas = { updated: updated, PIPId: x.selectedPIPId() };
+            ajaxPost("@Url.Action("UpdateProjectMilestone")", datas,
+                function (data) {
+                    if (data.Success == true) {
+                        x.select(x.selectedPIPId(), x.WellName(), x.ActivityType(),x.SelectedPIPType());
+                    } else {
+                        alert(data.Message);
+                    }
+                });
+
+            //console.log(data);
+        },
+        deleteProjectMilestone: function (Title, Period) {
+            var x = this;
+            var konf = confirm("Are you sure you want to delete this data?");
+            if (konf == true) {
+                //Period = jsonDateStr(Period);
+                var datas = { Title: Title, PIPId: x.selectedPIPId() };
+                ajaxPost("@Url.Action("DeleteProjectMilestone")", datas,
+                    function (data) {
+                        if (data.Success == true) {
+                            x.select(x.selectedPIPId(), x.WellName(), x.ActivityType(),x.SelectedPIPType());
+                        } else {
+                            alert(data.Message);
+                        }
+                    });
+            }
+        },
+        saveProjectInfos: function () {
+            var x = model.uimodel();
+            var y = this;
+            var Field = y.ProjectInfosField
+            var Scaled = y.ProjectInfosScaled();
+            var ProjectType = y.ProjectInfosProjectType();
+            var CostLevel = y.ProjectInfosCostLevel();
+
+            var datas = {
+                Field: Field,
+                Scaled: Scaled,
+                ProjectType: ProjectType,
+                CostLevel: CostLevel,
+                PIPId: y.selectedPIPId()
+            };
+            datas.OptmzEngEmail = $("#OptmzEng").val();
+            datas.LeadEngEmail = $("#LeadEng").val();
+            datas.TeamLeadEmail = $("#TeamLead").val();
+            //alert(datas.OptmzEngEmail);
+
+            console.log(datas);
+
+            ajaxPost("@Url.Action("SaveProjectInfos")", datas,
+                    function (data) {
+                        if (data.Success == true) {
+                            y.select(y.selectedPIPId(), y.WellName(), y.ActivityType(),y.SelectedPIPType());
+                        } else {
+                            alert(data.Message);
+                        }
+                    });
+        },
+        openManageActionPartyModal: function (ElementId) {
+            var x = this;
+            x.processingActionParty(true);
+            x.selectedElementId(ElementId);
+            var datas = { PIPId: x.selectedPIPId(), ElementId: ElementId };
+            x.ActionParties([]);
+            ajaxPost("@Url.Action("GetActionParty")", datas,
+                    function (data) {
+                        if (data.Success == true) {
+                            //console.log(data);
+                            if (data.Data != null) {
+                                if (data.Data.ActionParties != null) {
+                                    for (var i = 0; i < data.Data.ActionParties.length; i++) {
+                                        x.ActionParties.push(data.Data.ActionParties[i]);
+                                    }
+                                }
+                            }
+                            x.processingActionParty(false);
+                        } else {
+                            x.processingActionParty(false);
+                            alert(data.Message);
+                        }
+                    });
+
+            $("#modalActionParty").modal("show");
+        },
+        saveActionParty: function () {
+            var x = this;
+            var ElementId = x.selectedElementId();
+            console.log(ElementId);
+            var datas = {
+                PIPId: x.selectedPIPId(),
+                ElementId: ElementId,
+                ActionParties: ko.mapping.toJS(x.ActionParties())
+            };
+            var ActionParties = ko.mapping.toJS(x.ActionParties());
+
+            model.uimodel().processingActionParty(true);
+            ajaxPost("@Url.Action("SaveActionParty")", datas,
+                    function (data) {
+                        if (data.Success == true) {
+                            var dataGrid = $("#GridPIP").data("kendoGrid").dataSource.data();
+                            var newDataGrid = [];
+                            for(var i=0; i < dataGrid.length; i++){
+                                if(dataGrid[i].ElementId != ElementId){
+                                    newDataGrid.push(dataGrid[i]);
+                                }else{
+                                    dataGrid[i].ActionParties = ActionParties;
+                                    newDataGrid.push(dataGrid[i]);
+                                }
+                            }
+                            refreshPIPElements(newDataGrid,x.isWAUExist());
+                            model.uimodel().processingActionParty(false);
+                            $("#modalActionParty").modal("hide");
+                            //$('#GridPIP').data('kendoGrid').refresh();
+                            //x.select(x.selectedPIPId(), x.WellName(), x.ActivityType(),x.SelectedPIPType());
+                        } else {
+                            model.uimodel().processingActionParty(false);
+                            alert(data.Message);
+                        }
+                    });
+            x.ActionParties([]);
+            x.selectedElementId("");
+        },
+
+        //Comments : function (ElementId) {
+        //    alert("ok");
+        //    $("#modalComments").modal("show");
+        //}
+    });
+
+    model.uimodel().ThemeNames().unshift({DataText:"All Others",DataValue:""});
+
+
+    model.reloadData = function () {
+        //alert(ks(model.getFilterValues()));
+        model.uimodel().refresh();
+    }
+    model.RoleData = ko.observableArray(
+        (function (excludes) {
+            var data = @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRoles").Select(d => d.GetString("_id")).OrderBy(d => d)));
+            var result = [];
+
+            for (var d in data) {
+                var isFound = false;
+                for (var e in excludes) {
+                    if (String(data[d]).toLowerCase().indexOf(excludes[e]) > -1) {
+                        isFound= true;
+                        break;
+                    }
+                }
+                if (!isFound) {
+                    result.push(data[d]);
+                }
+            }
+
+            return result;
+        } (["administrators", "app-supports", "ro-all"]))
+    );
+    @*model.Roles = function () {
+        this.RoleData = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+                        DataHelper.Populate("WEISRoles").Select(d => d.GetString("_id")).OrderBy(d => d)
+                    )));
+        this.selectedRoleId = ko.observable();
+    };*@
+
+    function refreshPIPElements(data,wau){
+        var ds = new kendo.data.DataSource({
+            data: data,
+            //pageSize: 10,
+            schema: {
+                //data: "Phases",
+                model: {
+                    id: "ElementId",
+                    fields: {
+                        "Title": { type: "string" },
+                        "Period.Start": { type: "date" },
+                        "Period.Finish": { type: "date" },
+                        "DaysPlanImprovement": { type: "number" },
+                        "DaysPlanRisk": { type: "number" },
+                        "CostPlanImprovement": { type: "number" },
+                        "CostPlanRisk": { type: "number" },
+                        //"CompletionPerc": { type: "number",editable:false },
+                        "ElementId": { type: "number", editable: false },
+                        "ActionParties": { editable: false },
+                        "DaysCurrentWeekImprovement": { editable: wau || model.uimodel().isAdmin() == 1 },
+                        "CostCurrentWeekImprovement": { editable: wau || model.uimodel().isAdmin() == 1 },
+                        "DaysCurrentWeekRisk": { editable: wau || model.uimodel().isAdmin() == 1 },
+                        "CostCurrentWeekRisk": { editable: wau || model.uimodel().isAdmin() == 1 },
+                        //"Completion": { editable: wau }
+                        "Completion": { editable: false },
+                        "isPositive": { type: "boolean",  filterable : false }
+                    }
+                },
+            },
+            sort: {
+                field: "Title",
+                dir: "asc"
+            },
+            batch: true
+        });
+
+        $("#GridPIP").data("kendoGrid").setDataSource(ds);
+        //        SumRealized();
+    }
+
+    function refreshRIGPIPElements(data){
+        var ds = new kendo.data.DataSource({
+            data: data
+        });
+
+        $("#grid_pip_element").data("kendoGrid").setDataSource(ds);
+    }
+
+    function getProjectInfos(id, WellName, ActivityType) {
+        var x = model.uimodel();
+        var WellName = x.WellName();
+        //alert(WellName);
+        if(x.SelectedPIPType() == "Efficient"){
+            var url = "@Url.Action("SelectActivity")";
+            var param = { WellName: WellName, ActivityType: ActivityType, Id: id };
+        }else{
+            var url = "@Url.Action("SelectActivityForCR")";
+            var param = { WellName: WellName };
+        }
+        ajaxPost(url, param,
+            function (data) {
+                model.uimodel().processing(false);
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+                //console.log(data);
+
+                x.ProjectInfos.WellActivity(data.Data.Data);
+                if (data.Data.Data.Phases.length > 0) {
+                    x.ProjectInfos.Phase(data.Data.Data.Phases[0]);
+                }
+                //console.log(data.Data.Data);
+                if(data.Data.Data != null){
+                    x.TeamLeadEmail(data.Data.Data.TeamLeadEmail == null ? "" : data.Data.Data.TeamLeadEmail);
+                    x.LeadEngEmail(data.Data.Data.LeadEngineerEmail == null ? "" : data.Data.Data.LeadEngineerEmail);
+                    x.OptmzEngEmail(data.Data.Data.OptimizationEngineerEmail == null ? "" : data.Data.Data.OptimizationEngineerEmail);
+                    if(x.SelectedPIPType == "Efficient") x.ProjectInfos.Phase(data.Data.Data.Phases[0]);
+                }
+                x.ProjectInfos.PhaseMin(jsonDateStr(data.Data.PhaseMin));
+                x.ProjectInfos.PhaseMax(jsonDateStr(data.Data.PhaseMax));
+                x.PersonsForTeamLead([]);
+                x.PersonsForLeadEng([]);
+                x.PersonsForOptmzEng([]);
+
+                for (var i = 0; i < x.Persons().length; i++) {
+                    x.PersonsForTeamLead.push(x.Persons()[i])
+                    x.PersonsForLeadEng.push(x.Persons()[i])
+                    x.PersonsForOptmzEng.push(x.Persons()[i])
+                }
+
+                if ( data.Data.Data != null && (data.Data.Data.TeamLeadEmail == "" || data.Data.Data.TeamLeadEmail == null)) {
+                    x.PersonsForTeamLead.unshift({ Email: "", FullName: data.Data.Data.TeamLead });
+                }
+
+                if ( data.Data.Data != null && (data.Data.Data.LeadEngineerEmail == "" || data.Data.Data.LeadEngineerEmail == null)) {
+                    x.PersonsForLeadEng.unshift({ Email: "", FullName: data.Data.Data.LeadEngineer });
+                }
+
+                if ( data.Data.Data != null && (data.Data.Data.OptimizationEngineerEmail == "" || data.Data.Data.OptimizationEngineerEmail == null)) {
+                    x.PersonsForOptmzEng.unshift({ Email: "", FullName: data.Data.Data.OptimizationEngineer });
+                }
+
+
+                //console.log(x.ProjectInfos.PhaseMin());
+                model.uimodel().processing(false);
+            }, function () {
+                model.uimodel().processing(false);
+            });
+
+    }
+
+    function getChangedData(grid_id, type) {
+        var g = $("#" + grid_id);
+        var updatedRecords = [];
+
+        var gridData = g.data("kendoGrid").dataSource._data;
+        gridData.forEach(function (f) {
+            if (type == "dirty") {
+                if (f.dirty) updatedRecords.push(f);
+            } else {
+                updatedRecords.push(f);
+            }
+        });
+
+
+        //console.log(updatedRecords);
+
+        //var data = {};
+        //data.id = model.selectedWellId();
+        var updated = updatedRecords;
+        //$.extend(data, parameterMap({ updated: updatedRecords }));
+
+        //console.log(data);
+        for (var a = 0; a < updated.length; a++) {
+            var b = updated[a];
+            for (i in b) if (b.hasOwnProperty(i)) {
+                //console.log(i);
+                if (i.indexOf(".") > -1) {
+                    delete updated[a][i];
+                }
+            }
+        }
+
+        return updated;
+    }
+
+    //function SumRealized(){
+    //    var gd = $("#GridPIP").data("kendoGrid")._data;
+    //    var dtrue= 0;var dfalse = 0;
+    //    var DaysPlanImprovementTotal_Real=0;var DaysPlanImprovementTotal_NotReal=0;
+    //    var DaysPlanRiskTotal_Real=0;var DaysPlanRiskTotal_NotReal=0;
+    //    var CostPlanImprovementTotal_Real = 0; var CostPlanImprovementTotal_NotReal=0;
+    //    var CostPlanRiskTotal_Real=0;var CostPlanRiskTotal_NotReal=0;
+    //    var CostCurrentWeekImprovementTotal_Real=0;var CostCurrentWeekImprovementTotal_NotReal = 0;
+    //    var CostCurrentWeekRiskTotal_Real=0;var CostCurrentWeekRiskTotal_NotReal=0;
+    //    var DaysCurrentWeekImprovementTotal_Real=0;var DaysCurrentWeekImprovementTotal_NotReal=0;
+    //    var DaysCurrentWeekRiskTotal_Real=0;var DaysCurrentWeekRiskTotal_NotReal=0;
+    //    var Completion = gd.Completion;
+    //    for(var i = 0;i<gd.length;i++){
+    //        if(gd[i].Completion=="Realized"){
+    //            dtrue++;
+    //            DaysPlanImprovementTotal_Real += gd[i].DaysPlanImprovement;
+    //            DaysPlanRiskTotal_Real +=gd[i].DaysPlanRisk;
+    //            CostPlanImprovementTotal_Real +=gd[i].CostPlanImprovement;
+    //            CostPlanRiskTotal_Real +=gd[i].CostPlanRisk;
+    //            CostCurrentWeekImprovementTotal_Real +=gd[i].DaysCurrentWeekImprovement;
+    //            CostCurrentWeekRiskTotal_Real +=gd[i].DaysCurrentWeekRisk;
+    //            DaysCurrentWeekImprovementTotal_Real +=gd[i].CostCurrentWeekImprovement;
+    //            DaysCurrentWeekRiskTotal_Real +=gd[i].CostCurrentWeekRisk;
+    //        }else{
+    //            dfalse++;
+    //            DaysPlanImprovementTotal_NotReal +=gd[i].DaysPlanImprovement;
+    //            DaysPlanRiskTotal_NotReal +=gd[i].DaysPlanRisk;
+    //            CostPlanImprovementTotal_NotReal +=gd[i].CostPlanImprovement;
+    //            CostPlanRiskTotal_NotReal +=gd[i].CostPlanRisk;
+    //            CostCurrentWeekImprovementTotal_NotReal +=gd[i].DaysCurrentWeekImprovement;
+    //            CostCurrentWeekRiskTotal_NotReal +=gd[i].DaysCurrentWeekRisk;
+    //            DaysCurrentWeekImprovementTotal_NotReal +=gd[i].CostCurrentWeekImprovement;
+    //            DaysCurrentWeekRiskTotal_NotReal +=gd[i].CostCurrentWeekRisk;
+    //        }
+    //    }
+    //    model.uimodel().Realized(dtrue);
+    //    model.uimodel().UnRealized(dfalse);
+    //    model.uimodel().DaysPlanImprovementTotal_Real(DaysPlanImprovementTotal_Real);
+    //    model.uimodel().DaysPlanImprovementTotal_NotReal(DaysPlanImprovementTotal_NotReal);
+    //    model.uimodel().DaysPlanRiskTotal_Real(DaysPlanRiskTotal_Real);
+    //    model.uimodel().DaysPlanRiskTotal_NotReal(DaysPlanRiskTotal_NotReal);
+    //    model.uimodel().CostPlanImprovementTotal_Real(CostPlanImprovementTotal_Real);
+    //    model.uimodel().CostPlanImprovementTotal_NotReal(CostPlanImprovementTotal_NotReal);
+    //    model.uimodel().CostCurrentWeekImprovementTotal_Real(CostCurrentWeekImprovementTotal_Real);
+    //    model.uimodel().CostCurrentWeekImprovementTotal_NotReal(CostCurrentWeekImprovementTotal_NotReal);
+    //    model.uimodel().CostCurrentWeekRiskTotal_Real(CostCurrentWeekRiskTotal_Real);
+    //    model.uimodel().CostCurrentWeekRiskTotal_NotReal(CostCurrentWeekRiskTotal_NotReal);
+    //    model.uimodel().DaysCurrentWeekImprovementTotal_Real(DaysCurrentWeekImprovementTotal_Real);
+    //    model.uimodel().DaysCurrentWeekImprovementTotal_NotReal(DaysCurrentWeekImprovementTotal_NotReal);
+    //    model.uimodel().DaysCurrentWeekRiskTotal_Real(DaysCurrentWeekRiskTotal_Real);
+    //    model.uimodel().DaysCurrentWeekRiskTotal_NotReal(DaysCurrentWeekRiskTotal_NotReal);
+    //    //gd.forEach(function(i) {
+    //    //    console.log("i:",i.Completion);
+    //    //    if(i.Completion=="Realized"){
+    //    //        dtrue++;
+    //    //        model.uimodel.Realized(dtrue);
+    //    //    }else{
+    //    //        dtfalse++;
+    //    //        model.uimodel.Realized(dfalse);
+    //    //    }
+    //    //});
+
+    //}
+</script>
+
+<script id="CompletionPerc-Template" type="text/x-kendo-template">
+    <strong>#: CompletionPerc #</strong>
+</script>
+<script>
+    model.constRealized = { YES: "Realized", NO: "Not Yet Realized" };
+
+    function createGauge() {
+        var gd = $("#GridPIP").data("kendoGrid");
+        $("#GridPIP").find("tr[data-uid]").each(function (i, e) {
+            var data = gd.dataSource.getByUid($(e).attr("data-uid"));
+
+            $(e).find(".cell-number").each(function (j, f) {
+                if ($(f).children().size() === 0 && parseFloat($.trim($(f).html())) === 0) {
+                    $(f).css("color", "transparent");
+                } else {
+                    $(f).css("color", "inherit");
+                }
+            });
+            
+            changeBackgroundOfRealizedOrNot(data.Completion == model.constRealized.YES, data, $(e).find(":eq(4)"));
+
+            var eid = $(e).find("[data-eid]").attr("data-eid");
+            if (typeof eid === String(undefined)) return;
+            model.uimodel().UpdateCommentCounter(eid);
+        });
+
+        var grid = this;
+        $(".gauge").each(function () {
+            var gauge = $(this);
+            var tr = gauge.closest('tr');
+            var model = grid.dataItem(tr);
+            gauge.kendoLinearGauge({
+                pointer: {
+                    value: model.CompletionPerc
+                },
+
+                scale: {
+                    majorUnit: 50,
+                    min: 0,
+                    max: 100,
+                    vertical: false,
+                    labels: {
+                        // set the format to currency
+                        //format: "P0"
+                    }
+                }
+            });
+        })
+    }
+
+    function ShowPIPType(Type){
+        return Type == "Reduction" ? "CR" : "CE";
+    }
+
+
+    var gridColumns = [
+        {
+            field: "WellName", title: "Well Name", filterable: false, width: 200,
+            template: "<a style='cursor:pointer' onclick='model.uimodel().select(\"#: _id #\",\"#: WellName #\",\"#: ActivityType #\",\"#: Type #\")'>#: WellNameCalc(WellName,Type) #</a>",
+            headerTemplate: '<label style="color:#a8a8a8">Well Name</label>'
+        },
+        { field: "RigName", title: "Rig Name", filterable: false,sortable:false, width: 120, headerTemplate: '<label style="color:#a8a8a8">Rig Name</label>' },
+        { field: "Type", title: "Type", filterable: false, width: 100, template:"#: ShowPIPType(Type) #",headerTemplate: '<label style="color:#a8a8a8">Type</label>' },
+        { field: "SequenceId", title: "UA Rig<br>Sequence ID", width: 100,headerTemplate: '<label style="color:#a8a8a8">UA Rig<br>Sequence ID</label>' },
+        {
+            field: "ActivityType", title: "Activities",
+            template: "<a style='cursor:pointer' onclick='model.uimodel().select(\"#: _id #\",\"#: WellName #\",\"#: ActivityType #\",\"#: Type #\")'>#: ActivityType #</a>",
+            headerTemplate: '<label style="color:#a8a8a8">Activities</label>'
+        },
+        {
+            field: "OPStart", title: "OP Schedule",
+            template: "#: moment(OPStart).format('DD-MMM-YYYY')# -- #: moment(OPFinish).format('DD-MMM-YYYY')#",
+            headerTemplate: '<label style="color:#a8a8a8">OP Schedule</label>',
+            sortable:false 
+        },
+        {
+            field: "LSStart", title: "LS Schedule",
+            template: "#: moment(LSStart).format('DD-MMM-YYYY') # -- #: moment(LSFinish).format('DD-MMM-YYYY') #",
+            footerTemplate: "<div id='' class=''>Total All Elements:</div>",
+            headerTemplate: '<label style="color:#a8a8a8">Latest Sequence Schedule</label>',
+            sortable:false
+        },
+        {
+            field: "", title: "Number of<br>Elements", width:100, attributes:{"style":"text-align:right"},template:"#: Elements.length #",
+            //footerTemplate: "#: data.numberOfElement ? sum : 0 #"
+            footerTemplate: "<div id='PIPTotalElements' class='cell-number' data-bind='text:model.uimodel().PIPTotalElements()'></div>",
+            headerTemplate: '<label style="color:#a8a8a8">Number of<br>Elements</label>',
+            sortable:false
+        } 
+       
+        //{ field: "AFEDays", attributes: { style: "text-align:right" } },
+        //{ field: "PIPDaysImprovement", attributes: { style: "text-align:right" } },
+        //{ field: "PIPDaysRisk", attributes: { style: "text-align:right" } },
+        //{ field: "AFECost", attributes: { style: "text-align:right" } },
+        //{ field: "AFECostImprovement", attributes: { style: "text-align:right" } },
+        //{ field: "AFECostRisk", attributes: { style: "text-align:right" } },
+        //{
+        //    field: "Status", title: "Status", width:80,
+        //    template: "<label class=\"label #: Status=='Draft' ? 'label-warning' : Status=='Publish' ? 'label-success' : '' #\">#: Status #</label>"
+        //},
+        //{
+        //    field: "_id", title: "Delete",width:100,
+        //    template: "<button class='btn btn-xs btn-danger' onclick='model.uimodel().deletePIPDoc(\"#: _id #\")'>Delete</a>"
+        //}
+    ];
+    if (model.uimodel().isRO() != "1") {
+        gridColumns.push(
+        {
+            field: "_id", title: "Delete", width: 100,
+            template: "<button class='btn btn-xs btn-danger' onclick='model.uimodel().deletePIPDoc(\"#: _id #\")'>Delete</a>",
+            headerTemplate: '<label style="color:#a8a8a8">Delete</label>',
+            sortable:false
+        });
+    }
+
+    
+    //model.uimodel().gridOptions = {data:[],columns:gridColumns,pageable:true,sortable:true,filterable:true};
+
+    function GenerateGrid() {
+        var x = model.uimodel();
+        var self = this;
+        $("#grid").replaceWith($('<div />').attr('id', 'grid'));
+        var $grid = $("#grid");
+        var column = gridColumns;
+        var ps = model.getFilterValues();
+        ps.performanceUnits = (function (a) { return typeof a === 'undefined' ? [] : a.value() }($('[data-model=performanceUnits]').data('kendoMultiSelect')));
+        ps.performanceMetrics = (function (a) { return typeof a === 'undefined' ? [] : a.value() }($('[data-model=performanceMetrics]').data('kendoMultiSelect')));
+        ps.PIPType = (function (a) { return typeof a === 'undefined' ? [] : a.value() }($('#PIPTypeFilter').data('kendoDropDownList')));
+        //alert(ps.PIPType);
+        //x.processing(true);
+
+
+        self.GridConfig = {
+            dataSource: {
+                transport: {
+
+                    read: function(options){
+                        //console.log(options);
+                        var param = ps;
+                        param.take = options.data.take;
+                        param.skip = options.data.skip;
+                        param.sorts = options.data.sort;
+                        //model.uimodel().processing(true);
+
+                        ajaxPost("@Url.Action("Search")", param, function (result) {
+                            var TotalElements = 0; var TotRealPIPValue=0;TotRealPIPCost=0;
+                            for(var i=0;i<result.Data.Data.length;i++){
+                                var el = result.Data.Data[i].Elements;
+                                TotalElements = TotalElements + el.length;
+                                TotRealPIPValue = result.Data.Data[i].RealizedDays;
+                                TotRealPIPCost  = result.Data.Data[i].RealizedCost;
+                            }
+                           
+                            console.log("Data Element:",result.Data.Data);
+                            console.log("TotRealPIPValue:",TotRealPIPValue);
+                            model.uimodel().PIPTotalElements(TotalElements);
+                            model.uimodel().TotRealPIPValue(TotRealPIPValue);
+                            model.uimodel().TotRealPIPCost(TotRealPIPCost);
+                            options.success(result);
+                            setTimeout(function () {
+                                $("#PIPTotalElements").text(model.uimodel().PIPTotalElements());
+                                $("#TotRealPIPValue").text(model.uimodel().TotRealPIPValue());
+                                $("#TotRealPIPCost").text(model.uimodel().TotRealPIPCost());
+                                //SumRealized();
+                            }, 1000);
+                        }, function (data) {
+                            options.error(result);
+                        });
+                    },
+                },
+                schema: {
+                    data: "Data.Data",
+                    total: "Data.Total",
+                    model: {
+                        fields: {
+                            "OPStart": { type: "date" },
+                            "OPFinish": { type: "date" },
+                            "AFEStart": { type: "date" },
+                            "AFEFinish": { type: "date" },
+                            //"OPSchedule.Finish": { type: "date" },
+                        }
+                    },
+                },
+                pageSize: 10,
+                serverPaging: true, // enable server paging
+                serverSorting: true,
+            },
+            resizable: true,
+            scrollable: true,
+            sortable: true,
+            pageable: {
+                refresh: false,
+                pageSizes: 10,
+                buttonCount: 5
+            },
+            columns:column,
+        };
+
+        self.Prepare = function () {
+            $grid.kendoGrid(self.GridConfig);
+            //x.PIPTotalElements(TotalElements);
+            $("#PIPTotalElements").text(model.uimodel().PIPTotalElements());
+            $("#TotRealPIPValue").text(model.uimodel().TotRealPIPValue());
+            $("#TotRealPIPCost").text(model.uimodel().TotRealPIPCost());
+            x.mode("");
+            setPageTitle("PIP Configuration");
+
+            var grid = $('#grid').data('kendoGrid');
+            var pager = grid.pager;
+            pager.bind('change', setFooterTemplate);
+        }
+    }
+
+    function WellNameCalc(WellName, Type){
+        var wn = WellName;
+        if(Type == "Reduction"){
+            wn = WellName.replace("_CR","");
+        }
+        return wn;
+    }
+
+    var gridColumnsAdd = [
+        { field: "WellName", title: "Well Name", filterable: false, width: 200 },
+        { field: "UARigSequenceId", title: "UA Rig Sequence ID", width: 200 },
+        {
+            field: "ActivityType", title: "Activity"
+        },
+        {
+            field: "_id", title: "Action",
+            template: "<button class='btn btn-xs btn-warning' onclick='model.uimodel().createPIPDoc(#: _id #,#: PhaseNo #, \"#: WellName #\")'>Create PIP Document</a>"
+        }
+    ];
+
+    var headerUnitWith = 80;
+    var buildHeaderTemplate = function (title, unit) {
+        return "<a class='k-link'>" + title + "</a><span class='k-unit'>(" + unit + ")</a>";
+    };
+
+    var buildfooterTotal = function(){
+        var footer = "";
+        footer += "<tr><td colspan='5' style='text-align:right'>Realized Total</td><td><div id='footer20' class='cell-number' data-bind='text:model.uimodel().DaysPlanImprovementTotal_Real()'></div></td><td><div id='footer21' class='cell-number' data-bind='text:model.uimodel().DaysPlanRiskTotal_Real()'></div></td><td><div id='footer22' class='cell-number' data-bind='text:model.uimodel().CostPlanImprovementTotal_Real()'></div></td><td><div id='footer23' class='cell-number' data-bind='text:model.uimodel().CostPlanRiskTotal_Real()'></div></td><td><div id='footer24' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekImprovementTotal_Real()'></div></td><td><div id='footer25' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekRiskTotal_Real()'></div></td><td><div id='footer26' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekImprovementTotal_Real()'></div></td><td><div id='footer27' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekRiskTotal_Real()'></div></td><td></td><td></td><td></td><td></td><td></td></tr>";
+        footer += "<tr><td colspan='5' style='text-align:right'>Not Realized Total</td><td><div id='footer28' class='cell-number' data-bind='text:model.uimodel().DaysPlanImprovementTotal_NotReal()'></div></td><td><div id='footer29' class='cell-number' data-bind='text:model.uimodel().DaysPlanRiskTotal_NotReal()'></div></td><td><div id='footer30' class='cell-number' data-bind='text:model.uimodel().CostPlanImprovementTotal_NotReal()'></div></td><td><div id='footer31' class='cell-number' data-bind='text:model.uimodel().CostPlanRiskTotal_NotReal()'></div></td><td><div id='footer32' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekImprovementTotal_NotReal()'></div></td><td><div id='footer33' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekRiskTotal_NotReal()'></div></td><td><div id='footer34' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekImprovementTotal_NotReal()'></div></td><td><div id='footer35' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekRiskTotal_NotReal()'></div></td><td></td><td></td><td></td><td></td><td></td></tr>";
+        footer += "<tr><td colspan='5' style='text-align:right'>Total</td><td><div id='footer1' class='cell-number' data-bind='text:model.uimodel().DaysPlanImprovementTotal()'></div></td><td><div id='footer2' class='cell-number' data-bind='text:model.uimodel().DaysPlanRiskTotal()'></div></td><td><div id='footer3' class='cell-number' data-bind='text:model.uimodel().CostPlanImprovementTotal()'></div></td><td><div id='footer4' class='cell-number' data-bind='text:model.uimodel().CostPlanRiskTotal()'></div></td><td><div id='footer5' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekImprovementTotal()'></div></td><td><div id='footer6' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekRiskTotal()'></div></td><td><div id='footer7' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekImprovementTotal()'></div></td><td><div id='footer8' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekRiskTotal()'></div></td><td></td><td></td><td></td><td></td><td></td></tr>";
+        return footer;
+    }
+
+    function changeRealizedOrNot(self) {
+        var $target = $(self);
+        var dataUID = $target.closest('[data-uid]').attr('data-uid');
+        var $grid = $("#GridPIP").data('kendoGrid');
+        var index = $grid.dataSource.data().indexOf(_.find($grid.dataSource.data(), { uid: dataUID }));
+        var targetData = $grid.dataSource.data()[index];
+        
+        targetData.dirty = true;
+        changeBackgroundOfRealizedOrNot(self.checked, targetData, $target);
+    }
+
+    function changeCostAvoidance(self) {
+        var $target = $(self);
+        var dataUID = $target.closest('[data-uid]').attr('data-uid');
+        var $grid = $("#GridPIP").data('kendoGrid');
+        var index = $grid.dataSource.data().indexOf(_.find($grid.dataSource.data(), { uid: dataUID }));
+        var targetData = $grid.dataSource.data()[index];
+        
+        targetData.dirty = true;
+        targetData.CostAvoidance = self.checked;
+    }
+
+    function changeBackgroundOfRealizedOrNot(checked, targetData, $target) {
+        if (checked) {
+            targetData.Completion = model.constRealized.YES;
+            $target.closest("td").removeClass("bg-td-red");
+            $target.closest("td").addClass("bg-td-green");
+        } else {
+            targetData.Completion = model.constRealized.NO;
+            $target.closest("td").removeClass("bg-td-green");
+            $target.closest("td").addClass("bg-td-red");
+        }
+    }
+
+    var gridColumnsPIP = [
+
+
+        { field: "Title", title: "Idea", filterable: false, width: 100, footerTemplate : buildfooterTotal },//attributes:{class:"#= isPositive == true ? 'bg-positive' : 'bg-negative' #"}
+        { field: "Period.Start", width: 80, title: "Activity Start", filterable: false, template: "#: jsonDateStr(Period.Start) #", attributes: { class: "cell-date" } },
+        { field: "Period.Finish", width: 80, title: "Activity End", filterable: false, template: "#: jsonDateStr(Period.Finish) #", attributes: { class: "cell-date" } },
+        //{
+        //    field: "Period", title: "Activity Period", attributes: { class: "cell-date" }, columns: [
+        //        { field: "Start", title: "Start", filterable: false, template: "#: jsonDateStr(Period.Start) #", attributes: { class: "cell-date" } },
+        //        { field: "Finish", title: "Finish", filterable: false, template: "#: jsonDateStr(Period.Finish) #", attributes: { class: "cell-date" } }
+        //]},
+        //{
+        //    field: "CompletionPerc", title: "Completion", filterable: false,
+        //    template: '<div class="gauge" style="min-height:100px"></div>',
+        //    attributes: { class: "cell-date" }
+        //},
+
+        {
+            field: "Theme", title: "Theme", filterable: false, width: 100,
+            editor: function (container, option) {
+                var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+                input.appendTo(container);
+                input.kendoDropDownList({
+                    //dataTextField: "Name",
+                    //dataValueField: "Name",
+                    dataSource:model.uimodel().ThemeNames(), dataTextField:'DataText', dataValueField:'DataValue'
+                    //dataSource: new kendo.data.DataSource({
+                    //    data: model.uimodel().ThemeNames()
+                    //})
+                });
+            }
+        },
+
+        //{ field: "isPositive", title: "Positive<br>Element",
+        //template: '<input disabled="disabled" type="checkbox" #= isPositive ? \'checked="checked"\' : "" # class="chkbx" />' ,
+        //width: 80, filterable : false},
+        //{
+        //    field: "isPositive", title: "Positive<br>Negative", filterable: false,
+        //    attributes: { class: "cell-number" },
+        //    width: 70,
+        //    template: '<span> #= isPositive == true ? "(+)" : "(-)" #</span>'
+        //},
+
+
+        {
+            field: "Completion", title: "Realized", filterable: false,
+            //template: '#: Completion # %',
+            attributes: { class: "cell-checkbox" },
+            width: 70,
+            template: '<input type="checkbox" #= Completion == "' + model.constRealized.YES + '" ? "checked=checked" : "" # onclick="changeRealizedOrNot(this)" />',
+            //editor: function (container, option) {
+            //    var $input = $("<input type='checkbox' data-bind='value: " + option.field + "' />");
+            //    $input.appendTo($container);
+            //    return;
+            //    //var input = $("<input min='0' max='100' data-bind=\"value:" + option.field + "\"></input>");
+            //    //input.appendTo(container);
+            //    //input.kendoNumericTextBox();
+            //    var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+            //    input.appendTo(container);
+            //    input.kendoDropDownList({
+            //        //dataTextField: "Name",
+            //        //dataValueField: "Name",
+            //        dataSource: new kendo.data.DataSource({
+            //            data: ["","Realized","Not Yet Realized"]
+            //        })
+            //    });
+            //}
+
+            //    var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+            //    input.appendTo(container);
+            //    input.kendoDropDownList({
+            //        dataTextField: "text",
+            //        dataValueField: "value",
+            //        dataSource: dataCompletion,
+            //        index: 0
+            //    });
+            //}
+        },
+
+
+        {
+            field: "DaysPlanImprovement", title: "Original<br>Estimate<br>Days Opp", filterable: false, attributes: { class: "cell-number" }, width: headerUnitWith, format: "{0:N2}",
+            editor: function (container, option) {
+                //console.log("aaaaa");
+                //console.log(option.model.isPositive);
+                var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+                //if(option.model.isPositive == true){
+                //    input.attr("max","0");
+                //}else{
+                //    input.attr("min","0");
+                //}
+                input.attr("max","0");
+
+                input.appendTo(container);
+                input.kendoNumericTextBox();
+            },
+            headerTemplate: buildHeaderTemplate("Original<br>Estimate<br>Days Opp", "days")
+             
+        },
+        {
+            field: "DaysPlanRisk", title: "Original<br>Estimate<br>Days Risk", filterable: false, attributes: { class: "cell-number" }, width: headerUnitWith, format: "{0:N2}",
+            editor: function (container, option) {
+                var input = $("<input min='0' data-bind=\"value:" + option.field + "\"></input>");
+                input.appendTo(container);
+                input.kendoNumericTextBox();
+            },
+            headerTemplate: buildHeaderTemplate("Original<br>Estimate<br>Days Risk", "days")
+            
+        },
+        {
+            field: "CostPlanImprovement", title: "Original<br>Estimate<br>Cost Opp", filterable: false, attributes: { class: "cell-number" }, width: headerUnitWith, format: "{0:N2}",
+            editor: function (container, option) {
+                var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+                //if(option.model.isPositive == true){
+                //    input.attr("max","0");
+                //}else{
+                //    input.attr("min","0");
+                //}
+                input.attr("max","0");
+                input.appendTo(container);
+                input.kendoNumericTextBox();
+            },
+            headerTemplate: buildHeaderTemplate("Original<br>Estimate<br>Cost Opp", "$ mln")
+        },
+        {
+            field: "CostPlanRisk", title: "Original<br>Estimate<br>Cost Risk", filterable: false, attributes: { class: "cell-number" }, width: headerUnitWith, format: "{0:N2}",
+            editor: function (container, option) {
+                var input = $("<input min='0' data-bind=\"value:" + option.field + "\"></input>");
+                input.appendTo(container);
+                input.kendoNumericTextBox();
+            },
+            headerTemplate: buildHeaderTemplate("Original<br>Estimate<br>Cost Risk", "$ mln") 
+        },
+        {
+            field: "DaysCurrentWeekImprovement", title: "Last<br>Estimate<br>Days Opp", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+            editor: function (container, option) {
+                var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+                //if(option.model.isPositive == true){
+                //    input.attr("max","0");
+                //}else{
+                //    input.attr("min","0");
+                //}
+                input.attr("max","0");
+                input.appendTo(container);
+                input.kendoNumericTextBox();
+            },
+            headerTemplate: buildHeaderTemplate("Last<br>Estimate<br>Days Opp", "days") 
+        },
+        {
+            field: "DaysCurrentWeekRisk", title: "Last<br>Estimate<br>Days Risk", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+            editor: function (container, option) {
+                var input = $("<input min='0' data-bind=\"value:" + option.field + "\"></input>");
+                input.appendTo(container);
+                input.kendoNumericTextBox();
+            },
+            headerTemplate: buildHeaderTemplate("Last<br>Estimate<br>Days Risk", "days")
+        },
+        {
+            field: "CostCurrentWeekImprovement", title: "Last<br>Estimate<br>Cost Opp", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+            editor: function (container, option) {
+                var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+                //if(option.model.isPositive == true){
+                //    input.attr("max","0");
+                //}else{
+                //    input.attr("min","0");
+                //}
+                input.attr("max","0");
+                input.appendTo(container);
+                input.kendoNumericTextBox();
+            },
+            headerTemplate: buildHeaderTemplate("Last<br>Estimate<br>Cost Opp", "$ mln")
+        },
+        {
+            field: "CostCurrentWeekRisk", title: "Last<br>Estimate<br>Cost Risk", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+            editor: function (container, option) {
+                var input = $("<input min='0' data-bind=\"value:" + option.field + "\"></input>");
+                input.appendTo(container);
+                input.kendoNumericTextBox();
+            },
+            headerTemplate: buildHeaderTemplate("Last<br>Estimate<br>Cost Risk", "$ mln")
+        },
+
+        //{
+        //    field: "RealizedCost", title: "<br>Realized", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+        //    editor: function (container, option) {
+        //        var input = $("<input min='0' data-bind=\"value:" + option.field + "\"></input>");
+        //        input.appendTo(container);
+        //        input.kendoNumericTextBox();
+        //    },
+        //    headerTemplate: buildHeaderTemplate("<br>Realized", "cost"),
+        //    footerTemplate: "<div id='footer9' class='cell-number' data-bind='text:model.uimodel().RealizedCost()'></div>"
+        //},
+        //{
+        //    field: "RealizedDays", title: "<br>Realized", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+        //    editor: function (container, option) {
+        //        var input = $("<input min='0' data-bind=\"value:" + option.field + "\"></input>");
+        //        input.appendTo(container);
+        //        input.kendoNumericTextBox();
+        //    },
+        //    headerTemplate: buildHeaderTemplate("<br>Realized", "days"),
+        //    footerTemplate: "<div id='footer10' class='cell-number' data-bind='text:model.uimodel().RealizedDays()'></div>"
+        //},
+        {
+            field: "Classification", title: "Classification", filterable: false, width: 110,
+            editor: function (container, option) {
+                var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+                input.appendTo(container);
+                input.kendoDropDownList({
+                    //dataTextField: "Name",
+                    //dataValueField: "Name",
+                    dataSource: new kendo.data.DataSource({
+                        data: model.uimodel().Classifications()
+                    })
+                });
+            }
+
+        },
+        {
+            field: "PerformanceUnit", title: "Performance Unit", filterable: false, width: 110,
+            editor: function (container, option) {
+                var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+                input.appendTo(container);
+                input.kendoDropDownList({ dataSource:model.uimodel().PerformanceUnits(), dataTextField:'DataText', dataValueField:'DataValue' });
+            }
+        },
+        {
+            field: "ActionParties", title: "Action Party", filterable: false, template: "#: joinActionParties(ActionParties) #", width: 100
+        },
+        {
+            field: "CostAvoidance", title: "Cost<br />Avoidance", filterable: false,
+            attributes: { class: "cell-checkbox", style: "background-color: white !important;" },
+            width: 70,
+            template: '<input type="checkbox" #= CostAvoidance ? checked="checked" : "" # onclick="changeCostAvoidance(this)" />',
+        },
+        
+    ];
+
+    $("#GridPIP .k-grid-content").on("change", "input.chkbx", function (e) {
+        var grid = $("#GridPIP").data("kendoGrid"),
+            dataItem = grid.dataItem($(e.target).closest("tr"));
+
+        //dataItem.set("isPositive", this.checked);
+    });
+
+    if (model.uimodel().isRO() != "1") {
+        gridColumnsPIP.push(
+        {
+            field: "ElementId", title: "Comments", width: 100, filterable: false,
+            //template: "<button type='button' class='btn btn-success btn-xs' onclick='model.uimodel().openManageActionPartyModal(#: ElementId #)'>Manage Act Party</button>&nbsp; <button type='button' class='btn btn-warning btn-xs' onclick='model.uimodel().openAllocationModal(#: ElementId #,\"#: Title #\",\"#: Period.Start #\",\"#: Period.Finish #\",#: DaysPlanImprovement #,#: DaysPlanRisk #,#: CostPlanImprovement #,#: CostPlanRisk #)'>Allocate</button>&nbsp; <button type='button' class='btn btn-danger btn-xs' onclick='model.uimodel().deletePIP(#: ElementId #)'>Delete</button>"
+            template:
+                "<span style='cursor:pointer' class='glyphicon glyphicon-user' title='Click To Manage Action Party' onclick='model.uimodel().openManageActionPartyModal(#: ElementId #)'></span>&nbsp;&nbsp;&nbsp; \
+                 <span style='cursor:pointer' onclick='model.uimodel().openAllocationModal(#: ElementId #,\"#: Title #\",\"#: Period.Start #\",\"#: Period.Finish #\",#: DaysPlanImprovement #,#: DaysPlanRisk #,#: CostPlanImprovement #,#: CostPlanRisk #,#: DaysCurrentWeekImprovement + DaysCurrentWeekRisk #,#: CostCurrentWeekImprovement + CostCurrentWeekRisk #)' class='glyphicon glyphicon-time' title='Click To Allocate'></span>&nbsp;&nbsp;&nbsp;\
+                 <span style='cursor:pointer' class='glyphicon glyphicon-trash' onclick='model.uimodel().deletePIP(#: ElementId #)' title='Click To Delete'></span>&nbsp;&nbsp;&nbsp;\
+                 <span style='cursor:pointer' onclick='model.uimodel().Comments(#: ElementId #)' data-eid='#: ElementId #' class='glyphicon glyphicon-comment' title='Click to Add Comments'><b class='comment-counter'></b></span> \
+                "
+        }
+        );
+    }else{
+        gridColumnsPIP.push(
+        {
+            field: "ElementId", title: "Action", width: 100, filterable: false,
+            //template: "<button type='button' class='btn btn-success btn-xs' onclick='model.uimodel().openManageActionPartyModal(#: ElementId #)'>Manage Act Party</button>&nbsp; <button type='button' class='btn btn-warning btn-xs' onclick='model.uimodel().openAllocationModal(#: ElementId #,\"#: Title #\",\"#: Period.Start #\",\"#: Period.Finish #\",#: DaysPlanImprovement #,#: DaysPlanRisk #,#: CostPlanImprovement #,#: CostPlanRisk #)'>Allocate</button>&nbsp; <button type='button' class='btn btn-danger btn-xs' onclick='model.uimodel().deletePIP(#: ElementId #)'>Delete</button>"
+            template:
+                "<span style='cursor:pointer' onclick='model.uimodel().Comments(#: ElementId #)' data-eid='#: ElementId #' class='glyphicon glyphicon-comment' title='Click to Add Comments'><b class='comment-counter'></b></span>"
+        }
+        );
+    }
+    var gridColumnsPerformanceMetrics = [
+        {
+            field: "Title", title: "Title", filterable: false, width: 110,
+            editor: function (container, option) {
+                var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+                input.appendTo(container);
+                input.kendoDropDownList({ dataSource: { data: model.uimodel().MetricDropDown() } });
+            }
+        },
+        { field: "Schedule", title: "Schedule (Days)", filterable: false, attributes: { class: "cell-number" }, width: 100 },
+        { field: "Cost", title: "Cost ($MM)", filterable: false, attributes: { class: "cell-number" }, width: 100 },
+    ];
+    if (model.uimodel().isRO() != "1") {
+        gridColumnsPerformanceMetrics.push(
+        { field: "", title: "Delete", editable: false, filterable: false, attributes: { class: "cell-date" }, width: 70, template: "<button type='button' class='btn btn-danger btn-xs' onclick='model.uimodel().deletePerfMetrics(\"#: Title #\",\"#: Schedule #\",\"#: Cost #\")'>Delete</button>" }
+        );
+    }
+
+    var gridColumnsProjectMilestone = [
+        { field: "Title", title: "Title", filterable: false },
+        { field: "Period", title: "Period", filterable: false, template: "#: jsonDateStr(Period) #", attributes: { class: "cell-date" }, width: 150 },
+    ];
+    if (model.uimodel().isRO() != "1") {
+        gridColumnsProjectMilestone.push(
+               { field: "", title: "Delete", editable: false, filterable: false, attributes: { class: "cell-date" }, width: 70, template: "<button type='button' class='btn btn-danger btn-xs' onclick='model.uimodel().deleteProjectMilestone(\"#: Title #\",\"#: Period #\")'>Delete</button>" }
+
+        );
+    }
+
+    var gridColumnsProjectInformation = [
+        { field: "Title", title: "Title", filterable: false },
+        { field: "Detail", title: "Detail", filterable: false }
+    ];
+
+    var gridColumnsAllocation = [
+        { field: "Period", title: "Period", filterable: false, editable: false, footerTemplate: "<div>Total</div><div>Origin</div><div>Different</div>" },
+        {
+            field: "DaysPlanImprovement", title: "Days Original<br>Estimate<br>Improvement", filterable: false, attributes: { class: "cell-number" }, editable: true,
+            footerTemplate: "<div id='' class='cell-number'>Total</div><div class='cell-number'>#: get_allocation_total('dpi') #</div><div class='cell-number'>Different</div>"
+        },
+        {
+            field: "DaysPlanRisk", title: "Days Original<br>Estimate<br>Risk", filterable: false, attributes: { class: "cell-number" }, editable: true,
+            footerTemplate: "<div class='cell-number'>Total</div><div class='cell-number'>#: get_allocation_total('dpr') #</div><div class='cell-number'>Different</div>"
+        },
+        {
+            field: "CostPlanImprovement", title: "Cost Original<br>Estimate<br>Improvement", filterable: false, attributes: { class: "cell-number" }, editable: true,
+            footerTemplate: "<div class='cell-number'>Total</div><div class='cell-number'>#: get_allocation_total('cpi') #</div><div class='cell-number'>Different</div>"
+        },
+        {
+            field: "CostPlanRisk", title: "Cost Original<br>Estimate<br>Risk", filterable: false, attributes: { class: "cell-number" }, editable: true,
+            footerTemplate: "<div class='cell-number'>Total</div><div class='cell-number'>#: get_allocation_total('cpr') #</div><div class='cell-number'>Different</div>"
+        }
+    ];
+
+    function getTotal(DataElements, DataCRElements) {
+        var CostPlanRiskTotal = 0;
+        var CostPlanImprovementTotal = 0;
+        var DaysPlanRiskTotal = 0;
+        var DaysPlanImprovementTotal = 0;
+        var CostCurrentWeekImprovementTotal = 0;
+        var CostCurrentWeekRiskTotal = 0;
+        var DaysCurrentWeekImprovementTotal = 0;
+        var DaysCurrentWeekRiskTotal = 0;
+        
+        var CostPlanRiskTotal_CR = 0;
+        var CostPlanImprovementTotal_CR = 0;
+        var DaysPlanRiskTotal_CR = 0;
+        var DaysPlanImprovementTotal_CR = 0;
+        var CostCurrentWeekImprovementTotal_CR = 0;
+        var CostCurrentWeekRiskTotal_CR = 0;
+        var DaysCurrentWeekImprovementTotal_CR = 0;
+        var DaysCurrentWeekRiskTotal_CR = 0;
+
+        var dtrue= 0;var dfalse = 0;
+        //realized totall
+        var DaysPlanImprovementTotal_Real=0;var DaysPlanImprovementTotal_NotReal=0;
+        var DaysPlanRiskTotal_Real=0;var DaysPlanRiskTotal_NotReal=0;
+        var CostPlanImprovementTotal_Real = 0; var CostPlanImprovementTotal_NotReal=0;
+        var CostPlanRiskTotal_Real=0;var CostPlanRiskTotal_NotReal=0;
+        var CostCurrentWeekImprovementTotal_Real=0;var CostCurrentWeekImprovementTotal_NotReal = 0;
+        var CostCurrentWeekRiskTotal_Real=0;var CostCurrentWeekRiskTotal_NotReal=0;
+        var DaysCurrentWeekImprovementTotal_Real=0;var DaysCurrentWeekImprovementTotal_NotReal=0;
+        var DaysCurrentWeekRiskTotal_Real=0;var DaysCurrentWeekRiskTotal_NotReal=0;
+
+        DataElements.forEach(function (e) {
+            console.log("data elemet==>",e);
+            CostPlanImprovementTotal += e.CostPlanImprovement;
+            CostPlanRiskTotal += e.CostPlanRisk;
+            DaysPlanImprovementTotal += e.DaysPlanImprovement;
+            DaysPlanRiskTotal += e.DaysPlanRisk;
+
+            CostCurrentWeekImprovementTotal += e.CostCurrentWeekImprovement;
+            CostCurrentWeekRiskTotal += e.CostCurrentWeekRisk;
+            DaysCurrentWeekImprovementTotal += e.DaysCurrentWeekImprovement;
+            DaysCurrentWeekRiskTotal += e.DaysCurrentWeekRisk;
+
+            if(e.Completion=="Realized"){
+                dtrue++;
+                DaysPlanImprovementTotal_Real += e.DaysPlanImprovement;
+                DaysPlanRiskTotal_Real +=e.DaysPlanRisk;
+                CostPlanImprovementTotal_Real +=e.CostPlanImprovement;
+                CostPlanRiskTotal_Real +=e.CostPlanRisk;
+                CostCurrentWeekImprovementTotal_Real +=e.DaysCurrentWeekImprovement;
+                CostCurrentWeekRiskTotal_Real +=e.DaysCurrentWeekRisk;
+                DaysCurrentWeekImprovementTotal_Real +=e.CostCurrentWeekImprovement;
+                DaysCurrentWeekRiskTotal_Real +=e.CostCurrentWeekRisk;
+            }else{
+                dfalse++;
+                DaysPlanImprovementTotal_NotReal +=e.DaysPlanImprovement;
+                DaysPlanRiskTotal_NotReal +=e.DaysPlanRisk;
+                CostPlanImprovementTotal_NotReal +=e.CostPlanImprovement;
+                CostPlanRiskTotal_NotReal +=e.CostPlanRisk;
+                CostCurrentWeekImprovementTotal_NotReal +=e.DaysCurrentWeekImprovement;
+                CostCurrentWeekRiskTotal_NotReal +=e.DaysCurrentWeekRisk;
+                DaysCurrentWeekImprovementTotal_NotReal +=e.CostCurrentWeekImprovement;
+                DaysCurrentWeekRiskTotal_NotReal +=e.CostCurrentWeekRisk;
+            }
+        });
+
+        DataCRElements.forEach(function (e) {
+            CostPlanImprovementTotal_CR += e.CostPlanImprovement;
+            CostPlanRiskTotal_CR += e.CostPlanRisk;
+            DaysPlanImprovementTotal_CR += e.DaysPlanImprovement;
+            DaysPlanRiskTotal_CR += e.DaysPlanRisk;
+
+            CostCurrentWeekImprovementTotal_CR += e.CostCurrentWeekImprovement;
+            CostCurrentWeekRiskTotal_CR += e.CostCurrentWeekRisk;
+            DaysCurrentWeekImprovementTotal_CR += e.DaysCurrentWeekImprovement;
+            DaysCurrentWeekRiskTotal_CR += e.DaysCurrentWeekRisk;
+        });
+
+        model.uimodel().CostPlanRiskTotal(CostPlanRiskTotal);
+        model.uimodel().CostPlanImprovementTotal(CostPlanImprovementTotal);
+        model.uimodel().DaysPlanRiskTotal(DaysPlanRiskTotal);
+        model.uimodel().DaysPlanImprovementTotal(DaysPlanImprovementTotal);
+        model.uimodel().CostCurrentWeekImprovementTotal(CostCurrentWeekImprovementTotal);
+        model.uimodel().CostCurrentWeekRiskTotal(CostCurrentWeekRiskTotal);
+        model.uimodel().DaysCurrentWeekImprovementTotal(DaysCurrentWeekImprovementTotal);
+        model.uimodel().DaysCurrentWeekRiskTotal(DaysCurrentWeekRiskTotal);
+
+        model.uimodel().CostPlanRiskTotal_CR(CostPlanRiskTotal_CR);
+        model.uimodel().CostPlanImprovementTotal_CR(CostPlanImprovementTotal_CR);
+        model.uimodel().DaysPlanRiskTotal_CR(DaysPlanRiskTotal_CR);
+        model.uimodel().DaysPlanImprovementTotal_CR(DaysPlanImprovementTotal_CR);
+        model.uimodel().CostCurrentWeekImprovementTotal_CR(CostCurrentWeekImprovementTotal_CR);
+        model.uimodel().CostCurrentWeekRiskTotal_CR(CostCurrentWeekRiskTotal_CR);
+        model.uimodel().DaysCurrentWeekImprovementTotal_CR(DaysCurrentWeekImprovementTotal_CR);
+        model.uimodel().DaysCurrentWeekRiskTotal_CR(DaysCurrentWeekRiskTotal_CR);
+
+        //realized
+        model.uimodel().Realized(dtrue);
+        model.uimodel().UnRealized(dfalse);
+        model.uimodel().DaysPlanImprovementTotal_Real(DaysPlanImprovementTotal_Real);
+        model.uimodel().DaysPlanImprovementTotal_NotReal(DaysPlanImprovementTotal_NotReal);
+        model.uimodel().DaysPlanRiskTotal_Real(DaysPlanRiskTotal_Real);
+        model.uimodel().DaysPlanRiskTotal_NotReal(DaysPlanRiskTotal_NotReal);
+        model.uimodel().CostPlanImprovementTotal_Real(CostPlanImprovementTotal_Real);
+        model.uimodel().CostPlanImprovementTotal_NotReal(CostPlanImprovementTotal_NotReal);
+        model.uimodel().CostCurrentWeekImprovementTotal_Real(CostCurrentWeekImprovementTotal_Real);
+        model.uimodel().CostCurrentWeekImprovementTotal_NotReal(CostCurrentWeekImprovementTotal_NotReal);
+        model.uimodel().CostCurrentWeekRiskTotal_Real(CostCurrentWeekRiskTotal_Real);
+        model.uimodel().CostCurrentWeekRiskTotal_NotReal(CostCurrentWeekRiskTotal_NotReal);
+        model.uimodel().DaysCurrentWeekImprovementTotal_Real(DaysCurrentWeekImprovementTotal_Real);
+        model.uimodel().DaysCurrentWeekImprovementTotal_NotReal(DaysCurrentWeekImprovementTotal_NotReal);
+        model.uimodel().DaysCurrentWeekRiskTotal_Real(DaysCurrentWeekRiskTotal_Real);
+        model.uimodel().DaysCurrentWeekRiskTotal_NotReal(DaysCurrentWeekRiskTotal_NotReal);
+        //model.uimodel().RealizedDays(RealizedDays);
+        //model.uimodel().RealizedCost(RealizedCost);
+
+    }
+
+    function get_allocation_total(type) {
+        switch (type) {
+            case "dpr":
+                return model.uimodel().dpr();
+                break;
+            case "dpi":
+                return model.uimodel().dpi();
+                break;
+            case "cpr":
+                return model.uimodel().cpr();
+                break;
+            case "cpi":
+                return model.uimodel().cpi();
+                break;
+        }
+    }
+
+    function joinActionParties(ActionParties) {
+        var a = [];
+        if (ActionParties != null) {
+            for (var i = 0; i < ActionParties.length; i++) {
+                a.push(ActionParties[i].FullName);
+            }
+            return a.join();
+        } else {
+            return "";
+        }
+    }
+
+    function addClassification() {
+        var name = prompt("Insert new name of Classification:");
+        if ((name != null) && (name != "")) {
+            //alert(name);
+            model.uimodel().ClassificationName(name);
+            model.uimodel().SaveClassification();
+        }
+    }
+
+    function changePIPType(){
+        var type = $("#PIPType").val();
+        var ds = new kendo.data.DataSource({
+            data: [],
+            pageSize: 10,
+        });
+        $("#gridAdd").data("kendoGrid").setDataSource(ds)
+        $("#WellNames").data("kendoMultiSelect").value("");
+        $("#RigNames").data("kendoMultiSelect").value("");
+        $("#Activities").data("kendoMultiSelect").value("");
+        if(type == "Efficient"){
+            $("#RigNames").data("kendoMultiSelect").enable(false);
+            $("#WellNames").data("kendoMultiSelect").enable(true);
+            $("#Activities").data("kendoMultiSelect").enable(true);
+        }else{
+            $("#RigNames").data("kendoMultiSelect").enable(true);
+            $("#WellNames").data("kendoMultiSelect").enable(false);
+            $("#Activities").data("kendoMultiSelect").enable(false);
+        }
+    }
+
+</script>
+
+<div data-bind="with:uimodel">
+
+    <div data-bind="visible:processing()==true">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible:processing()==false">
+        <div class="ec-panel" data-bind="visible:mode()==''">
+            <div>
+                @Html.Partial("Filter")
+            </div>
+
+            <div class="clearfix"></div>
+            <div class="ec-toolbar">
+                <button data-bind="click: addNew,visible:!model.uimodel().isRO()=='1'" class="btn btn-warning btn-custom btn-sm"><span class="glyphicon glyphicon-plus"></span> Add New</button>
+                <button class="btn btn-sm btn-success" style="margin-left:10px" onclick="model.uimodel().downloadAllPIP()"><span class="glyphicon glyphicon-download"></span> Download PIP</button>
+            </div>
+
+            <div id="grid" @*data-bind="kendoGrid:model.uimodel().gridOptions"*@></div>
+        </div>
+
+        <!-- Add new PIP Document -->
+        <div class="ec-panel" data-bind="visible:['New'].indexOf(mode())>=0">
+            <div class="ec-toolbar">
+                <button class="btn btn-warning btn-sm btn-custom" data-bind="click:cancel">
+                    <span class="glyphicon glyphicon-arrow-left"></span> Back to List
+                </button>
+            </div>
+            <div class="col-md-12 row" style="margin-bottom:20px;">
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>PIP Based: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <select id="PIPType" onchange="changePIPType()">
+                            <option value="Efficient">Well Name</option>
+                            <option value="Reduction">Rig Name</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- by wellname -->
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Well: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <select id="WellNames" data-placeholder="Select wells ..."></select>
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+
+                <!-- by rigname -->
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Rig: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <select id="RigNames" data-placeholder="Select rigs ..."></select>
+                    </div>
+                </div>
+                <!-- by activities -->
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Activities: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <select id="Activities" data-model="" data-placeholder="Select activities ..."></select><br />
+                        <button class="btn btn-custom btn-sm btn-primary" onclick="model.uimodel().SearchAddNew()">
+                            <span class="glyphicon glyphicon-refresh"></span> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="clearfix"></div>
+            <div data-bind="visible:processing()==true">
+                @Html.Partial("_processing")
+            </div>
+            <div data-bind="visible:!processing()==true">
+                <div id="gridAdd" data-bind="kendoGrid:{data:[],columns:gridColumnsAdd,pageable:true,sortable:true,filterable:true}"></div>
+            </div>
+        </div>
+
+        <!-- End Add New PIP Document -->
+        @*<div class="ec-panel" data-bind="visible:['New'].indexOf(mode())>=0">
+                <div class="ec-toolbar">
+                    <button class="btn btn-warning btn-sm" data-bind="click:cancel">Back to List</button>
+                </div>
+                <div data-bind="with:record" class="ec-form form-horizontal">
+                    <p>
+                        Please select from list OPS Sequence activity below
+                    </p>
+                </div>
+                <div id="gridAct" data-bind="kendoGrid:{data:[],columns:gridColumns,pageable:true,sortable:true,filterable:true}"></div>
+            </div>*@
+
+        <div class="ec-panel" data-bind="visible:['Edit'].indexOf(mode())>=0">
+            <div class="ec-toolbar">
+                <button class="btn btn-warning btn-sm" data-bind="click:cancel">Back to List</button>
+                @*<button class="btn btn-primary btn-sm" data-bind="click:save">Save</button>*@
+            </div>
+            <div class="ec-form form-horizontal">
+                @*<div class="form-group">
+                        <label class="col-sm-2">Well Name</label>
+                        <div class="col-sm-4">
+                            <input type="text" data-bind="value:WellName" class="full" disabled />
+                        </div>
+                        <label class="col-sm-2">Activity</label>
+                        <div class="col-sm-4">
+                            <input type="text" data-bind="value:ActivityType" class="full" disabled />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-2">Version</label>
+                        <div class="col-sm-4">
+                            <input type="text" class="align_right" data-bind="value:Version" disabled />
+                        </div>
+                        <label class="col-sm-2">Status</label>
+                        <div class="col-sm-4">
+                            <select data-bind="value:Status">
+                                <option value="Draft">Draft</option>
+                                <option value="Publish">Publish</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <script>
+                            //makeField("Project", "value:Project", "col-sm-2", "col-sm-4", "full");
+                            //makeField("Work Unit", "value:WorkUnit", "col-sm-2", "col-sm-4", "full");
+                        </script>
+                    </div>*@
+
+                <!-- Nav tabs -->
+                <ul class="nav nav-tabs" role="tablist" style="margin-bottom:20px;">
+                    <li role="presentation" class="active">
+                        <a href="#infos" id="tab_project_info" aria-controls="home" role="tab" data-toggle="tab">Project Info &amp; Ideas</a>
+                    </li>
+                    <li role="presentation">
+                        <a href="#metrics" aria-controls="profile" role="tab" data-toggle="tab">Metrics &amp; Milestone</a>
+                    </li>
+                    <li role="presentation" id="tab_waterfall">
+                        <a href="#waterfall" aria-controls="profile" role="tab" data-toggle="tab">Waterfall</a>
+                    </li>
+                    <li role="presentation" id="tab_waterfall_by_realised">
+                        <a href="#waterfallByRealised" aria-controls="profile" role="tab" data-toggle="tab">Waterfall (By Realised / Unrealised)</a>
+                    </li>
+                </ul>
+
+                <!-- Tab panes -->
+                <div class="tab-content">
+                    <div role="tabpanel" class="tab-pane active" id="infos" data-bind="with:ProjectInfos">
+
+
+                        <h3>Project Information</h3>
+                        <div class="ec-toolbar">
+                            <button class="btn btn-warning btn-sm" data-bind="visible:!model.uimodel().isRO()=='1'" onclick="model.uimodel().saveProjectInfos()">Save Changes Project Information</button>
+                        </div>
+                        <div class="col-md-12 row">
+                            <div class="col-md-6" data-bind="visible:model.uimodel().ProjectInfosPIPType() == 'Efficient'">
+                                <div class="col-md-4 cell-number">
+                                    <label>Project Name: </label>
+                                </div>
+                                <div class="col-md-8" data-bind="text:model.uimodel().ProjectInfos.WellActivity() == null ? '' : WellActivity().ProjectName"></div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="col-md-4 cell-number">
+                                    <label>Project Type: </label>
+                                </div>
+                                <div class="col-md-8">
+                                    <select data-bind="value:model.uimodel().ProjectInfosProjectType,enable:!model.uimodel().isRO()=='1'">
+                                        <option value="">Select one</option>
+                                        <option value="Abandonment">Abandonment</option>
+                                        <option value="Development">Development</option>
+                                        <option value="Exploration">Exploration</option>
+                                        <option value="WRFM">WRFM</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="col-md-4 cell-number">
+                                    <label>Field/Prospect: </label>
+                                </div>
+                                <div class="col-md-8"><input type="text" style="width:80%;font-size:12px;height:20px;" data-bind="value:model.uimodel().ProjectInfosField,enable:!model.uimodel().isRO()=='1'" /></div>
+                            </div>
+
+                            <div class="col-md-6" data-bind="visible:model.uimodel().ProjectInfosPIPType() == 'Efficient'">
+                                <div class="col-md-4 cell-number">
+                                    <label>Common Well Name: </label>
+                                </div>
+                                <div class="col-md-8" data-bind="text:model.uimodel().ProjectInfos.WellActivity() == null ? '' : WellActivity().WellName"></div>
+                            </div>
+
+                            <div class="col-md-6" data-bind="visible:model.uimodel().ProjectInfosPIPType() == 'Efficient'">
+                                <div class="col-md-4 cell-number">
+                                    <label>Activity Type: </label>
+                                </div>
+                                <div class="col-md-8" data-bind="text:model.uimodel().ProjectInfos.WellActivity() == null ? '' : Phase().ActivityType"></div>
+                            </div>
+
+                            <div class="col-md-6" data-bind="visible:model.uimodel().ProjectInfosPIPType() == 'Efficient'">
+                                <div class="col-md-4 cell-number">
+                                    <label>Rig: </label>
+                                </div>
+                                <div class="col-md-8" data-bind="text:model.uimodel().ProjectInfos.WellActivity() == null ? '' : WellActivity().RigName"></div>
+                            </div>
+
+                            <div class="col-md-6" data-bind="visible:model.uimodel().ProjectInfosPIPType() != 'Efficient'">
+                                <div class="col-md-4 cell-number">
+                                    <label>Rig: </label>
+                                </div>
+                                <div class="col-md-8" data-bind="text:model.uimodel().ProjectInfosRigName"></div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="col-md-4 cell-number">
+                                    <label>Scaled?: </label>
+                                </div>
+                                <div class="col-md-8">
+                                    <select data-bind="value:model.uimodel().ProjectInfosScaled,enable:!model.uimodel().isRO()=='1'">
+                                        <option value="">Select one</option>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No">No</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6" data-bind="visible:model.uimodel().ProjectInfosPIPType() == 'Efficient'">
+                                <div class="col-md-4 cell-number">
+                                    <label>Rig Schedule Start Date: </label>
+                                </div>
+                                <div class="col-md-8" data-bind="text:model.uimodel().ProjectInfos.WellActivity() == null ? '' : PhaseMin"></div>
+                            </div>
+
+                            <div class="col-md-6" data-bind="visible:model.uimodel().ProjectInfosPIPType() == 'Efficient'">
+                                <div class="col-md-4 cell-number">
+                                    <label>Rig Schedule End Date: </label>
+                                </div>
+                                <div class="col-md-8" data-bind="text:model.uimodel().ProjectInfos.WellActivity() == null ? '' : PhaseMax"></div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="col-md-4 cell-number">
+                                    <label>Cost Level: </label>
+                                </div>
+                                <div class="col-md-8">
+                                    <select data-bind="value:model.uimodel().ProjectInfosCostLevel,enable:!model.uimodel().isRO()=='1'">
+                                        <option value="0">0</option>
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="3">3</option>
+                                        <option value="4">4</option>
+                                        <option value="5">5</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="col-md-4 cell-number">
+                                    <label>Team Lead: </label>
+                                </div>
+                                <select name="TeamLead" id="TeamLead" style="width: 220px; "
+                                        data-bind="kendoDropDownList: { data: model.uimodel().PersonsForTeamLead, dataTextField: 'FullName', dataValueField: 'Email', value: model.uimodel().TeamLeadEmail }"></select>
+                                @*<div class="col-md-8" data-bind="text: WellActivity().TeamLead"></div>*@
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="col-md-4 cell-number">
+                                    <label>Lead Engineer: </label>
+                                </div>
+                                <select name="LeadEng" id="LeadEng" style="width: 220px; "
+                                        data-bind="kendoDropDownList: { data: model.uimodel().PersonsForLeadEng, dataTextField: 'FullName', dataValueField: 'Email', value: model.uimodel().LeadEngEmail }"></select>
+                                @*<div class="col-md-8" data-bind="text: WellActivity().LeadEngineer"></div>*@
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="col-md-4 cell-number">
+                                    <label>Optimization Engineer: </label>
+                                </div>
+                                <select name="OptmzEng" id="OptmzEng" style="width: 220px; "
+                                        data-bind="kendoDropDownList: { data: model.uimodel().PersonsForOptmzEng, dataTextField: 'FullName', dataValueField: 'Email', value: model.uimodel().OptmzEngEmail }"></select>
+                                @*<div class="col-md-8" data-bind="text: WellActivity().OptimizationEngineer"></div>*@
+                            </div>
+                        </div>
+
+                        <div class="clearfix"></div>
+
+
+                        <div class="col-md-12" id="" style="margin-bottom:20px;display:none;">
+                            <div class="col-md-4">&nbsp;</div>
+                            <div class="col-md-4">
+                                <h3>Project Information</h3>
+                                <div class="row" id="grid_project_information" data-bind="kendoGrid:{data:[],columns:gridColumnsProjectInformation,pageable:false,sortable:true,filterable:true}"></div>
+                            </div>
+                            <div class="col-md-4">&nbsp;</div>
+                        </div>
+
+                        <div class="clearfix"></div>
+
+                        <h3 style="margin-top:20px;">Improvement Ideas</h3>
+
+                        <ul class="nav nav-tabs">
+                            <li class="active"><a href="#wellpip" id="tab_well_pip" data-toggle="tab">Well/ Project PIP</a></li>
+                            <li><a href="#rigpip" data-toggle="tab" id="tab_rig_pip">Rig/ General SCM</a></li>
+                        </ul>
+
+                        <div class="tab-content iprovement-ideas">
+                            <div class="tab-pane active" id="wellpip" style="overflow-y:auto;">
+                                <div class="block-summary-head">
+                                    <div class="block-summary">
+                                        <div class="col-md-12">
+                                            <div class="col-md-3">WELL PIPs</div>
+                                            <div class="col-md-3" data-bind="text: model.uimodel().record().Elements().length">0</div>
+                                            <div class="col-md-3">Realized</div>
+                                            <div class="col-md-3" data-bind="text: model.uimodel().Realized">0</div>
+                                        </div>
+                                        <div class="col-md-12">
+                                            <div class="col-md-3">RIG PIPs</div>
+                                            <div class="col-md-3" data-bind="text: model.uimodel().record().CRElements().length">0</div>
+                                            <div class="col-md-3">Not Realized</div>
+                                            <div class="col-md-3" data-bind="text: model.uimodel().UnRealized()">0</div>
+                                        </div>
+                                        <div class="col-md-12">
+                                            <div class="col-md-3">Grand Total</div>
+                                            <div class="col-md-3" data-bind="text: (model.uimodel().record().Elements().length + model.uimodel().record().CRElements().length)">0</div>
+                                            <div class="col-md-3">Total</div>
+                                            <div class="col-md-3" data-bind="text: model.uimodel().record().Elements().length">0</div>
+                                        </div>
+                                        <div class="clearfix"></div>
+                                    </div>
+                                     
+                                </div>
+                                
+
+                                <div class="ec-toolbar">
+                                    @*<button class="btn btn-success btn-sm" onclick="model.uimodel().addClassification()">+ Add Classification</button>*@
+                                    <button class="btn btn-primary btn-sm" onclick="model.uimodel().addPIP()" data-bind="visible:!model.uimodel().isRO()=='1'">+ Add PIP</button>
+                                    <button class="btn btn-warning btn-sm" onclick="model.uimodel().editPIP()" data-bind="visible:!model.uimodel().isRO()=='1'">Save Changes for PIP Table</button>
+                                    <span style="color:grey;" data-bind="visible:!model.uimodel().isRO()=='1'">(Inline editing is enabled, click: <span class='glyphicon glyphicon-user'></span>  to Manage Action Party, click <span class='glyphicon glyphicon-time'></span> to Allocate, click <span class='glyphicon glyphicon-comment'></span> to View Comment, and click <span class='glyphicon glyphicon-trash'></span> to Delete)</span>
+                                </div>
+                                <div style="margin-bottom:20px;" id="GridPIP" data-bind="kendoGrid:{data:[],columns:gridColumnsPIP,pageable:true,sortable:true,filterable:true,editable:!model.uimodel().isRO() == '1',dataBound:createGauge}"></div>
+                            </div>
+                            <div class="tab-pane" id="rigpip">
+                                <div class="block-summary">
+                                    <div class="col-md-12">
+                                        <div class="col-md-3">WELL PIPs</div>
+                                        <div class="col-md-9" data-bind="text: model.uimodel().record().Elements().length">0</div>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <div class="col-md-3">RIG PIPs</div>
+                                        <div class="col-md-9" data-bind="text: model.uimodel().record().CRElements().length">0</div>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <div class="col-md-3">Grand Total</div>
+                                        <div class="col-md-9" data-bind="text: (model.uimodel().record().Elements().length + model.uimodel().record().CRElements().length)">0</div>
+                                    </div>
+                                    <div class="clearfix"></div>
+                                </div>
+
+                                @Html.Partial("_rigpipelement")
+                            </div>
+                        </div>
+                    </div>
+                    <div role="tabpanel" class="tab-pane" id="metrics">
+
+                        <div class="col-md-5" style="float:left;" id="performance_metrics_wrapper" data-bind="">
+                            <h3>Performance Metrics</h3>
+                            <div class="ec-toolbar">
+                                <button class="btn btn-primary btn-sm" onclick="model.uimodel().addPerformanceMetrics()" data-bind="visible:!model.uimodel().isRO()=='1'">+ Add</button>
+                                <button class="btn btn-warning btn-sm" onclick="model.uimodel().editPerfMetrics()" data-bind="visible:!model.uimodel().isRO()=='1'">Save Changes</button>
+                                <span style="color:grey;" data-bind="visible:!model.uimodel().isRO()=='1'">(Inline editing is enabled)</span>
+                            </div>
+                            <div class="row" id="grid_performance_metrics" data-bind="kendoGrid:{data:[],columns:gridColumnsPerformanceMetrics,pageable:true,sortable:true,filterable:true,editable:!model.uimodel().isRO() == '1'}"></div>
+                        </div>
+
+                        <div class="col-md-5" style="float:right;" id="project_milestone_wrapper" data-bind="">
+                            <h3>Project Milestone</h3>
+                            <div class="ec-toolbar">
+                                <button class="btn btn-primary btn-sm" onclick="model.uimodel().addProjectMilestone()" data-bind="visible:!model.uimodel().isRO()=='1'">+ Add</button>
+                                <button class="btn btn-warning btn-sm" onclick="model.uimodel().editProjectMilestone()" data-bind="visible:!model.uimodel().isRO()=='1'">Save Changes</button>
+                                <span style="color:grey;" data-bind="visible:!model.uimodel().isRO()=='1'">(Inline editing is enabled)</span>
+                            </div>
+                            <div class="row" id="grid_project_milestone" data-bind="kendoGrid:{data:[],columns:gridColumnsProjectMilestone,pageable:true,sortable:true,filterable:true,editable:!model.uimodel().isRO() == '1'}"></div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="clearfix"></div>
+
+                    @Html.Partial("_modals")
+                    @Html.Partial("_comments")
+
+                    <div id="waterfall" class="tab-pane">
+                        @Html.Partial("_waterfall")
+                    </div>
+
+                    <div id="waterfallByRealised" class="tab-pane">
+                        @Html.Partial("_waterfall_by_realised")
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    $(document).ready(function () {
+        initPage();
+        
+        var $performanceMetricDrop = $('<div class="col-md-4" data-bind="visible: RigTypes"><div class="col-md-4"><label>Performance Metrics:</label></div><div class="col-md-8"><select data-model="performanceMetrics"></select></div></div>');
+        $performanceMetricDrop.insertAfter($('[data-model=wellNames]').closest('.col-md-4'));
+        $performanceMetricDrop.find('select').kendoMultiSelect({ placeholder: "Select performance metrics ...", dataSource: { data: model.uimodel().MetricDropDown() } });
+
+
+        var $performanceUnits = $('<div class="col-md-4" data-bind="visible: RigTypes"><div class="col-md-4"><label>Performance Units:</label></div><div class="col-md-8"><select data-model="performanceUnits"></select></div></div>');
+        $performanceUnits.insertAfter($('[data-model=wellNames]').closest('.col-md-4'));
+        $performanceUnits.find('select').kendoMultiSelect({ placeholder: "Select performance units ...", dataSource:model.uimodel().PerformanceUnits(), dataTextField:"DataText", dataValueField:"DataValue" });
+
+        var $PIPType = $('<div class="col-md-4" data-bind="visible: RigTypes"><div class="col-md-4"><label>PIP Type:</label></div><div class="col-md-8"><select id="PIPTypeFilter"></select></div></div>');
+        $PIPType.insertAfter($('[data-model=activities]').closest('.col-md-4'));
+        $PIPType.find('select').kendoDropDownList({ placeholder: "Select PIP Type ...", dataSource: [{Label:"All", Value:"All"},{Label:"CE", Value:"Efficient"},{Label:"CR", Value:"Reduction"}], dataTextField:"Label", dataValueField:"Value" });
+
+
+
+        //var $btnDownload = $('<button class="btn btn-sm btn-success" style="margin-left:10px" onclick="model.uimodel().downloadAllPIP()"><span class="glyphicon glyphicon-download"></span> Download PIP</button>');
+        //$btnDownload.insertAfter($('.do-filter'));
+
+        $("#WellNames").kendoMultiSelect({ dataSource: model.uimodel().WellNames() , filter: "contains", placeholder: "Select Well Names ..."  });
+        $("#RigNames").kendoMultiSelect({ placeholder: "Select Rig Names ...", dataSource: { data: model.uimodel().RigNames() },filter: "contains" });
+        $("#Activities").kendoMultiSelect({ placeholder: "Select Well Activities ...", dataSource: { data: model.uimodel().Activities() },filter: "contains" });
+        $("#PlanDaysOpp").kendoNumericTextBox();
+        $("#PlanDaysRisk").kendoNumericTextBox();
+        $("#PlanCostOpp").kendoNumericTextBox();
+        $("#PlanCostRisk").kendoNumericTextBox();
+        $("#Classification").kendoDropDownList({dataSource:[],dataTextField:"DataText",dataValueField:"DataValue"});
+        input2datePicker($("#ActivityStart"));
+        input2datePicker($("#ActivityEnd"));
+        input2datePicker($("#ProjectMilestonePeriod"));
+
+        model.FilterVisibility.ExType(true);
+        model.FilterVisibility.Activities(true);
+        model.FilterVisibility.OPs(true);
+
+        model.uimodel().refresh();
+
+        $("#GridPIP .k-grid-content").on("change", "[name='isPositive']", function (e) {
+            var ckd = $(this).is(":checked");
+            var parent1 = $(this).parent();
+            var grid = $("#GridPIP").data("kendoGrid"),
+                dataItem = grid.dataItem($(e.target).closest("tr")),
+                fd = Enumerable.From(grid._data).FirstOrDefault(undefined, "$.id == " + dataItem.id);
+            console.log(fd);
+            var cfm = confirm("If you change this field, it will reset Opportunity and Risk Value. Are you want to continue?");
+            if (cfm) {
+                var plDaysOp = $(this).parent().next().next();
+                var plDayRs = $(plDaysOp).next();
+                var plCostOp = $(plDayRs).next();
+                var plCostRs = $(plCostOp).next();
+
+                var leDaysOp = $(plCostRs).next();
+                var leDayRs = $(leDaysOp).next();
+                var leCostOp = $(leDayRs).next();
+                var leCostRs = $(leCostOp).next();
+
+                fd.DaysPlanImprovement = 0;
+                fd.DaysPlanRisk = 0;
+                fd.CostPlanImprovement = 0;
+                fd.CostPlanRisk = 0;
+
+                fd.DaysCurrentWeekImprovement = 0;
+                fd.DaysCurrentWeekRisk = 0;
+                fd.CostCurrentWeekImprovement = 0;
+                fd.CostCurrentWeekRisk = 0;
+
+                plDaysOp.html("0.00");
+                plDayRs.html("0.00");
+                plCostOp.html("0.00");
+                plCostRs.html("0.00");
+
+                leDaysOp.html("0.00");
+                leDayRs.html("0.00");
+                leCostOp.html("0.00");
+                leCostRs.html("0.00");
+
+                if (ckd) {
+                    $(this).parent().parent().removeClass("bg-negative");
+                    $(this).parent().parent().addClass("bg-positive");
+                } else {
+                    $(this).parent().parent().removeClass("bg-positive");
+                    $(this).parent().parent().addClass("bg-negative");
+                }
+            } else {
+                if (ckd) {
+                    fd.isPositive = false;
+                    this.checked = false;
+                }
+                else {
+                    fd.isPositive = true;
+                    this.checked = true;
+                }
+                setTimeout(function() {
+                    if(!fd.dirty)
+                        $(parent1.find(".k-dirty")).remove();
+                }, 1000);
+            }
+        });
+
+
+        //$("#modalPIP").find("#isPositive").change(function() {
+        //    var x = model.uimodel();
+        //    x.PIPNewPlanDaysOpp(0);
+        //    $("#modalPIP").find("#PlanDaysOpp").data("kendoNumericTextBox").value(0);
+        //    x.PIPNewPlanDaysRisk(0);
+        //    $("#modalPIP").find("#PlanDaysRisk").data("kendoNumericTextBox").value(0);
+        //    x.PIPNewPlanCostOpp(0);
+        //    $("#modalPIP").find("#PlanCostOpp").data("kendoNumericTextBox").value(0);
+        //    x.PIPNewPlanCostRisk(0);
+        //    $("#modalPIP").find("#PlanCostRisk").data("kendoNumericTextBox").value(0);
+        //    if ($(this).is(":checked")) {
+        //        $("#modalPIP").find("#PlanDaysOpp").data("kendoNumericTextBox").min(-1000000000);
+        //        $("#modalPIP").find("#PlanCostOpp").data("kendoNumericTextBox").min(-1000000000);
+
+        //        $("#modalPIP").find("#PlanDaysOpp").data("kendoNumericTextBox").max(0);
+        //        $("#modalPIP").find("#PlanCostOpp").data("kendoNumericTextBox").max(0);
+        //    } else {
+        //        $("#modalPIP").find("#PlanDaysOpp").data("kendoNumericTextBox").max(1000000000);
+        //        $("#modalPIP").find("#PlanCostOpp").data("kendoNumericTextBox").max(1000000000);
+
+        //        $("#modalPIP").find("#PlanDaysOpp").data("kendoNumericTextBox").min(0);
+        //        $("#modalPIP").find("#PlanCostOpp").data("kendoNumericTextBox").min(0);
+        //    }
+        //});
+        
+    });
+
+    function setFooterTemplate(e){
+        //console.log(e);
+        //x.PIPTotalElements(TotalElements);
+        $("#PIPTotalElements").text(model.uimodel().PIPTotalElements());
+        $("#TotRealPIPValue").text(model.uimodel().TotRealPIPValue());
+        $("#TotRealPIPCost").text(model.uimodel().TotRealPIPCost());
+    }
+
+    function initPage() {
+
+    }
+
+    function number_format(number1) {
+        //alert("format:" + number1);
+        //var number = number1.replaceAll('.', '');
+        number = number1;
+        var decimals = 1;
+        var dec_point = ".";
+        var thousands_sep = ",";
+        number = (number + '')
+          .replace(/[^0-9+\-Ee.]/g, '');
+        var n = !isFinite(+number) ? 0 : +number,
+          prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
+          sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
+          dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
+          s = '',
+          toFixedFix = function (n, prec) {
+              var k = Math.pow(10, prec);
+              return '' + (Math.round(n * k) / k)
+                .toFixed(prec);
+          };
+        // Fix for IE parseFloat(0.55).toFixed(0) = 0;
+        s = (prec ? toFixedFix(n, prec) : '' + Math.round(n))
+          .split('.');
+        if (s[0].length > 3) {
+            s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, sep);
+        }
+        if ((s[1] || '')
+          .length < prec) {
+            s[1] = s[1] || '';
+            s[1] += new Array(prec - s[1].length + 1)
+              .join('0');
+        }
+        //alert (s.join(dec));
+        return s.join(dec);
+    }
+
+</script>

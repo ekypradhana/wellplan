@@ -1,0 +1,280 @@
+﻿<link rel="stylesheet" href="@Url.Content("~/Content/jquery-ui.css")">
+<style>
+    #sdl2 .ui-slider-handle {
+        background: #F74040;
+    }
+</style>
+<div style="width:1020px;margin:0px auto;" data-bind="with: model.WaterfallFilter">
+    <div style="width:1020px;float:left;display:block">
+        <div class="mini-nav bordered-mini-nav" style="width: 1010px; margin: 0px;">
+            <div class="each-nav">
+                Show:
+                <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                    <option value="Days">Days</option>
+                    <option value="Cost">Cost</option>
+                </select>
+            </div>
+            <div class="each-nav">
+                Breakdown by:
+                <select data-bind="value:GroupBy" style="margin-right: 5px;">
+                    <option value="Classification">Classification</option>
+                    <option value="Theme">Theme</option>
+                    <option value="Title">Idea</option>
+                    <option value="PerformanceUnit">Performance Unit</option>
+                    <option value="ActionParty">Action Party (PIC)</option>
+                    <option value="WellName">Well Name</option>
+                    <option value="RigName">Rig Name</option>
+                </select>
+            </div>
+            <div class="each-nav">
+                Base OP:
+                <select data-bind="value:BaseOP" data-model="OPWaterfall" style="margin-right: 5px;"></select>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeZero" />
+                </div>
+                <div>Include 0 value data point</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeGaps" />
+                </div>
+                <div>Include Gap</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:Scaled" />
+                </div>
+                <div>Autoscale</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:ShellShare" />
+                </div>
+                <div>Calc Shell Share</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:Firm" />
+                </div>
+                <div>Firm</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:Option" />
+                </div>
+                <div>Option</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:Blank" />
+                </div>
+                <div>Blank</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:ValidLSOnly" />
+                </div>
+                <div>Valid LS Only</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+        @*<label class="col-md-1">Scale:</label>
+        <div class="col-md-6">
+            <label class="col-md-1">0%</label>
+            <div id="sdl2" class="col-md-10"></div>
+            <label class="col-md-1">100%</label>
+        </div>*@
+        <div class="clearfix"></div>
+        <div style="text-align: center; font-weight: bold; font-size: 14px;" id="waterfall-chart-realized-title-new"></div>
+    </div>
+    <div style="width:1020px;float:left;display:block">
+        <div id="waterfall-chart-realized-tq" style="width:510px;height:400px;display:none;float:left;"></div>
+        <div id="waterfall-chart-realized-le-new" style="width:1020px;height:400px;display:inline;float:left;"></div>
+    </div>
+    <div style="text-align:center;display:none;">
+        <label style="background-color:#8AAAE0; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">OP</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A0C065; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Realized</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#C25654; width: 20px; ">&nbsp;</label>
+        <label style="font-weight:normal">Unrealized</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#888279; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Gap</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#373737; width: 20px; ">&nbsp;</label>
+        <label style="font-weight:normal">TQ/Agreed Target</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A48EC1; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">LE</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#E2A037; width: 20px; height: 1px;">&nbsp;</label>
+        <label style="font-weight:normal">AFE</label>
+    </div>
+</div>
+
+<script>
+    model.MaxWaterfallByRealized = ko.observable(0);
+    model.NewGenerateWaterfallByRealized = function (data) {
+        if (model.WaterfallFilter.GroupBy() == "Classification") {
+            $("#waterfall-chart-realized-title").html('Waterfall - Breakdown By ' + model.WaterfallFilter.GroupBy() + ' (' + model.WaterfallFilter.DayOrCost() + ')' +
+                '<div style="font-size: 12px;font-weight: normal;font-style: italic;">This chart includes additional banked savings from MLE Report</div>');
+        } else {
+            $("#waterfall-chart-realized-title").html('Waterfall - Breakdown By ' + model.WaterfallFilter.GroupBy() + ' (' + model.WaterfallFilter.DayOrCost() + ')');
+        }
+        //DrawChart();
+    };
+
+    function DrawChart() {
+        var param = model.ParseParam();
+        param.which = "Waterfall";
+        param.firmoption = "All";
+        var x = model.WaterfallFilter;
+        if (x.Firm() && x.Option() && x.Blank()) {
+            param.firmoption = "All";
+        } else if (x.Firm()) {
+            if (x.Option()) {
+                //firm and option
+                param.firmoption = "Both";
+            } else if (x.Blank()) {
+                //firm and blank
+                param.firmoption = "NotOption";
+            } else {
+                //only firm
+                param.firmoption = "Firm";
+            }
+        } else if (x.Option()) {
+            if (x.Blank()) {
+                //option and blank
+                param.firmoption = "NotFirm";
+            } else {
+                //only option
+                param.firmoption = "Option";
+            }
+        } else if (x.Blank()) {
+            //only blank
+            param.firmoption = "NotBoth";
+        } else {
+            //not checked all
+            param.firmoption = "notall";
+        }
+        model.ProcessingNewWaterfall(true);
+        ajaxPost("@Url.Action("GetDataWaterfallByRealized")", param, function (res) {
+            //res.Data.ret.forEach(function(xx) {
+            //    if (xx.Label == "Adjusted OP15" || 
+            //        xx.Label == "LE" || 
+            //        xx.Label == "Unrisk Upside"
+            //        ) {
+            //        delete xx.Value;
+            //        xx.Summary = "total";
+            //    }
+            //});
+            model.MaxWaterfallByRealized(res.Data.max);
+            $("#waterfall-chart-realized-le-new").html("");
+            $("#waterfall-chart-realized-le-new").kendoChart({
+                dataSource: {
+                    data: res.Data.ret
+                },
+                seriesDefaults: {
+                    type: "column",
+                    overlay: {
+                        gradient: "none"
+                    },
+                    border: {
+                        opacity: 0.4
+                    }
+                },
+                legend: {
+                    visible: false
+                },
+                series: [{
+                    type: "waterfall",
+                    field: "Value",
+                    categoryField: "Label",
+                    summaryField: "Summary",
+                    line: { visible: false, width: 0 },
+                    color: function (point) {
+                        var clr = point.dataItem.Color;
+                        return clr;
+                    },
+                    tooltip: { visible: true, template: '#: category #: #: kendo.format("{0:N1}", value) #' },
+                    labels: { visible: true, font: "9px verdana", format: "N1", position: "outsideEnd" },
+                }],
+                valueAxis: {
+                    labels: {
+                        format: "{0:N1}"
+                    },
+                    majorGridLines: { visible: false }
+                },
+                categoryAxis: {
+                    labels: { font: "10x verdana", rotation: 90 },
+                    majorGridLines: { visible: false }
+                },
+                //chartArea: {
+                //    background: "",
+                //    height: 500
+                //},
+                //seriesDefaults: {
+                //    type: "column",
+                //    stack: true,
+                //    overlay: {
+                //        gradient: "none"
+                //    },
+                //    border: {
+                //        opacity: 0
+                //    }
+                //},
+                //legend: { visible: false, position: "bottom" },
+                //valueAxis: {
+                //    labels: { font: "10x verdana", format: "N2" },
+                //    majorGridLines: { visible: false },
+                //    max: res.Data.max
+                //},
+                //categoryAxis: {
+                //    categories: res.Data.categories,
+                //    labels: { font: "10x verdana", rotation: 90 },
+                //    majorGridLines: { visible: false }
+                //},
+                //series: res.Data.res
+            });
+            model.ProcessingNewWaterfall(false);
+        });
+    }
+
+    $(function () {
+        //$("#sdl2").slider({
+        //    value: 100
+        //});
+        //$("#sdl2").on("slidechange", function (event, ui) {
+        //    var vl = ui.value;
+        //    if (vl < 5) {
+        //        vl = 5;
+        //    }
+        //    changeScaleRealize(vl);
+        //});
+    });
+
+    function changeScaleRealize(v) {
+        var a = $("#waterfall-chart-realized-le-new").data("kendoChart");
+        setTimeout(function () {
+            if (a != undefined) {
+                    var dd = parseFloat(model.MaxWaterfallByRealized()) * (v / 100);
+                    a.options.valueAxis.max = parseFloat(dd);
+                    a   .refresh();
+            }
+        }, 100);
+    }
+
+</script>

@@ -1,0 +1,593 @@
+﻿@{
+    ViewBag.Title = "Top Level Adjusment Setting";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+
+<style>
+    .form-group {
+        margin-bottom: 2px;
+    }
+
+        .form-group > label {
+            margin-top: 6px !important;
+        }
+
+        .form-group > .col-md-4 > span[data-bind] {
+            padding-top: 6px !important;
+            display: block;
+        }
+
+    input[disabled] {
+        background-color: whitesmoke;
+        border: none;
+    }
+
+    .cgrid {
+        margin-bottom: 20px;
+    }
+
+    .grid {
+    }
+</style>
+
+<style>
+    .cell-date {
+        text-align: center;
+    }
+
+    .cell-number {
+        text-align: right;
+    }
+
+    #tableAllocation th {
+        text-align: center;
+    }
+
+    #tableAllocation td {
+        padding: 5px;
+    }
+
+    #tableAllocation tfoot td {
+        font-weight: bold;
+        text-align: right;
+        background-color: lightgrey;
+    }
+
+    #tableAllocation tbody td {
+        text-align: right;
+    }
+
+    .form-wrapper div {
+        padding-bottom: 3px;
+    }
+
+        .form-wrapper div label {
+            line-height: 23px;
+        }
+
+    .form-control {
+        font-size: 9pt;
+    }
+
+    input[type='text'] {
+        line-height: 20px;
+    }
+
+    .k-invalid-msg {
+        margin-left: 30px;
+    }
+
+    #modalPIP .modal-dialog {
+        width: 1000px;
+    }
+
+    .bg-positive {
+        background-color: #8CFF9D !important;
+    }
+
+    .bg-negative {
+        background-color: #FF8789 !important;
+    }
+
+    .update-note {
+        font-style: italic;
+        text-align: center;
+        padding: 15px 0px;
+    }
+
+    .k-grid-content-locked{
+        height:auto !important;
+    }
+</style>
+
+<script>
+    model.PageId("Business Plan");
+    model.IsProcessing = ko.observable(false);
+    model.TLA = ko.observable({
+        pspreadrate: ko.observable(0),
+        pdays: ko.observable(0),
+        pnptdays: ko.observable(0),
+        ptangibles: ko.observable(0),
+        pservices: ko.observable(0),
+        pmaterial:ko.observable(0),
+        tlaColumns: [
+                    {
+                        field: "Title", title: "Title"
+                    },
+                    {
+                        title: "FY15",
+                        columns: [{field:"fy15Current", title:"Current"}, {field:"fy15adjusted", title:"Adjusted"}, {field:"fy15delta", title:"Delta"}]
+                    },
+                    {
+                        title: "FY16",
+                        columns: [{ field: "fy16Current", title: "Current" }, { field: "fy16adjusted", title: "Adjusted" }, { field: "fy16delta", title: "Delta" }]
+                    },
+                    {
+                        title: "FY17",
+                        columns: [{ field: "fy17Current", title: "Current" }, { field: "fy17adjusted", title: "Adjusted" }, { field: "fy17delta", title: "Delta" }]
+                    },
+        ],
+        tlaData: [
+           {
+               Title: "OPEX", fy15Current: 0, fy15adjusted: 0, fy15delta: 0, fy16Current: 0, fy16adjusted: 0, fy16delta: 0, fy17Current: 0, fy17adjusted: 0, fy17delta: 0
+           },
+           {
+               Title: "CAPEX", fy15Current: 0, fy15adjusted: 0, fy15delta: 0, fy16Current: 0, fy16adjusted: 0, fy16delta: 0, fy17Current: 0, fy17adjusted: 0, fy17delta: 0
+           },
+           {
+               Title: "ABEX", fy15Current: 0, fy15adjusted: 0, fy15delta: 0, fy16Current: 0, fy16adjusted: 0, fy16delta: 0, fy17Current: 0, fy17adjusted: 0, fy17delta: 0
+           },
+           {
+               Title: "EXPEX", fy15Current: 0, fy15adjusted: 0, fy15delta: 0, fy16Current: 0, fy16adjusted: 0, fy16delta: 0, fy17Current: 0, fy17adjusted: 0, fy17delta: 0
+           },
+           {
+               Title: "LLI", fy15Current: 0, fy15adjusted: 0, fy15delta: 0, fy16Current: 0, fy16adjusted: 0, fy16delta: 0, fy17Current: 0, fy17adjusted: 0, fy17delta: 0
+           },
+           {
+               Title: "New Prod Days", fy15Current: 0, fy15adjusted: 0, fy15delta: 0, fy16Current: 0, fy16adjusted: 0, fy16delta: 0, fy17Current: 0, fy17adjusted: 0, fy17delta: 0
+           }
+
+        ],
+        reset: function () {
+            model.TLA().pspreadrate(0);
+            model.TLA().pdays(0);
+            model.TLA().pnptdays(0);
+            model.TLA().ptangibles(0);
+            model.TLA().pservices(0);
+            model.TLA().pmaterial(0);
+            model.TLA().refresh();
+        },
+        refresh: function (isTLA) {
+            var param = {};
+            var getFilter = model.getFilterValues();
+            param.wb = getFilter;
+            param.TLASetting = model.TLA().getTLASetting();
+            param.yearStart = getFilter.FiscalYearStart;
+            param.yearFinish = getFilter.FiscalYearFinish;
+            if (isTLA == 'TLA') {
+                console.log(param.TLASetting.SpreadRate + param.TLASetting.Days + param.TLASetting.NPTDays + param.TLASetting.Tangibles + param.TLASetting.Services + param.TLASetting.Material);
+                if (param.TLASetting.SpreadRate + param.TLASetting.Days + param.TLASetting.NPTDays + param.TLASetting.Tangibles + param.TLASetting.Services + param.TLASetting.Material > 0) {
+                    param.isTLA = true;
+                } else {
+                    param.isTLA = false;
+                }
+            } else {
+                param.isTLA = false;
+            }
+            model.IsProcessing(true);
+            ajaxPost("@Url.Action("GetData")", param, function (res) {
+                model.TLA.minYear = _.min(res.Data.periodYears);
+                model.TLA.maxYear = _.max(res.Data.periodYears);
+                renderGridUsingData(res.Data);
+                model.IsProcessing(false);
+                //var checker = $("#column_toggle");
+                //checker.prop("checked",true);
+            }, function () {
+                model.IsProcessing(false);
+            });
+        },
+        getTLASetting: function () {
+            var result = {};
+            result['SpreadRate'] = model.TLA().pspreadrate();
+            result['Days'] = model.TLA().pdays();
+            result['NPTDays'] = model.TLA().pnptdays();
+            result['Tangibles'] = model.TLA().ptangibles();
+            result['Services'] = model.TLA().pservices();
+            result['Material'] = model.TLA().pmaterial();
+
+            return result;
+        }
+    });
+    model.TLA.getParam = function () {
+        var result = {};
+        result['YearsCalc'] = model.getFilterValues().YearsCalc;
+        result['activeWell'] = model.getFilterValues().activeWell;
+        result['activities'] = model.getFilterValues().activities;
+        result['dateFinish'] = model.getFilterValues().dateFinish;
+        result['dateFinish2'] = model.getFilterValues().dateFinish2;
+        result['dateRelation'] = model.getFilterValues().dateRelation;
+        result['dateStart'] = model.getFilterValues().dateStart;
+        result['dateStart2'] = model.getFilterValues().dateStart2;
+        result['edmwellnames'] = model.getFilterValues().edmwellnames;
+        result['exType'] = model.getFilterValues().exType;
+        result['monthlysequence'] = model.getFilterValues().monthlysequence;
+        result['operatingUnits'] = model.getFilterValues().operatingUnits;
+        result['performanceUnits'] = model.getFilterValues().performanceUnits;
+        result['periodBase'] = model.getFilterValues().periodBase;
+        result['projectNames'] = model.getFilterValues().projectNames;
+        result['regions'] = model.getFilterValues().regions;
+        result['rigNames'] = model.getFilterValues().rigNames;
+        result['rigTypes'] = model.getFilterValues().rigTypes;
+        result['riskcheck'] = model.getFilterValues().riskcheck;
+        result['wellNames'] = model.getFilterValues().wellNames;
+        result['wellwithpipcheck'] = model.getFilterValues().wellwithpipcheck;
+        //In
+        result['pspreadrate'] = model.TLA().pspreadrate();
+        result['pdays'] = model.TLA().pdays();
+        result['pnptdays'] = model.TLA().pnptdays();
+        result['ptangibles'] = model.TLA().ptangibles();
+        result['pservices'] = model.TLA().pservices();
+        result['pmaterial'] = model.TLA().pmaterial();
+        return result;
+    }
+
+    @*model.TLA.refresh = function () {
+        var param = model.getFilterValues();
+        param.yearStart = param.FiscalYearStart;
+        param.yearFinish = param.FiscalYearFinish;
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("GetData")", param, function (res) {
+            model.TLA.minYear = _.min(res.Data.periodYears);
+            model.TLA.maxYear = _.max(res.Data.periodYears);
+            renderGridUsingData(res.Data);
+            model.IsProcessing(false);
+            //var checker = $("#column_toggle");
+            //checker.prop("checked",true);
+        }, function () {
+            model.IsProcessing(false);
+        });
+        
+    };*@
+ 
+    model.TLA.graph = function () {
+
+    };
+    model.TLA.export = function () {
+
+    };
+    model.TLA.Save = function () {
+        var param = {};
+        var getFilter = model.getFilterValues();
+        param.wb = getFilter;
+        param.TLASetting = model.TLA().getTLASetting();
+        param.yearStart = getFilter.FiscalYearStart;
+        param.yearFinish = getFilter.FiscalYearFinish;
+            if (param.TLASetting.SpreadRate + param.TLASetting.Days + param.TLASetting.NPTDays + param.TLASetting.Tangibles + param.TLASetting.Services + param.TLASetting.Material > 0) {
+                param.isTLA = true;
+            } else {
+                param.isTLA = false;
+            }
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("SaveAdjusment")", param, function (res) {
+            console.log(res.Data);   
+            model.IsProcessing(false);
+            model.TLA().pspreadrate(0);
+            model.TLA().pdays(0);
+            model.TLA().pnptdays(0);
+            model.TLA().ptangibles(0);
+            model.TLA().pservices(0);
+            model.TLA().pmaterial(0);
+            alert("Data Successfully Saved!");
+        }, function () {
+            model.IsProcessing(false);
+        });
+    };
+    model.TLA.restoredefault = function () {
+
+    };
+
+    model.TLA.addYear = function () {
+
+    };
+
+    model.TLA.removeYear = function () {
+
+    };
+
+    function renderGridUsingData(res) {
+        //data = jsonObjsConvDate(pushData(data));
+        var gridColumns = [];
+        var isRO = "@ViewBag.isRO";
+        //alert(isRO);
+        var index = 0;
+        gridColumns = [{
+            field: "WellName",
+            title: "Well Name",
+            width: 150,
+            locked: true
+        }, {
+            field: "ActivityType",
+            title: "Activity Type",
+            width: 150
+        }, {
+            field: "RigName",
+            title: "Rig Name",
+            width: 150
+        }];
+        for (var i = model.TLA.minYear; i <= model.TLA.maxYear; i++) {
+            
+            index++;
+            //fiscalYear.push("FY" + i);
+            gridColumns.push({
+               
+                title: "Year " + i,
+                columns: [
+                        {
+                            title: "Current", field: "Current_" + i, width: 120, attributes: { style: "text-align: right;" },format:"{0:N2}"
+                        },
+                        {
+                            title: "Adjusted", width: 120, field: "Adjusted_" + i, attributes: { style: "text-align: right;" }, format: "{0:N2}"
+                        },
+                        {
+                            title: "Variance", width: 120, field: "Variance_" + i, attributes: { style: "text-align: right;" }, format: "{0:N2}"
+                        },
+
+                ],
+                attributes: { style: "text-align: right;" },
+                format: "{0:N2}",
+                width: 100
+            });
+        }
+         
+ 
+        $('#gridSummary').replaceWith($('<div />').attr('id', 'gridSummary'));
+        $('#gridSummary').kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "Data Browser.pdf" },
+            excel: { fileName: "Data Browser.xlsx", allPages: true, filterable: true },
+            dataSource: {
+                data: res.Detail,
+                type: "json",
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: gridColumns, 
+        });
+    }
+
+    model.reloadData = function (isTLA) {
+        model.TLA().refresh(isTLA);
+    }
+ 
+</script>
+ 
+<div data-bind="with:TLA" class="col-md-12" style="margin-top:10px;">
+    
+    <div class="col-md-12">
+        @Html.Partial("FilterForWaterfall")
+        <script>
+            model.FilterVisibility.PerformanceUnits(false);
+            model.FilterVisibility.MonthlySequence(false);
+            model.FilterVisibility.YearsCalc(true);
+            model.FilterVisibility.OPs(true);
+            model.FilterVisibility.OpRelation(true);
+            model.FilterVisibility.Activities(true);
+            model.FilterVisibility.Date(true);
+            model.FilterVisibility.Date2(true);
+            model.FilterVisibility.PeriodBase(false);
+            model.FilterVisibility.PeriodView(true);
+            model.FilterVisibility.PeriodRelation(false);
+        </script>
+    </div>
+    <div data-bind="visible:model.IsProcessing">
+        @Html.Partial("_processing")
+    </div>
+    <div class="col-md-12" style="margin-top:10px;" data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden') }">
+        <div class="form-group col-md-2">
+            <div class="row">
+                <label class="col-md-5">Spread Rate:</label>
+                <div class="col-md-5">
+                    <input class="persentage" data-bind="kendoNumericTextBox:{min:-100,max:100,value:pspreadrate,format: ' # \\%'}" style="width: 120%;" />
+                </div>
+                <label>%</label>
+            </div>
+            <div class="row" style="margin-top:10px;">
+                <label class="col-md-5">Days:</label>
+                <div class="col-md-5">
+                    <input class="persentage" data-bind="kendoNumericTextBox:{min:-100,max:100,value:pdays,format: ' # \\%'}" style="width: 120%;" />
+                </div>
+                <label>%</label>
+            </div>
+            <div class="row" style="margin-top:10px;">
+                <label class="col-md-5">NPT Days:</label>
+                <div class="col-md-5">
+                    <input class="persentage" data-bind="kendoNumericTextBox:{min:-100,max:100,value:pnptdays,format: ' # \\%'}" style="width: 120%;" />
+                </div>
+                <label>%</label>
+            </div>
+            <div class="row" style="margin-top:10px;">
+                <label class="col-md-5">Tangibles:</label>
+                <div class="col-md-5">
+                    <input class="persentage" data-bind="kendoNumericTextBox:{min:-100,max:100,value:ptangibles,format: ' # \\%'}" style="width: 120%;" />
+                </div>
+                <label>%</label>
+            </div>
+            <div class="row" style="margin-top:10px;">
+                <label class="col-md-5">Services:</label>
+                <div class="col-md-5">
+                    <input class="persentage" data-bind="kendoNumericTextBox:{min:-100,max:100,value:pservices,format: ' # \\%'}" style="width: 120%;" />
+                </div>
+                <label>%</label>
+            </div>
+            <div class="row" style="margin-top:10px;">
+                <label class="col-md-5">Material:</label>
+                <div class="col-md-5">
+                    <input class="persentage" data-bind="kendoNumericTextBox:{min:-100,max:100,value:pmaterial,format: ' # \\%'}" style="width: 120%;" />
+                </div>
+                <label>%</label>
+            </div>
+            <div class="row" style="margin-top:10px">
+                <button class="btn-sm btn btn-custom btn-primary pull-right" onclick="model.reloadData('TLA');" style="margin-left:10px">
+                    <span class="glyphicon glyphicon-repeat"></span> Calculate
+                </button>
+                <button class="btn-sm btn btn-custom btn-warning pull-right" onclick="model.TLA().reset();">
+                    <span class="glyphicon glyphicon-repeat"></span> Reset
+                </button>
+            </div>
+        </div>
+        <div class="col-md-10">
+            <label>Effected Area Comparison (Mean Cost MOD)</label>
+            <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden') }">
+                <div class="clearfix"></div>
+
+
+                <div role="tabpanel" class="tab-pane active" id="summary">
+                    @*<div class="">
+                            <label>View by : </label>
+                            <input data-bind="kendoDropDownList: { data: model.ViewByList, value: model.ViewBy}" />
+                        </div>*@
+                    <div class="col-md-12 no-padding">
+                        @*<div id="grid" data-bind="kendoGrid: { data: model.TLA().tlaData, columns: model.TLA().tlaColumns, sortable: false, filterable: false, editable: false, toolbar:['excel'],excel:{fileName:'TopLevelAdjustment',allPages:true}} "></div>*@
+                        <div id="gridSummary" class="grid"></div>
+                    </div>
+
+                    <div style="clear: both;"></div>
+                </div>
+
+                <div id="tabdetail" role="tabpanel" class="tab-pane">
+                    <div class="col-md-12 no-padding">
+                    </div>
+                    <div style="clear: both;"></div>
+                </div>
+
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-4">
+
+                </div>
+                <div class="col-md-2"></div>
+                <div class="col-md-6">
+                    <div class="clearfix pull-right" style="margin-top:10px;">
+
+                        <button class="btn-sm btn btn-custom btn-primary" onclick="model.TLA.Save()">
+                            Save and apply to plan
+                        </button>
+
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    function GenerateGridDetail(data, start, finish) {
+        var interval = setInterval(function () {
+            var ViewBy = model.ViewBy();
+            switch (ViewBy) {
+                case "Year":
+                    for (var i = start; i <= finish; i++) {
+                        var filterData = _.where(data, { Year: i });
+                        if (filterData.length > 0) {
+                            var ds = model.FYModel().GridDetailDataSource(filterData[0].Data);
+                            $("#grid_" + "FY" + i).data("kendoGrid").setDataSource(ds);
+                        }
+                    }
+                    break;
+                case "Month":
+                    //for(var i = start;i<=finish;i++){
+                    //    var filterData = _.where(data,{Year:i});
+                    //    if(filterData.length > 0){
+                    //        var ds = model.FYModel().GridDetailDataSource(filterData[0].Data);
+                    //        $("#grid_FY_"+i).data("kendoGrid").setDataSource(ds);
+                    //    }
+                    //}
+                    console.log("monthly");
+                    for (var i = new Date(start, 0, 1) ; i <= new Date(finish, 11, 1) ; i.setMonth(i.getMonth() + 1)) {
+                        var filterData = _.where(data, { Year: kendo.toString(i, "MMMyyyy") });
+                        if (filterData.length > 0) {
+                            var ds = model.FYModel().GridDetailDataSource(filterData[0].Data);
+                            $("#grid_" + kendo.toString(i, "MMMyyyy")).data("kendoGrid").setDataSource(ds);
+                        }
+                    }
+                    break;
+                default: break;
+            }
+
+            clearInterval(interval);
+        }, 500);
+    }
+    function GenerateGrid(data, start, finish) {
+        var self = this;
+        $("#grid").replaceWith($('<div />').attr('id', 'grid'));
+        var $grid = $("#grid");
+        var column = [
+            { title: "", field: "Title", width: 200 },
+        ];
+        var ViewBy = model.ViewBy();
+        switch (ViewBy) {
+            case "Year":
+                for (var i = start; i <= finish; i++) {
+                    var fieldName = "FY" + String(i);
+                    column.push({ title: fieldName, field: fieldName, width: 100, attributes: { "style": "text-align:right" }, format: "{0:N2}" });
+                }
+                break;
+            case "Month":
+                for (var i = new Date(start, 0, 1) ; i <= new Date(finish, 11, 1) ; i.setMonth(i.getMonth() + 1)) {
+                    column.push({ title: kendo.toString(i, "MMM yyyy"), field: kendo.toString(i, "MMMyyyy"), width: 100, attributes: { "style": "text-align:right" }, format: "{0:N2}" });
+                }
+                break;
+            default: break;
+        }
+        var dataSource = new kendo.data.DataSource({
+            data: data,
+            pageSize: 10,
+            selectable: true
+        });
+
+        $grid.kendoGrid({
+            columns: column,
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            scrollable: true,
+            dataSource: dataSource,
+            //width: 500,
+            //selectable: "cell"
+        });
+    }
+    $(document).ready(function () {
+        var dateValue = moment(new Date(2015, 11, 31)).add(15, 'years').toDate();
+        $('[data-model="dateFinish"]:last').data("kendoDatePicker").value(dateValue);
+
+        var isRO = "@ViewBag.isRO";
+
+        model.getFilterValues().YearsCalc = new Date().getFullYear();
+
+        var arr = [];
+        arr.push(new Date().getFullYear());
+        model.reloadData('');
+        
+        //$(".persentage").kendoNumericTextBox({
+        //    format: "# \\%",
+        //    min: -100,
+        //    max: 100,
+        //    step:1
+        //});
+    });
+</script>
+
+
+
+
+

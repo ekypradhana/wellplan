@@ -1,0 +1,1305 @@
+﻿@{
+    ViewBag.Title = "Weekly Report Archive";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+    IMongoQuery qs;
+    qs = Query.NE("IsVirtualWell", true);
+    if (new WeeklyReportController().GetWellListBasedOnEmail().Any(x => x != "*"))
+    {
+        qs = Query.And(Query.In("_id", new BsonArray(new WeeklyReportController().GetWellListBasedOnEmail())), Query.NE("IsVirtualWell", true));
+    }
+    var wells = DataHelper.Populate("WEISWellNames", qs).Select(d => d.GetString("_id")).OrderBy(d => d);
+}
+@using ECIS.AppServer.Areas.Shell.Controllers
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Bson
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+@{
+    var wau = WellActivityUpdate.Populate<WellActivityUpdate>();
+    DateTime from = new DateTime();
+    DateTime to = new DateTime();
+    if (wau.Any())
+    {
+        from = wau.OrderBy(x => x.UpdateVersion).FirstOrDefault().UpdateVersion;
+        to = wau.OrderByDescending(x => x.UpdateVersion).FirstOrDefault().UpdateVersion;    
+
+    }
+    else
+    {
+        from = new DateTime(2015, 1, 1);
+        to  = new DateTime(2016, 1, 1);
+    }
+    
+}
+<style>
+    .form-group {
+        margin-bottom: 2px;
+    }
+
+    input[disabled] {
+        background-color: whitesmoke;
+        border: none;
+    }
+</style>
+
+<style>
+    .cell-date {
+        text-align: center;
+    }
+
+    .cell-number {
+        text-align: right;
+    }
+
+    #tableAllocation th {
+        text-align: center;
+    }
+
+    #tableAllocation td {
+        padding: 5px;
+    }
+
+    #tableAllocation tfoot td {
+        font-weight: bold;
+        text-align: right;
+        background-color: lightgrey;
+    }
+
+    #tableAllocation tbody td {
+        text-align: right;
+    }
+
+    .form-wrapper div {
+        padding-bottom: 3px;
+    }
+
+        .form-wrapper div label {
+            line-height: 23px;
+        }
+
+    .form-control {
+        font-size: 9pt;
+    }
+
+    input[type='text'] {
+        line-height: 20px;
+    }
+
+    .k-invalid-msg {
+        margin-left: 30px;
+    }
+
+    #modalPIP .modal-dialog {
+        width: 1000px;
+    }
+</style>
+
+<script>
+    model.IsProcessing = ko.observable(false);
+    model.OpValue = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("SharedConfigTable", Query.EQ("_id", "BaseOPConfig"))
+        .Select(d=>d.GetString("ConfigValue")))));
+    model.fromArchive = true;
+    model.OpActive = ko.observable("");
+    model.PageId("Weekly Report");
+    model.summaryop = ko.observable("OP15");
+    model.setButton = function(isEnabled){
+        $(".btn.btn-custom.btn-primary.btn-sm").prop('disabled', isEnabled);
+    }
+    model.wrmodel = ko.observable({
+        isAdmin: ko.observable(@ViewBag.isAdmin),
+        isRO: ko.observable(@ViewBag.isRO),
+        WordCount: ko.observable(@ViewBag.WordCount),
+        NPTHours: ko.observable(),
+        StartDate: ko.observable(jsonDateStr(new Date())),
+        StartComment: ko.observable(""),
+        SearchDate: ko.observable(),
+        SearchRigNames: ko.observableArray([]),
+        SearchWellNames: ko.observableArray([]),
+        WellSelected: ko.observable(""),
+        WellNameNew: ko.observable(""),
+        CostScale: ko.observable("million"),
+        record: ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellActivityUpdate())))),
+        selectedPIPId : ko.observable(),
+        selectedPIPStatus:ko.observable("none"),
+        selectedPIPEditable:ko.observable(false),
+        reopen: function () {
+            var t = this;
+            model.IsProcessing(true);
+            var url = "@Url.Action("Reopen")";
+            ajaxPost(url, { id: t.record()._id() },
+                function (data) {
+                    model.IsProcessing(false);
+                    if (data.Result != "OK") {
+                        alert(data.Message);
+                        return;
+                    }
+                    refresh();
+                    model.wrmodel().mode("");
+                })
+        },
+        add: function () {
+            var t = this;
+            t.record(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellActivityUpdate()))));
+            t.record().UpdateVersion(jsonDateStr(t.record().UpdateVersion()));
+            t.mode("New");
+            initForm();
+        },
+        submit: function () {
+            var t = this;
+            var url = "@Url.Action("submit")";
+            ajaxPost(url, { id: t.record()._id() },
+                function (data) {
+                    if (data.Result != "OK") {
+                        alert(data.Message);
+                        return;
+                    }
+                    refresh();
+                    model.wrmodel().mode("");
+                })
+        },
+        cancel: function () {
+            model.ActivityId("");
+            var t = this;
+            refresh();
+            t.mode("");
+        },
+        refresh: function () {
+            refresh();
+        },
+        print: function () {
+            PrintDocument();
+        },
+        remove: function () {
+            ajaxPost("@Url.Action("Delete")",
+                function (data) {
+                    var t = this;
+                    t.mode("");
+                    model.refresh();
+                },
+                function (err) {
+                    alert(err.responseText);
+                })
+        },
+        save: function (ActionAfter) {
+            if (model.IsProcessing()) return;
+            model.IsProcessing(true);
+
+            var t = model.wrmodel();
+            var url = "@Url.Action("Save")";
+            //if (t.record().NewWell() == true) {
+            //    t.record().WellName(t.WellNameNew());
+            //}
+            //else {
+            //    t.record().WellName(t.WellSelected());
+            //}
+            ajaxPost(url, t.record(), function (data) {
+                if (data.Result == "OK") {
+                    model.IsProcessing(false);
+                    switch (ActionAfter) {
+                        case "submit":
+                            x.submit();
+                            break;
+                        case "print":
+                            x.print();
+                            break;
+                        default:
+                            refresh();
+                            t.mode("");
+                            break;
+                    }
+                }
+                else {
+                    model.IsProcessing(false);
+                    alert(data.Message);
+                }
+            },
+            function (err) {
+                alert(err.responseText);
+            })
+        },
+        wfstart: function () {
+
+            var gs = $("#gridwork").data().kendoGrid;
+            var cbphases = $("#gridwork").find("input.cb-phase:checked");
+            var ids = [];
+            $.each(cbphases, function (idx, obj) {
+                var cbObj = $(obj);
+                ids.push(cbObj.val());
+            });
+            //alert(ids);
+
+            var url = "@Url.Action("WFStart")";
+            ajaxPost(url,
+                { StartDate: $("#dateWork").val(), StartComment: $("#CommentTxt").val(), WellActivityId: ks(ids) },
+
+                function (data) {
+                    refresh();
+                    model.wrmodel().mode("");
+                });
+        },
+        wfdistribute: function () {
+            var ids = $("#grid-submitted").find("input.checkme:checked");
+            var idValues = $.map(ids, function (obj, idx) {
+                var $obj = $(obj);
+                return $obj.val();
+            });
+            if (idValues.length == 0) {
+                alert("Please select at least one submitted Weekly Report to be dsitributed");
+                return;
+            }
+            var url = "@Url.Action("Distribute")";
+            ajaxPost(url, { ids: idValues }, function (data) {
+                if (data.Result != "OK") {
+                    showErr(data.Message + data.Trace);
+                    return;
+                };
+                refresh();
+            },
+            showErr)
+        },
+        wfinit: function () {
+            model.wrmodel().mode("wf");
+        },
+        selectSequence: function () {
+            var t = model.wrmodel();
+            t.mode("Select");
+        },
+        selectCancel: function () {
+            var t = model.wrmodel();
+            t.mode("New");
+        },
+        processing: ko.observable(false),
+        mode: ko.observable(""),
+
+        CompletionTotal: ko.observable(0),
+        DaysPlanImprovementTotal: ko.observable(0),
+        DaysPlanRiskTotal: ko.observable(0),
+        DaysLastWeekImprovementTotal: ko.observable(0),
+        DaysActualImprovementTotal: ko.observable(0),
+        DaysCurrentWeekImprovementTotal: ko.observable(0),
+        DaysLastWeekRiskTotal: ko.observable(0),
+        DaysActualRiskTotal: ko.observable(0),
+        DaysCurrentWeekRiskTotal: ko.observable(0),
+        CostPlanImprovementTotal: ko.observable(0),
+        CostPlanRiskTotal: ko.observable(0),
+        CostLastWeekImprovementTotal: ko.observable(0),
+        CostActualImprovementTotal: ko.observable(0),
+        CostCurrentWeekImprovementTotal: ko.observable(0),
+        CostLastWeekRiskTotal: ko.observable(0),
+        CostLastWeekRiskTotal: ko.observable(0),
+        CostActualRiskTotal: ko.observable(0),
+        CostCurrentWeekRiskTotal: ko.observable(0),
+
+        CompletionTotal_CR: ko.observable(0),
+        DaysPlanImprovementTotal_CR: ko.observable(0),
+        DaysLastWeekImprovementTotal_CR: ko.observable(0),
+        DaysActualImprovementTotal_CR: ko.observable(0),
+        DaysCurrentWeekImprovementTotal_CR: ko.observable(0),
+        DaysLastWeekRiskTotal_CR: ko.observable(0),
+        DaysActualRiskTotal_CR: ko.observable(0),
+        DaysCurrentWeekRiskTotal_CR: ko.observable(0),
+        CostPlanImprovementTotal_CR: ko.observable(0),
+        CostLastWeekImprovementTotal_CR: ko.observable(0),
+        CostActualImprovementTotal_CR: ko.observable(0),
+        CostCurrentWeekImprovementTotal_CR: ko.observable(0),
+        CostLastWeekRiskTotal_CR: ko.observable(0),
+        CostActualRiskTotal_CR: ko.observable(0),
+        CostCurrentWeekRiskTotal_CR: ko.observable(0),
+
+        //real
+        DaysPlanImprovementTotal_Real: ko.observable(0),
+        DaysPlanRiskTotal_Real: ko.observable(0),
+        CostPlanImprovementTotal_Real: ko.observable(0),
+        CostPlanRiskTotal_Real: ko.observable(0),
+        CostCurrentWeekImprovementTotal_Real: ko.observable(0),
+        CostCurrentWeekRiskTotal_Real: ko.observable(0),
+        DaysCurrentWeekImprovementTotal_Real: ko.observable(0),
+        DaysCurrentWeekRiskTotal_Real: ko.observable(0),
+
+        DaysPlanImprovementTotal_NotReal: ko.observable(0),
+        DaysPlanRiskTotal_NotReal: ko.observable(0),
+        CostPlanImprovementTotal_NotReal: ko.observable(0),
+        CostPlanRiskTotal_NotReal: ko.observable(0),
+        CostCurrentWeekImprovementTotal_NotReal: ko.observable(0),
+        CostCurrentWeekRiskTotal_NotReal: ko.observable(0),
+        DaysCurrentWeekImprovementTotal_NotReal: ko.observable(0),
+        DaysCurrentWeekRiskTotal_NotReal: ko.observable(0),
+
+        //real CR
+        DaysPlanImprovementTotal_RealCR: ko.observable(0),
+        DaysPlanRiskTotal_RealCR: ko.observable(0),
+        CostPlanImprovementTotal_RealCR: ko.observable(0),
+        CostPlanRiskTotal_RealCR: ko.observable(0),
+        CostCurrentWeekImprovementTotal_RealCR: ko.observable(0),
+        CostCurrentWeekRiskTotal_RealCR: ko.observable(0),
+        DaysCurrentWeekImprovementTotal_RealCR: ko.observable(0),
+        DaysCurrentWeekRiskTotal_RealCR: ko.observable(0),
+
+        DaysPlanImprovementTotal_NotRealCR: ko.observable(0),
+        DaysPlanRiskTotal_NotRealCR: ko.observable(0),
+        CostPlanImprovementTotal_NotRealCR: ko.observable(0),
+        CostPlanRiskTotal_NotRealCR: ko.observable(0),
+        CostCurrentWeekImprovementTotal_NotRealCR: ko.observable(0),
+        CostCurrentWeekRiskTotal_NotRealCR: ko.observable(0),
+        DaysCurrentWeekImprovementTotal_NotRealCR: ko.observable(0),
+        DaysCurrentWeekRiskTotal_NotRealCR: ko.observable(0),
+        showPercentage: function (data) {
+            return kendo.toString(data, "p0");
+        },
+
+
+    });
+
+    model.AssetNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+        DataHelper.Populate("WEISAssetNames").Select(d=>d.GetString("_id")).OrderBy(d=>d)
+    )));
+
+    model.WellNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(wells)));
+
+    model.RigNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+        DataHelper.Populate("WEISRigNames").Select(d=>d.GetString("_id")).OrderBy(d=>d)
+    )));
+
+    model.OPs = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISOPs").Select(x=>BsonHelper.GetString(x,"_id")).ToList<string>())));
+
+    model.Activities = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+        DataHelper.Populate("WEISActivities").Select(d=>d.GetString("_id")).OrderBy(d=>d)
+    )));
+
+    model.ActivityId = ko.observable("");
+    model.SelectedWellName = ko.observable("");
+
+    function count_total() {
+        //alert(type);
+        var x = model.wrmodel().record().Elements();
+        var CompletionTotal = 0;
+        var DaysPlanImprovementTotal = 0;
+        var DaysLastWeekImprovementTotal = 0;
+        var DaysActualImprovementTotal = 0;
+        var DaysCurrentWeekImprovementTotal = 0;
+        var DaysLastWeekRiskTotal = 0;
+        var DaysActualRiskTotal = 0;
+        var DaysCurrentWeekRiskTotal = 0;
+        var CostPlanImprovementTotal = 0;
+        var CostLastWeekImprovementTotal = 0;
+        var CostActualImprovementTotal = 0;
+        var CostCurrentWeekImprovementTotal = 0;
+        var CostLastWeekRiskTotal = 0;
+        var CostActualRiskTotal = 0;
+        var CostCurrentWeekRiskTotal = 0;
+
+        //realized totall
+        var DaysPlanImprovementTotal_Real = 0; var DaysPlanImprovementTotal_NotReal = 0;
+        var DaysPlanRiskTotal_Real = 0; var DaysPlanRiskTotal_NotReal = 0;
+        var CostPlanImprovementTotal_Real = 0; var CostPlanImprovementTotal_NotReal = 0;
+        var CostPlanRiskTotal_Real = 0; var CostPlanRiskTotal_NotReal = 0;
+        var CostCurrentWeekImprovementTotal_Real = 0; var CostCurrentWeekImprovementTotal_NotReal = 0;
+        var CostCurrentWeekRiskTotal_Real = 0; var CostCurrentWeekRiskTotal_NotReal = 0;
+        var DaysCurrentWeekImprovementTotal_Real = 0; var DaysCurrentWeekImprovementTotal_NotReal = 0;
+        var DaysCurrentWeekRiskTotal_Real = 0; var DaysCurrentWeekRiskTotal_NotReal = 0;
+
+        for (var i = 0; i < x.length; i++) {
+            //console.log("datas");
+            //console.log(x[i]);
+            CompletionTotal = parseFloat(CompletionTotal) + parseFloat(x[i].Completion());
+            DaysPlanImprovementTotal = parseFloat(DaysPlanImprovementTotal) + parseFloat(x[i].DaysPlanImprovement());
+            DaysLastWeekImprovementTotal = parseFloat(DaysLastWeekImprovementTotal) + parseFloat(x[i].DaysLastWeekImprovement());
+            DaysActualImprovementTotal = parseFloat(DaysActualImprovementTotal) + parseFloat(x[i].DaysActualImprovement());
+            DaysCurrentWeekImprovementTotal = parseFloat(DaysCurrentWeekImprovementTotal) + parseFloat(x[i].DaysCurrentWeekImprovement());
+            DaysLastWeekRiskTotal = parseFloat(DaysLastWeekRiskTotal) + parseFloat(x[i].DaysLastWeekRisk());
+            DaysActualRiskTotal = parseFloat(DaysActualRiskTotal) + parseFloat(x[i].DaysActualRisk());
+            DaysCurrentWeekRiskTotal = parseFloat(DaysCurrentWeekRiskTotal) + parseFloat(x[i].DaysCurrentWeekRisk());
+            CostPlanImprovementTotal = parseFloat(CostPlanImprovementTotal) + parseFloat(x[i].CostPlanImprovement());
+            CostLastWeekImprovementTotal = parseFloat(CostLastWeekImprovementTotal) + parseFloat(x[i].CostLastWeekImprovement());
+            CostActualImprovementTotal = parseFloat(CostActualImprovementTotal) + parseFloat(x[i].CostActualImprovement());
+            CostCurrentWeekImprovementTotal = parseFloat(CostCurrentWeekImprovementTotal) + parseFloat(x[i].CostCurrentWeekImprovement());
+            CostLastWeekRiskTotal = parseFloat(CostLastWeekRiskTotal) + parseFloat(x[i].CostLastWeekRisk());
+            CostActualRiskTotal = parseFloat(CostActualRiskTotal) + parseFloat(x[i].CostActualRisk());
+            CostCurrentWeekRiskTotal = parseFloat(CostCurrentWeekRiskTotal) + parseFloat(x[i].CostCurrentWeekRisk());
+
+            if (x[i].Completion() == "Realized") {
+
+                DaysPlanImprovementTotal_Real += x[i].DaysPlanImprovement();
+                DaysPlanRiskTotal_Real += x[i].DaysPlanRisk();
+                CostPlanImprovementTotal_Real += x[i].CostPlanImprovement();
+                CostPlanRiskTotal_Real += x[i].CostPlanRisk();
+                CostCurrentWeekImprovementTotal_Real += x[i].DaysCurrentWeekImprovement();
+                CostCurrentWeekRiskTotal_Real += x[i].DaysCurrentWeekRisk();
+                DaysCurrentWeekImprovementTotal_Real += x[i].CostCurrentWeekImprovement();
+                CostCurrentWeekRiskTotal_Real += parseFloat(x[i].DaysCurrentWeekRisk());
+            } else {
+
+                DaysPlanImprovementTotal_NotReal += x[i].DaysPlanImprovement();
+                DaysPlanRiskTotal_NotReal += x[i].DaysPlanRisk();
+                CostPlanImprovementTotal_NotReal += x[i].CostPlanImprovement();
+                CostPlanRiskTotal_NotReal += x[i].CostPlanRisk();
+                CostCurrentWeekImprovementTotal_NotReal += x[i].DaysCurrentWeekImprovement();
+                CostCurrentWeekRiskTotal_NotReal += x[i].DaysCurrentWeekRisk();
+                DaysCurrentWeekImprovementTotal_NotReal += x[i].CostCurrentWeekImprovement();
+                CostCurrentWeekRiskTotal_NotReal += parseFloat(x[i].CostCurrentWeekRisk());
+            }
+
+
+        }
+
+        model.wrmodel().CompletionTotal(number_format(CompletionTotal));
+        model.wrmodel().DaysPlanImprovementTotal(number_format(DaysPlanImprovementTotal));
+        model.wrmodel().DaysLastWeekImprovementTotal(number_format(DaysLastWeekImprovementTotal));
+        model.wrmodel().DaysActualImprovementTotal(number_format(DaysActualImprovementTotal));
+        model.wrmodel().DaysCurrentWeekImprovementTotal(number_format(DaysCurrentWeekImprovementTotal));
+        model.wrmodel().DaysLastWeekRiskTotal(number_format(DaysLastWeekRiskTotal));
+        model.wrmodel().DaysActualRiskTotal(number_format(DaysActualRiskTotal));
+        model.wrmodel().DaysCurrentWeekRiskTotal(number_format(DaysCurrentWeekRiskTotal));
+        model.wrmodel().CostPlanImprovementTotal(number_format(CostPlanImprovementTotal));
+        model.wrmodel().CostLastWeekImprovementTotal(number_format(CostLastWeekImprovementTotal));
+        model.wrmodel().CostActualImprovementTotal(number_format(CostActualImprovementTotal));
+        model.wrmodel().CostCurrentWeekImprovementTotal(number_format(CostCurrentWeekImprovementTotal));
+        model.wrmodel().CostLastWeekRiskTotal(number_format(CostLastWeekRiskTotal));
+        model.wrmodel().CostActualRiskTotal(number_format(CostActualRiskTotal));
+        model.wrmodel().CostCurrentWeekRiskTotal(number_format(CostCurrentWeekRiskTotal));
+        
+        //realized
+        model.wrmodel().DaysPlanImprovementTotal_Real(number_format(DaysPlanImprovementTotal_Real));
+        model.wrmodel().DaysPlanImprovementTotal_NotReal(number_format(DaysPlanImprovementTotal_NotReal));
+        model.wrmodel().DaysPlanRiskTotal_Real(number_format(DaysPlanRiskTotal_Real));
+        model.wrmodel().DaysPlanRiskTotal_NotReal(number_format(DaysPlanRiskTotal_NotReal));
+        model.wrmodel().CostPlanImprovementTotal_Real(number_format(CostPlanImprovementTotal_Real));
+        model.wrmodel().CostPlanImprovementTotal_NotReal(number_format(CostPlanImprovementTotal_NotReal));
+        model.wrmodel().CostCurrentWeekImprovementTotal_Real(number_format(CostCurrentWeekImprovementTotal_Real));
+        model.wrmodel().CostCurrentWeekImprovementTotal_NotReal(number_format(CostCurrentWeekImprovementTotal_NotReal));
+        model.wrmodel().CostCurrentWeekRiskTotal_Real(number_format(CostCurrentWeekRiskTotal_Real));
+        model.wrmodel().CostCurrentWeekRiskTotal_NotReal(number_format(CostCurrentWeekRiskTotal_NotReal));
+        model.wrmodel().DaysCurrentWeekImprovementTotal_Real(number_format(DaysCurrentWeekImprovementTotal_Real));
+        model.wrmodel().DaysCurrentWeekImprovementTotal_NotReal(number_format(DaysCurrentWeekImprovementTotal_NotReal));
+        model.wrmodel().DaysCurrentWeekRiskTotal_Real(number_format(DaysCurrentWeekRiskTotal_Real));
+        model.wrmodel().DaysCurrentWeekRiskTotal_NotReal(number_format(DaysCurrentWeekRiskTotal_NotReal));
+        model.wrmodel().CostCurrentWeekRiskTotal_Real(number_format(CostCurrentWeekRiskTotal_Real));
+        model.wrmodel().CostCurrentWeekRiskTotal_NotReal(number_format(CostCurrentWeekRiskTotal_NotReal));
+        count_total_CR();
+    }
+
+    function count_total_CR() {
+        var x = model.wrmodel().record().CRElements();
+        var CompletionTotal = 0;
+        var DaysPlanImprovementTotal = 0;
+        var DaysLastWeekImprovementTotal = 0;
+        var DaysActualImprovementTotal = 0;
+        var DaysCurrentWeekImprovementTotal = 0;
+        var DaysLastWeekRiskTotal = 0;
+        var DaysActualRiskTotal = 0;
+        var DaysCurrentWeekRiskTotal = 0;
+        //realized
+        var DaysPlanImprovementTotal_RealCR = 0; var DaysPlanImprovementTotal_NotRealCR = 0;
+        var DaysPlanRiskTotal_RealCR = 0; var DaysPlanRiskTotal_NotRealCR = 0;
+        var CostPlanImprovementTotal_RealCR = 0; var CostPlanImprovementTotal_NotRealCR = 0;
+        var CostPlanRiskTotal_RealCR = 0; var CostPlanRiskTotal_NotRealCR = 0;
+        var CostCurrentWeekImprovementTotal_RealCR = 0; var CostCurrentWeekImprovementTotal_NotRealCR = 0;
+        var CostCurrentWeekRiskTotal_RealCR = 0; var CostCurrentWeekRiskTotal_NotRealCR = 0;
+        var DaysCurrentWeekImprovementTotal_RealCR = 0; var DaysCurrentWeekImprovementTotal_NotRealCR = 0;
+        var DaysCurrentWeekRiskTotal_RealCR = 0; var DaysCurrentWeekRiskTotal_NotRealCR = 0;
+
+        var CostPlanImprovementTotal = 0;
+        var CostLastWeekImprovementTotal = 0;
+        var CostActualImprovementTotal = 0;
+        var CostCurrentWeekImprovementTotal = 0;
+        var CostLastWeekRiskTotal = 0;
+        var CostActualRiskTotal = 0;
+        var CostCurrentWeekRiskTotal = 0;
+        var j = 0;
+        for (var i = 0; i < x.length; i++) {
+            j = i + 1;
+            //createGauges("gauge_" + j,parseFloat(x[i].CompletionPerc()));
+            CompletionTotal = parseFloat(CompletionTotal) + parseFloat(x[i].CompletionPerc());
+            DaysPlanImprovementTotal = parseFloat(DaysPlanImprovementTotal) + parseFloat(x[i].DaysPlanImprovement()) + parseFloat(x[i].DaysPlanRisk());
+            console.log("DPI:" + DaysPlanImprovementTotal);
+            DaysLastWeekImprovementTotal = parseFloat(DaysLastWeekImprovementTotal) + parseFloat(x[i].DaysLastWeekImprovement());
+            DaysActualImprovementTotal = parseFloat(DaysActualImprovementTotal) + parseFloat(x[i].DaysActualImprovement());
+            DaysCurrentWeekImprovementTotal = parseFloat(DaysCurrentWeekImprovementTotal) + parseFloat(x[i].DaysCurrentWeekImprovement());
+            DaysLastWeekRiskTotal = parseFloat(DaysLastWeekRiskTotal) + parseFloat(x[i].DaysLastWeekRisk());
+            DaysActualRiskTotal = parseFloat(DaysActualRiskTotal) + parseFloat(x[i].DaysActualRisk());
+            DaysCurrentWeekRiskTotal = parseFloat(DaysCurrentWeekRiskTotal) + parseFloat(x[i].DaysCurrentWeekRisk());
+            CostPlanImprovementTotal = parseFloat(CostPlanImprovementTotal) + parseFloat(x[i].CostPlanImprovement()) + parseFloat(x[i].CostPlanRisk());
+            CostLastWeekImprovementTotal = parseFloat(CostLastWeekImprovementTotal) + parseFloat(x[i].CostLastWeekImprovement());
+            CostActualImprovementTotal = parseFloat(CostActualImprovementTotal) + parseFloat(x[i].CostActualImprovement());
+            CostCurrentWeekImprovementTotal = parseFloat(CostCurrentWeekImprovementTotal) + parseFloat(x[i].CostCurrentWeekImprovement());
+            CostLastWeekRiskTotal = parseFloat(CostLastWeekRiskTotal) + parseFloat(x[i].CostLastWeekRisk());
+            CostActualRiskTotal = parseFloat(CostActualRiskTotal) + parseFloat(x[i].CostActualRisk());
+            CostCurrentWeekRiskTotal = parseFloat(CostCurrentWeekRiskTotal) + parseFloat(x[i].CostCurrentWeekRisk());
+
+            if (x[i].Completion() == "Realized") {
+
+                DaysPlanImprovementTotal_RealCR += x[i].DaysPlanImprovement();
+                DaysPlanRiskTotal_RealCR += x[i].DaysPlanRisk();
+                CostPlanImprovementTotal_RealCR += x[i].CostPlanImprovement();
+                CostPlanRiskTotal_RealCR += x[i].CostPlanRisk();
+                CostCurrentWeekImprovementTotal_RealCR += x[i].DaysCurrentWeekImprovement();
+                CostCurrentWeekRiskTotal_RealCR += x[i].DaysCurrentWeekRisk();
+                DaysCurrentWeekImprovementTotal_RealCR += x[i].CostCurrentWeekImprovement();
+                DaysCurrentWeekRiskTotal_RealCR += x[i].CostCurrentWeekRisk();
+            } else {
+
+                DaysPlanImprovementTotal_NotRealCR += x[i].DaysPlanImprovement();
+                DaysPlanRiskTotal_NotRealCR += x[i].DaysPlanRisk();
+                CostPlanImprovementTotal_NotRealCR += x[i].CostPlanImprovement();
+                CostPlanRiskTotal_NotRealCR += x[i].CostPlanRisk();
+                CostCurrentWeekImprovementTotal_NotRealCR += x[i].DaysCurrentWeekImprovement();
+                CostCurrentWeekRiskTotal_NotRealCR += x[i].DaysCurrentWeekRisk();
+                DaysCurrentWeekImprovementTotal_NotRealCR += x[i].CostCurrentWeekImprovement();
+                DaysCurrentWeekRiskTotal_NotRealCR += x[i].CostCurrentWeekRisk();
+            }
+        }
+
+        model.wrmodel().CompletionTotal_CR(number_format(CompletionTotal));
+        model.wrmodel().DaysPlanImprovementTotal_CR(number_format(DaysPlanImprovementTotal));
+        model.wrmodel().DaysLastWeekImprovementTotal_CR(number_format(DaysLastWeekImprovementTotal));
+        model.wrmodel().DaysActualImprovementTotal_CR(number_format(DaysActualImprovementTotal));
+        model.wrmodel().DaysCurrentWeekImprovementTotal_CR(number_format(DaysCurrentWeekImprovementTotal));
+        model.wrmodel().DaysLastWeekRiskTotal_CR(number_format(DaysLastWeekRiskTotal));
+        model.wrmodel().DaysActualRiskTotal_CR(number_format(DaysActualRiskTotal));
+        model.wrmodel().DaysCurrentWeekRiskTotal_CR(number_format(DaysCurrentWeekRiskTotal));
+        model.wrmodel().CostPlanImprovementTotal_CR(number_format(CostPlanImprovementTotal));
+        model.wrmodel().CostLastWeekImprovementTotal_CR(number_format(CostLastWeekImprovementTotal));
+        model.wrmodel().CostActualImprovementTotal_CR(number_format(CostActualImprovementTotal));
+        model.wrmodel().CostCurrentWeekImprovementTotal_CR(number_format(CostCurrentWeekImprovementTotal));
+        model.wrmodel().CostLastWeekRiskTotal_CR(number_format(CostLastWeekRiskTotal));
+        model.wrmodel().CostActualRiskTotal_CR(number_format(CostActualRiskTotal));
+        model.wrmodel().CostCurrentWeekRiskTotal_CR(number_format(CostCurrentWeekRiskTotal));
+
+        //realized
+        model.wrmodel().DaysPlanImprovementTotal_RealCR(number_format(DaysPlanImprovementTotal_RealCR));
+        model.wrmodel().DaysPlanImprovementTotal_NotRealCR(number_format(DaysPlanImprovementTotal_NotRealCR));
+        model.wrmodel().DaysPlanRiskTotal_RealCR(number_format(DaysPlanRiskTotal_RealCR));
+        model.wrmodel().DaysPlanRiskTotal_NotRealCR(number_format(DaysPlanRiskTotal_NotRealCR));
+        model.wrmodel().CostPlanImprovementTotal_RealCR(number_format(CostPlanImprovementTotal_RealCR));
+        model.wrmodel().CostPlanImprovementTotal_NotRealCR(number_format(CostPlanImprovementTotal_NotRealCR));
+        model.wrmodel().CostCurrentWeekImprovementTotal_RealCR(number_format(CostCurrentWeekImprovementTotal_RealCR));
+        model.wrmodel().CostCurrentWeekImprovementTotal_NotRealCR(number_format(CostCurrentWeekImprovementTotal_NotRealCR));
+        model.wrmodel().CostCurrentWeekRiskTotal_RealCR(number_format(CostCurrentWeekRiskTotal_RealCR));
+        model.wrmodel().CostCurrentWeekRiskTotal_NotRealCR(number_format(CostCurrentWeekRiskTotal_NotRealCR));
+        model.wrmodel().DaysCurrentWeekImprovementTotal_RealCR(number_format(DaysCurrentWeekImprovementTotal_RealCR));
+        model.wrmodel().DaysCurrentWeekImprovementTotal_NotRealCR(number_format(DaysCurrentWeekImprovementTotal_NotRealCR));
+        model.wrmodel().DaysCurrentWeekRiskTotal_RealCR(number_format(DaysCurrentWeekRiskTotal_RealCR));
+        model.wrmodel().DaysCurrentWeekRiskTotal_NotRealCR(number_format(DaysCurrentWeekRiskTotal_NotRealCR));
+    }
+
+
+    function number_format(number1) {
+        //alert("format:" + number1);
+        //var number = number1.replaceAll('.', '');
+        number = number1;
+        var decimals = 1;
+        var dec_point = ".";
+        var thousands_sep = ",";
+        number = (number + '')
+          .replace(/[^0-9+\-Ee.]/g, '');
+        var n = !isFinite(+number) ? 0 : +number,
+          prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
+          sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
+          dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
+          s = '',
+          toFixedFix = function (n, prec) {
+              var k = Math.pow(10, prec);
+              return '' + (Math.round(n * k) / k)
+                .toFixed(prec);
+          };
+        // Fix for IE parseFloat(0.55).toFixed(0) = 0;
+        s = (prec ? toFixedFix(n, prec) : '' + Math.round(n))
+          .split('.');
+        if (s[0].length > 3) {
+            s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, sep);
+        }
+        if ((s[1] || '')
+          .length < prec) {
+            s[1] = s[1] || '';
+            s[1] += new Array(prec - s[1].length + 1)
+              .join('0');
+        }
+        //alert (s.join(dec));
+        return s.join(dec);
+    }
+</script>
+
+<div style="text-align:center; margin-bottom: 10px;">
+    <b style="text-align:center;">All costs are in $US Million</b>
+</div>
+
+<div class="col-md-12" data-bind="with:wrmodel">
+    <div data-bind="visible:mode()==''">
+
+        <div class="col-md-12 row filter">
+            <div class="col-md-4">
+                <div class="col-md-4">
+                    <label>Date From:</label>
+                </div>
+                <div class="col-md-8">
+                    <input type="text" class="entry-date" style="width: 100%" id="parmDateFrom" />
+                </div>
+            </div>
+
+            <div class="col-md-4" data-bind="visible: false">
+                <div class="col-md-4">
+                    <label>Rig:</label>
+                </div>
+                <div class="col-md-8">
+                    <input id="parmRig" placeholder="select rig" />
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="col-md-4">
+                    <label>Well:</label>
+                </div>
+                <div class="col-md-8">
+                    <input id="parmWell" placeholder="select well" />
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="col-md-4">
+                    <label>Keyword:</label>
+                </div>
+                <div class="col-md-8">
+                    <input id="parmKeyword" placeholder="keyword" type="text" class="text" />
+                </div>
+            </div>
+
+            <div class="clearfix"></div>
+
+            <div class="col-md-4">
+                <div class="col-md-4">
+                    <label>Date To:</label>
+                </div>
+                <div class="col-md-8">
+                    <input type="text" class="entry-date" style="width: 100%" id="parmDateTo" />
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="col-md-4">
+                    <label>Activity:</label>
+                </div>
+                <div class="col-md-8">
+                    <input id="parmActivity" placeholder="select activity" />
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="col-md-4">
+                    <label>Base OP:</label>
+                </div>
+                <div class="col-md-8">
+                    @*<input id="parmOps" placeholder="Select Base OP" />*@
+                    <select id="parmOps" style="width:100%;"></select>
+                </div>
+            </div>
+
+            <div class="clearfix"></div>
+
+            @*<div class="col-md-4">
+                <div class="col-md-4">
+                    <label>OP Relation:</label>
+                </div>
+                <div class="col-md-8">
+                    <select data-model="opRelation" style="width:100%;"></select>
+                </div>
+            </div>*@
+
+            <div class="clearfix"></div>
+
+            <div class="col-md-4" data-bind="visible: false">
+                <div class="col-md-4">
+                    <label>Status:</label>
+                </div>
+                <div class="col-md-8">
+                    <select id="parmStatus" class="text">
+                        <option value="">All</option>
+                        <option value="In-Progress">In-Progress</option>
+                        <option value="Submitted">Submitted</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="col-md-12 row" style="text-align: right; padding-right: 6px;">
+                <button class="btn btn-custom btn-primary btn-sm" data-bind="click:refresh">
+                    <span class="glyphicon glyphicon-refresh"></span> Refresh
+                </button>
+            </div>
+        </div>
+
+        <div style="margin-bottom:10px;">
+            @*<button class="btn btn-warning btn-sm" data-bind="click:refresh">Refresh</button>*@
+            &nbsp;
+            @*<button class="btn btn-primary btn-sm" data-bind="click:wfinit">Initiate Workflow</button>
+                <button class="btn btn-primary btn-sm" data-bind="click:wfdistribute">Distribute</button>*@
+            @*<button class="btn btn-primary btn-sm" data-bind="click:print">Print</button>*@
+        </div>
+        @*<b>In-Progress</b>
+            <div id="grid-progress" class="grid" data-parm="In-Progress" style="margin-top:10px;"></div>
+            <br /><br />
+
+            <b>Submitted</b>
+            <div id="grid-submitted" class="grid" data-parm="Submitted" style="margin-top:10px;"></div>
+            <br /><br />*@
+        <div data-bind="visible: model.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div data-bind="visible: !model.IsProcessing()">
+            <b>Distributed</b>
+            <div id="grid-distributed" class="grid" data-parm="Distributed" style="margin-top:10px;"></div>
+            <br /><br />
+        </div>
+
+
+    </div>
+
+    <div data-bind="visible:mode()=='Select'">
+        <button class="btn btn-primary btn-sm" data-bind="click:selectCancel">Back to New Record</button>
+        <h3></h3>
+        Please select an operation sequence
+        <div id="gridsequence"></div>
+    </div>
+
+    <div class="panel-wf-init" data-bind="visible:mode()=='wf'">
+        <h3>Data Entry &#8594;  Weekly Report &#8594;  Initiate Workflow</h3>
+        <div class="form-horizontal" style="width:90%" id="frmWFStart">
+            <p>
+                Please enter the date of Workflow Base and place comment as neccessary. An email will be distributed to every rig engineers.
+            </p>
+            <div class="form-group">
+                <label class="col-sm-3">Date</label>
+                <div class="col-sm-9"><input type="text" class="entry-date" data-bind="value: StartDate" id="dateWork" onchange="ChangeList(document.getElementById('dateWork').value)" /></div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3">Comment</label>
+                <div class="col-sm-9">
+                    <textarea style="height:80px;" class="full" id="CommentTxt" data-bind="value:StartComment"></textarea>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3"></label>
+                <div class="col-sm-9">
+                    <button class="btn btn-primary btn-sm" data-bind="click:wfstart">Start Workflow</button>
+                    <button class="btn btn-warning btn-sm" data-bind="click:cancel">Back to List</button>
+                </div>
+            </div>
+            <div class="form-group">
+
+                <div class="col-sm-9">
+
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Activity Phase</label>
+            <div id="gridwork" style="margin-top:10px;">
+            </div>
+        </div>
+    </div>
+
+    <div data-bind="visible:('New|Edit').indexOf(mode())>-1 && mode()!=''">
+        <div style="margin-bottom:5px;">
+            <button class="btn btn-custom btn-warning btn-sm" data-bind="click:cancel">
+                <span class="glyphicon glyphicon-arrow-left"></span> Back to Lists
+            </button>
+            &nbsp;
+            <button class="btn btn-custom btn-primary btn-sm" data-bind="click:save, visible:false">
+                <span class="glyphicon glyphicon-save"></span> Save
+            </button>
+            <button class="btn btn-custom btn-primary btn-sm" data-bind="click:submit, visible:false">
+                <span class="glyphicon glyphicon-ok"></span> Submit
+            </button>
+            <button class="btn btn-custom btn-primary btn-sm" data-bind="click:print">
+                <span class="glyphicon glyphicon-print"></span> Print
+            </button>
+            <button class="btn btn-warning btn-sm" data-bind="click:selectSequence, visible:mode()=='New'">
+                Load from Existing OPS Sequence
+            </button>
+            <button class="btn btn-custom btn-success btn-sm" data-bind="click:reopen, visible:!model.wrmodel().isRO()=='1' && model.wrmodel().isAdmin()=='1'">
+                <span class="glyphicon glyphicon-folder-open"></span>&nbsp;&nbsp;Re-Open
+            </button>
+        </div>
+        <h3></h3>
+
+        <div data-bind="with:record">
+            <div class="form-horizontal">
+                <div class="form-group">
+                    <label class="col-md-2">Country</label>
+                    <div class="col-md-4">
+                        <span data-bind="text:Country"></span>
+                    </div>
+                    <label class="col-md-2">Asset</label>
+                    <div class="col-md-4">
+                        <span data-bind="text:AssetName"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-md-2">Not OP-15 Well</label>
+                    <div class="col-md-4">
+                        <input type="checkbox" data-bind="checked:NewWell, enable: $parent.mode()=='New'" />&nbsp;Check if it is a new well
+                    </div>
+                    <label class="col-md-2">Well Name</label>
+                    <div class="col-md-4">
+                        <span data-bind="text:WellName"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-md-2">Activities</label>
+                    <div class="col-md-4">
+                        <span data-bind="text:Phase.ActivityType"></span>
+                    </div>
+                    <label class="col-md-2">Activity Desc</label>
+                    <div class="col-md-4">
+                        <span data-bind="text: Phase.ActivityDesc" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-md-2">Week Of</label>
+                    <div class="col-md-10">
+                        <input type="text" id="weekof" style="width:120px"
+                               data-bind="value: UpdateVersion, enable: $parent.mode()=='New'" />
+                    </div>
+                </div>
+            </div>
+
+            <div data-bind="visible:$parent.mode()=='Edit'" style="margin-top:5px;">
+                <ul class="nav nav-tabs">
+                    <li class="active"><a href="#commentary" data-toggle="tab">Commentary</a></li>
+                    <li><a href="#waterfall" data-toggle="tab">Waterfall</a></li>
+                    <li><a href="#waterfallByRealised" data-toggle="tab">Waterfall (By Realised / Unrealised)</a></li>
+                    <li><a href="#files" data-toggle="tab">Supporting Document</a></li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane active" id="commentary">
+                        @Html.Partial("_commentary")
+                    </div>
+                    <div class="tab-pane" id="waterfall">
+                        @Html.Partial("_waterfall")
+                    </div>
+                    <div class="tab-pane" id="waterfallByRealised">
+                        @Html.Partial("_waterfall_by_realised")
+                    </div>
+                    <div class="tab-pane" id="files">
+                        @Html.Partial("_documents")
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var grid = $(".grid");
+
+    function ChangeList(t) {
+        //alert('begin initGridWork() : ' + t);
+        initGridWork(t);
+    }
+
+    function init() {
+        input2datePicker($("#frmWFStart").find(".entry-date"));
+        grid.kendoGrid({
+            pageable: true,
+            sortable: true,
+            columns: [
+                {
+                    width: 30,
+                    template: "<input type='checkbox' class='checkme' value='#: _id #'>"
+                },
+                {
+                    field: "WellName", title: "Well Name",
+                    attributes: { style: "text-align:left" },
+                    template: "<a style='cursor:pointer' onclick='select(\"#: _id #\",\"#: WellName #\")'>#: WellName #</a>"
+                },
+                { field: "UpdateVersion", title: "Week", template: "#: jsonDateStr(UpdateVersion) #", width: 90 },
+                { field: "Phase.ActivityType", title: "Activity Category" },
+                { field: "AFE.Days", title: "AFE<br/>Days", format: "{0:N0}", attributes: { style: "text-align:right" }, width: 60 },
+                { field: "Actual.Days", title: "Actual<br/>Days", format: "{0:N0}", attributes: { style: "text-align:right" }, width: 60 },
+                { field: "CurrentWeek.Days", title: "Last<br/>Estimate<br/>Days", format: "{0:N0}", attributes: { style: "text-align:right" }, width: 60 },
+                {
+                    field: "AFE.Cost", title: "AFE<br/>Cost",
+                    template: "#: kendo.format('{0:N1}',AFE.Cost/1000000) #",
+                    format: "{0:N0}", attributes: { style: "text-align:right" }, width: 120
+                },
+                {
+                    field: "Actual.Cost", title: "Actual<br/>Cost",
+                    template: "#: kendo.format('{0:N1}',Actual.Cost/1000000) #",
+                    format: "{0:N0}", attributes: { style: "text-align:right" }, width: 120
+                },
+                {
+                    field: "CurrentWeek.Cost", title: "Last<br/>Estimate<br/>Cost",
+                    template: "#: kendo.format('{0:N1}',CurrentWeek.Cost/1000000) #",
+                    format: "{0:N0}", attributes: { style: "text-align:right" }, width: 120
+                },
+                {
+                    field: "Status", title: "Status", width: 100,
+                    template: "<label class='label #: Status=='Distributed' ? 'label-primary' : Status=='Submitted' ? 'label-success' : 'label-warning' #'>#: Status #</label>"
+                }
+            ]
+        });
+
+        $("#parmWell").kendoMultiSelect({ dataSource: model.WellNames(),filter: "contains" });
+        $("#parmActivity").kendoMultiSelect({ dataSource: model.Activities(),filter: "contains" });
+        $("#parmRig").kendoMultiSelect({ dataSource: model.RigNames() });
+        //$("#parmOps").kendoMultiSelect({ dataSource: model.OPs() });
+        $("#parmOps").kendoDropDownList({ dataSource: model.OPs(), value: model.OPs().length > 0 ? model.OpValue() : [""] });
+        _.each([
+            { id: "#parmDateFrom", value: new Date(@from.Year , @from.Month-1 , @from.Day) },
+            { id: "#parmDateTo", value: new Date(@to.Year , @to.Month-1 , @to.Day) }
+        ], function (e) {
+            $(e.id).kendoDatePicker({
+                format: jsonDateFormat,
+                start: "month",
+                depth: "month",
+                parseFormats: ["dd-MMM-yyyy"],
+                min: new Date(@from.Year , @from.Month-1 , @from.Day),
+                max: new Date(@to.Year , @to.Month-1 , @to.Day),
+                value: e.value
+            })
+        });
+
+        refresh();
+        //initGridSequence();
+        //initGridWork();
+    }
+
+    function initForm() {
+        input2datePicker($("#weekof"));
+    }
+    function gridSelect(id) {
+        ajaxPost("@Url.Action("SelectSequence")", { id: id }, function (data) {
+            data.Data.Record.UpdateVersion = jsonDateStr(data.Data.Record.UpdateVersion);
+            model.wrmodel().record(ko.mapping.fromJS(data.Data.Record));
+            model.wrmodel().mode("Edit");
+            initForm();
+        })
+    }
+
+    function refresh() {
+        if (model.IsProcessing()) return;
+
+        model.IsProcessing(true);model.setButton(true);
+
+        var url = "@Url.Action("SearchDistributed")";
+
+        @*$.each(grid, function (idx, obj) {
+            //alert(idx);
+            var $grid = $(obj);
+            var status = $grid.attr("data-parm");
+            if (status == "Distributed") {
+                var k = $grid.data("kendoGrid");
+                k.setDataSource(new kendo.data.DataSource({
+                    transport: {
+                        read: function(options) {
+                            //console.log(options);
+                            var status = grid.attr("data-parm");
+                            var param = {};
+                            param.take = options.data.take;
+                            param.skip = options.data.skip;
+                            param.sorts = options.data.sort;
+                            param.SearchDateFrom = $("#parmDateFrom").data("kendoDatePicker").value();
+                            param.SearchDateTo = $("#parmDateTo").data("kendoDatePicker").value();
+                            param.SearchWellNames = $("#parmWell").data("kendoMultiSelect").value();
+                            param.SearchActivities = $("#parmActivity").data("kendoMultiSelect").value();
+                            param.SearchStatus = status;
+                            param.SearchKeyword = $("#parmKeyword").val();
+                            param.OPs = $("#parmOps").data("kendoDropDownList").value();
+                            //param.OpRelation = $("[data-model=opRelation]").data("kendoDropDownList").value();
+                            //model.uimodel().processing(true);
+
+                            ajaxPost("@Url.Action("SearchDistributed")", param, function (result) {
+                                options.success(result);
+                            }, function (data) {
+                                options.error(result);
+                            });
+                        },
+                    },
+                    schema: {
+                        data: "Data.Data",
+                        total: "Data.Total",
+                    },
+                    pageSize: 10,
+                    serverPaging: true,
+                }));
+            }
+        });*@
+        
+        var param = {};        
+        param.SearchDateFrom = $("#parmDateFrom").data("kendoDatePicker").value();
+        param.SearchDateTo = $("#parmDateTo").data("kendoDatePicker").value();
+        param.SearchWellNames = $("#parmWell").data("kendoMultiSelect").value();
+        param.SearchActivities = $("#parmActivity").data("kendoMultiSelect").value();
+        param.SearchStatus = status;
+        param.SearchKeyword = $("#parmKeyword").val();
+        param.OPs = $("#parmOps").data("kendoDropDownList").value();
+        ajaxPost("@Url.Action("SearchDistributed")", param, function (result) {
+            var ds = new kendo.data.DataSource({
+                data:result.Data.Data,
+                type: "json",
+                pageSize: 10
+            })
+            $.each(grid,function(idx,obj){
+                var $grid = $(obj);
+                var status = $grid.attr("data-parm");
+                if (status == "Distributed"){
+                    $grid.data("kendoGrid").setDataSource(ds);
+
+                }
+            })
+            model.IsProcessing(false);model.setButton(false);
+
+
+        }, function (data) {
+            
+        });
+        
+    }
+
+
+    function initGridSequence() {
+        var gs = $("#gridsequence");
+        var kg = gs.kendoGrid({
+            pageable: true,
+            filterable: true,
+            sortable: true,
+            columns: [
+                {
+                    field: "WellName", title: "Well",
+                    template: "<a style='cursor:pointer' onclick='gridSelect(\"#: UARigSequenceId #\")'>#: WellName #</a>"
+                },
+                {
+                    field: "UARigSequenceId", title: "Rig Sequence", width: 50,
+                    attributes: { style: "text-align:right" }
+                },
+                { field: "RigName", title: "Rig" },
+                { field: "AssetName", title: "Asset" },
+                { field: "Phases[0].ActivityType", title: "Activity" },
+                {
+                    field: "Phases[0].AFESchedule.Start", title: "AFE Start", width: 90,
+                    template: "#: jsonDateStr(Phases[0].PhSchedule.Start) #"
+                },
+                {
+                    field: "Phases[0].AFESchedule.Finish", title: "AFE Finish", width: 90,
+                    template: "#: jsonDateStr(Phases[0].PhSchedule.Finish) #"
+                },
+                {
+                    field: "Phases[0].AFEDuration.Total",
+                    title: "AFE<br/>Duration", width: 70,
+                    format: "{0:N0}", attributes: { style: 'text-align:right;' }
+                },
+                {
+                    field: "Phases[0].AFECost.Total",
+                    title: "AFE<br/>Cost", width: 90,
+                    format: "{0:N0}", attributes: { style: 'text-align:right;' }
+                }
+            ]
+        }).data("kendoGrid");
+
+        ajaxPost("@Url.Action("GetSequences")",
+            {},
+            function (data) {
+
+                kg.setDataSource(new kendo.data.DataSource({
+                    data: data.Data,
+                    pageSize: 10
+                }));
+            }
+        );
+    }
+
+    function checkVal(x) {
+        $(x).attr('value', x.checked ? 1 : 0);
+    }
+
+    function initGridWork() {
+        var t = $("#dateWork").val();
+
+        $("#gridwork").replaceWith($("<div />").attr("id", "gridwork"));
+
+        var gs = $("#gridwork");
+        var kg = gs.kendoGrid({
+            pageable: false,
+            filterable: true,
+            sortable: true,
+            columns: [
+                {
+                    width: 30,
+                    field: "", title: "", template: "<input value='#: _id #'  type='checkbox' class='checkbox cb-phase' checked='checked' ></input>",
+                },
+                //{
+                //    field: "_id", title: "id",
+                //},
+                //{
+                //    field: "Phases[0].PhaseNo", title: "PhaseNo",
+                //},
+                {
+                    field: "WellName", title: "Well",
+                },
+                {
+                    field: "UARigSequenceId", title: "Rig Sequence", width: 50,
+                    attributes: { style: "text-align:right" }
+                },
+                { field: "RigName", title: "Rig" },
+                { field: "AssetName", title: "Asset" },
+                { field: "Phases[0].ActivityType", title: "Activity" },
+                {
+                    field: "Phases[0].AFESchedule.Start", title: "AFE Start", width: 90,
+                    template: "#: jsonDateStr(Phases[0].PhSchedule.Start) #"
+                },
+                {
+                    field: "Phases[0].AFESchedule.Finish", title: "AFE Finish", width: 90,
+                    template: "#: jsonDateStr(Phases[0].PhSchedule.Finish) #"
+                }
+
+            ]
+        }).data("kendoGrid");
+
+        ajaxPost("@Url.Action("GetWork", "WeeklyReport")",
+            { SearchDate: t },
+            function (data) {
+                kg.setDataSource(new kendo.data.DataSource({
+                    data: data.Data,
+                    pageSize: 10
+                }));
+            }
+        );
+    }
+</script>
+<script>
+    function select(id, WellName) {
+        model.ActivityId(id);
+        model.SelectedWellName(WellName);
+        model.wrmodel().selectedActivityUpdateId(id);
+        var url = "@Url.Action("select")";
+        model.IsProcessing(true);
+        ajaxPost(url, { id: id },
+            function (data) {
+                model.IsProcessing(false);
+                data.Data.Record.CurrentWeek.Cost = data.Data.Record.CurrentWeek.Cost / 1000000;
+
+                _.each(data.Data.Record.Elements, function (e) {
+                    e.CompletionOriginal = e.Completion;
+                    e.Completion *= 100;
+                });
+
+                model.wrmodel().CostScale("million");
+
+                var stat = true;
+                if (data.Data.Record.Status == "Distributed" || data.Data.Record.Status == "Submitted"){
+                    stat = false;
+                    //model.wrmodel().selectedPIPStatus("none");
+                }
+                    
+                model.wrmodel().selectedPIPEditable(stat);
+                model.wrmodel().record(ko.mapping.fromJS(data.Data.Record));
+                model.wrmodel().mode("Edit");
+                initForm();
+                var x = model.UploadDocument();
+                x.UploadDocumentWrapper(false);
+                x.ButtonShowUploadDoc(true);
+                model.UploadDocument().select();
+
+                var y = model.wrmodel().record();
+                ActualDays = parseFloat(y.Actual.Days());
+                NPTDays = parseFloat(y.NPT.Days());
+                if (ActualDays == 0 || NPTDays == 0) {
+                    var hour = 0;
+                } else {
+                    var hour = NPTDays * ActualDays * 24;
+                }
+                model.wrmodel().NPTHours(hour);
+
+                var maxWidth = ($(window).width() - 40) / 12 * 4 - 20;
+                $(".text-areas textarea").css("max-width", maxWidth);
+
+                count_total();
+
+                //alert("ok");
+                //model.wrmodel().countTotalWords("ExeSum");
+                //model.wrmodel().countTotalWords("OpsSum");
+                //model.wrmodel().countTotalWords("PlnOps");
+
+                //alert("ok2");
+                //wfdata = data.WFData;
+                refreshWaterfall();
+
+
+                GetPIPSummary(id);
+            },
+            function (err) {
+                model.IsProcessing(false);
+                alert(err.responseText)
+            });
+    }
+
+    function GetPIPSummary(wrach){
+        var datas = {
+            PIPId: wrach,
+            baseOP: model.summaryop()
+        };
+        ajaxPost("@Url.Action("GetSummary")",datas,
+        function (data) {
+            if (data.Success == true) {
+                refreshPIPSummary(data);
+                SumData = data
+            } else {
+                alert(data.Message);
+            }
+        });
+    }
+
+    function refreshPIPSummary(data){
+        var dt = GenDataPIPSummary(data.Data);
+
+        var ds = new kendo.data.DataSource({
+            data: dt,
+            schema: {
+                model: {
+                    fields: {
+                        "DaysPlanImprovement": { type: "number" },
+                        "DaysPlanRisk": { type: "number" },
+                        "CostPlanImprovement": { type: "number" },
+                        "CostPlanRisk": { type: "number" },
+                        "DaysCurrentWeekImprovement": { editable: false },
+                        "CostCurrentWeekImprovement": { editable: false },
+                        "DaysCurrentWeekRisk": { editable: false},
+                        "CostCurrentWeekRisk": { editable: false },
+                        "Completion": { editable: false }
+                    }
+                },
+            },
+
+            batch: true
+        });
+
+        $("#GridPIPSummary").data("kendoGrid").setDataSource(ds);
+    }
+
+</script>
+<script>
+    $(document).ready(function () {
+        init();
+    });
+
+    function PrintDocument() {
+        //alert(model.ActivityId());
+        //alert(model.SelectedWellName());
+        //window.open('@Url.Action("PrintDocument")' + "?id=" + model.ActivityId(), 'Print Activity', 'height=100%,width=100%,scrollbars=1');
+        @*var url = '@Url.Action("PrintDocument")' + "?id=" + model.ActivityId() + "&WellName=" + model.SelectedWellName();
+        openwin(url, 1500, 900);*@
+        var url = '@Url.Action("Print2Pdf")' + "?id=" + model.ActivityId() + "&WellName=" + model.SelectedWellName();
+        location.href = url;
+    }
+
+    function openwin(url, strWidth, strHeight) {
+        //if (popWin != "") { popWin.close() }
+        leftStr = (screen.width - strWidth) / 2;
+        topStr = (screen.height - strHeight) / 2 - 50;
+        windowProperties = "toolbar=no,menubar=no,scrollbars=yes,statusbar=no,height=" + strHeight + ",width=" + strWidth + ",left=" + leftStr + ",top=" + topStr + "";
+        var popWin = window.open(url, 'Print Activity', windowProperties);
+
+    }
+</script>

@@ -1,0 +1,46 @@
+﻿SELECT
+	CD_WELL.well_id AS WellId, 
+	CD_WELL.well_common_name AS WellName, 
+	DM_DAILY.date_report AS ReportDate,
+	DM_EVENT.event_id as EventId, 
+	DM_EVENT.event_code as EventCode, 
+	DM_EVENT.date_ops_start AS DateOps,
+	DM_AFE.afe_no as AFENo,
+	DM_DAILY.days_on_location AS DaysOnLocation,   
+	Sum(DM_DAILYCOST.cost_amount) as ActualCost,
+	DM_EVENT.cost_authorized as AFECost,
+	DM_AFE.estimated_days AS AFEDays
+FROM
+	DM_DAILYCOST, 
+	DM_AFE, 
+	DM_AFE_EVENT_LINK, 
+	DM_EVENT, 
+	CD_WELL, 
+	CD_SITE,
+	DM_DAILY
+WHERE
+	(
+		(DM_AFE.afe_id = DM_DAILYCOST.afe_id) AND
+		(DM_AFE_EVENT_LINK.afe_id=DM_AFE.afe_id) AND 
+		(DM_EVENT.well_id = DM_AFE_EVENT_LINK.well_id AND DM_EVENT.event_id = DM_AFE_EVENT_LINK.event_id) AND 
+		(CD_WELL.well_id = DM_EVENT.well_id) AND
+		(CD_SITE.site_id = CD_WELL.site_id) AND 
+		(DM_EVENT.well_id = DM_DAILYCOST.well_id AND DM_EVENT.event_id = DM_DAILYCOST.event_id) AND 
+		(DM_DAILYCOST.daily_id = DM_DAILY.daily_id)
+	) AND 
+	(trunc(DM_EVENT.date_ops_start) >= TO_DATE(@EventDate,'yyyy-MM-dd') ) AND 
+	(trunc(DM_DAILY.date_report) = TO_DATE(@DailyDate,'yyyy-MM-dd') )
+GROUP BY
+	CD_WELL.well_id,
+	CD_WELL.well_common_name, 
+	DM_EVENT.event_id,
+	DM_EVENT.event_code, 
+	DM_AFE.afe_no, 
+	DM_DAILY.days_on_location, 
+	DM_EVENT.cost_authorized,
+	DM_AFE.estimated_days, 
+	DM_DAILY.date_report, 
+	DM_EVENT.date_ops_start, 
+	DM_DAILY.daily_cost
+ORDER BY 
+	DM_DAILY.date_report desc

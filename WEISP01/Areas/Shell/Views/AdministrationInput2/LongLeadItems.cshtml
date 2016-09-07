@@ -1,0 +1,244 @@
+﻿@{
+    ViewBag.Title = "Long Lead Items";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<script>
+    model.Yo = {}; var y = model.Yo;
+
+    y.Activities = ko.observableArray([]);
+    y.DetailVisibility = ko.observable(false);
+    y.Refresh = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        model.Processing(true);
+        y.DetailVisibility(false);
+
+        var url = "@Url.Action("GetLongLeadItemsData")";
+        var param = y.GetParam();
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            model.Processing(false);
+            y.DetailVisibility(true);
+            y.Activities([]);
+
+            $(".nav-tabs").empty();
+            $(".tab-content").empty();
+            _.sortBy(res.Data, function (e) { return e.TabTitle; }).forEach(function (e, i) {
+                y.GenerateGrid(e, i);
+            });
+        });
+    };
+    y.GenerateGrid = function (data, i) {
+        var width = $(".the-container:visible").width();
+
+        var config = {
+            width: width,
+            dataSource: {
+                schema: {
+                    model: {
+                        fields: data.Fields
+                    }
+                },
+                data: data.Items,
+                pageSize: 15
+            },
+            columns: data.Columns,
+            filterable: false,
+            pageable: true,
+            resizable: false,
+            editable: true,
+            sortable: true
+        };
+
+        var $navTab = $('<li><a href="#m" data-toggle="tab"></a></li>')
+            .appendTo($(".nav-tabs"));
+
+        $navTab.find("a")
+            .attr("href", "#m" + i)
+            .html(data.TabTitle);
+
+        y.Activities.push(data.TabTitle);
+
+        var $tabContent = $('<div class="tab-pane" id="m"><div class="grid"></div></div>')
+            .attr("id", "m" + i)
+            .appendTo($(".tab-content"));
+
+        if (i == 0) {
+            $navTab.addClass('active');
+            $tabContent.addClass('active');
+        }
+
+        $tabContent.find('.grid').kendoGrid(config);
+    };
+    y.GetChanges = function () {
+        var results = [];
+
+        $(".grid").each(function (i, e) {
+            var data = $(e).data("kendoGrid").dataSource.data();
+            var parsedData = JSON.parse(kendo.stringify(data));
+            results.push(parsedData);
+        });
+
+        return results;
+    };
+    y.GetLatestYear = function () {
+        try {
+            var years = [];
+            var data = $(".grid").data("kendoGrid").dataSource.data()[0];
+
+            for (var i in data) {
+                if (data.hasOwnProperty(i) && i.indexOf('Year') > -1) {
+                    years.push(parseInt(i.replace(/Year_/g, ''), 10));
+                }
+            }
+
+            return _.max(years);
+        } catch (err) {
+            return moment(new Date()).year();
+        }
+    };
+    y.AddYear = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        var newFY = "FY" + String(y.GetLatestYear() + 1).substring(2);
+        if (!confirm("This will add new column " + newFY + ". Are you sure?")) {
+            return;
+        }
+
+        var url = "@Url.Action("AddYearOnLongLeadItems")";
+        var param = y.GetParam();
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+    y.RemoveYear = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        var newFY = "FY" + String(y.GetLatestYear()).substring(2);
+        if (!confirm("This will remove column " + newFY + ". Are you sure?")) {
+            return;
+        }
+
+        var url = "@Url.Action("RemoveYearOnLongLeadItems")";
+        var param = y.GetParam();
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+    y.SaveUpdate = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        model.Processing(true);
+
+        var url = "@Url.Action("SaveLongLeadItemsData")";
+        var param = y.GetParam({
+            Activities: y.Activities(),
+            AllChanges: y.GetChanges()
+        });
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+
+    $(function () {
+        $('.grids').on('shown.bs.tab', 'a[data-toggle="tab"]', function (e) {
+            var id = $(e.target).attr("href");
+            var height = $(id).find(".k-grid-content-locked").height();
+
+            if (height == 0) {
+                $(id).find(".k-grid").data("kendoGrid").dataSource.read();
+            }
+        });
+    });
+</script>
+
+<div class="col-md-12" data-bind="with: model.Yo">
+    <div class="controls">
+        @Html.Partial("_Filter")
+
+        <div class="filter">
+            <div class="form-group">
+                <div class="col-md-1"></div>
+                <div class="col-md-11">
+                    <button class="btn btn-sm btn-custom btn-primary" data-bind="click: Refresh">
+                        <span class="glyphicon glyphicon-refresh"></span> Refresh
+                    </button>
+                    <button class="btn btn-sm btn-custom btn-success" data-bind="click: SaveUpdate, visible: DetailVisibility()">
+                        <span class="glyphicon glyphicon-save"></span> Save Changes
+                    </button>
+                    &nbsp;
+                    <button class="btn btn-sm btn-custom btn-warning" data-bind="click: AddYear, visible: DetailVisibility()">
+                        <span class="glyphicon glyphicon-plus"></span> Add Year
+                    </button>
+                    <button class="btn btn-sm btn-custom btn-warning" data-bind="click: RemoveYear, visible: DetailVisibility()">
+                        <span class="glyphicon glyphicon-remove"></span> Remove Year
+                    </button>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form col-md-12 grids" data-bind="visible: DetailVisibility()">
+        <ul class="nav nav-tabs"></ul>
+
+        <div class="tab-content"></div>
+    </div>
+</div>
+
+<style>
+    .form {
+        padding-top: 10px;
+    }
+
+    .no-padding {
+        padding: 0px;
+    }
+
+    .tab-pane {
+        padding-top: 10px;
+    }
+</style>

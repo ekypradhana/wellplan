@@ -1,0 +1,769 @@
+﻿<style>
+    .legend .-6 {
+        height: 27px;
+        padding-top: 6px;
+    }
+
+    .legend .col-md-3 {
+        padding: 6px 2px;
+        text-align: center;
+        color: black;
+    }
+
+    .legend .clearfix {
+        height: 1px;
+        clear: both;
+    }
+    
+    .legend {
+        margin-top: 120px;
+        margin-left: 10px;
+        width: 360px;
+        opacity: 0.8;
+        display: none;
+    }
+
+    .legend, .chart2, .chart3 {
+        float: left;
+    }
+
+    .chart2, .chart3 {
+        margin-bottom: 20px;
+    }
+
+    .waterfall-legend {
+        margin: 0px auto;
+        width: 1000px;
+        margin-bottom: 20px;
+    }
+
+        .waterfall-legend .each {
+            float: left;
+            margin-right: 10px;
+        }
+
+            .waterfall-legend .each .color {
+                width: 40px;
+                height: 16px;
+                margin-right: 4px;
+            }
+
+            .waterfall-legend .each div {
+                float: left;
+            }
+
+                .waterfall-legend .each div.clearfix {
+                    float: none;
+                }
+
+        .waterfall-legend .clearfix {
+            clear: both;
+        }
+</style>
+<script>
+    model.WaterfallStacked = {};
+    model.WaterfallStacked.ShowBy = ko.observable("Days");
+    model.WaterfallStacked.ShellShare = ko.observable(false);
+    model.WaterfallStacked.Colors = {
+        Negative: ["#92D050", "#00B050", "#00B0F0", "#92CDDC"],
+        Positive: ["#FF0000", "#FFC000", "#AA1AC7", "#945757"],
+    };
+    model.WaterfallStacked.GetColor = function (which, key) {
+        var colors = model.WaterfallStacked.Colors[which];
+        try {
+            var index = model.wrmodel().MasterClassifications().indexOf(key);
+            return colors[index];
+        } catch (err) {
+            return colors[0];
+        }
+    };
+    function headerTemplate(title, unit) {
+        return "<a class='k-link'>" + title + "</a><span class='k-unit'>(" + unit + ")</a>";
+    };
+    var headerUnitSummary = 150;
+    var gridColumnsChartSummary = [
+
+
+
+        {
+            field: "OP", title: "OP-15", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                style: "text-align: center; color: white; background: #002060",
+            }, width: headerUnitSummary
+        },
+        {
+            title: "Realized PIPs Opp", headerAttributes: { style: "text-align: center;"}, columns: [
+                {
+                    field: "RealizedCompetitiveScopeOpp", title: "Realized Competitive<br>Scope Opp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #92D050'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "RealizedSupplyChainTransformationOpp", title: "Realized Supply Chain<br>Transformation Opp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #00B050'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "RealizedEfficientExecutionOpp", title: "Realized Efficient<br>Execution Opp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #00B0F0'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "RealizedTechnologyandInnovationOpp", title: "Realized Technology and<br>Innovation Opp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #92CDDC'
+                    }, width: headerUnitSummary
+                },
+            ]
+        },
+
+        {
+            title: "Realized PIPs Risk", headerAttributes: { style: "text-align: center;" }, columns: [
+                {
+                    field: "RealizedCompetitiveScopeRisk", title: "Realized Competitive<br>Scope Risk", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #FF0000'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "RealizedSupplyChainTransformationRisk", title: "Realized Supply Chain<br>Transformation Risk", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #FFC000'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "RealizedEfficientExecutionRisk", title: "Realized Efficient<br>Execution Risk", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #AA1AC7'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "RealizedTechnologyandInnovationRisk", title: "Realized Technology and<br>Innovation Risk", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #945757'
+                    }, width: headerUnitSummary
+                },
+            ]
+        },
+
+        {
+            title: "Additional Banked Saving", headerAttributes: { style: "text-align: center;" }, columns: [
+                {
+                    field: "ADSCompetitiveScope", title: "ADS Competitive<br>Scope ", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #92D050'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "ADSSupplyChainTransformation", title: "ADS Supply Chain<br>Transformation ", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #00B050'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "ADSEfficientExecution", title: "ADS Efficient<br>Execution ", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #00B0F0'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "ADSTechnologyandInnovation", title: "ADS Technology and<br>Innovation ", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #92CDDC'
+                    }, width: headerUnitSummary
+                },
+            ]
+        },
+
+
+        {
+            field: "LE", title: "LE", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                style: 'text-align: center; color: white; background: #0070C0'
+            }, width: headerUnitSummary
+        },
+
+
+        {
+            title: "UnRealized PIPs Opp", headerAttributes: { style: "text-align: center;" }, columns: [
+                {
+                    field: "UnRealizedCompetitiveScopeOpp", title: "Unrealized Competitive<br>Scope Opp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #92D050'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "UnRealizedSupplyChainTransformationOpp", title: "Unrealized Supply Chain<br>Transformation Opp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #00B050'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "UnRealizedEfficientExecutionOpp", title: "Unrealized Efficient<br>Execution Opp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #00B0F0'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "UnRealizedTechnologyandInnovationOpp", title: "Unrealized Technology and<br>Innovation Opp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #92CDDC'
+                    }, width: headerUnitSummary
+                },
+            ]
+        },
+
+        {
+            title: "UnRealized PIPs Opp", headerAttributes: { style: "text-align: center;" }, columns: [
+                {
+                    field: "UnRealizedCompetitiveScopeRisk", title: "Unrealized Competitive<br>Scope Risk", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #FF0000'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "UnRealizedSupplyChainTransformationRisk", title: "Unrealized Supply Chain<br>Transformation Risk", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #FFC000'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "UnRealizedEfficientExecutionRisk", title: "Unrealized Efficient<br>Execution Risk", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #AA1AC7'
+                    }, width: headerUnitSummary
+                },
+                {
+                    field: "UnRealizedTechnologyandInnovationRisk", title: "Unrealized Technology and<br>Innovation Risk", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: 'text-align: center; color: white; background: #945757'
+                    }, width: headerUnitSummary
+                },
+
+            ]
+        },
+
+        {
+            field: "Upside", title: "Upside", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                style: 'text-align: center; color: white; background: #333'
+            }, width: headerUnitSummary
+        },
+    ];
+
+
+
+    function detailInitSummary(e) {
+
+        $("<div/>").appendTo(e.detailCell).kendoGrid({
+            dataSource: {
+                data: [],
+                schema: {
+                    model: {
+                        fields: {
+                            "OP15": { type: "number" },
+                            "CompetitiveScopeOpp": { type: "number" },
+                            "CompetitiveScopeRisk": { type: "number" },
+                            "SupplyChainTransformationOpp": { type: "number" },
+                            "SupplyChainTransformationRisk": { type: "number" },
+                            "EfficientExecutionOpp": { type: "number" },
+                            "EfficientExecutionRisk": { type: "number" },
+                            "TechnologyandInnovationOpp": { type: "number" },
+                            "TechnologyandInnovationRisk": { type: "number" },
+                            "LE": { type: "number" },
+                            "Upside": { type: "number" },
+                        }
+                    },
+                },
+                //filter: { field: "Completion", operator: "eq", value: e.data.Completion }
+            },
+            scrollable: false,
+            sortable: true,
+            pageable: false,
+            columns: [
+                {
+                    field: "OP15", title: "OP-15", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: "display: none"
+                    },
+                },
+                {
+                    field: "CompetitiveScopeOpp", title: "CompetitiveScopeOpp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: "display: none"
+                    },
+                },
+                {
+                    field: "CompetitiveScopeRisk", title: "CompetitiveScopeRisk", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: "display: none"
+                    },
+                },
+                {
+                    field: "SupplyChainTransformationOpp", title: "SupplyChainTransformationOpp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: "display: none"
+                    },
+                },
+                {
+                    field: "SupplyChainTransformationRisk", title: "SupplyChainTransformationRisk", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: "display: none"
+                    },
+                },
+                {
+                    field: "EfficientExecutionOpp", title: "EfficientExecutionOpp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: "display: none"
+                    },
+                },
+                {
+                    field: "EfficientExecutionRisk", title: "EfficientExecutionRisk", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: "display: none"
+                    },
+                },
+                {
+                    field: "TechnologyandInnovationOpp", title: "TechnologyandInnovationOpp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: "display: none"
+                    },
+                },
+                {
+                    field: "TechnologyandInnovationRisk", title: "TechnologyandInnovationRisk", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: "display: none"
+                    },
+                },
+                {
+                    field: "LE", title: "LE", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: "display: none"
+                    },
+                },
+                {
+                    field: "Upside", title: "Upside", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                        style: "display: none"
+                    },
+                },
+
+            ]
+        });
+        CloseHeader()
+    }
+    function CloseHeader() {
+        $(".k-grid tbody .k-grid .k-grid-header").hide();
+    }
+
+
+
+    model.WaterfallStacked.GenerateChartConfigMeta = function () {
+        var dataGridWaterfall = [];
+
+        var base = ko.mapping.toJS(model.wrmodel().record());
+        var showBy = model.WaterfallStacked.ShowBy();
+        var running = 0;
+
+        var OP = base.Plan[showBy];
+        var LE = model.CalculatedLEof(showBy)();
+
+        if (showBy == "Cost") {
+            OP /= 1000000;
+        }
+
+        var putItemOnIndex = function (item, i) {
+            var template = [0, 0, 0, 0, 0, 0, 0, 0];
+            template[i] = item;
+            return template;
+        }
+
+
+        var categories = [];
+        var series = [];
+        var index = 0;
+
+        // =========================== OP`
+        //var opAct = model.OpActive();
+        dataGridWaterfall.push({ "val": OP, "id": "OP" });
+        running += OP;
+        index++;
+        categories.push(model.OpActive());
+
+        // =========================== Classifications
+
+        var groupedElements = _(base.Elements).groupBy(function (d) {
+            var currentWeek = d[showBy + "CurrentWeekImprovement"] + d[showBy + "CurrentWeekRisk"];
+            var key = (d.Completion == "Realized" ? "Realized" : "Not Yet Realized") + " " + (currentWeek < 0 ? "Negative" : "Positive");
+            return key;
+        });
+
+        function GetClassificationBy(realized, positive, indexPlacement) {
+            var series = [];
+            var seriesTotal = 0;
+
+            model.wrmodel().MasterClassifications().forEach(function (m, i) {
+                var elements = _.filter(groupedElements[realized + " " + positive], { Classification: m });
+                var value = 0;
+
+                if (elements.length > 0) {
+                    value = _.reduce(elements, function (m, n) {
+                        return m + n[showBy + "CurrentWeekImprovement"] + n[showBy + "CurrentWeekRisk"];
+                    }, 0);
+                }
+                dataGridWaterfall.push({ "val": value, "id": realized + "|" + positive + "|" + m });
+                seriesTotal += value;
+            });
+
+            series = _.sortBy(series, function (ser) {
+                return _.filter(ser.data, function (fi) { return fi != 0; }).length;
+            });
+
+            series = _.map(series, function (e, i) {
+                if ((i + 1) == model.wrmodel().MasterClassifications().length) {
+                    e.labels = {
+                        template: function (e) {
+                            return seriesTotal.toFixed(2);
+                        },
+                        visible: true
+                    };
+                }
+
+                return e;
+            });
+
+            return {
+                data: series,
+                total: seriesTotal
+            };
+        }
+
+        // =========================== Classifications Realized Negative (-)
+
+        var seriesRealizedNegative = GetClassificationBy("Realized", "Negative", index);
+
+        running += seriesRealizedNegative.total;
+
+        if (seriesRealizedNegative.total != 0) {
+
+            series = series.concat(seriesRealizedNegative.data);
+            index++;
+            categories.push("Realized\nPIPs Opp");
+        }
+
+        // =========================== Classifications Realized Positive (+)
+
+        var seriesRealizedPositive = GetClassificationBy("Realized", "Positive", index);
+
+        if (seriesRealizedPositive.total != 0) {
+            index++;
+            categories.push("Realized\nPIPs Risk");
+        }
+        
+        running += seriesRealizedPositive.total;
+
+        // =========================== Banked Savings
+
+        var bankedSavingsData = _(model.wrmodel().MasterClassifications()).map(function (c) {
+            var key = c.split(" ").map(function (e) { return e[0].toUpperCase() + e.substr(1) }).join("");
+            return {
+                title: c,
+                value: parseFloat(base["BankedSavings" + key][showBy])
+            };
+        });
+
+        var groupedBankedSavingsData = _.groupBy(bankedSavingsData, function (d) {
+            return (d.value < 0 ? "Negative" : "Positive")
+        });
+
+        ["Negative", "Positive"].forEach(function (d) {
+            if (!groupedBankedSavingsData.hasOwnProperty(d)) {
+                groupedBankedSavingsData[d] = [];
+            }
+        });
+
+        // =========================== Banked Savings Negative (-)
+
+        var seriesBankedSavingNegative = [];
+        var seriesBankedSavingNegativeTotal = 0;
+
+        groupedBankedSavingsData.Negative.forEach(function (d, i) {
+            seriesBankedSavingNegative.push({
+                type: "column",
+                color: model.WaterfallStacked.GetColor("Negative", d.title),
+                data: putItemOnIndex(Math.abs(d.value), index),
+                width: 1,
+                markers: { visible: false },
+                tooltip: {
+                    visible: true,
+                    template: d.title + ": #: kendo.format('{0:N2}', " + d.value + ") #"
+                },
+            });
+            //dataGridWaterfall.push(d.value);
+            dataGridWaterfall.push({ "val": d.value, "id": d.title + "|" + "Negative" });
+            seriesBankedSavingNegativeTotal += d.value;
+        });
+
+        running += seriesBankedSavingNegativeTotal;
+
+        if (seriesBankedSavingNegativeTotal != 0) {
+            index++;
+            categories.push("Additional Banked\nSavings Opp");
+        }
+
+        // =========================== Banked Savings Positive (+)
+
+        var seriesBankedSavingPositive = [];
+        var seriesBankedSavingPositiveTotal = 0;
+
+        groupedBankedSavingsData.Positive.forEach(function (d, i) {
+            seriesBankedSavingPositive.push({
+                type: "column",
+                color: model.WaterfallStacked.GetColor("Positive", d.title),
+                data: putItemOnIndex(d.value, index),
+                width: 1,
+                markers: { visible: false },
+                tooltip: {
+                    visible: true,
+                    template: d.title + ": #: kendo.format('{0:N2}', " + d.value + ") #"
+                },
+            });
+            //dataGridWaterfall.push(d.value);
+            dataGridWaterfall.push({ "val": d.value, "id": d.title + "|" + "Positive" });
+            seriesBankedSavingPositiveTotal += d.value;
+        });
+
+        if (seriesBankedSavingPositiveTotal) {
+            index++;
+            categories.push("Additional Banked\nSavings Risk");
+        }
+
+        running += seriesBankedSavingPositiveTotal;
+
+        // =========================== LE
+        dataGridWaterfall.push({ "val": LE, "id": "LE" });
+        //dataGridWaterfall.push(LE);
+        running = LE;
+        index++;
+        categories.push("LE");
+
+        // =========================== Classifications Not Yet Realized Negative (-)
+
+        var seriesNotYetRealizedNegative = GetClassificationBy("Not Yet Realized", "Negative", index);
+
+        running += seriesNotYetRealizedNegative.total;
+
+        if (seriesNotYetRealizedNegative.total != 0) {
+            index++;
+            categories.push("Unrealized\nPIPs Opp");
+        }
+
+        // =========================== Classifications Not Yet Realized Positive (+)
+
+        var seriesNotYetRealizedPositive = GetClassificationBy("Not Yet Realized", "Positive", index);
+
+        if (seriesNotYetRealizedPositive.total != 0) {
+            index++;
+            categories.push("Unrealized\nPIPs Risk");
+        }
+
+        running += seriesNotYetRealizedPositive.total;
+
+        // =========================== upside
+
+        if (running != 0) {
+            dataGridWaterfall.push({ "val": running, "id": "Upside" });
+            //dataGridWaterfall.push(running);
+            index++;
+            categories.push("Upside");
+        }
+
+        series.forEach(function (d) {
+            d.data.splice(index);
+        });
+
+        //console.log("series");
+        //console.log(dataGridWaterfall);
+        model.wrmodel().DataGridWaterfall(dataGridWaterfall);
+        return {
+            categories: categories,
+            series: series
+        };
+    };
+
+    model.WaterfallStacked.GenerateChartConfig = function () {
+        var title = "Waterfall Chart - By " + model.WaterfallStacked.ShowBy();
+        //var configMeta = model.WaterfallStacked.ConfigMeta(); //model.WaterfallStacked.GenerateChartConfigMeta();
+        var config = {
+            title: title,
+            chartArea: {
+                background: "",
+                height: 400
+            },
+            seriesDefaults: {
+                type: "column",
+                stack: true,
+                overlay: {
+                    gradient: "none"
+                },
+                border: {
+                    opacity: 0
+                }
+            },
+            legend: { visible: false, position: "bottom" },
+            valueAxis: {
+                labels: { font: "10x verdana", format: "N2" },
+                majorGridLines: { visible: false },
+                //max: 0
+            },
+            categoryAxis: {
+                categories: [],//configMeta.categories,
+                labels: { font: "10x verdana", rotation: 45 },
+                majorGridLines: { visible: false }
+            },
+            series: []//configMeta.series
+        };
+
+        return config;
+    }
+
+    @*model.WaterfallStacked.ConfigMeta = function () {
+        ajaxPost("@Url.Action("Susu")", {},
+            function(res) {
+                res.Data;
+            }
+        )
+        return allReturn;
+        
+    }*@
+
+    model.WaterfallStacked.Refresh = function () {
+        $(".chart2").replaceWith('<div class="chart2"></div>');
+        $(".chart2").width($(".c-wrapper").width()).height(400);
+
+        ajaxPost("@Url.Action("GetWaterFallDataConfigDataSource")", {
+            //wellName: model.SelectedWellName(),
+            //    showBy: model.WaterfallStacked.ShowBy()
+            //},
+            ActivityId: model.ActivityId(),
+            showBy: model.WaterfallStacked.ShowBy(),
+            ShellShare: model.WaterfallStacked.ShellShare(),
+            CalcLEDays: model.CalculatedLEof('Days')().toFixed(2),
+            CalcLECost: model.CalculatedLEof('Cost')().toFixed(2)
+            },
+        
+            function(res) {
+                model.WaterfallStacked.GenerateChartConfigMeta();
+                var metaConfig = res.Data;
+                var config = model.WaterfallStacked.GenerateChartConfig();
+                config.valueAxis.max = metaConfig.max;
+                config.series = metaConfig.series;
+                config.categoryAxis.categories = metaConfig.categories;
+
+                $(".chart2").kendoChart(config);
+                console.log(metaConfig.tableData);
+                generateGridSummary(metaConfig.tableData); //model.wrmodel().DataGridWaterfall());
+            }
+        );
+
+        /* start - hide wrong placed label */
+        //var columnN = $(".chart2").data("kendoChart").options.series[0].data.length;
+        //var includeIndexes = [];
+        //for (var i = 0; i < columnN; i++) {
+        //    includeIndexes.push(i + (i * columnN));
+        //}
+
+        //$("svg > g > g[opacity]").each(function (i, e) {
+        //    $(e).closest('g')[(includeIndexes.indexOf(i) == -1) ? "hide" : "show"]();
+        //    $(e).closest('g')[(includeIndexes.indexOf(i) == 3) ? "hide" : "hide"]();
+        //});
+
+        /* end */
+    };
+
+    function generateGridSummary(data) {
+        var d = [];
+        var res = {};
+        var showBy = model.WaterfallStacked.ShowBy();
+
+        res.OP = data["OP"];
+        res.LE = data["LE"];
+        res.Upside = data["Upside"];
+        console.log(data);
+        res.RealizedCompetitiveScopeOpp = data["RealizedCompetitiveScopeOpp"];
+        res.RealizedCompetitiveScopeRisk = data["RealizedCompetitiveScopeRisk"];
+        res.RealizedSupplyChainTransformationOpp = data["RealizedSupplyChainTransformationOpp"];
+        res.RealizedSupplyChainTransformationRisk = data["RealizedSupplyChainTransformationRisk"];
+        res.RealizedEfficientExecutionOpp = data["RealizedEfficientExecutionOpp"];
+        res.RealizedEfficientExecutionRisk = data["RealizedEfficientExecutionRisk"];
+        res.RealizedTechnologyandInnovationOpp = data["RealizedTechnologyandInnovationOpp"];
+        res.RealizedTechnologyandInnovationRisk = data["RealizedTechnologyandInnovationRisk"];
+
+        res.UnRealizedCompetitiveScopeOpp = data["UnRealizedCompetitiveScopeOpp"];
+        res.UnRealizedCompetitiveScopeRisk = data["UnRealizedCompetitiveScopeRisk"];
+        res.UnRealizedSupplyChainTransformationOpp = data["UnRealizedSupplyChainTransformationOpp"];
+        res.UnRealizedSupplyChainTransformationRisk = data["UnRealizedSupplyChainTransformationRisk"];
+        res.UnRealizedEfficientExecutionOpp = data["UnRealizedEfficientExecutionOpp"];
+        res.UnRealizedEfficientExecutionRisk = data["UnRealizedEfficientExecutionRisk"];
+        res.UnRealizedTechnologyandInnovationOpp = data["UnRealizedTechnologyandInnovationOpp"];
+        res.UnRealizedTechnologyandInnovationRisk = data["UnRealizedTechnologyandInnovationRisk"];
+
+
+        res.ADSCompetitiveScope = data["ADSCompetitiveScope"];
+        res.ADSSupplyChainTransformation = data["ADSSupplyChainTransformation"];
+        res.ADSEfficientExecution = data["ADSEfficientExecution"];
+        res.ADSTechnologyandInnovation = data["ADSTechnologyandInnovation"];
+
+        //console.log("datagrid");
+        console.log(res);
+        d.push(res);
+        console.log(d);
+        var ds = new kendo.data.DataSource({
+            data: d,
+            pageSize: 10
+        });
+        $("#GridChartSummary").data("kendoGrid").setDataSource(ds);
+    }
+
+</script>
+
+<div id="chart-container">
+    <div class="ec-panel">
+        <div class="mini-nav bordered-mini-nav" style="width: 830px; margin: 0px auto;">
+            <div class="each-nav checkbox-nav">
+                <div>Show by : </div>
+                <div>
+                    <select data-bind="value: model.WaterfallStacked.ShowBy">
+                        <option value="Cost">Cost</option>
+                        <option value="Days">Days</option>
+                    </select>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:model.WaterfallStacked.ShellShare" />
+                </div>
+                <div>Calc Shell Share : </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav no-border-nav">
+                <button class="btn btn-primary btn-xs" onclick="model.WaterfallStacked.Refresh()" style="margin-top: -2px;">Refresh</button>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+    <div class="row chartToRenderPDF">
+        <div class="chart2"></div>
+        <div class="clearfix"></div>
+        <div class="waterfall-legend">
+            <div class="each">
+                <div class="color" style="background-color: #002060;"></div>
+                <div data-bind="text:model.OpActive()"></div>
+                <div class="clearfix"></div>
+            </div>
+            <!-- ko foreach: model.wrmodel().MasterClassifications() -->
+            <div class="each">
+                <div class="color" data-bind="style: { 'background-color': model.WaterfallStacked.GetColor('Negative', $data) }"></div>
+                <div data-bind="text: $data + ' Opp'"></div>
+                <div class="clearfix"></div>
+                <div style="float: none; margin-bottom: 2px;"></div>
+                <div class="color" data-bind="style: { 'background-color': model.WaterfallStacked.GetColor('Positive', $data) }"></div>
+                <div data-bind="text: $data + ' Risk'"></div>
+                <div class="clearfix"></div>
+            </div>
+            <!-- /ko -->
+            <div class="each">
+                <div class="color" style="background-color: #0070C0;"></div>
+                <div>LE</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each">
+                <div class="color" style="background-color: #333;"></div>
+                <div>Upside</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+    <div class="clearfix"></div>
+    <div class="col-md-12" style="text-align:center" data-bind="text:  'Waterfall Chart - By ' + model.WaterfallStacked.ShowBy()"></div>
+    <div class="clearfix"></div>
+    <div class="chartsummary">
+        <div style="margin-bottom:20px;" id="GridChartSummary" data-bind="kendoGrid:{data:[],columns:gridColumnsChartSummary,pageable:false,sortable:false,filterable:true,scrolable:true}"></div>
+    </div>
+    <div class="clearfix"></div>
+</div>
+
+<script>
+    
+</script>

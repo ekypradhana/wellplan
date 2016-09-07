@@ -1,0 +1,61 @@
+﻿<div class="col-md-12 no-padding">
+    <div class="col-md-12" style="text-align:center">
+
+        <ul class="nav nav-stacked" style="margin-bottom:10px">
+            <li class="stacked" style="background-color: #23be23; border: none; padding: 10px; color: #ffffff">Ring Rate</li>
+        </ul>
+    </div>
+    <div class="col-md-12">
+
+        <div class="ec-panel">
+            <div class="ec-panel" style="margin-left:40%;margin-top:20px">
+                <ul class="menu nav nav-pills">
+                    <li class="active"><a href="#rig_view" id="" data-toggle="pill">View All</a></li>
+                    <li><a href="#rig_edit" data-toggle="pill" id="">Edit All</a></li>
+                    <li><a href="#rig_viewind" data-toggle="pill" id="">View Individual</a></li>
+                    <li><a href="#rig_editind" data-toggle="pill" id="">Edit Individual</a></li>
+                </ul>
+            </div>
+
+            <div class="tab-content" style="margin-top:10px">
+                <div class="tab-pane active" id="rig_view" style="overflow-y:auto;">
+                    <div class="grid" id="rig_gridview" data-bind="kendoGrid: { data: model.bpmodel().rigData, columns: model.bpmodel().rigColumns, pageable: true, sortable: false, filterable: false, editable: false }"></div>
+                    <button class="btn btn-sm btn-success"> + </button>
+                </div>
+                <div class="tab-pane" id="rig_edit" style="overflow-y:auto;">
+                    <div class="grid" id="rig_gridedit" data-bind="kendoGrid: { data: model.bpmodel().rigData, columns: model.bpmodel().rigColumns, pageable: true, sortable: false, filterable: false, editable: false }"></div>
+                    <button class="btn btn-sm btn-success"> + </button>
+                    <div style="text-align:right;margin-top:10px">
+                        <button class="btn btn-sm btn-primary">Submit</button>
+                    </div>
+                </div>
+                <div class="tab-pane" id="rig_viewind" style="overflow-y:auto;">
+                    <br/>
+                    <table>
+                        <tr>
+                            <td><span>Select Rig</span></td>
+                            <td><input data-bind="kendoDropDownList:{data:['Deepwater Nautilus']}" data-placeholder="Select Rig ..." style="width: 200px; margin-left: 5px" /></td>
+                            <td><button class="btn btn-sm btn-primary">Next</button></td>
+                        </tr>
+                    </table>
+                    <div class="clearfix"></div>
+                    <div class="grid" id="rig_gridviewind" data-bind="kendoGrid: { data: model.bpmodel().rigData, columns: model.bpmodel().rigColumns, pageable: true, sortable: false, filterable: false, editable: false }"></div>
+                </div>
+                <div class="tab-pane" id="rig_editind">
+                    <table>
+                        <tr>
+                            <td><span>Select Rig</span></td>
+                            <td><input data-bind="kendoDropDownList:{data:['Deepwater Nautilus']}" data-placeholder="Select Rig ..." style="width: 200px; margin-left: 5px" /></td>
+                            
+                        </tr>
+                    </table>
+                    <div class="clearfix"></div>
+                    <div class="grid" id="rig_editgridviewind" data-bind="kendoGrid: { data: model.bpmodel().rigData, columns: model.bpmodel().rigColumns, pageable: true, sortable: false, filterable: false, editable: false }"></div>
+                    <div style="text-align:right;margin-top:10px">
+                        <button class="btn btn-sm btn-primary">Submit</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

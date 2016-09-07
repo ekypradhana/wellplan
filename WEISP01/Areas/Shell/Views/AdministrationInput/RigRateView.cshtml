@@ -1,0 +1,38 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+@{
+    ViewBag.Title = "Rig Rate";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<div class="col-md-12">
+    <ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
+        <li class="active"><a href="#tab1" data-toggle="tab">View</a></li>
+        <li><a href="#tab2" data-toggle="tab">Grid</a></li>
+    </ul>
+    <div class="tab-content">
+        <div class="tab-pane active" id="tab1">
+            @Html.Partial("RigRateViewOnly")
+        </div>
+        <div class="tab-pane" id="tab2">
+            @Html.Partial("RigRate")
+        </div>
+    </div>
+</div>
+
+<script>
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        var $target = $($(e.target).attr("href"));
+        $target.find(".k-grid").data("kendoGrid").refresh();
+    });
+</script>
+
+<style>
+    .tab-content {
+        margin-top: 15px;
+    }
+</style>

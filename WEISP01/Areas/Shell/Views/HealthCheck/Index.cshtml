@@ -1,0 +1,54 @@
+﻿
+@using ECIS.Core
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@{
+    ViewBag.Title = "Health Check";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<style>
+    .nav-tabs > li {
+        width: 50%;
+        font-size: 14px;
+        text-align: center;
+    }
+</style>
+
+<script>
+    model.PageId("Administration");
+    model.healthCheckShowAs = ko.observable("overview");//overview or detail
+    //function HandleRef() {
+    //    model.RenderChart();
+    //}
+</script>
+
+@*<div class="col-md-12">
+    @Html.Partial("_overview")
+</div>
+
+<div class="col-md-12">
+    @Html.Partial("_detail")
+</div>*@
+
+<div class="col-md-12">
+    <div>
+
+        <!-- Nav tabs -->
+        <ul class="nav nav-tabs" role="tablist">
+            <li role="presentation" class="active"><a href="#overview" aria-controls="overview" role="tab" data-toggle="tab">Overview</a></li>
+            <li role="presentation"><a href="#detail" onclick="model.RefreshData()" aria-controls="detail" role="tab" data-toggle="tab">Custom Check</a></li>
+        </ul>
+
+        <!-- Tab panes -->
+        <div class="tab-content">
+            <div role="tabpanel" class="tab-pane active" id="overview">
+                @Html.Partial("_overview")
+            </div>
+            <div role="tabpanel" class="tab-pane" id="detail">
+                @Html.Partial("_detail")
+            </div>
+        </div>
+
+    </div>
+</div>

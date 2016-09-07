@@ -1,0 +1,765 @@
+﻿@{
+    ViewBag.Title = "Button Checker";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<style>
+    .reposition{
+        margin-top: -80px;
+    }
+</style>
+<div class="col-md-12">
+    @Html.Partial("FilterForWaterfall")
+    <button type="button" class="btn btn-primary btn-lg btn-block col-md-12" data-bind="click: checkResponses()" style="margin-bottom:5px">Check</button>
+    <div class="clearfix"></div>
+    <div data-bind="visible: !model.reponseStatus()">
+        <div class="panel panel-default" data-bind="with:model.actionResult">
+            <div class="panel-heading">
+                Result:
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th width="40%">Module Name</th>
+                        <th width="10%">Response</th>
+                        <th width="50%">Error Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Business Plan Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshBusplanLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <span data-bind="visible: !refreshBusplanLoading()">
+                                <!-- ko if (model.actionResult.refreshBusplan() == 'OK')-->
+                                <span class="label label-success" data-bind="text:refreshBusplan" style="padding:10px"></span>
+                                <!-- /ko -->
+                                <!-- ko if (model.actionResult.refreshBusplan() == 'NOK')-->
+                                <span class="label label-danger" data-bind="text:refreshBusplan" style="padding:10px"></span>
+                                <!-- /ko -->
+                            </span>
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>Business Plan Export Detail</td>
+                        <td>
+
+                            <span data-bind="visible: exportDetailBusplanLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.exportDetailBusplan() == 'OK')-->
+                            <span class="label label-success" data-bind="text:exportDetailBusplan" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.exportDetailBusplan() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:exportDetailBusplan" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>Fiscal Year View Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshFYVLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshFYV() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshFYV" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshFYV() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshFYV" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>Fiscal Year View Export</td>
+                        <td>
+                            <span data-bind="visible: exportFYVLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.exportFYV() == 'OK')-->
+                            <span class="label label-success" data-bind="text:exportFYV" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshFYV() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:exportFYV" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>Activity Gap Analysis Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshActGapAnalysisLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshActGapAnalysis() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshActGapAnalysis" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshActGapAnalysis() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshActGapAnalysis" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshActGapAnalysisMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Business Plan Sequence Charts Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshBizPlanSeqLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshBizPlanSeq() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshBizPlanSeq" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshBizPlanSeq() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshBizPlanSeq" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshBizPlanSeqMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Weekly Report Workflow Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshWeeklyReportWorkflowLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshWeeklyReportWorkflow() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshWeeklyReportWorkflow" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshWeeklyReportWorkflow() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshWeeklyReportWorkflow" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshWeeklyReportWorkflowMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Weekly Report Archive Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshWeeklyReportArchiveLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshWeeklyReportArchive() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshWeeklyReportArchive" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshWeeklyReportArchive() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshWeeklyReportArchive" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshWeeklyReportArchiveMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Activity Document Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshWeeklyReportArchiveLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshWeeklyReportArchive() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshWeeklyReportArchive" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshWeeklyReportArchive() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshWeeklyReportArchive" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshWeeklyReportArchiveMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Weis Actual Data Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshActualWeisLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshActualWeis() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshActualWeis" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshActualWeis() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshActualWeis" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshActualWeisMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>EDM Oracle Actual Data Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshActualOracleLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshActualOracle() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshActualOracle" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshActualOracle() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshActualOracle" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshActualOracleMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Rolling Weekly Data Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshRollingWeeklyDataLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshRollingWeeklyData() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshRollingWeeklyData" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshRollingWeeklyData() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshRollingWeeklyData" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshRollingWeeklyDataMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Monthly LE Workflow Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshMonthlyLEWorkflowLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshMonthlyLEWorkflow() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshMonthlyLEWorkflow" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshMonthlyLEWorkflow() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshMonthlyLEWorkflow" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshMonthlyLEWorkflowMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Monthly LE Tracker Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshMonthlyLETrackerLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshMonthlyLETracker() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshMonthlyLETracker" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshMonthlyLETracker() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshMonthlyLETracker" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshMonthlyLETrackerMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Rolling Monthly Data Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshMonthlyLEHistoryLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshMonthlyLEHistory() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshMonthlyLEHistory" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshMonthlyLEHistory() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshMonthlyLEHistory" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshMonthlyLEHistoryMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Monthly LE Report Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshMonthlyLEReportLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshMonthlyLEReport() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshMonthlyLEReport" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshMonthlyLEReport() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshMonthlyLEReport" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshMonthlyLEReportMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>PIP Configuration Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshWellPIPLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshWellPIP() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshWellPIP" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshWellPIP() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshWellPIP" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshWellPIPMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>PIP Configuration Download</td>
+                        <td>
+                            <span data-bind="visible: downloadPIPLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.downloadPIP() == 'OK')-->
+                            <span class="label label-success" data-bind="text:downloadPIP" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.downloadPIP() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:downloadPIP" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:downloadPIPMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Waterfall and Cumulative Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshWaterfallCumulativeLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshWaterfallCumulative() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshWaterfallCumulative" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshWaterfallCumulative() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshWaterfallCumulative" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshWaterfallCumulativeMsg"></td>
+                    </tr>
+                    <tr data-bind="visible:false">
+                        <td>PIP Comments Browser Refresh</td>
+                        <td>
+                            <span data-bind="visible: refeshPIPCommentLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refeshPIPComment() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refeshPIPComment" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refeshPIPComment() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refeshPIPComment" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refeshPIPCommentMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Rolling PIP Weekly Data Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshHistoricalPIPLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshHistoricalPIP() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshHistoricalPIP" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshHistoricalPIP() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshHistoricalPIP" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshHistoricalPIPMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>PIP Analysis Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshPIPAnalystLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshPIPAnalyst() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshPIPAnalyst" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshPIPAnalyst() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshPIPAnalyst" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshPIPAnalystMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Data Browser Refresh</td>
+                        <td>
+                            <span data-bind="visible: refreshDataBrowserLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.refreshDataBrowser() == 'OK')-->
+                            <span class="label label-success" data-bind="text:refreshDataBrowser" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.refreshDataBrowser() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:refreshDataBrowser" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:refreshDataBrowserMsg"></td>
+                    </tr>
+                    <tr>
+                        <td>Data Browser Download</td>
+                        <td>
+                            <span data-bind="visible: downloadDataBrowserLoading()">
+                                @Html.Partial("_loading")
+                            </span>
+                            <!-- ko if (model.actionResult.downloadDataBrowser() == 'OK')-->
+                            <span class="label label-success" data-bind="text:downloadDataBrowser" style="padding:10px"></span>
+                            <!-- /ko -->
+                            <!-- ko if (model.actionResult.downloadDataBrowser() == 'NOK')-->
+                            <span class="label label-danger" data-bind="text:downloadDataBrowser" style="padding:10px"></span>
+                            <!-- /ko -->
+                        </td>
+                        <td data-bind="text:downloadDataBrowserMsg"></td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+</div>
+<script>
+    model.FilterVisibility.RigTypes(false);
+    model.FilterVisibility.RigNames(false);
+    model.FilterVisibility.Regions(false);
+    model.FilterVisibility.ProjectNames(false);
+    model.FilterVisibility.OperatingUnits(false);
+    model.FilterVisibility.WellNames(false);
+    model.IsProcessing = ko.observable(false);
+    model.reponseStatus = ko.observable(false);
+    model.actionResult = {
+        refreshBusplan: ko.observable(),refreshBusplanMsg : ko.observable(),refreshBusplanLoading: ko.observable(false),
+        exportDetailBusplan: ko.observable(),exportDetailBusplanMsg: ko.observable(),exportDetailBusplanLoading: ko.observable(false),
+        refreshFYV: ko.observable(),refreshFYVMsg: ko.observable(),refreshFYVLoading: ko.observable(false),
+        exportFYV: ko.observable(),exportFYVMsg: ko.observable(),exportFYVLoading: ko.observable(false),
+        refreshActGapAnalysis: ko.observable(),refreshActGapAnalysisMsg: ko.observable(),refreshActGapAnalysisLoading:ko.observable(false),
+        refreshBizPlanSeq: ko.observable(),refreshBizPlanSeqMsg: ko.observable(),refreshBizPlanSeqLoading: ko.observable(false),
+        refreshWeeklyReportWorkflow: ko.observable(),refreshWeeklyReportWorkflowMsg : ko.observable(),refreshWeeklyReportWorkflowLoading: ko.observable(false),
+        refreshWeeklyReportArchive: ko.observable(),refreshWeeklyReportArchiveMsg: ko.observable(),refreshWeeklyReportArchiveLoading: ko.observable(false),
+        refreshActivityDoc: ko.observable(), refreshActivityDocMsg: ko.observable(),refreshActivityDocLoading: ko.observable(false),
+        refreshActualWeis: ko.observable(), refreshActualWeisMsg: ko.observable(),refreshActualWeisLoading: ko.observable(false),
+        refreshActualOracle: ko.observable(), refreshActualOracleMsg: ko.observable(),refreshActualOracleLoading:ko.observable(false),
+        refreshRollingWeeklyData: ko.observable(), refreshRollingWeeklyDataMsg: ko.observable(),refreshRollingWeeklyDataLoading: ko.observable(false),
+        refreshMonthlyLEWorkflow: ko.observable(), refreshMonthlyLEWorkflowMsg: ko.observable(),refreshMonthlyLEWorkflowLoading: ko.observable(false),
+        refreshMonthlyLETracker: ko.observable(), refreshMonthlyLETrackerMsg: ko.observable(),refreshMonthlyLETrackerLoading: ko.observable(false),
+        refreshMonthlyLEHistory: ko.observable(), refreshMonthlyLEHistoryMsg: ko.observable(),refreshMonthlyLEHistoryLoading: ko.observable(false),
+        refreshMonthlyLEReport: ko.observable(), refreshMonthlyLEReportMsg: ko.observable(),refreshMonthlyLEReportLoading: ko.observable(false),
+        refreshWellPIP: ko.observable(), refreshWellPIPMsg: ko.observable(),refreshWellPIPLoading: ko.observable(false),
+        downloadPIP: ko.observable(), downloadPIPMsg: ko.observable(),downloadPIPLoading: ko.observable(false),
+        refreshWaterfallCumulative: ko.observable(), refreshWaterfallCumulativeMsg: ko.observable(),refreshWaterfallCumulativeLoading: ko.observable(false),
+        refeshPIPComment: ko.observable(), refeshPIPCommentMsg: ko.observable(),refeshPIPCommentLoading: ko.observable(false),
+        refreshHistoricalPIP: ko.observable(), refreshHistoricalPIPMsg: ko.observable(),refreshHistoricalPIPLoading: ko.observable(false),
+        refreshPIPAnalyst: ko.observable(), refreshPIPAnalystMsg: ko.observable(), refreshPIPAnalystLoading: ko.observable(false),
+        refreshDataBrowser: ko.observable(), refreshDataBrowserMsg: ko.observable(), refreshDataBrowserLoading: ko.observable(false),
+        downloadDataBrowser: ko.observable(), downloadDataBrowserMsg: ko.observable(), downloadDataBrowserLoading: ko.observable(false),
+    }
+    function checkResponses() {
+        return function () {
+            model.refreshGrid();
+            model.refreshBusplan();
+            model.exportDetailBusplan();
+            model.refreshFYV();
+            model.exportFYV();
+            model.refreshActGapAnalysis();
+            model.refreshBizPlanSeq();
+            model.refreshWeeklyReportWorkflow();
+            model.refreshWeeklyReportArchive();
+            model.refreshActivityDoc();
+            model.refreshActualWeis();
+            model.refreshActualOracle();
+            model.refreshRollingWeeklyData();
+            model.refreshMonthlyLEWorkflow();
+            model.refreshMonthlyLETracker();
+            model.refreshMonthlyLEHistory();
+            model.refreshMonthlyLEReport();
+            model.refreshWellPIP();
+            model.downloadPIP();
+            model.refreshWaterfallCumulative();
+            //model.refeshPIPComment();
+            model.refreshHistoricalPIP();
+            model.refreshPIPAnalyst();
+            model.refreshDataBrowser();
+            model.downloadDataBrowser();
+        }
+    }
+
+    model.refreshGrid = function () {
+        
+        model.reponseStatus(true);
+        model.actionResult.refreshBusplan(""); model.actionResult.refreshBusplanMsg("");
+        model.actionResult.exportDetailBusplan(""); model.actionResult.exportDetailBusplanMsg("");
+        model.actionResult.refreshFYV(""); model.actionResult.refreshFYVMsg("");
+        model.actionResult.exportFYV(""); model.actionResult.exportFYVMsg("");
+        model.actionResult.refreshActGapAnalysis(""); model.actionResult.refreshActGapAnalysisMsg("");
+        model.actionResult.refreshBizPlanSeq(""); model.actionResult.refreshBizPlanSeqMsg("");
+        model.actionResult.refreshWeeklyReportWorkflow(""); model.actionResult.refreshWeeklyReportWorkflowMsg("");
+        model.actionResult.refreshWeeklyReportArchive(""); model.actionResult.refreshWeeklyReportArchiveMsg("");
+        model.actionResult.refreshActivityDoc(""); model.actionResult.refreshActivityDocMsg("");
+        model.actionResult.refreshActualWeis(""); model.actionResult.refreshActualWeisMsg("");
+        model.actionResult.refreshActualOracle(""); model.actionResult.refreshActualOracleMsg("");
+        model.actionResult.refreshRollingWeeklyData(""); model.actionResult.refreshRollingWeeklyDataMsg("");
+        model.actionResult.refreshMonthlyLEWorkflow(""); model.actionResult.refreshMonthlyLEWorkflowMsg("");
+        model.actionResult.refreshMonthlyLETracker(""); model.actionResult.refreshMonthlyLETrackerMsg("");
+        model.actionResult.refreshMonthlyLEHistory(""); model.actionResult.refreshMonthlyLEHistoryMsg("");
+        model.actionResult.refreshMonthlyLEReport(""); model.actionResult.refreshMonthlyLEReportMsg("");
+        model.actionResult.refreshWellPIP(""); model.actionResult.refreshWellPIPMsg("");
+        model.actionResult.downloadPIP(""); model.actionResult.downloadPIPMsg("");
+        model.actionResult.refreshWaterfallCumulative(""); model.actionResult.refreshWaterfallCumulativeMsg("");
+        model.actionResult.refeshPIPComment(""); model.actionResult.refeshPIPCommentMsg("");
+        model.actionResult.refreshHistoricalPIP(""); model.actionResult.refreshHistoricalPIPMsg("");
+        model.actionResult.refreshPIPAnalyst(""); model.actionResult.refreshPIPAnalystMsg("");
+        model.actionResult.refreshDataBrowser(""); model.actionResult.refreshDataBrowserMsg("");
+        model.actionResult.downloadDataBrowser(""); model.actionResult.downloadDataBrowserMsg("");
+        setInterval(function () {
+            model.reponseStatus(false);
+        }, 200);
+         
+    }
+
+    model.refreshBusplan = function () {
+        var url = "@Url.Action("RefreshBusplan")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshBusplanLoading(true);
+        //model.IsProcessing(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshBusplan(res.Result);
+            model.actionResult.refreshBusplanMsg(res.Message);
+            model.IsProcessing(false); model.actionResult.refreshBusplanLoading(false);
+        });
+    }
+
+    model.exportDetailBusplan = function () {
+        var url = "@Url.Action("ExportDetailBusplan")";
+        var param = model.getFilterValues();
+        model.actionResult.exportDetailBusplanLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.exportDetailBusplan(res.Result);
+            model.actionResult.exportDetailBusplanMsg(res.Message);
+            model.actionResult.exportDetailBusplanLoading(false);
+        }, function () { });
+    }
+
+    model.refreshFYV = function () {
+        var url = "@Url.Action("RefreshFYV")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshFYVLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshFYV(res.Result);
+            model.actionResult.refreshFYVMsg(res.Message);
+            model.actionResult.refreshFYVLoading(false);
+        }, function () { });
+    }
+
+    model.exportFYV = function () {
+        var url = "@Url.Action("ExportFYV")";
+        var param = model.getFilterValues();
+        model.actionResult.exportFYVLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.exportFYV(res.Result);
+            model.actionResult.exportFYVMsg(res.Message);
+            model.actionResult.exportFYVLoading(false);
+        }, function () { });
+    }
+
+    model.refreshActGapAnalysis = function () {
+        var url = "@Url.Action("RefreshActGapAnalysis")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshActGapAnalysisLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshActGapAnalysis(res.Result);
+            model.actionResult.refreshActGapAnalysisMsg(res.Message);
+            model.actionResult.refreshActGapAnalysisLoading(false);
+        }, function () { });
+    }
+
+    model.refreshBizPlanSeq = function () {
+        var url = "@Url.Action("RefreshBizPlanSeq")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshBizPlanSeqLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshBizPlanSeq(res.Result);
+            model.actionResult.refreshBizPlanSeqMsg(res.Message);
+            model.actionResult.refreshBizPlanSeqLoading(false);
+        }, function () { });
+    }
+
+    model.refreshWeeklyReportWorkflow = function () {
+        var url = "@Url.Action("RefreshWeeklyReportWorkflow")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshWeeklyReportWorkflowLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshWeeklyReportWorkflow(res.Result);
+            model.actionResult.refreshWeeklyReportWorkflowMsg(res.Message);
+            model.actionResult.refreshWeeklyReportWorkflowLoading(false);
+        }, function () { });
+    }
+
+    model.refreshWeeklyReportArchive = function () {
+        var url = "@Url.Action("RefreshWeeklyReportArchive")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshWeeklyReportArchiveLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshWeeklyReportArchive(res.Result);
+            model.actionResult.refreshWeeklyReportArchiveMsg(res.Message);
+            model.actionResult.refreshWeeklyReportArchiveLoading(false);
+        }, function () { });
+    }
+
+    model.refreshActivityDoc = function () {
+        var url = "@Url.Action("RefreshActivityDoc")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshActivityDocLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshActivityDocLoading(false);
+            model.actionResult.refreshActivityDoc(res.Result);
+            model.actionResult.refreshActivityDocMsg(res.Message);
+        }, function () { });
+    }
+
+    model.refreshActualWeis = function () {
+        var url = "@Url.Action("RefreshActualWeis")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshActualWeisLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshActualWeisLoading(false);
+            model.actionResult.refreshActualWeis(res.Result);
+            model.actionResult.refreshActualWeisMsg(res.Message);
+        }, function () { });
+    }
+
+    model.refreshActualOracle = function () {
+        var url = "@Url.Action("RefreshActualOracle")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshActualOracleLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshActualOracleLoading(false);
+            model.actionResult.refreshActualOracle(res.Result);
+            model.actionResult.refreshActualOracleMsg(res.Message);
+        }, function () { });
+    }
+
+    model.refreshRollingWeeklyData = function () {
+        var url = "@Url.Action("RefreshRollingWeeklyData")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshRollingWeeklyDataLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshRollingWeeklyDataLoading(false);
+            model.actionResult.refreshRollingWeeklyData(res.Result);
+            model.actionResult.refreshRollingWeeklyDataMsg(res.Message);
+        }, function () { });
+    }
+
+    model.refreshMonthlyLEWorkflow = function () {
+        var url = "@Url.Action("RefreshMonthlyLEWorkflow")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshMonthlyLEWorkflowLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshMonthlyLEWorkflowLoading(false);
+            model.actionResult.refreshMonthlyLEWorkflow(res.Result);
+            model.actionResult.refreshMonthlyLEWorkflowMsg(res.Message);
+        }, function () { });
+    }
+
+    model.refreshMonthlyLETracker = function () {
+        var url = "@Url.Action("RefreshMonthlyLETracker")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshMonthlyLETrackerLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshMonthlyLETrackerLoading(false);
+            model.actionResult.refreshMonthlyLETracker(res.Result);
+            model.actionResult.refreshMonthlyLETrackerMsg(res.Message);
+        }, function () { });
+    }
+    model.refreshMonthlyLEHistory = function () {
+        var url = "@Url.Action("RefreshMonthlyLEHistory")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshMonthlyLEHistoryLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshMonthlyLEHistoryLoading(false);
+            model.actionResult.refreshMonthlyLEHistory(res.Result);
+            model.actionResult.refreshMonthlyLEHistoryMsg(res.Message);
+        }, function () { });
+    }
+
+    model.refreshMonthlyLEReport = function () {
+        var url = "@Url.Action("RefreshMonthlyLEReport")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshMonthlyLEReportLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshMonthlyLEReportLoading(false);
+            model.actionResult.refreshMonthlyLEReport(res.Result);
+            model.actionResult.refreshMonthlyLEReportMsg(res.Message);
+        }, function () { });
+    }
+
+    model.refreshWellPIP = function () {
+        var url = "@Url.Action("RefreshWellPIP")";
+        model.actionResult.refreshWellPIPLoading(true);
+        var param = model.getFilterValues();
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshWellPIPLoading(false);
+            model.actionResult.refreshWellPIP(res.Result);
+            model.actionResult.refreshWellPIPMsg(res.Message);
+        }, function () { });
+    }
+
+    model.downloadPIP = function () {
+        var url = "@Url.Action("DownloadPIP")";
+        var param = model.getFilterValues();
+        model.actionResult.downloadPIPLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.downloadPIPLoading(false);
+            model.actionResult.downloadPIP(res.Result);
+            model.actionResult.downloadPIPMsg(res.Message);
+        }, function () { });
+    }
+
+    model.refreshWaterfallCumulative = function () {
+        var url = "@Url.Action("RefreshWaterfallCumulative")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshWaterfallCumulativeLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshWaterfallCumulativeLoading(false);
+            model.actionResult.refreshWaterfallCumulative(res.Result);
+            model.actionResult.refreshWaterfallCumulativeMsg(res.Message);
+        }, function () { });
+    }
+
+
+    model.refeshPIPComment = function () {
+        var url = "@Url.Action("RefeshPIPComment")";
+        var param = model.getFilterValues();
+        model.actionResult.refeshPIPCommentLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refeshPIPCommentLoading(false);
+            model.actionResult.refeshPIPComment(res.Result);
+            model.actionResult.refeshPIPCommentMsg(res.Message);
+        }, function () { });
+    }
+
+    model.refreshHistoricalPIP = function () {
+        var url = "@Url.Action("RefreshHistoricalPIP")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshHistoricalPIPLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshHistoricalPIPLoading(false);
+            model.actionResult.refreshHistoricalPIP(res.Result);
+            model.actionResult.refreshHistoricalPIPMsg(res.Message);
+        }, function () { });
+    }
+
+    model.refreshPIPAnalyst = function () {
+        var url = "@Url.Action("RefreshPIPAnalyst")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshPIPAnalystLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshPIPAnalystLoading(false);
+            model.actionResult.refreshPIPAnalyst(res.Result);
+            model.actionResult.refreshPIPAnalystMsg(res.Message);
+        }, function () { });
+    }
+
+    model.refreshDataBrowser = function () {
+        var url = "@Url.Action("RefreshDataBrowser")";
+        var param = model.getFilterValues();
+        model.actionResult.refreshDataBrowserLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.refreshDataBrowserLoading(false);
+            model.actionResult.refreshDataBrowser(res.Result);
+            model.actionResult.refreshDataBrowserMsg(res.Message);
+        }, function () { });
+    }
+      
+    model.downloadDataBrowser = function () {
+        var url = "@Url.Action("DownloadDataBrowser")";
+        var param = model.getFilterValues();
+        model.actionResult.downloadDataBrowserLoading(true);
+        ajaxPost(url, param, function (res) {
+            model.actionResult.downloadDataBrowserLoading(false);
+            model.actionResult.downloadDataBrowser(res.Result);
+            model.actionResult.downloadDataBrowserMsg(res.Message);
+        }, function () { });
+    }
+
+    $(document).ready(function () {
+        $(".do-filter").hide();
+    });
+</script>

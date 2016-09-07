@@ -1,0 +1,256 @@
+﻿<style>
+    .k-footer-template td {
+        text-align: right !important;
+    }
+</style>
+
+<script>
+    model.LastLoadedDataDate = ko.observable("@ViewBag.LatestLS");
+    model.constRealized = { YES: "Realized", NO: "Not Yet Realized" };
+    var buildfooterTotal = function () {
+        var footer = "";
+        footer += "<tr><td colspan='5' style='text-align:right'>Realized Total</td><td><div id='footer20' class='cell-number' data-bind='text:model.uimodel().DaysPlanImprovementTotal_Real()'></div></td><td><div id='footer21' class='cell-number' data-bind='text:model.uimodel().DaysPlanRiskTotal_Real()'></div></td><td><div id='footer22' class='cell-number' data-bind='text:model.uimodel().CostPlanImprovementTotal_Real()'></div></td><td><div id='footer23' class='cell-number' data-bind='text:model.uimodel().CostPlanRiskTotal_Real()'></div></td><td><div id='footer24' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekImprovementTotal_Real()'></div></td><td><div id='footer25' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekRiskTotal_Real()'></div></td><td><div id='footer26' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekImprovementTotal_Real()'></div></td><td><div id='footer27' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekRiskTotal_Real()'></div></td><td></td><td></td><td></td><td></td><td></td></tr>";
+        footer += "<tr><td colspan='5' style='text-align:right'>Not Realized Total</td><td><div id='footer28' class='cell-number' data-bind='text:model.uimodel().DaysPlanImprovementTotal_NotReal()'></div></td><td><div id='footer29' class='cell-number' data-bind='text:model.uimodel().DaysPlanRiskTotal_NotReal()'></div></td><td><div id='footer30' class='cell-number' data-bind='text:model.uimodel().CostPlanImprovementTotal_NotReal()'></div></td><td><div id='footer31' class='cell-number' data-bind='text:model.uimodel().CostPlanRiskTotal_NotReal()'></div></td><td><div id='footer32' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekImprovementTotal_NotReal()'></div></td><td><div id='footer33' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekRiskTotal_NotReal()'></div></td><td><div id='footer34' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekImprovementTotal_NotReal()'></div></td><td><div id='footer35' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekRiskTotal_NotReal()'></div></td><td></td><td></td><td></td><td></td><td></td></tr>";
+        footer += "<tr><td colspan='5' style='text-align:right'>Total</td><td><div id='footer1' class='cell-number' data-bind='text:model.uimodel().DaysPlanImprovementTotal()'></div></td><td><div id='footer2' class='cell-number' data-bind='text:model.uimodel().DaysPlanRiskTotal()'></div></td><td><div id='footer3' class='cell-number' data-bind='text:model.uimodel().CostPlanImprovementTotal()'></div></td><td><div id='footer4' class='cell-number' data-bind='text:model.uimodel().CostPlanRiskTotal()'></div></td><td><div id='footer5' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekImprovementTotal()'></div></td><td><div id='footer6' class='cell-number' data-bind='text:model.uimodel().DaysCurrentWeekRiskTotal()'></div></td><td><div id='footer7' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekImprovementTotal()'></div></td><td><div id='footer8' class='cell-number' data-bind='text:model.uimodel().CostCurrentWeekRiskTotal()'></div></td><td></td><td></td><td></td><td></td><td></td></tr>";
+        return footer;
+    }
+    var buildHeaderTemplate = function (title, unit) {
+        return "<a class='k-link' style='border:thick;'>" + title + "</a><span class='k-unit'>(" + unit + ")</a>";
+        
+    };
+
+    var datasourcePIP = new kendo.data.DataSource({
+        data: [],
+        aggregate: [
+            { field: "DaysPlanImprovement", aggregate: "sum", format: "{0:0.00}" },
+            { field: "DaysPlanRisk", aggregate: "sum", format: "{0:0.00}" },
+            { field: "CostPlanImprovement", aggregate: "sum", format: "{0:0.00}" },
+            { field: "CostPlanRisk", aggregate: "sum", format: "{0:0.00}" },
+            { field: "DaysCurrentWeekImprovement", aggregate: "sum", format: "{0:0.00}" },
+            { field: "DaysCurrentWeekRisk", aggregate: "sum", format: "{0:0.00}" },
+            { field: "CostCurrentWeekImprovement", aggregate: "sum", format: "{0:0.00}" },
+            { field: "CostCurrentWeekRisk", aggregate: "sum", format: "{0:0.00}" },
+            { field: "LEDays", aggregate: "sum", format: "{0:0.00}" },
+            { field: "LECost", aggregate: "sum", format: "{0:0.00}" },
+        ],
+        schema: {
+            //data: "Phases",
+            model: {
+                //id: "ElementId",
+                fields: {
+                    "Title": { type: "string" },
+                    "Start": { type: "date" },
+                    "Finish": { type: "date" },
+                    "DaysPlanImprovement": { type: "number" },
+                    "DaysPlanRisk": { type: "number" },
+                    "CostPlanImprovement": { type: "number" },
+                    "CostPlanRisk": { type: "number" },
+                    "ElementId": { type: "number", editable: false },
+                    "ActionParties": { editable: false },
+                    "DaysCurrentWeekImprovement": { editable: false },
+                    "CostCurrentWeekImprovement": { editable: false },
+                    "DaysCurrentWeekRisk": { editable: false },
+                    "CostCurrentWeekRisk": { editable: false },
+                    "Completion": { editable: false },
+                    "isPositive": { type: "boolean", filterable: false },
+                    "LECost": { type: "number", filterable: false },
+                    "LEDays": { type: "number", filterable: false }
+                }
+            },
+        },
+        sort: {
+            field: "RigName",
+            dir: "asc"
+        },
+        pageSize: 10
+    });
+
+    var headerUnitWith = 80;
+    var gridColumnsPIP = [
+        { field: "RigName", title: "RigName", filterable: false, width: 120 },
+        { field: "WellName", title: "WellName", filterable: false, width: 120 },
+        { field: "ActivityType", title: "ActivityType", filterable: false, width: 150 },
+        { field: "Title", title: "Idea", filterable: false, width: 170 },
+        { field: "Start", width: 80, title: "Activity Start", filterable: false, template: "#: jsonDateStr(Start) #", attributes: { class: "cell-date" } },
+        { field: "Finish", width: 80, title: "Activity End", filterable: false, template: "#: jsonDateStr(Finish) #", attributes: { class: "cell-date" } },
+        { field: "Classification", title: "Classification", filterable: false, width: 110 },
+        {
+            field: "Completion", title: "Realized", filterable: false,
+            //template: '#: Completion # %',
+            attributes: { class: "cell-checkbox" },
+            width: 70,
+            template: '<input type="checkbox" #= Completion == "' + model.constRealized.YES + '" ? "checked=checked" : "" # disabled />',
+        },
+
+
+        {
+            title: "Current Estimate", columns: [
+                    {
+                        field: "LEDays", title: "Days", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+                        headerTemplate: buildHeaderTemplate("Days", "days"), footerTemplate: "#: kendo.toString(sum,'n2') #"
+                    },
+                    {
+                        field: "LECost", title: "Cost", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+                        headerTemplate: buildHeaderTemplate("Cost", "$ mln"), footerTemplate: "#: kendo.toString(sum,'n2') #"
+                    },
+            ]
+        },
+
+
+         {
+             title: "Opportunity", columns: [
+                    {
+                        field: "DaysPlanImprovement", title: "Days", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+                        headerTemplate: buildHeaderTemplate("Days", "days"), footerTemplate: "#: kendo.toString(sum,'n2') #"
+                    },
+                    {
+                        field: "CostPlanImprovement", title: "Cost", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+                        headerTemplate: buildHeaderTemplate("Cost", "$ mln"), footerTemplate: "#: kendo.toString(sum,'n2') #"
+                    },
+             ]
+         },
+
+          {
+              title: "Risk", columns: [
+                {
+                    field: "DaysPlanRisk", title: "Days", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+                    headerTemplate: buildHeaderTemplate("Days", "days"), footerTemplate: "#: kendo.toString(sum,'n2') #"
+                },
+                {
+                    field: "CostPlanRisk", title: "Cost", filterable: false, width: headerUnitWith, format: "{0:N2}", attributes: { class: "cell-number" },
+                    headerTemplate: buildHeaderTemplate("Cost", "$ mln"), footerTemplate: "#: kendo.toString(sum,'n2') #"
+                }
+              ]
+          },
+
+
+
+    ];
+
+    function joinActionParties(ActionParties) {
+        var a = [];
+        if (ActionParties != null) {
+            for (var i = 0; i < ActionParties.length; i++) {
+                a.push(ActionParties[i].FullName);
+            }
+            return a.join();
+        } else {
+            return "";
+        }
+    }
+
+    function createGauge() {
+        //var gd = $("#GridPIP").data("kendoGrid");
+        //$("#GridPIP").find("tr[data-uid]").each(function (i, e) {
+        //    console.log(e);
+        //    var data = gd.dataSource.getByUid($(e).attr("data-uid"));
+
+        //    $(e).find(".cell-number").each(function (j, f) {
+        //        if ($(f).children().size() === 0 && parseFloat($.trim($(f).html())) === 0) {
+        //            $(f).css("color", "transparent");
+        //        } else {
+        //            $(f).css("color", "inherit");
+        //        }
+        //    });
+        //    console.log($(e).attr("data-uid"));
+        //    console.log("aaaaaaaaaaaa");
+        //    console.log(data);
+        //    changeBackgroundOfRealizedOrNot(data.Completion == model.constRealized.YES, data, $(e).find(":eq(4)"));
+
+        //    var eid = $(e).find("[data-eid]").attr("data-eid");
+        //    if (typeof eid === String(undefined)) return;
+        //});
+
+        //var grid = this;
+        //$(".gauge").each(function () {
+        //    var gauge = $(this);
+        //    var tr = gauge.closest('tr');
+        //    var model = grid.dataItem(tr);
+        //    gauge.kendoLinearGauge({
+        //        pointer: {
+        //            value: model.CompletionPerc
+        //        },
+
+        //        scale: {
+        //            majorUnit: 50,
+        //            min: 0,
+        //            max: 100,
+        //            vertical: false,
+        //            labels: {
+        //                // set the format to currency
+        //                //format: "P0"
+        //            }
+        //        }
+        //    });
+        //})
+    }
+
+    function changeBackgroundOfRealizedOrNot(checked, targetData, $target) {
+        if (checked) {
+            targetData.Completion = model.constRealized.YES;
+            $target.closest("td").removeClass("bg-td-red");
+            $target.closest("td").addClass("bg-td-green");
+        } else {
+            targetData.Completion = model.constRealized.NO;
+            $target.closest("td").removeClass("bg-td-green");
+            $target.closest("td").addClass("bg-td-red");
+        }
+    }
+
+    function generateGridPIP(datas) {
+        var ds = new kendo.data.DataSource({
+            data: datas,
+            aggregate: [
+                { field: "DaysPlanImprovement", aggregate: "sum", format: "{0:0.00}" },
+                { field: "DaysPlanRisk", aggregate: "sum", format: "{0:0.00}" },
+                { field: "CostPlanImprovement", aggregate: "sum", format: "{0:0.00}" },
+                { field: "CostPlanRisk", aggregate: "sum", format: "{0:0.00}" },
+                { field: "DaysCurrentWeekImprovement", aggregate: "sum", format: "{0:0.00}" },
+                { field: "DaysCurrentWeekRisk", aggregate: "sum", format: "{0:0.00}" },
+                { field: "CostCurrentWeekImprovement", aggregate: "sum", format: "{0:0.00}" },
+                { field: "CostCurrentWeekRisk", aggregate: "sum", format: "{0:0.00}" },
+                { field: "LEDays", aggregate: "sum", format: "{0:0.00}" },
+                { field: "LECost", aggregate: "sum", format: "{0:0.00}" },
+            ],
+            schema: {
+                //data: "Phases",
+                model: {
+                    //id: "ElementId",
+                    fields: {
+                        "Title": { type: "string" },
+                        "Start": { type: "date" },
+                        "Finish": { type: "date" },
+                        "DaysPlanImprovement": { type: "number" },
+                        "DaysPlanRisk": { type: "number" },
+                        "CostPlanImprovement": { type: "number" },
+                        "CostPlanRisk": { type: "number" },
+                        "ElementId": { type: "number", editable: false },
+                        "ActionParties": { editable: false },
+                        "DaysCurrentWeekImprovement": { editable: false },
+                        "CostCurrentWeekImprovement": { editable: false },
+                        "DaysCurrentWeekRisk": { editable: false },
+                        "CostCurrentWeekRisk": { editable: false },
+                        "Completion": { editable: false },
+                        "isPositive": { type: "boolean", filterable: false },
+                        "LECost": { type: "number", filterable: false },
+                        "LEDays": { type: "number", filterable: false }
+                    }
+                },
+            },
+            sort: {
+                field: "RigName",
+                dir: "asc"
+            },
+            pageSize: 10
+        });
+
+        $("#GridPIP").data("kendoGrid").setDataSource(ds);
+    }
+</script>
+
+
+<div class="row">
+    <div class="col-md-12">
+        <div style="margin-bottom:20px;" id="GridPIP" data-bind="kendoGrid:{dataSource:datasourcePIP,data:[],columns:gridColumnsPIP,pageable:true,sortable:true,filterable:true,editable:false, excel: {allPages: true,fileName:'PIP_Analysis_Data.xlsx',filterable: true} }"></div>
+    </div>
+</div>

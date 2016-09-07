@@ -1,0 +1,195 @@
+﻿@{
+    ViewBag.Title = "Capitalized Staff Overhead";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<script>
+    model.Yo = {}; var y = model.Yo;
+
+    y.DetailVisibility = ko.observable(false);
+    y.Refresh = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        model.Processing(true);
+        y.DetailVisibility(false);
+
+        var url = "@Url.Action("GetCapitalizedStaffOverheadData")";
+        var param = y.GetParam();
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            model.Processing(false);
+            y.DetailVisibility(true);
+            y.GenerateGrid(res.Data);
+        });
+    };
+    y.GenerateGrid = function (data) {
+        var width = $(".the-container:visible").width();
+
+        var config = {
+            width: width,
+            dataSource: {
+                schema: {
+                    model: {
+                        fields: data.Fields
+                    }
+                },
+                data: data.CSO,
+                pageSize: 15
+            },
+            columns: data.Columns,
+            filterable: false,
+            pageable: true,
+            resizable: false,
+            editable: true,
+            sortable: true
+        };
+
+        $('.grid').replaceWith('<div class="grid"></div>');
+        $('.grid').kendoGrid(config);
+    };
+    y.GetChanges = function () {
+        var data = $(".grid").data("kendoGrid").dataSource.data();
+        var filteredData = JSON.parse(kendo.stringify(_.filter(data, { dirty: true })));
+
+        return filteredData;
+    };
+    y.GetLatestYear = function () {
+        try {
+            var years = [];
+            var data = $(".grid").data("kendoGrid").dataSource.data()[0];
+
+            for (var i in data) {
+                if (data.hasOwnProperty(i) && i.indexOf('Year') > -1) {
+                    years.push(parseInt(i.replace(/Year_/g, ''), 10));
+                }
+            }
+
+            return _.max(years);
+        } catch (err) {
+            return moment(new Date()).year();
+        }
+    };
+    y.AddYear = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        var newFY = "FY" + String(y.GetLatestYear() + 1).substring(2);
+        if (!confirm("This will add new column " + newFY + ". Are you sure?")) {
+            return;
+        }
+
+        var url = "@Url.Action("AddYearOnCapitalizedStaffOverhead")";
+        var param = y.GetParam();
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+    y.RemoveYear = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        var newFY = "FY" + String(y.GetLatestYear()).substring(2);
+        if (!confirm("This will remove column " + newFY + ". Are you sure?")) {
+            return;
+        }
+
+        var url = "@Url.Action("RemoveYearOnCapitalizedStaffOverhead")";
+        var param = y.GetParam();
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+    y.SaveUpdate = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        model.Processing(true);
+
+        var url = "@Url.Action("SaveCapitalizedStaffOverheadData")";
+        var param = y.GetParam({ Changes: y.GetChanges()[0] });
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+</script>
+
+<div class="col-md-12" data-bind="with: model.Yo">
+    <div class="controls">
+        @Html.Partial("_Filter")
+
+        <div class="filter">
+            <div class="form-group">
+                <div class="col-md-1"></div>
+                <div class="col-md-11">
+                    <button class="btn btn-sm btn-custom btn-primary" data-bind="click: Refresh">
+                        <span class="glyphicon glyphicon-refresh"></span> Refresh
+                    </button>
+                    <button class="btn btn-sm btn-custom btn-success" data-bind="click: SaveUpdate, visible: DetailVisibility()">
+                        <span class="glyphicon glyphicon-save"></span> Save Changes
+                    </button>
+                    &nbsp;
+                    <button class="btn btn-sm btn-custom btn-warning" data-bind="click: AddYear, visible: DetailVisibility()">
+                        <span class="glyphicon glyphicon-plus"></span> Add Year
+                    </button>
+                    <button class="btn btn-sm btn-custom btn-warning" data-bind="click: RemoveYear, visible: DetailVisibility()">
+                        <span class="glyphicon glyphicon-remove"></span> Remove Year
+                    </button>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-12 form">
+        <div class="grid"></div>
+    </div>
+</div>
+
+<style>
+    .form {
+        padding-top: 10px;
+    }
+
+    .no-padding {
+        padding: 0px;
+    }
+</style>

@@ -1,0 +1,544 @@
+﻿@{
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+
+<style>
+    .text {
+        height: auto !important;
+        padding: 0px 4px !important;
+        margin: 0px 12px 0px 3px;
+    }
+
+    .mgn-bot-10 {
+        margin-bottom: 10px;
+    }
+
+    #ModalStreamView > .modal-dialog {
+        width: 850px;
+    }
+
+    input[type='text'] {
+        height: 30px;
+    }
+</style>
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.MiniIsProcessing = ko.observable(false);
+
+    //begin streamer
+    model.Stream = ko.observable({
+        record: ko.observable(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WEISStream()))),
+        StreamFor: ko.observable(""),
+        Loading: ko.observable(false),
+        save: function () {
+            var x = model.Stream();
+
+            $("#rec").kendoValidator();
+
+            if (!$("#rec").data("kendoValidator").validate()) {
+                return;
+            }
+
+            model.Stream().Loading(true);
+            ajaxPost("@Url.Action("SaveStream")", { record: x.record() }, function (data) {
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    model.Stream().Loading(false);
+                    return;
+                }
+                $("#ModalStream").modal("hide");
+                alert("Stream Saved");
+                model.Master.Refresh();
+            }, function () {
+                model.Stream().Loading(false);
+            });
+        }
+    });
+
+    function AddStream(id) {
+        var x = model.Stream();
+        var y = ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WEISStream())));
+        x.record(y);
+        var c = x.record();
+        c.RigName(id);
+
+        $("#ModalStream").modal("show");
+    }
+
+    function ViewStream(id) {
+        model.Stream().Loading(true);
+        ajaxPost("@Url.Action("PopulateStream")", { rigName: id },
+        function (data) {
+            if (data.Result != "OK") {
+                alert(data.Message);
+                model.Stream().Loading(false);
+                return;
+            }
+            model.Stream().Loading(false);
+            if (data.Data == undefined || data.Data == null)
+                data.Data = [];
+            initGridStream(data.Data);
+            model.Stream().StreamFor(id);
+        }, function () {
+            model.Stream().Loading(false);
+        });
+    }
+
+    function initGridStream(datasource) {
+        $("#ModalStreamView").modal("show");
+        var a = "<div class='col-md-12' id='StreamView'></div>";
+        $("#StreamView").replaceWith(a);
+        $("#StreamView").kendoGrid({
+            dataSource: {
+                data: datasource,
+                batch: true,
+                schema: {
+                    model: {
+                        fields: {
+                            Title: { type: "string" },
+                            Provider: { type: "string" },
+                            Streamer: { type: "string" },
+                            File: { type: "string" },
+                            RigName: { type: "string", editable: false },
+                            isActive: { type: "boolean" },
+                            LastUpdate: { type: "date", editable: false },
+                        }
+                    }
+                },
+                pageSize: 10
+            },
+            height: 350,
+            pageable: true,
+            scrollable: true,
+            sortable: true,
+            resizeable: true,
+            editable: true,
+            columns: [
+                { field: "Title", title: "Title" },
+                { field: "Provider", title: "Provider", width: "50px" },
+                { field: "Streamer", title: "Streamer", width: "130px" },
+                { field: "File", title: "File", width: "130px" },
+                { field: "RigName", title: "RigName", width: "130px" },
+                { title: "Active", width: "45px", template: "<input type='checkbox' dd='#:_id#' onChange='changeCheckbox(this)' #if(isActive){# checked #}#/>" },
+                { field: "LastUpdate", title: "Date Input", template: "#:moment(LastUpdate).format('DD MMM YYYY')#", width: "80px" },
+                { title: "Delete", template: "<button class='btn btn-xs btn-danger' onClick=\"DeleteStream(#:_id#)\"><span class='glyphicon glyphicon-remove'></span> Delete</button>" }
+            ]
+        });
+
+        setTimeout(function() {
+            $("#StreamView").width("auto");
+            $("#StreamView").find(".k-grid-content").height("290px");
+        }, 200);
+    }
+
+    function changeCheckbox(e) {
+        var x = $(e);
+        var y = x.is(":checked");
+        var att = parseInt(x.attr("dd"));
+        var g = $("#StreamView").data("kendoGrid").dataSource._data;
+        var change = Enumerable.From(g).FirstOrDefault(null, "$._id == " + att);
+        console.log(change);
+        change.isActive = y;
+        change.dirty = true;
+    }
+
+    function SaveBatchStream() {
+        var g = $("#StreamView").data("kendoGrid").dataSource._data;
+        var kotor = Enumerable.From(g).Where("$.dirty == true").ToArray();
+        model.Stream().Loading(true);
+        ajaxPost("@Url.Action("SaveChanges")", { records: kotor },
+            function(data) {
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    model.Stream().Loading(false);
+                    return;
+                }
+                model.Stream().Loading(false);
+                $("#StreamView").data("kendoGrid").setDataSource(SetDataSource(data.Data));
+            }, function() {
+                model.Stream().Loading(false);
+            });
+    }
+
+    function SetDataSource(datasource) {
+        var d = new kendo.data.DataSource({
+            data: datasource,
+            batch: true,
+            schema: {
+                model: {
+                    fields: {
+                        Title: { type: "string" },
+                        Provider: { type: "string" },
+                        Streamer: { type: "string" },
+                        File: { type: "string" },
+                        RigName: { type: "string", editable: false },
+                        isActive: { type: "boolean" },
+                        LastUpdate: { type: "date", editable: false },
+                    }
+                }
+            },
+            pageSize: 10
+        });
+        return d;
+    }
+
+    function DeleteStream(e) {
+        var cf = confirm("Are you sure you want to delete this item?");
+        if (cf) {
+            model.Stream().Loading(true);
+            ajaxPost("@Url.Action("DeleteStream")", { id: e },
+            function (data) {
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    model.Stream().Loading(false);
+                    return;
+                }
+                model.Stream().Loading(false);
+                $("#StreamView").data("kendoGrid").setDataSource(SetDataSource(data.Data));
+            }, function () {
+                model.Stream().Loading(false);
+            });
+        }
+    }
+
+    //end streamer
+
+
+    model.Master = {
+        Title: ko.observable(""),
+        Name: ko.observable(""),
+        RigType: ko.observable(""),
+        isOfficeLocation: ko.observable(false),
+        SearchKeyword: ko.observable(""),
+        RigTypes: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(MasterRigType.Populate<MasterRigType>().Select(d => d._id).OrderBy(d => d)))),
+        EditorDropdown: function (data, dataTextField, dataValueField) {
+            return function (container, option) {
+                var config = { dataSource: new kendo.data.DataSource({ data: data }) };
+                if (typeof dataTextField !== 'undefined') { config.dataTextField = dataTextField; }
+                if (typeof dataValueField !== 'undefined') { config.dataValueField = dataValueField; }
+
+                var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+                input.appendTo(container);
+                input.kendoDropDownList(config);
+            }
+        },
+        Add: function () {
+            model.Master.Name("");
+            model.Master.RigType("");
+            model.Master.isOfficeLocation(false);
+            $("#modal").modal("show");
+        },
+        Save: function () {
+            var form = $("#form").kendoValidator().data("kendoValidator");
+
+            if (!form.validate())
+                return;
+
+            model.MiniIsProcessing(true);
+
+            ajaxPost("@Url.Action("Save")", { Name: model.Master.Name(), RigType: model.Master.RigType(), isOfficeLocation: model.Master.isOfficeLocation() }, function (data) {
+                model.MiniIsProcessing(false);
+
+                if (data.Success == true) {
+                    $("#modal").modal("hide");
+                    model.Master.Refresh();
+                } else {
+                    alert(data.Message);
+                }
+            }, function () {
+                model.MiniIsProcessing(false);
+            });
+        },
+        Update: function () {
+            model.IsProcessing(true);
+
+            ajaxPost("@Url.Action("Update")", { updated: model.Master.GetUpdatedData() }, function (data) {
+                model.IsProcessing(false);
+
+                if (data.Success == true) {
+                    model.Master.Refresh();
+                    alert('Data updated');
+                } else {
+                    model.Master.Refresh();
+                    alert(data.Message);
+                }
+            }, function () {
+                model.IsProcessing(false);
+            });
+        },
+        Delete: function (id) {
+            if (confirm("Are you sure you want to delete this data ?") == true) {
+                model.IsProcessing(true);
+
+                ajaxPost("@Url.Action("Delete")", { _id: id }, function (data) {
+                    model.IsProcessing(false);
+
+                    if (data.Success == true) {
+                        model.Master.Refresh();
+                        alert('Data deleted');
+                    } else {
+                        alert(data.Message);
+                    }
+                }, function () {
+                    model.IsProcessing(false);
+                });
+            }
+        },
+        Refresh: function () {
+            model.IsProcessing(true);
+            var only = $("#ShowOnlyAvailableStreaming").is(":checked");
+            ajaxPost("@Url.Action("Populate")", { Keyword: model.Master.SearchKeyword(), ShowOnlyAvailableStreaming: only }, function (data) {
+                model.IsProcessing(false);
+
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                var dataSource = new kendo.data.DataSource({
+                    data: data.Data,
+                    pageSize: 10,
+                    schema: { model: { id: "_id", fields: { "StringId": { type: "string" }, "_id": { editable: false }, CountStream: { type: "number" }, "isOfficeLocation": { type: "boolean" } } } },
+                    batch: true
+                });
+
+                $("#grid").data("kendoGrid").setDataSource(dataSource);
+            }, function () {
+                model.IsProcessing(false);
+            });
+        },
+        Column: function () {
+            return [
+                { field: "Name", title: (model.Master.Title() + ' Name').replace(/Name Name/g, "Name"), filterable: false },
+                { field: "RigType", filterable: false, editor: model.Master.EditorDropdown(model.Master.RigTypes()) },
+                { field: "isOfficeLocation",title:"Office Location for RSVP?", filterable: false, template: '<input disabled="disabled" type="checkbox" #= isOfficeLocation ? \'checked="checked"\' : "" # class="chkbx" />' },
+                { title: "Stream setting", width: 210, template: "<button class='btn btn-xs btn-primary' onClick=\"AddStream('#: _id #')\"><span class='glyphicon glyphicon-plus'></span> Add</button> &nbsp;&nbsp; #if(CountStream > 0){#<button class='btn btn-xs btn-success' onClick=\"ViewStream('#:_id#')\"><span class='glyphicon glyphicon-th-list'></span> View Saved Stream</button>#}#" },
+                { field: "_id", title: "Delete", editable: false, filterable: false, attributes: { class: "cell-date" }, width: 70, template: "<button type='button' class='btn btn-danger btn-custom btn-xs' onclick='model.Master.Delete(\"#: _id #\")'><span class='glyphicon glyphicon-remove-circle'></span> Delete</button>" }
+            ];
+        },
+        GetUpdatedData: function () {
+            var grid = $("#grid");
+            var updatedRecords = [];
+
+            grid.data("kendoGrid").dataSource._data.forEach(function (f) {
+                if (f.dirty) updatedRecords.push(f);
+            });
+
+            var updated = updatedRecords;
+
+            for (var a = 0; a < updated.length; a++) {
+                var b = updated[a];
+                for (i in b) if (b.hasOwnProperty(i)) {
+                    if (i.indexOf(".") > -1) {
+                        delete updated[a][i];
+                    }
+                }
+            }
+
+            return updated;
+        }
+    };
+    model.Master.isOfficeLocation.subscribe(function (newValue) {
+        //console.log(newValue);
+        var dropDown = $("#rigtype").data("kendoDropDownList");
+        dropDown.enable(!newValue);
+    });
+</script>
+
+<script>
+    model.Master.Title("@ViewBag.Title".replace(/Master /g, ""));
+
+    $(document).ready(function () {
+        $('.search').on('keyup', function (e) {
+            if (e.keyCode != 13) return;
+            model.Master.Refresh();
+        });
+
+        model.Master.Refresh();
+    });
+
+    $("#grid .k-grid-content").on("change", "input.chkbx", function (e) {
+        var grid = $("#grid").data("kendoGrid"),
+            dataItem = grid.dataItem($(e.target).closest("tr"));
+
+        dataItem.set("isOfficeLocation", this.checked);
+    });
+</script>
+
+<div style="padding: 0px 15px 15px;">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing()">
+        <div class="ec-toolbar" style="margin-left:15px">
+            <div class="col-md-4 row">
+                <button class="btn btn-success btn-sm btn-custom" onclick="model.Master.Add()">
+                    <span class="glyphicon glyphicon-plus"></span> Add New
+                </button>
+                <button class="btn btn-primary btn-sm btn-custom" onclick="model.Master.Update()">
+                    <span class="glyphicon glyphicon-ok"></span> Save Changes
+                </button>
+                (inline editing is enabled)
+            </div>
+            <div class="col-md-8">
+                <label>Search :</label>
+                <input type="text" class="text search" data-bind="value: model.Master.SearchKeyword, attr: { placeholder: ('Type ' + (model.Master.Title() + ' here ...').toLocaleLowerCase()) }" />
+                
+                <label>
+                    <input type="checkbox" id="ShowOnlyAvailableStreaming" onchange="model.Master.Refresh()" />
+                    Show only available streaming
+                </label>
+
+                <button class="btn btn-primary btn-sm btn-custom" data-bind="click: model.Master.Refresh">
+                    <span class="glyphicon glyphicon-refresh"></span> Refresh
+                </button>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+        <div class="col-md-12 no-padding">
+            <div class="grid" id="grid" data-bind="kendoGrid: { data: [], columns: model.Master.Column(), pageable: true, sortable: true, filterable: true, editable: true }"></div>
+        </div>
+    </div>
+
+    <div data-bind="with: Master" class="modal fade myModal" id="modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div data-bind="visible: model.MiniIsProcessing()">
+                    @Html.Partial("_processing")
+                </div>
+                <div data-bind="visible: !model.MiniIsProcessing()">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title" id="myModalLabel" data-bind="text: 'Add New ' + Title()"></h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group form-group-sm form-wrapper" id="form">
+                            <div class="row" style="margin-bottom: 10px;">
+                                <label class="col-md-3">Rig Name</label>
+                                <div class="col-md-8">
+                                    <input type="text" style="width: 220px; padding: 0px 6px !important; height: auto !important;"
+                                           id="Name" name="Name" required="required" data-required-msg="Rig name cannot be empty"
+                                           data-bind="value: Name, attr: { placeholder: 'Type ' + Title() + ' here ...' }" />
+                                </div>
+                            </div>
+                            <div class="row" style="margin-bottom: 10px;">
+                                <label class="col-md-3">Office Location for RSVP?</label>
+                                <div class="col-md-8">
+                                    <input type="checkbox" style="padding: 0px 6px !important; height: auto !important;"
+                                           id="isOfficeLocation" name="isOfficeLocation" data-bind="checked:isOfficeLocation" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <label class="col-md-3">Rig Type</label>
+                                <div class="col-md-8">
+                                    <select required data-required-msg="Rig type cannot be empty" name="rigtype" id="rigtype" style="width: 220px;"
+                                            data-bind="kendoDropDownList: { dataSource: model.Master.RigTypes(), value: model.Master.RigType, optionLabel: 'Select RigType' }"></select>
+                                    <span class="k-invalid-msg" data-for="rigtype"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-custom btn-warning" data-dismiss="modal">
+                            <span class="glyphicon glyphicon-remove-circle"></span> Close
+                        </button>
+                        <button type="button" class="btn btn-custom btn-primary" onclick="model.Master.Save()">
+                            <span class="glyphicon glyphicon-ok"></span> Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="ModalStream" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" data-bind="with: Stream">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="myModalLabel">Add Stream</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row" id="rec" data-bind="with: record">
+
+                    <div class="col-md-12 mgn-bot-10">
+                        <label class="col-md-3">Title</label>
+                        <div class="col-md-9">
+                            <input type="text" name="Title" required class="form-control" data-bind="value: Title" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-12 mgn-bot-10">
+                        <label class="col-md-3">RigName</label>
+                        <div class="col-md-9">
+                            <input type="text" name="Rig Name" required class="form-control" data-bind="value: RigName" disabled />
+                        </div>
+                    </div>
+
+                    <div class="col-md-12 mgn-bot-10">
+                        <label class="col-md-3">Provider</label>
+                        <div class="col-md-9">
+                            <input type="text" name="Provider" required class="form-control" data-bind="value: Provider" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-12 mgn-bot-10">
+                        <label class="col-md-3">Streamer</label>
+                        <div class="col-md-9">
+                            <input type="text" name="Streamer" required class="form-control" data-bind="value: Streamer" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-12 mgn-bot-10">
+                        <label class="col-md-3">File</label>
+                        <div class="col-md-9">
+                            <input type="text" name="File Name" required class="form-control" data-bind="value: File" />
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" data-bind="click: save">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="ModalStreamView" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="myModalLabel" data-bind="text: 'Stream for rig ' + model.Stream().StreamFor()">Stream for </h4>
+            </div>
+            <div class="modal-body">
+                <div data-bind="visible: model.Stream().Loading()">
+                    @Html.Partial("_processing")
+                </div>
+                <div class="row mgn-bot-10" data-bind="visible: !model.Stream().Loading()">
+                    <div class="col-md-12">
+                        <button class="btn btn-sm btn-success" onclick="SaveBatchStream()"><span class="glyphicon glyphicon-save"></span> Save changes</button>
+                    </div>
+                </div>
+                <div class="row" data-bind="visible: !model.Stream().Loading()">
+                    <div id="StreamView"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

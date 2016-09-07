@@ -1,0 +1,411 @@
+﻿@{
+    ViewBag.Title = "Reserve Config";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core
+@using ECIS.Client.WEIS
+
+<script>
+    model.PageId("Administration");
+
+    var roles = @MvcTools.Obj2HtmlStr(WEISRole.Populate<WEISRole>().Select(d => new { _id = d._id, Title = d.RoleName }).OrderBy(d => d.Title));
+    model.ReserveConfig = ko.observable({
+        Values: ko.observable(),
+        LockStatus: ko.observable(),
+        LockValue: ko.observable()
+    });
+</script>
+
+<style>
+    element.style {
+        height: 240px;
+    }
+
+    .kontainer {
+        margin: 13px 10px;
+        position: relative;
+        height: 240px;
+    }
+
+        .kontainer h3 {
+            border: none;
+            background-color: rgb(249, 249, 249);
+        }
+
+    
+    .content .each .table {
+        margin-bottom: 5px;
+    }
+
+        .content .each .table tbody {
+            border: none !important;
+        }
+
+            .content .each .table tbody.b tr:first-child td {
+                border-top: 1px solid transparent !important;
+            }
+
+            .content .each .table tbody.b.n tr td {
+                border-top: 1px solid transparent !important;
+            }
+
+    .row .data-container {
+        display: inline-block;
+        height:250px;
+    }
+
+    .section {
+        overflow-x: hidden;
+        overflow-y: scroll;
+    }
+
+        .section .each:not(:last-child) {
+            margin-right: 10px;
+        }
+
+        .section .each .title {
+            border: none !important;
+            padding: 0px !important;
+        }
+
+            .section .each .title span {
+                display: block;
+                width: 100%;
+                min-height: 35px;
+                margin-bottom: 2px;
+                padding: 10px;
+                color: white;
+                font-weight: bold;
+                text-align: center;
+            }
+
+                .section .each .title span.summary {
+                    font-size: 16px;
+                    padding: 6px 10px;
+                }
+
+        .section .each .b.n.inactive {
+            background-color: rgb(249, 249, 249);
+        }
+
+    span.h-status.summary {
+        background-color: #d33;
+    }
+
+    span.h-status.start {
+        background-color: rgb(18, 98, 55);
+    }
+
+    span.h-status.ongoing {
+        background-color: rgba(66, 139, 202, 0.95);
+    }
+
+    span.h-status.finish {
+        background-color: rgb(239, 201, 76);
+    }
+
+    span.h-status.inactive {
+        background-color: gray;
+    }
+
+     
+    .each {
+        width: 1000px;
+        float: left;
+    }
+
+    .no-space {
+        margin: 0px;
+        padding: 0px;
+    }
+
+    .switch-home h2 {
+        display: inline-block;
+        font-size: 1.1em;
+        margin: 1.5em 0 0 .7em;
+    }
+
+        .switch-home h2 span {
+            display: block;
+            clear: both;
+            font-size: 1.8em;
+            margin: .1em 0 0 0;
+        }
+
+    .switch-home img {
+        width: 5em;
+        height: 5em;
+        float: left;
+        margin: 1em;
+        -webkit-box-shadow: 0 1px 3px #333;
+        box-shadow: 0 1px 3px #333;
+        -webkit-border-radius: 8px;
+        border-radius: 8px;
+    }
+    u{
+        color:blue;
+    }
+</style>
+
+<div class="form-horizontal" style="width:1000px;margin:0px auto" data-bind="with:model.ReserveConfig().Values()" id="formConfig">
+    <div class="form-group">
+        <div>
+            <button class="btn btn-primary btn-sm" onclick="save();" id="saveConfig"><span class="glyphicon glyphicon-ok"></span> Save Changes</button>
+            <button class="btn btn-success btn-sm" id="lockstatus" onclick="LockConfig()" data-bind="text:model.ReserveConfig().LockStatus()"></button>
+        </div>
+ 
+    </div>
+    <h3 style="text-align:left;"><b>Reserve Setting for Data layer background process</b></h3>
+    <div class="form-group">
+        <label class="col-sm-3">Daily Running Time</label>
+        <div class="col-sm-9">
+            <input type="text" id="daily" data-bind="kendoTimePicker :{format: 'HH:mm',value :'00:00',value:Data.DailyRunningTime}" />
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label class="col-sm-3" style="cursor:pointer" id="daysreserveid"><u>Days Reserve</u></label>
+        <div class="col-sm-9">
+            <input type="text" style="text-align: right;" id="noofdays" data-bind="kendoNumericTextBox: { format: '#', value: Data.NoOfDays }" />
+        </div>
+        <div id="daysreservedetail">
+            <div class="row kontainer">
+                <div class="col-md-12 no-space">
+                    <div class="section content">
+                        <div class="row data-container no-space">
+                            <div class="each">
+                                <table class="table">
+                                    <tbody class="h">
+                                        <tr>
+                                            <td colspan="4" class="title">
+                                                <span class="h-status summary">Days Reserve</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                    <tbody class="b" data-bind="foreach: Data.DailyReserveDate">
+                                        <tr>
+                                            <td data-bind="text: kendo.format('{0:dddd, dd-MMMM-yyyy}', jsonDate($data))"></td>
+                                        </tr>
+                                    </tbody>
+                                </table> 
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3" style="cursor:pointer" id="weekreserveid"><u>No of Week Reserve</u></label>
+        <div class="col-sm-9">
+            <input type="text" style="text-align: right;" id="noofweek" data-bind="kendoNumericTextBox: { format: '#', value: Data.NoOfWeek }" />
+            <span style="padding-left:10px">keep every :</span> <input id="weektype" data-bind="kendoDropDownList: { data: daysIn,value: Data.WeekType}" />
+        </div>
+        <div id="weekreservedetail">
+            <div class="row kontainer">
+                <div class="col-md-12 no-space">
+                    <div class="section content">
+                        <div class="row data-container no-space">
+                            <div class="each">
+                                <table class="table">
+                                    <tbody class="h">
+                                        <tr>
+                                            <td colspan="4" class="title">
+                                                <span class="h-status summary">Weekly Reserve</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                    <tbody class="b" data-bind="foreach: Data.WeeklyReserveDate">
+                                        <tr>
+                                            <td data-bind="text: kendo.format('{0:dddd, dd-MMMM-yyyy}', jsonDate($data))"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="form-group">
+        <label class="col-sm-3" style="cursor:pointer" id="monthreserveid"><u>No of Month Reserve</u></label>
+        <div class="col-sm-9">
+            <input type="text" style="text-align: right;" id="noofmonth" data-bind="kendoNumericTextBox: { format: '#', value: Data.NoOfMonth }" />
+            <span style="padding-left:10px">keep every :</span>  <input id="monthtype" data-bind="kendoDropDownList: { data: [ 'First date of month','Last date of month' ],value: Data.MonthType}" />
+        </div>
+        <div id="monthreservedetail">
+            <div class="row kontainer">
+                <div class="col-md-12 no-space">
+                    <div class="section content">
+                        <div class="row data-container no-space">
+                            <div class="each">
+                                <table class="table">
+                                    <tbody class="h">
+                                        <tr>
+                                            <td colspan="4" class="title">
+                                                <span class="h-status summary">Monthly Reserve</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                    <tbody class="b" data-bind="foreach: Data.MonthlyReserveDate">
+                                        <tr>
+                                            <td data-bind="text: kendo.format('{0:dddd, dd-MMMM-yyyy}', jsonDate($data))"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <h3 style="text-align:left;"><b>All Reserve Date</b></h3>
+    <div class="form-group">
+        <div class="row kontainer">
+            <div class="col-md-12 no-space">
+                <div class="section content">
+                    <div class="row data-container no-space">
+                        <div class="each">
+                            <table class="table">
+                                <tbody class="h">
+                                    <tr>
+                                        <td colspan="4" class="title">
+                                            @*<span class="h-status summary">All Reserve Date</span>*@
+                                        </td>
+                                    </tr>
+                                </tbody>
+
+                                <tbody class="b" data-bind="foreach: Data.AllReservedDate">
+                                    <tr>
+                                        <td data-bind="text: kendo.format('{0:dddd, dd-MMMM-yyyy}', jsonDate($data))"></td>
+                                    </tr>
+                                </tbody>
+
+                                <!-- /ko -->
+                                <!-- /ko -->
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+     
+    $(document).ready(function () {
+        $("#daily").keypress(function(event) {event.preventDefault();});
+        loadConfig();      
+    });
+
+    var daysIn = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday'
+    ];
+
+    function save(){
+        var url = "@Url.Action("SaveConfig")";
+        var lockvalue;
+        
+        var param = { 
+            daily: $("#daily").val(), 
+            noofdays: $("#noofdays").val(), 
+
+            noofweek: $("#noofweek").val(), 
+            weektype: $("#weektype").val(), 
+
+            noofmonth: $("#noofmonth").val(), 
+            monthtype: $("#monthtype").val(), 
+            lockstatus: model.ReserveConfig().LockValue()
+        };
+        ajaxPost(url, param, function(data){
+            alert("Changes has been saved")
+            loadConfig(); 
+            //console.log(data.Result);
+        }, function (a, b, c) {
+            console.log(a);
+            console.log(b);
+            console.log(c);
+        });
+    }
+
+    function loadConfig(){
+        var url = "@Url.Action("GetReserveConfig")";
+        ajaxPost(url,{},function(res){
+            //console.log(res.Data.LockStatus);
+            model.ReserveConfig().Values(res);
+            var lock = res.Data.LockStatus;
+            if(lock==null){ lock = "Lock";} 
+            model.ReserveConfig().LockValue(lock);
+            
+            $("#daysreservedetail").hide();$("#weekreservedetail").hide(); $("#monthreservedetail").hide();
+            loaddaysreserve();loadweekreserve();loadmonthreserve();
+
+            if(model.ReserveConfig().LockValue() == "Lock"){
+                $('#saveConfig').prop('disabled', true);
+                //                $('input[type="text"]').prop('disabled', true);
+                disabledForm(false);
+                model.ReserveConfig().LockStatus("Unlock");
+            }else{
+                //$('#saveConfig').prop('disabled', false);
+                disabledForm(true);
+                model.ReserveConfig().LockStatus("Lock");
+            }
+        });
+    }
+
+    function loaddaysreserve(){
+        $("#daysreserveid").click(function () {
+            $("#daysreservedetail").toggle(500);
+        });
+    }
+    function loadweekreserve(){
+        $("#weekreserveid").click(function () {
+            $("#weekreservedetail").toggle(500);
+        });
+    }
+    function loadmonthreserve(){
+        $("#monthreserveid").click(function () {
+            $("#monthreservedetail").toggle(500);
+        });
+    }
+
+    function disabledForm(status){
+        $('#weektype').data('kendoDropDownList').enable(status);
+        $('#monthtype').data('kendoDropDownList').enable(status);
+        $('#daily').data('kendoTimePicker').enable(status);
+        $('#noofdays').data('kendoNumericTextBox').enable(status);
+        $('#noofweek').data('kendoNumericTextBox').enable(status);
+        $('#noofmonth').data('kendoNumericTextBox').enable(status);
+    }
+    
+    function LockConfig(){
+        model.ReserveConfig().LockValue(model.ReserveConfig().LockStatus());
+        var param = { 
+            daily: $("#daily").val(), 
+            noofdays: $("#noofdays").val(), 
+            noofweek: $("#noofweek").val(), 
+            weektype: $("#weektype").val(), 
+            noofmonth: $("#noofmonth").val(), 
+            monthtype: $("#monthtype").val(), 
+            lockstatus: model.ReserveConfig().LockValue()
+        }
+
+        var url = "@Url.Action("SaveConfig")";
+        ajaxPost(url,param,function(res){
+            loadConfig();    
+        });
+    }
+</script>

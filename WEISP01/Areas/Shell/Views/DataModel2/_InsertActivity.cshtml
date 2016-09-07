@@ -1,0 +1,350 @@
+﻿@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+<style>
+    .insert-activity .text {
+        width: 200px;
+        padding: 5px 8px;
+        border: 1px solid rgb(211, 211, 211);
+    }
+
+    .insert-activity .check {
+        padding: 5px 8px;
+        border: 1px solid rgb(211, 211, 211);
+    }
+
+    .insert-activity .form-horizontal .form-group {
+        margin-bottom: 4px;
+    }
+
+        .insert-activity .form-horizontal .form-group .col-md-2 {
+            padding-top: 5px;
+            padding-right: 0px !important;
+        }
+
+        .insert-activity .form-horizontal .form-group .col-md-4 {
+            padding-left: 6px !important;
+        }
+</style>
+
+<script>
+
+    model.SelectedActivity.LineofBusiness = ko.observableArray([]);
+    $(function () {
+        $("#PlanningDays").kendoNumericTextBox({
+            format: "n0"
+        });
+        $("#ScheduleDays").kendoNumericTextBox({
+            format: "n0"
+        });
+    });
+
+    function CalculatingPlanningDays() {
+        var start = $("#PsScheduleStart").data("kendoDatePicker").value();
+        var finish = $("#PsScheduleFinish").data("kendoDatePicker").value(); //  $("#PsScheduleFinish").val();
+
+        if (start != null && start != "" && finish != null && finish != "") {
+
+            var diffInDays = (finish - start) / (24 * 60 * 60 * 1000);
+            //console.log(diffInDays);
+            $("#PlanningDays").data("kendoNumericTextBox").value(diffInDays);
+        }
+        else {
+            $("#PlanningDays").data("kendoNumericTextBox").value(0);
+        }
+    }
+
+    function CalculatingoperatingDays() {
+        var start = $("#OpsScheduleStart").data("kendoDatePicker").value();
+        var finish = $("#OpsScheduleFinish").data("kendoDatePicker").value();
+
+        if (start != null && start != "" && finish != null && finish != "") {
+            var diffInDays = (finish - start) / (24 * 60 * 60 * 1000);
+            //console.log(diffInDays);
+
+            $("#ScheduleDays").data("kendoNumericTextBox").value(diffInDays);
+        }
+        else {
+            $("#ScheduleDays").data("kendoNumericTextBox").value(0);
+        }
+
+    }
+
+    function PsScheduleFinishChange() {
+        var start = $("#PsScheduleStart").data("kendoDatePicker").value();
+        var finish = $("#PsScheduleFinish").data("kendoDatePicker").value();
+        var opplandays = $("#PlanningDays").data("kendoNumericTextBox").value();
+
+        if (start != null && start != "" && finish != null && finish != "") {
+            var newDateMomentFinish = moment(start).add(opplandays, 'days');
+            opfinish = newDateMomentFinish.format("DD-MMM-YYYY");
+            $("#PsScheduleFinish").data("kendoDatePicker").value(opfinish);
+        }
+        else {
+            alert('Please choose Planning start/finish');
+        }
+    }
+    function OPsScheduleFinishChange() {
+
+        //alert();
+        var start = $("#OpsScheduleStart").data("kendoDatePicker").value();
+        var finish = $("#OpsScheduleFinish").data("kendoDatePicker").value();
+
+        //console.log(start);
+
+        var opx = $("#ScheduleDays").val();
+
+        if (start != null && start != "" && finish != null && finish != "") {
+            var newDateMomentFinish = moment(start).add(opx, 'days');
+            opfinish = newDateMomentFinish.format("DD-MMM-YYYY");
+            $("#OpsScheduleFinish").data("kendoDatePicker").value(opfinish);
+        }
+        else {
+            alert('Please choose Operation Start/Finish');
+        }
+
+    }
+
+    model.save = function () {
+        var validator = $(".insert-activity form").kendoValidator().data("kendoValidator"),
+                    status = $(".status");
+
+        if (!validator.validate()) {
+            return;
+        }
+
+        if (model.IsEditMode() && model.SelectedActivity.UARigSequenceId() === '') {
+            alert('Sequence ID cannot be null !');
+            return;
+        }
+
+        model.IsProcessing(true);
+        //alert('asd');
+
+        var eventName = model.SelectedActivity.Activity();
+        var virtualPhase = model.SelectedActivity.VirtualPhase();
+        var shiftFutureEventDate = model.SelectedActivity.ShiftFutureEventDate();
+
+        //console.log(eventName);
+        //console.log(virtualPhase);
+        //console.log(shiftFutureEventDate);
+
+        if (virtualPhase == null)
+            virtualPhase = false;
+
+        if (shiftFutureEventDate == null)
+            shiftFutureEventDate = false;
+
+        ajaxPost("SaveActivity", { wellActivity: model.SelectedActivity, IsInPlan: model.SelectedActivity.IsInPlan(), eventName: eventName, virtualPhase: virtualPhase, shiftFutureEventDate: shiftFutureEventDate, isNewWell: model.isNewWell(), LineOfBusiness: $("#LineofBusiness").data("kendoDropDownList").value() }, function (res) {
+            //if (typeof res.Data === 'object') {
+            //    alert(res.Data.Message);
+            //    model.IsProcessing(false);
+            //    return;
+            //}
+    
+            if (res.Success==true) {
+                model.ShowInsertActivityForm(false);
+                editWellInfo(res.WellActivityId, res.WellName, res.RigName);
+                alert("Data Saved!");
+            } else {
+                alert(res.Message);
+            }
+            model.IsProcessing(false);
+        }, function (a, b, c) {
+            alert('Error when saving data: ' + a.Message);
+            model.IsProcessing(false);
+        }); 
+    };
+</script>
+
+<div>
+    <button class="btn btn-custom btn-warning btn-sm btn-back" data-bind="click: function() { model.ShowBrowser(true); model.ShowInsertActivityForm(false); model.IsEditMode(false); }">
+        <span class="glyphicon glyphicon-arrow-left"></span> Back to Browser
+    </button>
+    &nbsp;
+    <button class="btn btn-custom btn-primary btn-sm" data-bind="click: save">
+        <span class="glyphicon glyphicon-ok"></span> Save
+    </button>
+</div>
+
+<h3>Add New Well Plan</h3>
+
+<div data-bind="with: SelectedActivity" class="insert-activity">
+    <div class="form-horizontal">
+        <form class="k-content">
+            <div class="form-group">
+                <label class="col-md-2">Region:</label>
+                <div class="col-md-4">
+                    <select style="width: 200px;"
+                            required data-required-msg="Select region" name="Region"
+                            data-bind="kendoDropDownList: { data: $root.options.regions, value: Region, optionLabel: 'Select one'} "></select>
+                    <span class="k-invalid-msg" data-for="Region"></span>
+                </div>
+                <label class="col-md-2">OP Start:</label>
+                <div class="col-md-4">
+                    <input onblur="CalculatingPlanningDays();" id="PsScheduleStart" style="width: 200px;"
+                           required data-required-msg="Insert Planning Start" name="PsScheduleStart"
+                           data-bind="kendoDatePicker: { format: 'dd-MMM-yyyy', value: PsSchedule.Start } " />
+                    <span class="k-invalid-msg" data-for="PsScheduleStart"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-md-2">Line of Business:</label>
+                <div class="col-md-4">
+                    <select style="width: 200px;"
+                            required data-required-msg="Select Line of Business" id="LineofBusiness" name="LineofBusiness"
+                            data-bind="kendoDropDownList: { data: ['ARCTIC','DEEPWATER','INTEGRATED GAS','OPERATED','JV/NOV','UNCONVENTIONALS'], value: LineOfBusiness, optionLabel: 'Select Line of Business'} "></select>
+                    <span class="k-invalid-msg" data-for="LineOfBusiness"></span>
+                </div>
+                <label class="col-md-2">OP Finish:</label>
+                <div class="col-md-4">
+                    <input onblur="CalculatingPlanningDays();" id="PsScheduleFinish" style="width: 200px;"
+                           required data-required-msg="Insert Planning Finish" name="PsScheduleFinish"
+                           data-bind="kendoDatePicker: { format: 'dd-MMM-yyyy', value: PsSchedule.Finish }" /> <input id="PlanningDays" type="text" value="0" style="width:50px;text-align:right" onblur="PsScheduleFinishChange()" /> days
+                    <span class="k-invalid-msg" data-for="PsScheduleFinish"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-md-2">Rig Type:</label>
+                <div class="col-md-4">
+                    <select style="width: 200px;"
+                            required data-required-msg="Select Rig Type" name="RigType"
+                            data-bind="kendoDropDownList: { data: $root.options.rigTypes, value: RigType, optionLabel: 'Select one'} "></select>
+                    <span class="k-invalid-msg" data-for="RigType"></span>
+                </div>
+                <label class="col-md-2">LS Start:</label>
+                <div class="col-md-4">
+                    <input onblur="CalculatingoperatingDays();" id="OpsScheduleStart" style="width: 200px;"
+                           required data-required-msg="Insert Operation Start" name="OpsScheduleStart"
+                           data-bind="kendoDatePicker: { format: 'dd-MMM-yyyy', value: OpsSchedule.Start } " />
+                    <span class="k-invalid-msg" data-for="OpsScheduleStart"></span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="col-md-2">Rig Name:</label>
+                <div class="col-md-4">
+                    <select style="width: 200px;"
+                            required data-required-msg="Select Rig Name" name="RigName"
+                            data-bind="kendoDropDownList: { data: $root.options.rigNames, value: RigName, optionLabel: 'Select one'} "></select>
+                    <span class="k-invalid-msg" data-for="RigName"></span>
+                </div>
+                <label class="col-md-2">LS Finish:</label>
+                <div class="col-md-4">
+                    <input onblur="CalculatingoperatingDays();" id="OpsScheduleFinish" style="width: 200px;"
+                           required data-required-msg="Insert Operation Finish" name="OpsScheduleFinish"
+                           data-bind="kendoDatePicker: { format: 'dd-MMM-yyyy', value: OpsSchedule.Finish } " />
+                    <input id="ScheduleDays" type="text" value="0" style="width:50px; text-align: right;" onblur="OPsScheduleFinishChange();" /> days
+                    <span class="k-invalid-msg" data-for="OpsScheduleFinish"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-md-2">Project Name:</label>
+                <div class="col-md-4">
+                    <select style="width: 200px;"
+                            required data-required-msg="Select Project Name" name="ProjectName"
+                            data-bind="kendoDropDownList: { data: $root.options.projectNames, value: ProjectName, optionLabel: 'Select one'} "></select>
+                    <span class="k-invalid-msg" data-for="ProjectName"></span>
+                </div>
+                <label class="col-md-2">Operating Unit:</label>
+                <div class="col-md-4">
+                    <select style="width: 200px;"
+                            required data-required-msg="Select Operating Unit" name="OperatingUnit"
+                            data-bind="kendoDropDownList: { data: $root.options.operatingUnits, value: OperatingUnit, optionLabel: 'Select one'} "></select>
+                    <span class="k-invalid-msg" data-for="OperatingUnit"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-md-2">New Well Name?</label>
+                <div class="col-md-4"><input type="checkbox" data-bind="checked:model.isNewWell" /></div>
+                <label class="col-md-2">In Plan:</label>
+                <div class="col-md-4">
+                    <label>
+                        Yes <input type="radio" data-bind="checked: IsInPlan, checkedValue: true" />
+                    </label>
+                    &nbsp;&nbsp;&nbsp;
+                    <label>
+                        No <input type="radio" data-bind="checked: IsInPlan, checkedValue: false" />
+                    </label>
+                </div>
+                @*<label class="col-md-2">Firm/Option:</label>
+                <div class="col-md-4">
+                    <select style="width: 200px;"
+                            required data-required-msg="Select Firm/Option" name="FirmOrOption"
+                            data-bind="kendoDropDownList: { data: $root.options.firmOrOptions, value: FirmOrOption, optionLabel: 'Select one'} "></select>
+                    <span class="k-invalid-msg" data-for="FirmOrOption"></span>
+                </div>*@
+            </div>
+            <div class="form-group">
+                <label class="col-md-2">Well Name:</label>
+                <div class="col-md-4" data-bind="visible:!model.isNewWell()">
+                    <select id="wellAdd" style="width: 200px;"
+                            required data-required-msg="Select Well Name"
+                            data-bind="kendoDropDownList: { data: $root.options.wellNames, value: WellName} "></select>
+                </div>
+                <div class="col-md-4" data-bind="visible:model.isNewWell()">
+                    <input type="text" style="width:200px;" name="WellName" data-bind="visible:model.isNewWell(),value:WellName" />
+                    <span class="k-invalid-msg" data-for="WellName"></span>
+                </div>
+                <label class="col-md-2">Working Interest:</label>
+                <div class="col-md-4">
+                    <input class="text" style="width: 200px;" placeholder="Example: 0.00034"
+                           required data-required-msg="Insert Working Interest" name="WorkingInterest"
+                           data-bind="value: WorkingInterest" />
+                    <span class="k-invalid-msg" data-for="WorkingInterest"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-md-2">Asset Name:</label>
+                <div class="col-md-4">
+                    <select style="width: 200px;"
+                            required data-required-msg="Select Asset Name" name="AssetName"
+                            data-bind="kendoDropDownList: { data: $root.options.assetNames, value: AssetName, optionLabel: 'Select one'} "></select>
+                    <span class="k-invalid-msg" data-for="AssetName"></span>
+                </div>
+                <label class="col-md-2">Sequence ID:</label>
+                <div class="col-md-4">
+                    <input class="text" style="width: 200px;" placeholder="Example: 1234" data-bind="value: UARigSequenceId" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-md-2">Performance Unit:</label>
+                <div class="col-md-4">
+                    <select style="width: 200px;"
+                            required data-required-msg="Select Performance Unit" name="PerformanceUnit"
+                            data-bind="kendoDropDownList: { data: $root.options.performanceUnits, value: PerformanceUnit, optionLabel: 'Select one'} "></select>
+                    <span class="k-invalid-msg" data-for="PerformanceUnit"></span>
+                </div>
+                <label class="col-md-2">Sequence Description:</label>
+                <div class="col-md-4" style="position: relative">
+                    <input class="text" style="width: 200px;" placeholder="Type description here ..." data-bind="value: UARigDescription" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-md-2">Event :</label>
+                <div class="col-md-4">
+                    <select style="width: 200px;"
+                            required data-required-msg="Select Activity" name="Activity"
+                            data-bind="kendoDropDownList: { data: $root.Activities, value: Activity, optionLabel: 'Select one'} "></select>
+                    <span class="k-invalid-msg" data-for="Activity"></span>
+                </div>
+                <label class="col-md-2">Non Well Schedule:</label>
+                <div class="col-md-4" style="position: relative">
+                    <input class="check" type="checkbox" data-bind="checked : VirtualPhase" />
+                </div>
+            </div>
+            <div class="form-group">
+                @*<label class="col-md-2">Shift Future Event Date:</label>*@
+                <div class="col-md-2"></div>
+                <div class="col-md-4">
+                    @*   <input class="check" type="checkbox" />*@
+                </div>
+                <label class="col-md-2">Shift Future Event Date:</label>
+                <div class="col-md-4" style="position: relative">
+                    <input class="check" type="checkbox" data-bind="checked : ShiftFutureEventDate" />
+                </div>
+
+            </div>
+            <div class="clearfix"></div>
+        </form>
+    </div>
+</div>

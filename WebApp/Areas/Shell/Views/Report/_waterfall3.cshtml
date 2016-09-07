@@ -1,0 +1,109 @@
+﻿<div id="chart-waterfall3" style="width:1020px;height:400px;"></div>
+<div style="text-align:center">
+    <label style="background-color:darkblue;width:20px;">&nbsp;</label>
+    <label style="font-weight:normal">OP</label>
+    &nbsp;|&nbsp;
+    <label style="background-color:green;width:20px;">&nbsp;</label>
+    <label style="font-weight:normal">Plan Opportunity</label>
+    &nbsp;|&nbsp;
+    <label style="background-color:lightblue;width:20px;">&nbsp;</label>
+    <label style="font-weight:normal">LE Opportunity</label>
+    &nbsp;|&nbsp;
+    <label style="background-color:maroon;width:20px;">&nbsp;</label>
+    <label style="font-weight:normal">Plan Risk</label>
+    &nbsp;|&nbsp;
+    <label style="background-color:#EF6E4F;width:20px;">&nbsp;</label>
+    <label style="font-weight:normal">LE Risk</label>
+    &nbsp;|&nbsp;
+    <label style="background-color:gray;width:20px;height:1px;">&nbsp;</label>
+    <label style="font-weight:normal">AFE</label>
+</div>
+
+<script>
+    function createWaterfall3(wfmodel) {
+        var wf = $("#chart-waterfall3");
+        var url = "@Url.Action("GetWaterfallData3")";
+        wf.html("");
+
+        var rawfilter = model.getFilterValues();
+
+        var wfmodel = ko.mapping.toJS(model.waterfall);
+        for (var p in rawfilter) if (rawfilter.hasOwnProperty(p)) wfmodel[p] = rawfilter[p];
+
+        ajaxPost(url, wfmodel, function (data) {
+            if (data.Result != "OK") {
+                showErr(data.Message + data.Trace);
+                return;
+            };
+
+            var height = 450;
+            wf.height(height);
+
+            var color = function (point) {
+                //alert(ks(point));
+                switch (point.dataItem.Title) {
+                    case "OP":
+                        return "darkblue";
+                        break;
+
+                    case "TQ/Target":
+                    case "TQ/Agreed Target":
+                        return "gray";
+                        break;
+
+                    case "LE":
+                    case "Last Estimate":
+                        return "brown";
+                        break;
+                }
+
+                if (point.value > 0) {
+                    return "red";
+                } else {
+                    return "green";
+                }
+            };
+
+            wf.kendoChart({
+                dataSource: { data: data.Data },
+                series: [
+                    {
+                        type: "waterfall",
+                        field: "Value",
+                        categoryField: "Title",
+                        summaryField: "ItemType",
+                        color: color,
+                        line:{ visible:false , width:0 },
+                        labels: { visible: true, font: "9px verdana", format: "N1", position: "outsideEnd" },
+                        tooltip: { visible: true, template: '#: category #: #: kendo.format("{0:N1}", value) #' }
+                    },
+                    {
+                        type: "line", name: "AFE", color: "gray", field: "TrendLines[0]", markers: { visible: false }, width: 1,
+                        tooltip: { visible: true, template: 'AFE: #: kendo.format("{0:N1}", value) #' }
+                    }
+                ],
+                legend:{ visible: false, position: "bottom" },
+                valueAxis: {
+                    labels: { font: "9px verdana", format: "N1" },
+                    majorGridLines: { visible: false }
+                },
+                categoryAxis: {
+                    labels: { font: "9px verdana", rotation: 40, template: '#= trimIfGreaterThan(value, 25) #' },
+                    majorGridLines: { visible: false }
+                }
+            });
+
+            if (!model.waterfall().IncludeGaps()) {
+                var allGapsData = _.filter(data.Data, function (e) { return (e.Title.toLowerCase().indexOf("gaps") > -1) });
+                _.each(allGapsData, function (e) {
+                    var gapsData = e;
+                    var gapsIndex = data.Data.indexOf(gapsData);
+
+                    $("tspan:contains('" + gapsData.Title + "')").closest("g").hide();
+                    $("svg > g:eq(0) > g[opacity]:eq(" + gapsIndex + ")").hide();
+                    $("svg > g:eq(0) > g:eq(0) > g[clip-path] > g:eq(" + gapsIndex + ")").hide();
+                });
+            }
+        });
+    }
+</script>

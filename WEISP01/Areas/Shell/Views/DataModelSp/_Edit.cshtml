@@ -1,0 +1,2391 @@
+﻿@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+
+<style>
+    #grid_wrapper .k-header[role=columnheader] {
+        vertical-align: middle;
+        text-align: center;
+    }
+
+        #grid_wrapper .k-header[role=columnheader][data-colspan] {
+            text-align: center;
+            font-weight: bold;
+            color: #a8a8a8;
+        }
+        
+    #grid_wrapper [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    #grid_wrapper .k-header[role=columnheader][data-title=Days] {
+        vertical-align: top !important;
+    }
+    
+    #form-wrapper div {
+        padding-bottom: 3px;
+    }
+
+        #form-wrapper div label {
+            line-height: 23px;
+        }
+
+    #form-wrapper .col-md-3, #form-wrapper .col-md-5 {
+        padding: 0px;
+    }
+
+    #form-wrapper .col-md-5 {
+        padding-left: 6px;
+    }
+
+    #form-wrapper .text, #form_new_phase .text {
+        width: 100%;
+        height: 27px;
+        border: 1px solid rgb(239, 239, 239);
+        background-color: rgb(249, 249, 249);
+        padding: 0px 9px;
+    }
+
+    #form_new_phase .col-md-4 label {
+        padding-right: 0px !important;
+    }
+
+    #form_new_phase .col-md-4 {
+        text-align: right;
+        padding-right: 0px;
+        padding-top: 5px;
+    }
+
+    #form_new_phase .col-md-8 {
+        padding-left: 6px !important;
+    }
+
+    .tab-content .form-group .row {
+        margin-bottom: 4px;
+    }
+
+    .tab-content .form-group .text {
+        width: 100%;
+        padding: 3px 8px 2px !important;
+        height: auto;
+        border: 1px solid rgb(211, 211, 211);
+    }
+
+    .tab-content .form-group .col-md-3 {
+        padding-top: 5px;
+        padding-right: 0px !important;
+    }
+
+    .tab-content .form-group .col-md-5 {
+        padding-left: 6px !important;
+    }
+
+    .form-control {
+        font-size: 9pt;
+    }
+
+    .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    input[type='text'] {
+        line-height: 20px;
+    }
+</style>
+
+<script>
+    model.isRO = ko.observable('@ViewBag.isRO');
+    model.isAdmin = ko.observable('@ViewBag.isAdmin');
+    model.OP = ko.observable(),
+    model.PhaseName = ko.observable('');
+    model.PhasePhStart = ko.observable('');
+    model.PhasePhFinish = ko.observable('');
+    model.ProcessingBrowser = ko.observable(false);
+    model.Activities = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate<WellActivity>("WEISWellActivities")
+        .SelectMany(d => d.Phases).GroupBy(d => d.ActivityType).Select(d => d.Key).OrderBy(d => (d.Equals("n/a") ? "" : d)))));
+    model.ListOP = ko.observableArray();
+    //model.DetailOP = ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellActivityPhaseInfo()))));
+    model.PDdata = ko.observable({
+        ActivityCategory: ko.observable(""),
+        ActivityType: ko.observable(""),
+        BICCost: ko.observable(0),
+        BICDays: ko.observable(0),
+        BICGap: ko.observable(0),
+
+        BICTreshold: ko.observable(0),
+        BrineDensity: ko.observable(0),
+        BurnRate: ko.observable(0),
+        CSO: ko.observable(0),
+        CompletionType: ko.observable(""),
+
+        CompletionZone: ko.observable(0),
+        ContigencyCost: ko.observable(0),
+        ContigencyDays: ko.observable(0),
+        CostEscalatedInflated: ko.observable(0),
+        Currency: ko.observable(""),
+
+        DeterministicHigh: ko.observable(0),
+        DeterministicLowRange: ko.observable(0),
+        EscalationInflation: ko.observable(0),
+        EstimatingRangeType: ko.observable(""),
+        IntId: ko.observable(0),
+
+        LLAmount: ko.observable(0),
+        LLMonth: ko.observable(""),
+        LTA2Cost: ko.observable(0),
+        LTA2Days: ko.observable(0),
+        LastUpdate: ko.observable(new Date()),
+
+        LearningCurveFactor: ko.observable(0),
+        LineOfBusiness: ko.observable(""),
+        LoE: ko.observable(""),
+        MRI: ko.observable(0),
+        MaturityLevel: ko.observable(""),
+
+        MeanCost: ko.observable(0),
+        MeanDays: ko.observable(0),
+        MeanPercentCost: ko.observable(0),
+        MeanPercentTime: ko.observable(0),
+        MeanCostEDMCost: ko.observable(0),
+
+        MeanCostEDMDays: ko.observable(0),
+        NPTCost: ko.observable(0),
+        NPTDays: ko.observable(0),
+        NPTPercentTime: ko.observable(0),
+        NPTPercentCost: ko.observable(0),
+
+        OPType: ko.observable(""),
+        PerformanceScore: ko.observable(""),
+        PhaseNo: ko.observable(0),
+        ProbabilisticP10: ko.observable(0),
+        ProbabilisticP90: ko.observable(0),
+
+        ProjectValueDrive: ko.observable(""),
+        ReferenceFactorModel: ko.observable(""),
+        RigName: ko.observable(""),
+        RigSequenceId: ko.observable(0),
+        SequenceId: ko.observable(""),
+
+        SinceLTA2: ko.observable(""),
+        SpreadRate: ko.observable(0),
+        TECOPCost: ko.observable(0),
+        TECOPDays: ko.observable(0),
+        TECOPPercentCost: ko.observable(0),
+
+        TECOPPercentTime: ko.observable(0),
+        TQCost: ko.observable(0),
+        TQDays: ko.observable(0),
+        AggredTargetCost: ko.observable(0),
+        AggredTargetDays: ko.observable(0),
+        TQGap: ko.observable(0),
+        TQTreshold: ko.observable(0),
+
+        TotalCostIncludePortf: ko.observable(0),
+        TotalCostWithEscInflCSO: ko.observable(0),
+        TotalDurationCost: ko.observable(0),
+        TotalDurationDays: ko.observable(0),
+        TotalWellDepthMD: ko.observable(0),
+
+        TroubleFreeCost: ko.observable(0),
+        TroubleFreeDays: ko.observable(0),
+        USDCostCSO: ko.observable(0),
+        USDCostEscalation: ko.observable(0),
+        USDCostInflation: ko.observable(0),
+
+        USDCostMeanCostEDM: ko.observable(0),
+        USDCostMeanCostMOD: ko.observable(0),
+        USDCostNPT: ko.observable(0),
+        USDCostTECOP: ko.observable(0),
+        USDCostTroubleFree: ko.observable(0),
+
+        ValueDriverEstimate: ko.observable(0),
+        WaterDepthMD: ko.observable(0)
+    });
+    //model.dataop = ko.observable({
+    //    TotalDurationDays: ko.observable(),
+    //    TotalDurationCost: ko.observable(),
+    //    TroubleFreeDays: ko.observable(),
+    //    TroubleFreeCost: ko.observable(),
+    //    TroubleDays: ko.observable(),
+    //    TroubleCost: ko.observable(),
+    //    ContigencyDays: ko.observable(),
+    //    ContigencyCost: ko.observable(),
+    //    TQDays: ko.observable(),
+    //    TQCost: ko.observable(),
+    //    BICDays: ko.observable(),
+    //    BICCost: ko.observable(),
+    //    LTA2Days: ko.observable(),
+    //    LTA2Cost: ko.observable(),
+    //    SinceLTADays: ko.observable(),
+    //    SinceLTACost: ko.observable(),
+    //    BurnRate: ko.observable(),
+    //    EscInflation: ko.observable(),
+    //    CSO: ko.observable(),
+    //    TotalCostIncPort: ko.observable(),
+    //    LLMonth: ko.observable(),
+    //    LLAmount: ko.observable(),
+    //    CostEscInfl: ko.observable(),
+    //    CostEscInflCSO: ko.observable(),
+    //    TQDurationDays: ko.observable(),
+    //    TQDurationCost: ko.observable(),
+    //    BICDurationDays: ko.observable(),
+    //    BICDurationCost: ko.observable(),
+    //    TQPIP: ko.observable(),
+    //    BICPIP: ko.observable()
+    //});
+</script>
+
+<div class="col-md-12">
+    <button class="btn btn-custom btn-warning btn-sm" onclick="backToBrowser();">
+        <span class="glyphicon glyphicon-arrow-left"></span> Back to Browser
+    </button>
+    &nbsp;
+    <button class="btn btn-custom btn-primary btn-sm" onclick="sendData();" data-bind="visible:!model.isRO()=='1'">
+        <span class="glyphicon glyphicon-ok"></span> Save
+    </button>
+</div>
+
+<div data-bind="visible: model.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+
+<div class="col-md-12" style="margin-top:10px;" data-bind="style: { visibility: model.IsProcessing() ? 'hidden' : 'visible' }">
+
+    <br />
+
+    <ul class="nav nav-tabs" role="tablist">
+        <li role="presentation" class="active">
+            <a href="#general" role="tab" data-toggle="tab">General</a>
+        </li>
+        <li role="presentation">
+            <a href="#additional-info" role="tab" data-toggle="tab">Additional Info</a>
+        </li>
+    </ul>
+
+    <div class="tab-content" style="padding-top: 10px;">
+
+        <div role="tabpanel" class="tab-pane active" id="general">
+            <div class="form-group col-md-6">
+                <div class="row">
+                    <label class="col-md-3">Rig Name:</label>
+                    <div class="col-md-5">
+                        <input readonly="readonly" data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.rigNames, value: model.SelectedActivity.RigName, optionLabel: 'Select Rig Name' }" style="width: 100%;" />
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-3">Well Name:</label>
+                    <div class="col-md-5">
+                        <input readonly="readonly" data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.wellNames, value: model.SelectedActivity.WellName, optionLabel: 'Select Well Name' }" style="width: 100%;" />
+                        @*<input type="text" class="text" data-bind="value: model.SelectedActivity.WellName">*@
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3" data-bind="text:model.DefaultOP()+' Start:'"></label>
+                    <div class="col-md-5">
+                        <input style="width: 100%;" data-bind="enable:!model.isRO()=='1',kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.SelectedActivity.PsSchedule.Start } ">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3" data-bind="text:model.NextOP()+' Start:'"></label>
+                    <div class="col-md-5">
+                        <input style="width: 100%;" data-bind="enable:!model.isRO()=='1',kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.SelectedActivity.LESchedule.Start } ">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3">Latest Sequence Start:</label>
+                    <div class="col-md-5">
+                        <input style="width: 100%;" data-bind="enable:!model.isRO()=='1',kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.SelectedActivity.OpsSchedule.Start } ">
+                    </div>
+                </div>
+
+
+            </div>
+
+            <div class="form-group col-md-6">
+                <div class="row">
+                    <label class="col-md-3">Sequence No:</label>
+                    <div class="col-md-5">
+                        <input type="text" class="text" data-bind="enable:!model.isRO()=='1',value: model.SelectedActivity.UARigSequenceId, enable: false">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3">Non OP</label>
+                    <div class="col-md-5">
+                        <input type="checkbox" data-bind="checked:model.SelectedActivity.NonOP" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3" data-bind="text:model.DefaultOP()+' Finish:'"></label>
+                    <div class="col-md-5">
+                        <input style="width: 100%;" data-bind="enable:!model.isRO()=='1',kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.SelectedActivity.PsSchedule.Finish } ">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3" data-bind="text:model.NextOP()+' Finish:'"></label>
+                    <div class="col-md-5">
+                        <input style="width: 100%;" data-bind="enable:!model.isRO()=='1',kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.SelectedActivity.LESchedule.Finish } ">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3">Latest Sequence Finish:</label>
+                    <div class="col-md-5">
+                        <input style="width: 100%;" data-bind="enable:!model.isRO()=='1',kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.SelectedActivity.OpsSchedule.Finish } ">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="tab-pane" id="additional-info">
+            <div class="form-group col-md-6">
+                <div class="row">
+                    <label class="col-md-3">Region:</label>
+                    <div class="col-md-5">
+                        <input id="Region" data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.regions, value: model.SelectedActivity.Region }" style="width: 100%;" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3">Operating Unit:</label>
+                    <div class="col-md-5">
+                        <input id="operatingUnit" data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.operatingUnits, value: model.SelectedActivity.OperatingUnit }" style="width: 100%;" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3">Rig Type:</label>
+                    <div class="col-md-5">
+                        <input id="rigType" data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.rigTypes, value: model.SelectedActivity.RigType }" style="width: 100%;" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3">Project Name:</label>
+                    <div class="col-md-5">
+                        <input id="projectName" data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.projectNames, value: model.SelectedActivity.ProjectName }" style="width: 100%;" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3">Asset Name:</label>
+                    <div class="col-md-5">
+                        <input id="assetName" data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.assetNames, value: model.SelectedActivity.AssetName }" style="width: 100%;" />
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-3">Performance Unit:</label>
+                    <div class="col-md-5">
+                        <input id="perfomanceUnit" data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.performanceUnits, value: model.SelectedActivity.PerformanceUnit }" style="width: 100%;" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group col-md-6">
+
+
+                <div class="row" data-bind="visible:false">
+                    <label class="col-md-3">Firm/Option:</label>
+                    <div class="col-md-5">
+                        <input id="firmOption" data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.firmOrOptions, value: model.SelectedActivity.FirmOrOption }" style="width: 100%;" />
+                    </div>
+                </div>
+
+                @*<div class="row">
+                    <label class="col-md-3">In Plan:</label>
+                    <div class="col-md-5">
+                        <input id="isInPlan" data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.IsInPlan, value: model.SelectedActivity.IsInPlan,dataTextField:'name',dataValueField:'value' }" style="width: 100%;" />
+                    </div>
+                </div>*@
+
+                <div class="row">
+                    <label class="col-md-3">Working Interest:</label>
+                    <div class="col-md-5">
+                        <input id="workingInterest" class="text" type="text" placeholder="Example: 0.00034" data-bind="enable:!model.isRO()=='1',value: model.SelectedActivity.WorkingInterest" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3">Sequence Description:</label>
+                    <div class="col-md-5">
+                        <input id="seqDesc" class="text" type="text" placeholder="Type Sequence Description" data-bind="enable:!model.isRO()=='1',value: model.SelectedActivity.UARigDescription" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-3">Funding Type:</label>
+                    <div class="col-md-5">
+                        <input id="FundingType" data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.exType(), value: model.SelectedActivity.EXType }" style="width: 100%;" />
+                    </div>
+                </div>
+
+                @*<div class="row">
+                    <label class="col-md-3">Non Well Schedule:</label>
+                    <div class="col-md-5">
+                        <input id="virtual1" class="check" type="checkbox" data-bind="checked: model.SelectedActivity.VirtualPhase, value: model.SelectedActivity.VirtualPhase" />
+                    </div>
+
+                </div>
+                <div class="row">
+                    <label class="col-md-3">Shift Future Event Date:</label>
+                    <div class="col-md-5">
+                        <input id="shift1" class="check" type="checkbox" data-bind="checked: model.SelectedActivity.ShiftFutureEventDate, value: model.SelectedActivity.ShiftFutureEventDate" />
+                    </div>
+
+                </div>*@
+
+
+            </div>
+        </div>
+    </div>
+
+    <div style="clear:both;"></div>
+
+    <h3>Activities</h3>
+
+    <button class="btn btn-success btn-custom btn-sm" onclick="openModal();" data-bind="visible:!model.isRO()=='1' && model.isAdmin() == '1'">
+        <span class=" glyphicon glyphicon-plus">
+        </span> Add Phase
+    </button>
+
+    <div style="clear: both;"></div>
+    <!-- Tab-->
+    <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden'), height: (!model.IsProcessing() ? '' : '0px'), overflow: (!model.IsProcessing() ? '' : 'hidden') }">
+
+        <ul class="nav nav-tabs" style="margin-top:10px;">
+            <li class="active"><a href="#tab1" data-toggle="tab">OP Comparation Info</a></li>
+            <li><a href="#tab2" data-toggle="tab" data-bind="text:model.OP()"></a></li>
+            <li style="visibility:hidden"><a href="#tab3" data-toggle="tab">Phase Info</a></li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane active" id="tab1">
+                <div class="col-md-12">
+                    <div style="font-style:italic;text-align:center;margin-top:10px;" data-bind="text:model.ShowNoticeProrate()"></div>
+                </div>
+                <div class="clearfix"></div>
+                <div data-bind="visible: !model.ProcessingBrowser()">
+                    <span><i>*Grid Show Base on Filter</i></span>
+                    <div id="grid_wrapper" style="margin-top: 10px;"></div>
+                    <div style="clear:both;"></div>
+                    <div class="form-group col-md-12" style="margin-top:20px;text-align:center;">
+                        <div class="row">
+                        </div>
+                    </div>
+                </div>
+                <div data-bind="visible: model.ProcessingBrowser()">
+                    @Html.Partial("_processing")
+                </div>
+            </div>
+            <div class="tab-pane" id="tab2">
+                <div data-bind="visible: !model.ProcessingBrowser()">
+
+                    <div id="grid_CompareInfo" style="margin-top: 10px;"></div>
+                    <div style="clear:both;"></div>
+                    <div class="form-group col-md-12" style="margin-top:20px;text-align:center;">
+                        <div class="row">
+                        </div>
+                    </div>
+                </div>
+                <div data-bind="visible: model.ProcessingBrowser()">
+                    @Html.Partial("_processing")
+                </div>
+            </div>
+            <div class="tab-pane" id="tab3">
+                <div data-bind="visible: !model.ProcessingBrowser()">
+                    
+                    <div id="grid_phaseInfo" style="margin-top: 10px;"></div>
+                    <div style="clear:both;"></div>
+                    <div class="form-group col-md-12" style="margin-top:20px;text-align:center;">
+                        <div class="row">
+                        </div>
+                    </div>
+                </div>
+                <div data-bind="visible: model.ProcessingBrowser()">
+                    @Html.Partial("_processing")
+                </div>
+            </div>
+        </div>
+    </div>
+   
+
+    <!-- Modal -->
+    <div class="modal fade myModal" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title">New Phase</h4>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form_new_phase" class="k-content">
+                            <div class="form-group">
+                                <div class="col-md-4">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Phase Name:</label>
+                                </div>
+                                <div class="col-md-8">
+                                    <input class="text" style="" placeholder="Select Activity Type ..."
+                                           required data-required-msg="Insert Phase Name" name="PhaseName"
+                                           data-bind="value: PhaseName" id="PhaseName" />
+                                    <span class="k-invalid-msg" data-for="PhaseName"></span>
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-4">
+                                    <label style="text-align:right; font-weight:bold;" class="control-label">Period Start:</label>
+                                </div>
+                                <div class="col-md-8">
+                                    <input onblur="CalculateDaysOnPhase(this)" style="width: 200px;"
+                                           required data-required-msg="Insert Period Finish" name="PhasePhStart"
+                                           data-bind="kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.PhasePhStart } " />
+                                    <span class="k-invalid-msg" data-for="PhasePhStart"></span>
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-4">
+                                    <label style="text-align:right; font-weight:bold;" class="control-label">Period Finish:</label>
+                                </div>
+                                <div class="col-md-8">
+                                    <input onblur="CalculateDaysOnPhase(this)" style="width: 200px;"
+                                           required data-required-msg="Insert Period Finish" name="PhasePhFinish"
+                                           data-bind="kendoDatePicker: { format: 'dd-MMM-yyyy', value: model.PhasePhFinish } " />
+                                    <span class="k-invalid-msg" data-for="PhasePhFinish"></span>
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-4">
+                                    <label style="text-align:right; font-weight:bold;" class="control-label">Total days:</label>
+                                </div>
+                                <div class="col-md-2">
+                                    <input class="text" type="text" readonly="readonly" id="DaysValueNewPhase">
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <label class="col-md-4">Non Well Schedule:</label>
+                                <div class="col-md-2">
+                                    <input id="virtual" class="check" type="checkbox" />
+                                </div>
+
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <label class="col-md-4">Shift Future Event Date:</label>
+                                <div class="col-md-2" style="position: relative">
+                                    <input id="shift" class="check" type="checkbox" />
+                                </div>
+
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-custom btn-sm btn-shell" data-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-custom btn-sm btn-primary" onclick="saveNewPhase();">
+                            <span class="glyphicon glyphicon-ok"></span> Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade dataPhase" id="dataPhase" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true" data-bind="value:model.ShowEditForm!==false">
+        <div class="modal-dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title">Data OP</h4>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form_data_phase" class="k-content" data-bind="with:DetailOP">
+                       
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Total Duration Days:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo1" class="phsinfo" style="" data-bind="value:TotalDuration.Days" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style ="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Total Duration Cost:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo2" class="phsinfo" style="" data-bind="value:TotalDuration.Cost" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Trouble Free Days:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo3" class="phsinfo" style="" data-bind="value:TroubleFree.Days" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Trouble Free Cost:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo4" class="phsinfo" style="" data-bind="value:TroubleFree.Cost" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Trouble Days:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo5" class="phsinfo" style="" data-bind="value:Trouble.Days" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Trouble Cost:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo6" class="phsinfo" style="" data-bind="value:Trouble.Cost" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Contigency Days:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo7" class="phsinfo" style="" data-bind="value:Contigency.Days" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Contigency Cost:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo8" class="phsinfo" style="" data-bind="value:Contigency.Cost" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">TQ Days:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo9" class="phsinfo" style="" data-bind="value:TQ.Days" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">TQ Cost:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo10" class="phsinfo" style="" data-bind="value:TQ.Cost" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">BIC Days:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo11" class="phsinfo" style="" data-bind="value:BIC.Days" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">BIC Cost:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo12" class="phsinfo" style="" data-bind="value:BIC.Cost" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">LTA2 Days:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo13" class="phsinfo" style="" data-bind="value:LTA2.Days" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">LTA2 Cost:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo14" class="phsinfo" style="" data-bind="value:LTA2.Cost" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            @*<div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Since LTA2 Days:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo15" class="phsinfo" style="" data-bind="value:SinceLTA2.Days" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Since LTA2 Cost:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo16" class="phsinfo" style="" data-bind="value:SinceLTA2.Cost" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>*@
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Burn Rate:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo17" class="phsinfo" style="" data-bind="value:BurnRate" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Escalation Inflation:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo18" class="phsinfo" style="" data-bind="value:EscalationInflation" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">CSO:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo19" class="phsinfo" style="" data-bind="value:CSO" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Total Cost Include Portf:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo20" class="phsinfo" style="" data-bind="value:TotalCostIncludePortf" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">LL Month:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo21" class="phsinfo" style="" data-bind="value:LLMonth" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">LL Amount:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo22" class="phsinfo" style="" data-bind="value:LLAmount" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Cost Escalation Inflated:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo23" class="phsinfo" style="" data-bind="value:CostEscalatedInflated" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Total Cost With Esc. Infl. CSO:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo24" class="phsinfo" style="" data-bind="value:TotalCostWithEscInflCSO" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Spead Rate:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo25" class="phsinfo" style="" data-bind="value:SpreadRate" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">MRI:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo26" class="phsinfo" style="" data-bind="value:MRI" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">CompletionType:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo27" class="phsinfo" style="" data-bind="value:CompletionType" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">CompletionZone:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo28" class="phsinfo" style="" data-bind="value:CompletionZone" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">BrineDensity:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo29" class="phsinfo" style="" data-bind="value:BrineDensity" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Deterministic Low Range:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo30" class="phsinfo" style="" data-bind="value:DeterministicLowRange" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Deterministic High:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo31" class="phsinfo" style="" data-bind="value:DeterministicHigh" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Probabilistic P10:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo32" class="phsinfo" style="" data-bind="value:ProbabilisticP10" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Probabilistic P90:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo33" class="phsinfo" style="" data-bind="value:ProbabilisticP90" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Water Depth MD:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo34" class="phsinfo" style="" data-bind="value:WaterDepthMD" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">TotalWellDepthMD:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo35" class="phsinfo" style="" data-bind="value:TotalWellDepthMD" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Learning Curve Factor:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo36" class="phsinfo" style="" data-bind="value:LearningCurveFactor" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                             
+                            @*<div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">TQ Duration Days:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo25" class="phsinfo" style="" data-bind="value:TQMeasures.TQDuration.Days" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">TQ Duration Cost:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo26" class="phsinfo" style="" data-bind="value:TQMeasures.TQDuration.Cost" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">BIC Duration Days:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo27" class="phsinfo" style="" data-bind="value:TQMeasures.BICDuration.Days" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">BIC Duration Cost:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo28" class="phsinfo" style="" data-bind="value:TQMeasures.BICDuration.Cost" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">TQ Target Per PIP:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo29" class="phsinfo" style="" data-bind="value:TQMeasures.TQTargetperPIP" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                            <div class="form-group">
+                                <div class="col-md-5">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">BIC Per PIP:</label>
+                                </div>
+                                <div class="col-md-7">
+                                    <input id="phsinfo30" class="phsinfo" style="" data-bind="value:TQMeasures.BICperPIP" />
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>*@
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-custom btn-sm btn-shell" data-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-custom btn-sm btn-primary" onclick="saveDataPhase();">
+                            <span class="glyphicon glyphicon-ok"></span> Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+
+    function openModal() {
+        $("#myModal").modal('show');
+        model.PhaseName('');
+        model.PhasePhStart('');
+        model.PhasePhFinish('');
+        $("#PhaseName").kendoDropDownList({ dataSource: { data: model.Activities() } });
+    }
+
+    function select() {
+        $('[href="#tab1"]').trigger('click')
+
+        model.IsProcessing(true);
+        var id = model.selectedWellId();
+
+        if (id == "") {
+            backToBrowser();
+            model.IsProcessing(false);
+            return;
+        }
+        var wb = model.getFilterValues();
+
+        // disabled in last uploadls for a while
+        wb.inlastuploadls = false;
+
+        var param = { id: id, OPs: model.getFilterValues().OPs, opRelation: model.getFilterValues().opRelation, wb: wb }
+  
+        ajaxPost("@Url.Action("SelectNewOP")", param, function (data) {
+            var NextOP = parseInt(model.DefaultOP().substring(2, 4)) + 1;
+            model.NextOP("OP" + NextOP);
+            model.PhaseData(data.Data)
+            model.SetActivity(data.Data);
+            //model.SelectedActivity.IsInPlan();
+            model.SelectedActivity.PsSchedule.Start(str2date(model.SelectedActivity.PsSchedule.Start()));
+            model.SelectedActivity.PsSchedule.Finish(str2date(model.SelectedActivity.PsSchedule.Finish()));
+            model.SelectedActivity.OpsSchedule.Start(str2date(model.SelectedActivity.OpsSchedule.Start()));
+            model.SelectedActivity.OpsSchedule.Finish(str2date(model.SelectedActivity.OpsSchedule.Finish()));
+            model.SelectedActivity.LESchedule.Start(str2date(model.SelectedActivity.LESchedule.Start()));
+            model.SelectedActivity.LESchedule.Finish(str2date(model.SelectedActivity.LESchedule.Finish()));
+            grid_phase(jsonObjConvDate2(data.Data));
+            
+            setTimeout(function () {
+                if (model.SelectedActivity.OperatingUnit() == null) { model.SelectedActivity.ProjectName($("#operatingUnit").data("kendoDropDownList").value()); }
+                if (model.SelectedActivity.Region() == null) { model.SelectedActivity.ProjectName($("#Region").data("kendoDropDownList").value()); }
+                if (model.SelectedActivity.RigType() == null) { model.SelectedActivity.ProjectName($("#rigType").data("kendoDropDownList").value()); }
+                if (model.SelectedActivity.ProjectName() == null) { model.SelectedActivity.ProjectName($("#projectName").data("kendoDropDownList").value()); }
+                if (model.SelectedActivity.AssetName() == null) { model.SelectedActivity.AssetName($("#assetName").data("kendoDropDownList").value()); }
+                if (model.SelectedActivity.PerformanceUnit() == null) { model.SelectedActivity.PerformanceUnit($("#perfomanceUnit").data("kendoDropDownList").value()); }
+                if (model.SelectedActivity.FirmOrOption() == null) { model.SelectedActivity.FirmOrOption($("#firmOption").data("kendoDropDownList").value()); }
+                if (model.SelectedActivity.WorkingInterest() == null) { model.SelectedActivity.WorkingInterest($("#workingInterest").data("kendoDropDownList").value()); }
+                if (model.SelectedActivity.EXType() == null) { model.SelectedActivity.EXType($("#FundingType").data("kendoDropDownList").value()); }
+            }, 200);
+            $("#grid_wrapper").data("kendoGrid").refresh();
+            model.IsProcessing(false);
+        }, function (err) {
+            alert(err.responseText);
+            model.IsProcessing(false);
+        });
+    }
+
+    function showPhase(event) {
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("SelectPhaseList")", { id: model.selectedWellId() }, function (data) {
+          
+            if (data.Result == "OK") {
+
+                //model.dataop().TotalDurationDays(model.ListOP().TotalDuration.Days);
+                //model.dataop().TotalDurationCost(model.ListOP().TotalDuration.Cost);
+                //model.dataop().TroubleFreeDays(model.ListOP().TroubleFree.Days);
+                //model.dataop().TroubleFreeCost(model.ListOP().TroubleFree.Cost);
+                //model.dataop().TroubleDays(model.ListOP().Trouble.Days);
+                //model.dataop().TroubleCost(model.ListOP().Trouble.Cost);
+                //model.dataop().ContigencyDays(model.ListOP().Contigency.Days);
+                //model.dataop().ContigencyCost(model.ListOP().Contigency.Cost);
+                //model.dataop().TQDays(model.ListOP().TQ.Days);
+                //model.dataop().TQCost(model.ListOP().TQ.Cost);
+                //model.dataop().BICDays(model.ListOP().BIC.Days);
+                //model.dataop().BICCost(model.ListOP().BIC.Cost);
+                //model.dataop().LTA2Days(model.ListOP().LTA2.Days);
+                //model.dataop().LTA2Days(model.ListOP().LTA2.Cost);
+                //model.dataop().SinceLTADays(model.ListOP().SinceLTA2.Days);
+                //model.dataop().SinceLTACost(model.ListOP().SinceLTA2.Cost);
+                //model.dataop().BurnRate(model.ListOP().BurnRate);
+                //model.dataop().EscInflation(model.ListOP().EscalationInflation);
+                //model.dataop().CSO(model.ListOP().CSO);
+                //model.dataop().TotalCostIncPort(model.ListOP().TotalCostIncludePortf);
+                //model.dataop().LLMonth(model.ListOP().LLMonth);
+                //model.dataop().LLAmount(model.ListOP().LLAmount);
+                //model.dataop().CostEscInfl(model.ListOP().CostEscalatedInflated);
+                //model.dataop().CostEscInflCSO(model.ListOP().TotalCostWithEscInflCSO);
+                //model.dataop().TQDurationDays(model.ListOP().TQMeasures.TQDuration.Days);
+                //model.dataop().TQDurationCost(model.ListOP().TQMeasures.TQDuration.Cost);
+                //model.dataop().BICDurationDays(model.ListOP().TQMeasures.BICDuration.Days);
+                //model.dataop().BICDurationCost(model.ListOP().TQMeasures.BICDuration.Cost);
+                //model.dataop().TQPIP(model.ListOP().TQTargetperPIP);
+                //model.dataop().BICPIP(model.ListOP().BICperPIP);
+                if (data.Data != null) {
+                    model.DetailOP(ko.mapping.fromJS(data.Data));
+                    //model.ListOP(data.Data);
+                    model.IsProcessing(false);
+                    FormatData();
+                    $("#dataPhase").modal('show');
+                } else {
+                    model.IsProcessing(false);
+                    model.DetailOP(ko.mapping.fromJS(model.DetailOP()));
+                    FormatData();
+                    $("#dataPhase").modal('show');
+                }
+            } else {
+                model.IsProcessing(false);
+            }
+        });
+    }
+
+    function FormatData(){
+        for(var i =1;i<41;i++){
+            $("#phsinfo"+i).kendoNumericTextBox({ format: "N2" });
+        }
+    }
+
+    function selectPhase() {
+        //$('[href="#tab2"]').trigger('click')
+        var pWellName = model.selectedWellName();
+        var pRigName = model.selectedRigName();
+       
+        ajaxPost("@Url.Action("SelectPhase")", { wellname: pWellName,rigname:pRigName}, function (data) {
+           
+            grid_CompareInfo(jsonObjConvDate2(data.Data));
+            $("#grid_CompareInfo").data("kendoGrid").refresh();
+            model.IsProcessing(false);
+        }, function (err) {
+            alert(err.responseText);
+            model.IsProcessing(false);
+        });
+    }
+
+    function selectPhaseInfo() {
+        //$('[href="#tab2"]').trigger('click');
+        
+        model.IsProcessing(true);
+        var pWellName = model.selectedWellName();
+        var pRigName = model.selectedRigName();
+        if (pWellName == "") {
+            backToBrowser();
+            model.IsProcessing(false);
+            return;
+        }
+
+        var id = model.selectedWellId();
+        
+
+        ajaxPost("@Url.Action("SelectPhaseInfo")", { wellname: pWellName,rigname:pRigName }, function (data) {
+            //model.SetActivity(data.Data);
+            //model.SelectedActivity.PsSchedule.Start(str2date(model.SelectedActivity.PsSchedule.Start()));
+            //model.SelectedActivity.PsSchedule.Finish(str2date(model.SelectedActivity.PsSchedule.Finish()));
+            //model.SelectedActivity.OpsSchedule.Start(str2date(model.SelectedActivity.OpsSchedule.Start()));
+            //model.SelectedActivity.OpsSchedule.Finish(str2date(model.SelectedActivity.OpsSchedule.Finish()));
+            //console.log(model.SelectedActivity);
+            //console.log(model.SelectedActivity.VirtualPhase);
+            
+            grid_phaseInfo(jsonObjConvDate2(data.Data));
+            $("#grid_phaseInfo").data("kendoGrid").refresh();
+            
+            model.IsProcessing(false);
+        }, function (err) {
+            alert(err.responseText);
+            model.IsProcessing(false);
+        });
+        
+    }
+
+    function jsonObjConvDate2(e, dateOrStr) {
+        if (dateOrStr == undefined) dateOrStr = "date";
+        var keys = getObjectProperties(e);
+        keys.forEach(function (k) {
+            if (typeof e[k] == "string" && e[k] != null && e[k] != undefined) {
+                if (e[k].indexOf("/Date") >= 0) {
+                    var dt = dateOrStr == "str" ? jsonDateStr(e[k]) : jsonDate(e[k]);
+                    e[k] = dt;
+                }
+            }
+            else if (typeof e[k] == "object") {
+                e[k] = jsonObjConvDate2(e[k]);
+            }
+        });
+        return e;
+    }
+
+    var isOnWeeklyReport = function (d) {
+        return ((String(jsonDateStr(d)).length > 0) ? "1" : "0");
+    }
+
+    var generateEditor = function (dr) {
+        var colx = "<span class='k-dirty'></span>"
+        var checked = $(dr).is(':checked');
+        var grid = $("#grid_wrapper").data("kendoGrid");
+        var dataItem = grid.dataItem($(dr).closest('tr'));
+        dataItem.VirtualPhase = checked;
+        $(dr).parent().prepend(colx);
+        dataItem.dirty = true;
+    }
+
+    function devideperthousand(value) {
+        return value / 1000000;
+    }
+
+    function grid_phase(data) {
+         
+        var $grid = $("#grid_wrapper")
+            .html("");
+        var isAdmin = "@ViewBag.isAdmin";
+        var isEdit = isAdmin == "1" ? true : false;
+        console.log(isEdit);
+        console.log(typeof isEdit);
+        var MyModel = [];
+        var TempOPList = [];
+        data.Phases.map(function (k) {
+            k.AssignTOOps = "";
+            if (data.AssignTOOps != undefined) if (data.AssignTOOps.length > 0) {
+                k.AssignTOOps = data.AssignTOOps[0];
+                model.OP(k.AssignTOOps);
+            }
+            //k.OPList.map(function (kk, kj) {
+            //    var OPList = "";
+            //    TempOPList.push({
+            //        OPList: "OPList[" + kj + "].OPSchedule.Start: { type: date, editable: isEdit }",
+            //    });
+            //});
+            return k;
+        })
+        var MyModel2 = {
+                "BaseOP": { editable: false },
+                "AssignTOOps": { type: "string", editable: false },
+                "VirtualPhase": { type: "boolean", editable: true },
+                "LevelOfEstimate": { type: "string", editable: isEdit },
+                "ActivityType": { type: "string", editable: false },
+                "ActivityDescEst": { type: "string", editable: false },
+
+                "PlanSchedule.Start": { type: "date", editable: isEdit },
+                "PlanSchedule.Finish": { type: "date", editable: isEdit },
+                "Plan.Days": { type: "number", editable: isEdit },
+                "Plan.Cost": { type: "number", editable: isEdit },
+
+                "PhSchedule.Start": { type: "date", editable: false },
+                "PhSchedule.Finish": { type: "date", editable: false },
+                "OP.Days": { type: "number", editable: false },
+                "OP.Cost": { type: "number", editable: false },
+
+                "PreviousOPSchedule.Start": { type: "date", editable: false },
+                "PreviousOPSchedule.Finish": { type: "date", editable: false },
+                "PhSchedule.Days": { type: "number", editable: false },
+
+                "LESchedule.Start": { type: "date", editable: isEdit },//isEdit
+                "LESchedule.Finish": { type: "date", editable: isEdit },//isEdit
+                "LESchedule.Days": { type: "number", editable: isEdit },
+                "LE.Cost": { type: "number", editable: isEdit },//isEdit
+                "LE.Days": { type: "number", editable: isEdit },//isEdit
+
+                "PreviousOP.Days": { type: "number", editable: false },
+                "PreviousOP.Cost": { type: "number", editable: false },
+                "AFE.Days": { type: "number", editable: isEdit },
+                "AFE.Cost": { type: "number", editable: isEdit },
+                "TQ.Cost": { type: "number", editable: isEdit },
+                "TQ.Days": { type: "number", editable: isEdit },
+                "AggredTarget.Cost": { type: "number", editable: isEdit },
+                "AggredTarget.Days": { type: "number", editable: isEdit },
+                "BIC.Cost": { type: "number", editable: isEdit },
+                "BIC.Days": { type: "number", editable: isEdit },
+                "Actual.Cost": { type: "number", editable: isEdit },
+                "Actual.Days": { type: "number", editable: isEdit },
+                "LWE.Cost": { type: "number", editable: false },
+                "LWE.Days": { type: "number", editable: false },
+                "M1.Cost": { type: "number" },
+                "M1.Days": { type: "number" },
+                "M2.Cost": { type: "number" },
+                "M2.Days": { type: "number" },
+                "M3.Cost": { type: "number" },
+                "LastWeek": { type: "date", editable: false },
+                "LastMonth": { type: "date", editable: false },
+                "M3.Days": { type: "number" },
+                "PhaseNo": { type: "number", editable: false },
+                "FundingType": { type: "string", editable: isEdit },
+                "IsPostOP": { type: "boolean", editable: false },
+                "IsInPlan": { type: "boolean", editable: false },
+        };
+
+        
+        //"OPList[0].OPSchedule.Start": { type: "date", editable: false },
+        //        "OPList[0].OPSchedule.Finish": { type: "date", editable: false },
+        //        "OPList[0].OP.Days": { type: "number", editable: false },
+        //        "OPList[0].OP.Cost": { type: "number", editable: false },
+        //        "OPList[1].OPSchedule.Start": { type: "date", editable: isEdit },
+        //        "OPList[2].OPSchedule.Start": { type: "date", editable: isEdit },
+        //        "OPList[1].OPSchedule.Finish": { type: "date", editable: isEdit },
+        //        "OPList[2].OPSchedule.Finish": { type: "date", editable: isEdit },
+        //        "OPList[1].OP.Days": { type: "number", editable: isEdit },
+        //        "OPList[2].OP.Days": { type: "number", editable: isEdit },
+        //        "OPList[1].OP.Cost": { type: "number", editable: isEdit },
+        //        "OPList[2].OP.Cost": { type: "number", editable: isEdit } 
+
+        for (var i = 0; i < model.OPs().length; i++) {
+            //var bisaedit = true;
+            //if (i + 1 == model.OPs().length) bisaedit = true;
+            if (model.OPs()[i] == "OP16") {
+                MyModel2["OPList[" + i + "].OPSchedule.Start"] = { type: "date", editable: false };
+                MyModel2["OPList[" + i + "].OPSchedule.Finish"] = { type: "date", editable: false };
+                MyModel2["OPList[" + i + "].OP.Days"] = { type: "number", editable: false };
+                MyModel2["OPList[" + i + "].OP.Cost"] = { type: "number", editable: false };
+            } else {
+                MyModel2["OPList[" + i + "].OPSchedule.Start"] = { type: "date", editable: isEdit };
+                MyModel2["OPList[" + i + "].OPSchedule.Finish"] = { type: "date", editable: isEdit };
+                MyModel2["OPList[" + i + "].OP.Days"] = { type: "number", editable: isEdit };
+                MyModel2["OPList[" + i + "].OP.Cost"] = { type: "number", editable: isEdit };
+            }
+            
+        }
+        
+        //MyModel.push(TempOPList);
+        //console.log(MyModel);
+        var source = new kendo.data.DataSource({
+            pageSize: 5,
+            data: data.Phases.map(function (k) {
+                k.AssignTOOps = "";
+                if (data.AssignTOOps != undefined) if (data.AssignTOOps.length > 0) {
+                    k.AssignTOOps = data.AssignTOOps[0];
+                    model.OP(k.AssignTOOps);
+                }
+                //k.OPList.map(function (kk,kj) {
+                //    var OPList ="";
+                //    TempOPList.push({
+                //        OPList: "OPList[" + kj+ "].OPSchedule.Start: { type: date, editable: isEdit }",
+
+                //    });
+                //});
+                return k;
+            }),
+            aggregate: [
+                        { field: "Plan.Days", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "Plan.Cost", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "PreviousOP.Days", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "PreviousOP.Cost", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "PhSchedule.Days", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "OP.Days", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "OP.Cost", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "LE.Cost", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "LE.Days", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "AFE.Days", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "AFE.Cost", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "TQ.Days", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "TQ.Cost", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "AggredTarget.Days", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "AggredTarget.Cost", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "BIC.Days", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "BIC.Cost", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "Actual.Days", aggregate: "sum", format: "{0:0.00}" },
+                        { field: "Actual.Cost", aggregate: "sum", format: "{0:0.00}" },
+            ],
+            schema: {
+                model: {
+                    id: "PhaseNo",
+                    fields: MyModel2
+                },
+            },
+            batch: true,
+            change: onChangeValue
+        });
+        //alert(isRO);
+        var columnPhases = [];
+        var isRO = "@ViewBag.isRO";
+        if ((isRO != "1") && (isAdmin == "1")) {
+            columnPhases.push(
+                { title: "Del", field: 'PhaseNo', width: 50, locked: true, lockable: false, template: "<div style='text-align: center'><button onclick='delete_phase(\"#=PhaseNo#\",\"#=ActivityType#\")' class='btn btn-custom btn-danger btn-xs'><span class='glyphicon glyphicon-remove-circle'></span></button></div>" }
+
+                );
+        }
+        
+        columnPhases.push(
+                //{ title: "Detail Phase", field: "", width: 110, locked: true, lockable: false, template: "<a style='cursor:pointer' onclick='showPhase(\"#= ActivityType #\")'>Detail Phase</a>", attributes: { style: "text-align: center;" } },
+                {
+                    title: "Phase", field: "ActivityType", width: 230,
+                    //template: "<a style='cursor:pointer' onclick='PhaseInfo(\"#= ActivityType #\")'>#: ActivityType #</a>",
+                    locked: true, lockable: false,
+                },
+                //{
+                //    title: "No well Schedule", field: 'VirtualPhase', width: 100, locked: true, lockable: false, editable: true,
+                //    template: '<input onclick="generateEditor(this)" type="checkbox" #= VirtualPhase ? checked="checked" : "" # ></input>'
+                //},
+                { title: "Base OP", field: "BaseOP", width: 100, template: "#: BaseOP.join() #" }
+        );
+        var aggs = [];
+        for (var i = 0; i < model.OPs().length; i++) {
+            aggs.push({ field: "OPList[" + i + "].OP.Days", aggregate: "sum", format: "{0:0.00}" });
+            aggs.push({ field: "OPList[" + i + "].OP.Cost", aggregate: "sum", format: "{0:0.00}" });
+            columnPhases.push({
+                title: model.OPs()[i], columns: [
+                            {
+                                field: "OPList[" + i + "].OPSchedule.Start", template: "#: jsonDateStr(OPList[" + i + "].OPSchedule.Start) #", locked: true, lockable: false, format: "{0:dd-MMM-yyyy}", title: "Start", width: 90, attributes: { style: 'text-align: center;' },
+                                editor: function (container, options) {
+                                    var currentOP = options.model.BaseOP[0];
+                                    var selectedIndex = parseInt(options.field.substring(7, 8));
+                                    var val = jsonDateStr(options.model.OPList[selectedIndex].OPSchedule.Start);
+                                    if (currentOP == options.model.OPList[selectedIndex].BaseOP || parseInt(options.model.OPList[selectedIndex].BaseOP.replace("OP", "")) <= parseInt(model.DefaultOP().replace("OP", ""))) {
+                                        $("<input class='editor' type='text' data-bind='value : " + options.field + "' />")
+                                                .appendTo(container)
+                                                .kendoDatePicker({ format: 'dd-MMM-yyyy', value: val });
+                                    } else {
+                                        $("<input class='editor' readonly='readonly' disabled type='text' value='" + val + "'/>")
+                                                .appendTo(container);
+                                    }
+                                }
+                            },
+                            {
+                                field: "OPList[" + i + "].OPSchedule.Finish", template: "#: jsonDateStr(OPList[" + i + "].OPSchedule.Finish) #", locked: true, lockable: false, format: "{0:dd-MMM-yyyy}", title: "Finish", width: 90, attributes: { style: 'text-align: center;' },
+                                editor: function (container, options) {
+                                    var currentOP = options.model.BaseOP[0];
+                                    var selectedIndex = parseInt(options.field.substring(7, 8));
+                                    var val = jsonDateStr(options.model.OPList[selectedIndex].OPSchedule.Finish);
+                                    if (currentOP == options.model.OPList[selectedIndex].BaseOP || parseInt(options.model.OPList[selectedIndex].BaseOP.replace("OP", "")) <= parseInt(model.DefaultOP().replace("OP", ""))) {
+                                        $("<input class='editor' type='text' data-bind='value : " + options.field + "' />")
+                                                .appendTo(container)
+                                                .kendoDatePicker({ format: 'dd-MMM-yyyy', value: val });
+                                    } else {
+                                        $("<input class='editor' readonly='readonly' disabled type='text' value='" + val + "'/>")
+                                                .appendTo(container);
+                                    }
+                                }
+                            },
+                            {
+                                field: "OPList[" + i + "].OP.Days", title: "Days", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' },
+                                editor: function (container, options) {
+                                    
+                                    var currentOP = options.model.BaseOP[0];
+                                    var selectedIndex = parseInt(options.field.substring(7, 8));
+                                    var val = options.model.OPList[selectedIndex].OP.Days.toFixed(0);
+                                    if (currentOP == options.model.OPList[selectedIndex].BaseOP || parseInt(options.model.OPList[selectedIndex].BaseOP.replace("OP", "")) <= parseInt(model.DefaultOP().replace("OP", ""))) {
+                                        $("<input class='editor' type='text' data-bind='value : " + options.field + "'/>")
+                                                .appendTo(container)
+                                                .kendoNumericTextBox();
+                                    } else {
+                                        $("<input class='editor' readonly='readonly' disabled type='text' value='" + val + "'/>")
+                                                .appendTo(container);
+                                    }
+                                }
+                            },
+                            {
+                                field: "OPList[" + i + "].OP.Cost", title: "Cost<br/>($mm)", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' },
+                                editor: function (container, options) {
+                                    var currentOP = options.model.BaseOP[0];
+                                    var selectedIndex = parseInt(options.field.substring(7, 8));
+                                    var val = options.model.OPList[selectedIndex].OP.Cost.toFixed(1);
+                                    if (currentOP == options.model.OPList[selectedIndex].BaseOP || parseInt(options.model.OPList[selectedIndex].BaseOP.replace("OP", "")) <= parseInt(model.DefaultOP().replace("OP", "")))
+                                    {
+                                        $("<input class='editor' type='text' data-bind='value : " + options.field + "'/>")
+                                                .appendTo(container)
+                                                .kendoNumericTextBox();
+                                    } else {
+                                        $("<input class='editor' readonly='readonly' disabled type='text' value='" + val + "'/>")
+                                                .appendTo(container);
+                                    }
+                                }
+                            }
+                    ]
+                });
+       }    
+       
+                columnPhases.push(
+                @*{
+                    title: "@ViewBag.PreviousOP", columns: [
+                        {
+                            title: "Start", field: 'PreviousOPSchedule.Start', width: 90, locked: true, lockable: false, format: "{0:dd-MMM-yyyy}",
+                            template: "#: jsonDateStr(PreviousOPSchedule.Start) #", attributes: { style: "text-align: center;" }
+                        },
+                        {
+                            title: "Finish", field: 'PreviousOPSchedule.Finish', width: 90, locked: true, lockable: false, format: "{0:dd-MMM-yyyy}",
+                            template: "#: jsonDateStr(PreviousOPSchedule.Finish) #", attributes: { style: "text-align: center;" }
+                        },
+                        { title: "Days", field: 'PreviousOP.Days', width: 70, template: "<div style='text-align: right'>#=kendo.toString(PreviousOP.Days, 'N0')#</div>", footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(1),'n1') #</div>" },
+                        { title: "Cost<br/>($mm)", field: 'PreviousOP.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(PreviousOP.Cost, 'N2')#</div>", footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(1),'n1') #</div>" },
+                    ]
+                },
+                {
+                    title: "@ViewBag.DefaultOP", columns: [
+                        { title: "Level of<br/>Estimate", field: 'LevelOfEstimate', width: 50, template: "<div style='text-align: right'>#=LevelOfEstimate#</div>" },
+                        {
+                            title: "Start", field: 'PlanSchedule.Start', width: 90, locked: true, lockable: false, format: "{0:dd-MMM-yyyy}",
+                            template: "#: jsonDateStr(PlanSchedule.Start) #", attributes: { style: "text-align: center;" }
+                        },
+                        {
+                            title: "Finish", field: 'PlanSchedule.Finish', width: 90, locked: true, lockable: false, format: "{0:dd-MMM-yyyy}",
+                            template: "#: jsonDateStr(PlanSchedule.Finish) #", attributes: { style: "text-align: center;" }
+                        },
+                        { title: "Days", field: 'Plan.Days', width: 70, template: "<div style='text-align: right'>#=kendo.toString(Plan.Days, 'N1')#</div>", footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(1),'n1') #</div>" },
+                        { title: "Cost<br/>($mm)", field: 'Plan.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(Plan.Cost, 'N2')#</div>", footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(1),'n1') #</div>" },
+                    ]
+                },*@
+
+                //{
+                //    title: "Calc OP", columns: [
+                //      {
+                //          title: "Start", field: 'CalcOPSchedule.Start', width: 90, locked: true, lockable: false,
+                //          format: "{0:dd-MMM-yyyy}", attributes: { style: "text-align: center;" }
+                //      },
+                //      {
+                //          title: "Finish", field: 'CalcOPSchedule.Finish', width: 90, locked: true, lockable: false, format: "{0:dd-MMM-yyyy}",
+                //          template: "#: jsonDateStr(CalcOPSchedule.Finish) #", attributes: { style: "text-align: center;" }
+                //      },
+                //      {
+                //          title: "Days", field: 'CalcOP.Days', width: 60, locked: true, lockable: false, editable: false,
+                //          template: "<div style='text-align: center'>#=kendo.toString(CalcOP.Days, 'N0')#</div>"
+                //      },
+                //      {
+                //          title: "Cost", field: 'CalcOP.Cost', width: 80, locked: true, lockable: false,
+                //          template: "<div style='text-align: right'>#=kendo.toString(CalcOP.Cost, 'N1')#</div>"
+                //      }
+                //    ]
+                //},
+
+                {
+                    title: "Latest Sequence", columns: [
+                        {
+                            title: "Start", field: 'PhSchedule.Start', width: 90, locked: true, lockable: false,
+                            format: "{0:dd-MMM-yyyy}", attributes: { style: "text-align: center;" }
+                        },
+                        {
+                            title: "Finish", field: 'PhSchedule.Finish', width: 90, locked: true, lockable: false, format: "{0:dd-MMM-yyyy}",
+                            template: "#: jsonDateStr(PhSchedule.Finish) #", attributes: { style: "text-align: center;" }
+                        },
+                        {
+                            title: "Days", field: 'PhSchedule.Days', width: 60, locked: true, lockable: false,
+
+                            template: "<div style='text-align: right'>#=kendo.toString(PhSchedule.Days, 'N2')#</div>",
+                            footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'n2') #</div>",
+                            //template: "<div style='text-align: right'>#=kendo.toString(PhSchedule.Days, 'N1')#</div>",
+                            //footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N1') #</div>" //sum.toFixed(2),'n0'
+
+                        },
+                        {
+                            title: "Cost<br/>($mm)", field: 'OP.Cost', width: 80, locked: true, lockable: false,
+                            //template: "<div style='text-align: right'>#=kendo.toString(OP.Cost, 'N1')#</div>",
+                            template: '<div style="text-align: right">#= kendo.format("{0:N2}",OP.Cost) #</div>',
+                            footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'n2') #</div>"
+                        }
+                    ]
+                },
+                {
+                    title: "LE", columns: [
+                        {
+                            title: "Start", field: 'LESchedule.Start', width: 90, locked: true, lockable: false, editable: false, format: "{0:dd-MMM-yyyy}",
+                            template: "#: jsonDateStr(LESchedule.Start) #", attributes: { style: "text-align: center;" }
+                        },
+                        {
+                            title: "Finish", field: 'LESchedule.Finish', width: 90, locked: true, lockable: false, editable: false, format: "{0:dd-MMM-yyyy}",
+                            template: "#: jsonDateStr(LESchedule.Finish) #", attributes: { style: "text-align: center;" }
+                        },
+                        { title: "Days", field: 'LE.Days', width: 50, template: "<div style='text-align: right'>#=kendo.toString(LE.Days, 'N2')#</div>", footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N2') #</div>" },//sum.toFixed(2),'n0'
+                        { title: "Cost<br/>($mm)", field: 'LE.Cost', width: 80, template: '<div style="text-align: right">#= kendo.format("{0:N2}",LE.Cost) #</div>', footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'n2') #</div>" },
+                    ]
+                },
+                {
+                    title: "AFE", columns: [
+                        { title: "Days", field: 'AFE.Days', width: 50, template: "<div style='text-align: right'>#=kendo.toString(AFE.Days, 'N2')#</div>", footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N2') #</div>" },
+                        { title: "Cost<br/>($mm)", field: 'AFE.Cost', width: 80, template: '<div style="text-align: right">#= kendo.format("{0:N2}",AFE.Cost) #</div>', footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'n2') #</div>" },
+                    ]
+                },
+                {
+                    title: "TQ", columns: [
+                        { title: "Days", field: 'TQ.Days', width: 50, template: "<div style='text-align: right'>#=kendo.toString(TQ.Days, 'N2')#</div>", footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N2') #</div>" },
+                        { title: "Cost<br/>($mm)", field: 'TQ.Cost', width: 80, template: '<div style="text-align: right">#= kendo.format("{0:N2}",TQ.Cost) #</div>', footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'n2') #</div>" },
+                    ]
+                },
+                {
+                    title: "BIC", columns: [
+                        { title: "Days", field: 'BIC.Days', width: 50, template: "<div style='text-align: right'>#=kendo.toString(BIC.Days, 'N2')#</div>", footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N2') #</div>" },
+                        { title: "Cost<br/>($mm)", field: 'BIC.Cost', width: 80, template: '<div style="text-align: right">#= kendo.format("{0:N2}",BIC.Cost) #</div>', footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'n2') #</div>" },
+                    ]
+                },
+                {
+                    title: "Target", columns: [
+                        { title: "Days", field: 'AggredTarget.Days', width: 50, template: "<div style='text-align: right'>#=kendo.toString(AggredTarget.Days, 'N2')#</div>", footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N2') #</div>" },
+                        { title: "Cost<br/>($mm)", field: 'AggredTarget.Cost', width: 80, template: '<div style="text-align: right">#= kendo.format("{0:N2}",AggredTarget.Cost) #</div>', footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'n2') #</div>" },
+                    ]
+                },
+                {
+                    title: "Actual", columns: [
+                        { title: "Days", field: 'Actual.Days', width: 50, template: "<div style='text-align: right'>#=kendo.toString(Actual.Days, 'N2')#</div>", footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N2') #</div>" },
+                        { title: "Cost<br/>($mm)", field: 'Actual.Cost', width: 80, template: '<div style="text-align: right">#= kendo.format("{0:N2}",Actual.Cost) #</div>', footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'n2') #</div>" },
+                    ]
+                },
+                
+                { title: "Weekly Report Date", field: 'LastWeek', width: 120, editable: false, template: "<div data-weekly-report='#= isOnWeeklyReport(LastWeek) #'>#= jsonDateStr(LastWeek) #</div>" },
+                { title: "Monthly Report Date", field: 'LastMonth', width: 120, editable: false, template: "<div data-weekly-report='#= isOnWeeklyReport(LastMonth) #'>#= jsonDateStr(LastMonth) #</div>" },
+                { title: "Phase No", field: 'PhaseNo', width: 80, template: "<div style='text-align: center'>#=kendo.toString(PhaseNo, 'N0')#</div>", editable: false },
+                {
+                    title: "Funding Type", field: 'FundingType', width: 80, template: "<div style='text-align: center'>#=kendo.toString(FundingType)#</div>", editable: false,
+                    editor: function (container, options) {
+                        $("<input type='text' data-bind='value : " + options.field + "'/>")
+                                .appendTo(container)
+                                .kendoDropDownList({
+                                    dataSource: new kendo.data.DataSource({
+                                        data: model.exType()
+                                    }),
+                                    optionLabel: ""
+                                });
+                    }
+                },
+                { title: "Is Post OP", field: 'IsPostOP', width: 100, editable: false, template: "<div style='text-align:center;color:#if(IsPostOP == true){# red #}#' >#if(IsPostOP == true){# Yes #}else{# No #}#</div>" },
+                { title: "In Plan?", field: 'IsInPlan', width: 100, editable: false, template: "#:IsInPlan ? 'Yes' : 'No'#</div>" },
+                { title: "Status", field: 'BizPlanStatus', width: 100, editable: false }
+
+                );
+ 
+        $grid.kendoGrid({
+            dataSource: source,
+            pageable: {
+                buttonCount: 10
+            },
+            navigatable: true,
+            editable: model.isRO() != '1' && isEdit,
+            edit: function(e){
+                if ((e.model.BaseOP.indexOf(model.DefaultOP()) == -1)) {
+                    //this.closeCell();
+                }
+            },
+            sortable: true,
+            filterable: false,
+            resizable: true,
+            columns: columnPhases,
+            dataBound: function (e) {
+                $("#grid_wrapper").find(".k-grid-content").find("[data-weekly-report=1]").each(function (i, e) {
+                    $(e).closest("tr[data-uid]").find("td:gt(8):lt(4)").each(function (i, f) {
+                        //$(f).css("pointer-events", "none");
+                    });
+                });
+            }
+        });
+
+        //$("#grid_wrapper").removeClass("k-widget");
+    }
+
+    function grid_phaseInfo(data) {
+         
+        var $grid = $("#grid_phaseInfo")
+            .html("");
+        var isAdmin = true;
+        var source = new kendo.data.DataSource({
+            pageSize: 5,
+            data: data.Phases,
+            schema: {
+                model: {
+                    id: "_id",
+                    fields: {
+                        "WellName" : { type: "string", editable: false },
+                        "RigName": { type: "string", editable: false },
+                        "PhaseNo": { type: "string", editable: false },
+                        "TotalDuration.Days": { type: "number", editable: true },
+                        "TotalDuration.Cost": { type: "number", editable: true },
+                        "TroubleFree.Days": { type: "number", editable: true },
+                        "TroubleFree.Cost": { type: "number", editable: false },
+                        "Trouble.Days": { type: "number", editable: false },
+                        "Trouble.Cost": { type: "number", editable: false },
+                        "Contigency.Days": { type: "number", editable: false },
+                        "Contigency.Cost": { type: "number", editable: false },
+                        "TQ.Days": { type: "number", editable: false },
+                        "TQ.Cost": { type: "number", editable: false },
+                        "AggredTarget.Days": { type: "number", editable: false },
+                        "AggredTarget.Cost": { type: "number", editable: false },
+                        "BIC.Days": { type: "number", editable: false },
+                        "BIC.Cost": { type: "number", editable: false },
+                        "BurnRate": { type: "number", editable: false },
+                        "EscalationInflation": { type: "number", editable: false },
+                    }
+                },
+            },
+            batch: true
+        });
+         
+        //alert(isRO);
+        var columnPhases = [];
+        //var isRO = "@ViewBag.isRO";
+        //if (isRO != "1") {
+        //    columnPhases.push(
+        //        { title: "Del", field: 'OP.PhaseNo', width: 50, locked: true, lockable: false, template: "<div style='text-align: center'><button onclick='delete_phase(\"#=OP.PhaseNo#\")' class='btn btn-custom btn-danger btn-xs'><span class='glyphicon glyphicon-remove-circle'></span></button></div>" }
+
+        //        );
+        //}
+
+        columnPhases.push(
+            { title: "Well Name", field: "WellName"},
+            { title: "Rig Name", field: "RigName", width: 120},
+            { title: "Phase No", field: "PhaseNo", width: 100 },
+            {
+                title: "Total Duration", columns: [
+                  { title: "Days", field: 'TotalDuration.Days', width: 80, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+                  { title: "Cost", field: 'TotalDuration.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(TotalDuration.Cost, 'N1')#</div>" },
+                ]
+            },
+            {
+                title: "Trouble Free", columns: [
+                  { title: "Days", field: 'TroubleFree.Days', width: 80, template: "<div style='text-align: right'>#=kendo.toString(TroubleFree.Days, 'N0')#</div>" },
+                  { title: "Cost", field: 'TroubleFree.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(TroubleFree.Cost, 'N1')#</div>" },
+                ]
+            },
+            {
+                title: "Trouble", columns: [
+                  { title: "Days", field: 'Trouble.Days', width: 80, template: "<div style='text-align: right'>#=kendo.toString(Trouble.Days, 'N0')#</div>" },
+                  { title: "Cost", field: 'Trouble.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(Trouble.Cost, 'N1')#</div>" },
+                ]
+            },
+            {
+                title: "Contigency", columns: [
+                  { title: "Days", field: 'Contigency.Days', width: 80, template: "<div style='text-align: right'>#=kendo.toString(Contigency.Days, 'N0')#</div>" },
+                  { title: "Cost", field: 'Contigency.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(Contigency.Cost, 'N1')#</div>" },
+                ]
+            },
+            {
+                title: "TQ", columns: [
+                  { title: "Days", field: 'TQ.Days', width: 80, template: "<div style='text-align: right'>#=kendo.toString(TQ.Days, 'N0')#</div>" },
+                  { title: "Cost", field: 'TQ.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(TQ.Cost, 'N1')#</div>" },
+                ]
+            },
+            {
+                title: "Aggred Target", columns: [
+                  { title: "Days", field: 'AggredTarget.Days', width: 80, template: "<div style='text-align: right'>#=kendo.toString(AggredTarget.Days, 'N0')#</div>" },
+                  { title: "Cost", field: 'AggredTarget.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(AggredTarget.Cost, 'N1')#</div>" },
+                ]
+            },
+            
+            {
+                title: "BIC", columns: [
+                  { title: "Days", field: 'BIC.Days', width: 80, template: "<div style='text-align: right'>#=kendo.toString(BIC.Days, 'N0')#</div>" },
+                  { title: "Cost", field: 'BIC.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(BIC.Cost, 'N1')#</div>" },
+                ]
+            },
+            { title: "Burn Rate", field: "BurnRate", width: 80, template: "<div style='text-align: right'>#=kendo.toString(BurnRate, 'N1')#</div>" },
+            { title: "Escalation Inflation", field: "EscalationInflation", width: 120, template: "<div style='text-align: right'>#=kendo.toString(EscalationInflation, 'N1')#</div>" },
+            { title: "CSO", field: "CSO", width: 80, template: "<div style='text-align: right'>#=kendo.toString(CSO, 'N1')#</div>" },
+            { title: "Total Cost Include Port", field: "TotalCostIncludePortf", width: 180, template: "<div style='text-align: right'>#=kendo.toString(TotalCostIncludePortf, 'N1')#</div>" }
+        );
+
+
+        $grid.kendoGrid({
+            dataSource: source,
+            pageable: {
+                buttonCount: 10
+            },
+            navigatable: true,
+            editable: model.isRO() != '1',
+            sortable: true,
+            filterable: false,
+            columns: columnPhases,
+            dataBound: function () {
+                $("#grid_phaseInfo").find(".k-grid-content").find("[data-weekly-report=1]").each(function (i, e) {
+                    $(e).closest("tr[data-uid]").find("td:gt(8):lt(4)").each(function (i, f) {
+                        $(f).css("pointer-events", "none");
+                    });
+                });
+                
+            }
+        });
+        //$("#grid_phaseInfo").data("kendoGrid").refresh();
+         
+    }
+
+    function grid_CompareInfo(data) {
+         
+        var $grid = $("#grid_CompareInfo")
+            .html("");
+        var isAdmin = true;
+        var source = new kendo.data.DataSource({
+            pageSize: 5,
+            data: data,
+            schema: {
+                model: {
+                    fields: {
+                        "LevelOfEstimate": { type: "string", editable: false },
+                        "ActivityType": { type: "string", editable: false },
+                        "ActivityDescEst": { type: "string", editable: false },
+                        "PlanSchedule.Start": { type: "date", editable: false },
+                        "PlanSchedule.Finish": { type: "date", editable: false },
+                        "PhSchedule.Start": { type: "date", editable: false },
+                        "PhSchedule.Finish": { type: "date", editable: true },
+                        "PhSchedule.Days": { type: "number", editable: false },
+                        "LESchedule.Start": { type: "date", editable: false },
+                        "LESchedule.Finish": { type: "date", editable: false },
+                        "LESchedule.Days": { type: "number", editable: false },
+                        "Plan.Days": { type: "number", editable: false },
+                        "Plan.Cost": { type: "number" },
+                        "OP.Days": { type: "number", editable: false },
+                        "OP.Cost": { type: "number", editable: false },
+                        "AFE.Days": { type: "number", editable: false },
+                        "AFE.Cost": { type: "number", editable: false },
+                        "TQ.Cost": { type: "number", editable: false },
+                        "TQ.Days": { type: "number", editable: false },
+                        "AggredTarget.Cost": { type: "number", editable: false },
+                        "AggredTarget.Days": { type: "number", editable: false },
+                        "Actual.Cost": { type: "number", editable: false },
+                        "Actual.Days": { type: "number", editable: false },
+                        "LE.Cost": { type: "number", editable: false },
+                        "LE.Days": { type: "number", editable: false },
+                        "LWE.Cost": { type: "number", editable: false },
+                        "LWE.Days": { type: "number", editable: false },
+                        "M1.Cost": { type: "number", editable: false },
+                        "M1.Days": { type: "number", editable: false },
+                        "M2.Cost": { type: "number", editable: false },
+                        "M2.Days": { type: "number", editable: false },
+                        "M3.Cost": { type: "number", editable: false },
+                        "LastWeek": { type: "date", editable: false },
+                        "LastMonth": { type: "date", editable: false },
+                        "M3.Days": { type: "number", editable: false }
+                    }
+                },
+            },
+            batch: true 
+        });
+        //alert(isRO);
+        var columnPhases = [];
+        var isRO = "@ViewBag.isRO";
+        
+        columnPhases.push(
+               
+                {
+                    title: "OP", columns: [
+                      { title: "Level of<br/>Estimate", field: 'LevelOfEstimate', width: 50, template: "<div style='text-align: right'>#=LevelOfEstimate#</div>" },
+                      {
+                          title: "Start", field: 'PlanSchedule.Start', width: 90, locked: true, lockable: true, format: "{0:dd-MMM-yyyy}",
+                          template: "#: jsonDateStr(PlanSchedule.Start) #", attributes: { style: "text-align: center;" }
+                      },
+                      {
+                          title: "Finish", field: 'PlanSchedule.Finish', width: 90, locked: true, lockable: true, format: "{0:dd-MMM-yyyy}",
+                          template: "#: jsonDateStr(PlanSchedule.Finish) #", attributes: { style: "text-align: center;" }
+                      },
+                      { title: "Days", field: 'Plan.Days', width: 70, template: "<div style='text-align: right'>#=kendo.toString(Plan.Days, 'N1')#</div>" },
+                      { title: "Cost", field: 'Plan.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(Plan.Cost, 'N1')#</div>" },
+                    ]
+                },
+
+                {
+                    title: "Calc OP", columns: [
+                      {
+                          title: "Start", field: 'CalcOPSchedule.Start', width: 90, locked: true, lockable: true,
+                          format: "{0:dd-MMM-yyyy}", attributes: { style: "text-align: center;" }
+                      },
+                      {
+                          title: "Finish", field: 'CalcOPSchedule.Finish', width: 90, locked: true, lockable: false, format: "{0:dd-MMM-yyyy}",
+                          template: "#: jsonDateStr(CalcOPSchedule.Finish) #", attributes: { style: "text-align: center;" }
+                      },
+                      {
+                          title: "Days", field: 'CalcOP.Days', width: 60, locked: true, lockable: true, editable: false,
+                          template: "<div style='text-align: center'>#=kendo.toString(CalcOP.Days, 'N1')#</div>"
+                      },
+                      {
+                          title: "Cost", field: 'CalcOP.Cost', width: 80, locked: true, lockable: true,
+                          template: "<div style='text-align: right'>#=kendo.toString(CalcOP.Cost, 'N1')#</div>"
+                      }
+                    ]
+                },
+
+                {
+                    title: "Latest Sequence", columns: [
+                      {
+                          title: "Start", field: 'PhSchedule.Start', width: 90, locked: true, lockable: false,
+                          format: "{0:dd-MMM-yyyy}", attributes: { style: "text-align: center;" }
+                      },
+                      {
+                          title: "Finish", field: 'PhSchedule.Finish', width: 90, locked: true, lockable: false, format: "{0:dd-MMM-yyyy}",
+                          template: "#: jsonDateStr(PhSchedule.Finish) #", attributes: { style: "text-align: center;" }
+                      },
+                      {
+                          title: "Days", field: 'OP.Days', width: 60, locked: true, lockable: false, editable: false,
+                          template: "<div style='text-align: center'>#=kendo.toString(OP.Days, 'N1')#</div>"
+                      },
+                      {
+                          title: "Cost", field: 'OP.Cost', width: 80, locked: true, lockable: false,
+                          template: "<div style='text-align: right'>#=kendo.toString(OP.Cost, 'N1')#</div>"
+                      }
+                    ]
+                },
+                {
+                    title: "LE", columns: [
+                      {
+                          title: "Start", field: 'LESchedule.Start', width: 90, locked: true, lockable: false, editable: false, format: "{0:dd-MMM-yyyy}",
+                          template: "#: jsonDateStr(LESchedule.Start) #", attributes: { style: "text-align: center;" }
+                      },
+                      {
+                          title: "Finish", field: 'LESchedule.Finish', width: 90, locked: true, lockable: false, editable: false, format: "{0:dd-MMM-yyyy}",
+                          template: "#: jsonDateStr(LESchedule.Finish) #", attributes: { style: "text-align: center;" }
+                      },
+                      { title: "Days", field: 'LE.Days', width: 50, template: "<div style='text-align: right'>#=kendo.toString(LE.Days, 'N1')#</div>", editable: false },
+                      { title: "Cost", field: 'LE.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(LE.Cost, 'N1')#</div>", editable: false },
+                    ]
+                },
+                {
+                    title: "AFE", columns: [
+                      { title: "Days", field: 'AFE.Days', width: 50, template: "<div style='text-align: right'>#=kendo.toString(AFE.Days, 'N1')#</div>" },
+                      { title: "Cost", field: 'AFE.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(AFE.Cost, 'N1')#</div>" },
+                    ]
+                },
+                {
+                    title: "TQ", columns: [
+                      { title: "Days", field: 'TQ.Days', width: 50, template: "<div style='text-align: right'>#=kendo.toString(TQ.Days, 'N1')#</div>" },
+                      { title: "Cost", field: 'TQ.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(TQ.Cost, 'N1')#</div>" },
+                    ]
+                },
+                {
+                    title: "Target", columns: [
+                      { title: "Days", field: 'AgreedTarget.Days', width: 50, template: "<div style='text-align: right'>#=kendo.toString(AgreedTarget.Days, 'N1')#</div>" },
+                      { title: "Cost", field: 'AgreedTarget.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(AgreedTarget.Cost, 'N1')#</div>" },
+                    ]
+                },
+                {
+                    title: "Actual", columns: [
+                      { title: "Days", field: 'Actual.Days', width: 50, template: "<div style='text-align: right'>#=kendo.toString(Actual.Days, 'N1')#</div>", editable: isAdmin },
+                      { title: "Cost", field: 'Actual.Cost', width: 80, template: "<div style='text-align: right'>#=kendo.toString(Actual.Cost, 'N1')#</div>", editable: isAdmin },
+                    ]
+                },
+                { title: "Weekly Report Date", field: 'LastWeek', width: 100, editable: false, template: "<div data-weekly-report='#= isOnWeeklyReport(LastWeek) #'>#= jsonDateStr(LastWeek) #</div>" }
+        );
+        $grid.kendoGrid({
+            dataSource: source,
+            pageable: {
+                buttonCount: 10
+            },
+            navigatable: true,
+            editable: model.isRO() != '1',
+            sortable: true,
+            filterable: false,
+            columns: columnPhases 
+        });
+    }
+
+    function onChangeValue(e) {
+        console.log("Changes");
+        console.log(e);
+        var NumberOfOPs = model.OPs().length;
+        if (e.field == "LESchedule.Start" || e.field == "LESchedule.Finish") {
+            var row = e.items[0];
+            var lestart = row.LESchedule.Start;
+            var lefinish = row.LESchedule.Finish;
+            var ledays = row.LE.Days;
+
+            var index = 2 + (NumberOfOPs * 4) + 4 + 3;
+
+            if ((lefinish != "" && lefinish != null) && (lestart != "" && lestart != null)) {
+                var diffInDays = (lefinish - lestart) / (24 * 60 * 60 * 1000);
+                $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq("+index+")").find("div").html(diffInDays);
+                row.LE.Days = diffInDays;
+            } else {
+                $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(" + index + ")").find("div").html(0);
+                row.LE.Days = 0;
+            }
+        }
+
+        if (e.field == "LE.Days") {
+            var row = e.items[0];
+            var opstart = row.LESchedule.Start;
+            var opfinish = row.LESchedule.Finish;
+            var opplandays = row.LE.Days;
+
+            var index = 2 + (NumberOfOPs * 4) + 4 + 2;
+
+            if ((opfinish != "" && opfinish != null) && (opstart != "" && opstart != null)) {
+                var newDateMomentFinish = moment(opstart).add(opplandays, 'days');
+                opfinish = newDateMomentFinish.format("DD-MMM-YYYY");
+                $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq("+index+")").html(opfinish);
+                row.LESchedule.Finish = opfinish;
+            } else {
+                alert('Please select start or finish LE date');
+                row.LE.Days = 0;
+            }
+        }
+
+        if (e.field == "PhSchedule.Start" || e.field == "PhSchedule.Finish") {
+
+            var row = e.items[0];
+            var phstart = row.PhSchedule.Start;
+            var phfinish = row.PhSchedule.Finish;
+            var opplandays = row.OP.Days;
+
+            var index = 2 + (NumberOfOPs * 4) + 3;
+            
+            if ((phfinish != "" && phfinish != null) && (phstart != "" && phstart != null)) {
+                var diffInDays = (phfinish - phstart) / (24 * 60 * 60 * 1000);
+                //var diffInDays = (phfinish - phstart);
+                $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(" + index + ")").find("div").html(diffInDays);
+                row.OP.Days = diffInDays;
+            } else {
+                $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(" + index + ")").find("div").html(0);
+                row.OP.Days = 0;
+            }
+        }
+        if (e.field == "OP.Days") {
+            var row = e.items[0];
+            var opstart = row.PhSchedule.Start;
+            var opfinish = row.PhSchedule.Finish;
+            var opplandays = row.OP.Days;
+            var index = 2 + (NumberOfOPs * 4) + 2;
+            if ((opfinish != "" && opfinish != null) && (opstart != "" && opstart != null)) {
+                var newDateMomentFinish = moment(opstart).add(opplandays, 'days');
+                opfinish = newDateMomentFinish.format("DD-MMM-YYYY");
+                $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(" + index + ")").html(opfinish);
+                row.PhSchedule.Finish = opfinish;
+            } else {
+                alert('Please select start or finish Latest Sequence date');
+                row.OP.Days = 0;
+            }
+        }
+        
+        //if (e.field == "PlanSchedule.Start" || e.field == "PlanSchedule.Finish") {
+        //    var row = e.items[0];
+        //    var opstart = row.PlanSchedule.Start;
+        //    var opfinish = row.PlanSchedule.Finish;
+        //    var opplandays = row.Plan.Days;
+        //    var a = { opstart: opstart, opfinish: opfinish, opplandays: opplandays };
+             
+        //    if ((opfinish != "" && opfinish != null) && (opstart != "" && opstart != null)) {
+        //        var diffInDays = (opfinish - opstart) / (24 * 60 * 60 * 1000);
+        //        $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(5)").find("div").html(diffInDays);
+        //        row.Plan.Days = diffInDays;
+        //    } else {
+        //        $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(5)").find("div").html(0);
+        //        row.Plan.Days = 0;
+        //    }
+        //}
+
+        //if (e.field == "Plan.Days") {
+        //    var row = e.items[0];
+        //    var opstart = row.PlanSchedule.Start;
+        //    var opfinish = row.PlanSchedule.Finish;
+        //    var opplandays = row.Plan.Days;
+        //    console.log("row.uid");
+        //    console.log(row.uid);
+        //    if ((opfinish != "" && opfinish != null) && (opstart != "" && opstart != null)) {
+        //        var newDateMomentFinish = moment(opstart).add(opplandays, 'days');
+        //        opfinish = newDateMomentFinish.format("DD-MMM-YYYY");
+        //        $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(9)").html(opfinish);
+        //        row.PlanSchedule.Finish = opfinish;
+        //    } else {
+        //        alert('Please select start or finish OP date');
+        //    }
+        //}
+        
+        if (typeof e.field != "undefined" && e.field.indexOf("OPList[") != -1) {
+            var selectedIndex = parseInt(e.field.substring(7, 8));
+            var row = e.items[0];
+            var opstart = row.OPList[selectedIndex].OPSchedule.Start;
+            var opfinish = row.OPList[selectedIndex].OPSchedule.Finish;
+            var opplandays = row.OPList[selectedIndex].OP.Days;
+            var colIndexDays = ((selectedIndex + 1) * 4) + 1;
+            var colIndexFinishDate = ((selectedIndex + 1) * 4);
+                if (e.field.indexOf("Days") != -1) {
+                    //changed item : OP.Days, need to change OPSchedule.Finish
+                    if ((opfinish != "" && opfinish != null) && (opstart != "" && opstart != null)) {
+                        var newDateMomentFinish = moment(opstart).add(opplandays, 'days');
+                        opfinish = newDateMomentFinish.format("DD-MMM-YYYY");
+                        $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(" + colIndexFinishDate + ")").html(opfinish);
+                        row.OPList[selectedIndex].OPSchedule.Finish = opfinish;
+                    } else {
+                        alert('Please select start or finish OP date');
+                        row.OPList[selectedIndex].OP.Days = 0;
+                    }
+                } else {
+                    //changed item : OPSchedule, need to change OP.Days
+                    
+                    if ((opfinish != "" && opfinish != null) && (opstart != "" && opstart != null)) {
+                        var diffInDays = ( jsonDate(opfinish) - jsonDate(opstart)) / (24 * 60 * 60 * 1000);
+                        $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(" + colIndexDays + ")").html(diffInDays);
+                        $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(" + colIndexDays + ")").find("span").html(diffInDays);
+                        $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(" + colIndexDays + ")").find("div").html(diffInDays);
+                        row.OPList[selectedIndex].OP.Days = diffInDays;
+                        
+                    } else {
+                        $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(" + colIndexDays + ")").html(0);
+                        $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(" + colIndexDays + ")").find("span").html(0);
+                        $("#grid_wrapper").find("tr[data-uid='" + row.uid + "']>td:eq(" + colIndexDays + ")").find("div").html(0);
+                        row.OPList[selectedIndex].OP.Days = 0;
+                        
+                    }
+                }
+        }
+
+    }
+
+    function GenPhaseDetailData(ActivityType) {
+        var PhaseData = model.PhaseData().Phases;
+        var dt = _.find(PhaseData, function (num) {
+            return num.ActivityType == ActivityType
+        });
+
+        return dt.PhaseInfo
+    }
+
+    function PhaseInfo(ActivityType) {
+        var dt = GenPhaseDetailData(ActivityType);
+        console.log(dt);
+        var Phase = model.PDdata()
+
+        if (dt.ActivityCategory != null) Phase.ActivityCategory(dt.ActivityCategory)
+        if (dt.ActivityType != null) Phase.ActivityType(dt.ActivityType)
+        if (dt.BIC.Cost != null) Phase.BICCost(kendo.toString(dt.BIC.Cost, 'N2'))
+        if (dt.BIC.Days != null) Phase.BICDays(kendo.toString(dt.BIC.Days, 'N2'))
+        if (dt.BIC.Gap != null) Phase.BICGap(dt.BIC.Gap)
+
+        if (dt.BIC.Treshold != null) Phase.BICTreshold(kendo.toString(dt.BIC.Treshold, 'N2'))
+        if (dt.BrineDensity != null) Phase.BrineDensity(kendo.toString(dt.BrineDensity, 'N2'))
+        if (dt.BurnRate != null) Phase.BurnRate(kendo.toString(dt.BurnRate, 'N2'))
+        if (dt.CSO != null) Phase.CSO(kendo.toString(dt.CSO, 'N2'))
+        if (dt.CompletionType != null) Phase.CompletionType(dt.CompletionType)
+
+        if (dt.CompletionZone != null) Phase.CompletionZone(kendo.toString(dt.CompletionZone, 'N2'))
+        if (dt.Contigency.Cost != null) Phase.ContigencyCost(kendo.toString(dt.Contigency.Cost, 'N2'))
+        if (dt.Contigency.Days != null) Phase.ContigencyDays(kendo.toString(dt.Contigency.Days, 'N2'))
+        if (dt.CostEscalatedInflated != null) Phase.CostEscalatedInflated(kendo.toString(dt.CostEscalatedInflated, 'N2'))
+        if (dt.Currency != null) Phase.Currency(dt.Currency)
+
+        if (dt.DeterministicHigh != null) Phase.DeterministicHigh(kendo.toString(dt.DeterministicHigh, 'N2'))
+        if (dt.DeterministicLowRange != null) Phase.DeterministicLowRange(kendo.toString(dt.DeterministicLowRange, 'N2'))
+        if (dt.EscalationInflation != null) Phase.EscalationInflation(kendo.toString(dt.EscalationInflation, 'N2'))
+        if (dt.EstimatingRangeType != null) Phase.EstimatingRangeType(dt.EstimatingRangeType)
+        if (dt.IntId != null) Phase.IntId(kendo.toString(dt.IntId, 'N2'))
+
+        if (dt.LLAmount != null) Phase.LLAmount(kendo.toString(dt.LLAmount, 'N2'))
+        if (dt.LLMonth != null) Phase.LLMonth(dt.LLMonth)
+        if (dt.LTA2.Cost != null) Phase.LTA2Cost(kendo.toString(dt.LTA2.Cost, 'N2'))
+        if (dt.LTA2.Days != null) Phase.LTA2Days(kendo.toString(dt.LTA2.Days, 'N2'))
+        if (dt.LastUpdate != null) Phase.LastUpdate(moment(dt.LastUpdate).utc().format('DD-MMM-YYYY'))
+
+        if (dt.LearningCurveFactor != null) Phase.LearningCurveFactor(kendo.toString(dt.LearningCurveFactor, 'N2'))
+        if (dt.LineOfBusiness != null) Phase.LineOfBusiness(dt.LineOfBusiness)
+        if (dt.LoE != null) Phase.LoE(kendo.toString(dt.LoE, 'N2'))
+        if (dt.MRI != null) Phase.MRI(kendo.toString(dt.MRI, 'N2'))
+        if (dt.MaturityLevel != null) Phase.MaturityLevel(dt.MaturityLevel)
+
+        if (dt.Mean.Cost != null) Phase.MeanCost(kendo.toString(dt.Mean.Cost, 'N2'))
+        if (dt.Mean.Days != null) Phase.MeanDays(kendo.toString(dt.Mean.Days, 'N2'))
+        if (dt.Mean.PercentCost != null) Phase.MeanPercentCost(kendo.toString(dt.Mean.PercentCost, 'N2'))
+        if (dt.Mean.PercentTime != null) Phase.MeanPercentTime(kendo.toString(dt.Mean.PercentTime, 'N2'))
+        if (dt.MeanCostEDM.Cost != null) Phase.MeanCostEDMCost(kendo.toString(dt.MeanCostEDM.Cost, 'N2'))
+
+        if (dt.MeanCostEDM.Days != null) Phase.MeanCostEDMDays(kendo.toString(dt.MeanCostEDM.Days, 'N2'))
+        if (dt.NPT.Cost != null) Phase.NPTCost(kendo.toString(dt.NPT.Cost, 'N2'))
+        if (dt.NPT.Days != null) Phase.NPTDays(kendo.toString(dt.NPT.Days, 'N2'))
+        if (dt.NPT.PercentTime != null) Phase.NPTPercentTime(kendo.toString(dt.NPT.PercentTime, 'N2'))
+        if (dt.NPT.PercentCost != null) Phase.NPTPercentCost(kendo.toString(dt.NPT.PercentCost, 'N2'))
+
+        if (dt.OPType != null) Phase.OPType(dt.OPType)
+        if (dt.PerformanceScore != null) Phase.PerformanceScore(dt.PerformanceScore)
+        if (dt.PhaseNo != null) Phase.PhaseNo(dt.PhaseNo)
+        if (dt.ProbabilisticP10 != null) Phase.ProbabilisticP10(kendo.toString(dt.ProbabilisticP10, 'N2'))
+        if (dt.ProbabilisticP90 != null) Phase.ProbabilisticP90(kendo.toString(dt.ProbabilisticP90, 'N2'))
+
+        if (dt.ProjectValueDrive != null) Phase.ProjectValueDrive(dt.ProjectValueDrive)
+        if (dt.ReferenceFactorModel != null) Phase.ReferenceFactorModel(dt.ReferenceFactorModel)
+        if (dt.RigName != null) Phase.RigName(dt.RigName)
+        if (dt.RigSequenceId != null) Phase.RigSequenceId(kendo.toString(dt.RigSequenceId, 'N2'))
+        if (dt.SequenceId != null) Phase.SequenceId(kendo.toString(dt.SequenceId, 'N2'))
+
+        if (dt.SinceLTA2 != null) Phase.SinceLTA2(dt.SinceLTA2)
+        if (dt.SpreadRate != null) Phase.SpreadRate(kendo.toString(dt.SpreadRate, 'N2'))
+        if (dt.TECOP.Cost != null) Phase.TECOPCost(kendo.toString(dt.TECOP.Cost, 'N2'))
+        if (dt.TECOP.Days != null) Phase.TECOPDays(kendo.toString(dt.TECOP.Days, 'N2'))
+        if (dt.TECOP.PercentCost != null) Phase.TECOPPercentCost(kendo.toString(dt.TECOP.PercentCost, 'N2'))
+
+        if (dt.TECOP.PercentTime != null) Phase.TECOPPercentTime(kendo.toString(dt.TECOP.PercentTime, 'N2'))
+        if (dt.TQ.Cost != null) Phase.TQCost(kendo.toString(dt.TQ.Cost, 'N2')) 
+        if (dt.TQ.Days != null) Phase.TQDays(kendo.toString(dt.TQ.Days, 'N2'))
+        if (dt.AggredTarget.Cost != null) Phase.AggredTargetCost(kendo.toString(dt.AggredTarget.Cost, 'N2'))
+        if (dt.AggredTarget.Days != null) Phase.AggredTargetDays(kendo.toString(dt.AggredTarget.Days, 'N2'))
+        if (dt.TQGap != null) Phase.TQGap(kendo.toString(dt.TQGap, 'N2')) 
+        if (dt.TQTreshold != null) Phase.TQTreshold(kendo.toString(dt.TQTreshold, 'N2'))
+
+        if (dt.TotalCostIncludePortf != null) Phase.TotalCostIncludePortf(kendo.toString(dt.TotalCostIncludePortf, 'N2'))
+        if (dt.TotalCostWithEscInflCSO != null) Phase.TotalCostWithEscInflCSO(kendo.toString(dt.TotalCostWithEscInflCSO, 'N2'))
+        if (dt.TotalDuration.Cost != null) Phase.TotalDurationCost(kendo.toString(dt.TotalDuration.Cost, 'N2'))
+        if (dt.TotalDuration.Days != null) Phase.TotalDurationDays(kendo.toString(dt.TotalDuration.Days, 'N2'))
+        if (dt.TotalWellDepthMD != null) Phase.TotalWellDepthMD(kendo.toString(dt.TotalWellDepthMD, 'N2'))
+
+        if (dt.TroubleFree.Cost != null) Phase.TroubleFreeCost(kendo.toString(dt.TroubleFree.Cost, 'N2'))
+        if (dt.TroubleFree.Days != null) Phase.TroubleFreeDays(kendo.toString(dt.TroubleFree.Days, 'N2'))
+        if (dt.USDCost.CSO != null) Phase.USDCostCSO(kendo.toString(dt.USDCost.CSO, 'N2'))
+        if (dt.USDCost.Escalation != null) Phase.USDCostEscalation(kendo.toString(dt.USDCost.Escalation, 'N2'))
+        if (dt.USDCost.Inflation != null) Phase.USDCostInflation(kendo.toString(dt.USDCost.Inflation, 'N2'))
+
+        if (dt.USDCost.MeanCostEDM != null) Phase.USDCostMeanCostEDM(kendo.toString(dt.USDCost.MeanCostEDM, 'N2'))
+        if (dt.USDCost.MeanCostMOD != null) Phase.USDCostMeanCostMOD(kendo.toString(dt.USDCost.MeanCostMOD, 'N2'))
+        if (dt.USDCost.NPT != null) Phase.USDCostNPT(kendo.toString(dt.USDCost.NPT, 'N2'))
+        if (dt.USDCost.TECOP != null) Phase.USDCostTECOP(kendo.toString(dt.USDCost.TECOP, 'N2'))
+        if (dt.USDCost.TroubleFree != null) Phase.USDCostTroubleFree(kendo.toString(dt.USDCost.TroubleFree, 'N2'))
+
+        if (dt.ValueDriverEstimate != null) Phase.ValueDriverEstimate(kendo.toString(dt.ValueDriverEstimate, 'N2'))
+        if (dt.WaterDepthMD != null) Phase.WaterDepthMD(kendo.toString(dt.WaterDepthMD, 'N2'))
+
+        ShowPhase();
+    }
+
+    function delete_phase(PhaseNo, ActivityType) {
+        var messagedel = prompt("Are you sure you want to delete this phase? if yes type 'delete' for confirmation");
+        if (messagedel == "delete") {
+            var param = { id: model.selectedWellId(), PhaseNo: PhaseNo, ActivityType: ActivityType };
+            ajaxPost("@Url.Action("DeletePhase")", param, function (response) {
+                if (response.Success) {
+                    select();
+                } else {
+                    alert(response.Message);
+                }
+            }, function (err) {
+                alert('Error occured when deleting phase');
+            });
+        }
+
+    }
+
+    function CalculateDaysOnPhase(t)
+    {
+        var start = model.PhasePhStart();
+        var finish = model.PhasePhFinish();
+         
+        if (start != null && start != "" && finish != null && finish != "") {
+            var diffInDays = (finish - start) / (24 * 60 * 60 * 1000);
+            $("#DaysValueNewPhase").val(diffInDays);
+
+        }
+        else {
+            $("#DaysValueNewPhase").val(0);
+        }
+
+    }
+
+    function saveNewPhase() {
+        var validator = $("#form_new_phase").kendoValidator().data("kendoValidator");
+
+        if (!validator.validate()) {
+            return;
+        }
+
+        var data = {};
+        data.ActivityId = model.SelectedActivity._id;
+        data.PhStart = moment(model.PhasePhStart()).toDate();
+        data.PhFinish = moment(model.PhasePhFinish()).toDate();
+        data.ActivityType = model.PhaseName();
+
+        var virtual = false;
+        var shift = false;
+        if ($("#virtual").is(':checked'))
+        {
+            virtual = true;
+        }
+        if ($("#shift").is(':checked')) {
+            shift = true;
+        }
+
+        data.Virtual = virtual;
+        data.Shift = shift;
+
+        ajaxPost("@Url.Action("SaveNewPhase")", data, function (response) {
+            select();
+            $("#myModal").modal('hide');
+            setTimeout(function () { alert(response.Message); }, 10);
+        }, function (err) {
+            alert('Error occured when saving new phase')
+        });
+    }
+
+    function sendData() {
+        var updatedRecords = [];
+
+        $("#grid_wrapper").data("kendoGrid").dataSource._data.forEach(function (f) {
+            if (f.dirty) updatedRecords.push(f);
+        });
+
+        //tab2
+        //var updatedRecordsInfo = [];
+        //$("#grid_phaseInfo").data("kendoGrid").dataSource._data.forEach(function (f) {
+        //    if (f.dirty) updatedRecordsInfo.push(f);
+        //});
+
+        var data = {};
+        data.id = model.SelectedActivity._id();
+        data.wellname = model.SelectedActivity.WellName();
+        data.rigname = model.SelectedActivity.RigName();
+        data.updatedPhases = updatedRecords;
+        console.log("updates:",updatedRecords);
+        //data.updatePhaseInfo = updatedRecordsInfo;
+         
+        for (var a = 0; a < data.updatedPhases.length; a++) {
+            var b = data.updatedPhases[a];
+            for (i in b) if (b.hasOwnProperty(i)) {
+                if (i.indexOf(".") > -1) {
+                    delete data.updatedPhases[a][i];
+                }
+            }
+
+            var phstart = data.updatedPhases[a].LSStart;
+            if (phstart instanceof Date) {
+                data.updatedPhases[a].LSStart = phstart;
+            } else {
+                data.updatedPhases[a].LSStart = jsonDateStr(phstart);
+            }
+
+            var phfinish = data.updatedPhases[a].LSFinish;
+            if (phfinish instanceof Date) {
+                data.updatedPhases[a].LSFinish = phfinish;
+            } else {
+                data.updatedPhases[a].LSFinish = jsonDateStr(phfinish);
+            }
+        }
+
+        //for (var a = 0; a < data.updatePhaseInfo.length; a++) {
+        //    var b = data.updatePhaseInfo[a];
+        //    for (i in b) if (b.hasOwnProperty(i)) {
+        //        if (i.indexOf(".") > -1) {
+        //            delete data.updatePhaseInfo[a][i];
+        //        }
+        //    }
+ 
+        //}
+         
+        data.updateActivity = model.SelectedActivity;
+
+        var virtual1 = false;
+        var shift1 = false;
+        if ($("#virtual1").is(':checked')) {
+            virtual1 = true;
+        }
+        if ($("#shift1").is(':checked')) {
+            shift1 = true;
+        }
+
+        data.updateActivity.ShiftFutureEventDate = shift1;
+        data.updateActivity.VirtualPhase = virtual1;
+        data.updateActivity.IsInPlan = model.SelectedActivity.IsInPlan();
+        //alert("Shift:", shift1);
+        console.log(data);
+        ajaxPost("@Url.Action("UpdatePhase2")", data,
+            function (res) {    
+                var response = res.Data;
+                if (res.Result != "OK") {
+                    alert(response.Message);
+                    return;
+                }
+                if (response.ResponseStatus) {
+                    //alert("Data Saved!");
+                    alert(response.Response);
+                } else {
+                    alert(response.Response);
+                }
+                select();
+                model.reloadData();
+            }, function (err) {
+                alert(err.Message);
+        });
+    }
+
+    function saveDataPhase(){
+        var param = ko.mapping.toJS(model.DetailOP());
+        ajaxPost("@Url.Action("UpdateOPPhase")", param, function (response) {
+            if (response.Result == "OK") {
+                alert("Update Success");
+                $("#dataPhase").modal("hide");
+                model.reloadData();
+            }
+        }, function (err) {
+            alert('Error occured when deleting phase');
+        });
+    }
+
+    function backToBrowser() {
+        model.ShowBrowser(true);
+        model.ShowEditForm(false);
+        model.selectedWellId();
+        model.reloadData();
+    }
+
+    function backToEdit() {
+        HidePhase();
+    }
+
+ 
+</script>

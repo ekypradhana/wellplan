@@ -1,0 +1,551 @@
+﻿
+@{
+    ViewBag.Title = "STOS Mapping";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.AppServer.Areas.Shell.Controllers
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using MongoDB.Bson;
+@using Newtonsoft.Json;
+@{
+    var m = Query.In("MapName", new BsonArray(ViewBag.ListMapName));
+    var mapnamesdel = STOS.Populate<STOS>(m).Select(x => x.MapName).Distinct().ToList();
+    var stoslis = STOS.Populate<STOS>().Where(x => mapnamesdel.Contains(x.MapName)).ToList();
+    //var reportingentitys = pmasterm.GroupBy(x => x.ReportEntity).Select(x => x.Key).ToList();
+    //var updateby = stoslis.GroupBy(x => x. UpdateBy).Select(x => x.Key).ToList();
+}
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+
+    @*model.UpdateBy = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(updateby)));*@
+    model.backpalantir = function () {
+        var url = "@Url.Action("Index", "STOS")";
+        location.href = url;
+    }
+
+    model.MapNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(mapnamesdel)));
+    model.LSInfo = ko.observable("@ViewBag.LatestLS");
+
+</script>
+
+<style>
+    .k-dropzone {
+        padding-left: 15px;
+    }
+
+    .k-upload-selected {
+        margin-left: 15px;
+    }
+
+    #grid .k-toolbar {
+        min-height: 27px;
+    }
+
+    .category-label {
+        color: #000000;
+        vertical-align: middle;
+        padding-right: .5em;
+    }
+
+    #category {
+        vertical-align: middle;
+    }
+
+    .toolbar {
+        /*background-color:aliceblue;*/
+        float: right;
+        margin-right: .8em;
+    }
+
+    .toolbar2121 {
+        /*background-color:aliceblue;*/
+        float: right;
+        margin-right: .8em;
+        margin-top: 8px;
+        padding-right: 220px;
+    }
+
+    #grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+        #grid .k-header[role=columnheader][data-field=_id] {
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-field=OpsDuration], #grid .k-header[role=columnheader][data-field=PhRiskDuration] {
+            vertical-align: bottom;
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-colspan] {
+            text-align: center;
+            font-weight: bold;
+            color: #a8a8a8;
+        }
+
+    #grid [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #grid [data-field=PhStart], #grid [data-field=PhFinish], #grid [data-field=OpsStart], #grid [data-field=OpsFinish] {
+        pointer-events: none;
+    }
+
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+
+    .customClass {
+        background-color: red;
+    }
+
+    .k-grid .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .deletemp {
+        margin-top: 5px;
+        margin-bottom: 10px;
+    }
+
+        .deletemp .col-md-3, .deletemp .col-md-4 {
+            padding: 0px;
+            margin: 0px;
+        }
+
+        .deletemp .col-md-4 {
+            text-align: right;
+            min-height: 28px;
+        }
+
+            .deletemp .col-md-4 label {
+                padding-top: 4px;
+            }
+
+        .deletemp .col-md-8 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+    .filter {
+        margin-bottom: 10px;
+    }
+</style>
+
+<div style="padding: 0px 15px 15px;">
+    <div class="ec-toolbar">
+        <button onclick="model.backpalantir()" class="btn btn-sm btn-warning"><span class="glyphicon glyphicon-arrow-left"></span> Back</button>
+    </div>
+    <div class="col-md-12 row filter">
+        <div class="row" style="margin-bottom:10px">
+            <div class="col-md-12">
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Map File: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <select id="MapNamesMaping" data-placeholder="Select map files ..."></select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @*<div class="row">
+            <div class="col-md-12">
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Reporting Entity: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <select id="ReportingEntity" data-placeholder="Select reporting entity ..."></select>
+                    </div>
+                </div>
+                <div class="col-md-3" data-bind="">
+                    <div class="col-md-4">
+                        <label>Update By: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <select id="UpdateBy" data-placeholder=" select update by ..."></select>
+                    </div>
+                </div>
+                <div class="col-md-5" data-bind="">
+                    <div class="col-md-3">
+                        <label>Period: </label>
+                    </div>
+                    <div class="col-md-9">
+                        <input type="text" id="PeriodStart" />
+                        &nbsp;-&nbsp;
+                        <input type="text" id="PeriodFinish" />
+                    </div>
+                </div>
+            </div>
+        </div>*@
+
+        <div class="clearfix"></div>
+
+        <div class="col-md-12">
+            <button style="float: right; margin-right: 47px;" class="btn btn-custom btn-sm btn-primary" onclick="model.reloadData()">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div data-bind="visible: !model.IsProcessing()">
+        <div class="col-md-12 no-padding">
+            <div class="demo-section k-header" hidden="hidden"><input name="UploadedFile" id="files" type="file" /></div>
+            <div id="grid" class="grid"></div>
+        </div>
+
+        <div style="clear: both;"></div>
+    </div>
+
+    <div data-bind="visible:model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+</div>
+
+<script>
+    //model.PalantirActivityTypes = [{ ActivityText: "DRILLING", ActivityValue: "DRILLING" }, { ActivityText: "COMPLETION", ActivityValue: "COMPLETION" }, { ActivityText: "ABANDONMENT", ActivityValue: "ABANDONMENT" }, { ActivityText: "RIG", ActivityValue: "RIG" }];
+    model.RenderGrid = function (data) {
+        var excelName = "DataSTOSMap_" + moment(new Date()).format("DD-MMM-YYYY_HH:mm:ss") + ".xlsx";
+        $('#grid').replaceWith($('<div />').attr('id', 'grid'));
+        $('#grid').kendoGrid({
+                toolbar: ["excel", {
+                    template: ' <button class="k-button k-button-icontext k-grid-i-columns" onclick="return model.savemapstos()" > ' +
+                    '<span class="glyphicon glyphicon-play"></span> Save Map</button>'
+                }],
+                excel: { fileName: excelName, allPages: true, filterable: true },
+                dataSource: { data: data, type: "json", pageSize: 10 },
+                editable: true,
+                pageable: true,
+                sortable: true,
+                resizable: true,
+                columns: [
+                {
+                    field: "ActivityName",
+                    title: "Activity Name",
+                    width: 150,
+                    type: "string", editable: false
+                }, {
+                    field: "ProjectName",
+                    title: "Project",
+                    width: 80,
+                    type: "string", editable: false
+                }, {
+                    field: "SpendType",
+                    title: "Spend Type",
+                    width: 80,
+                    type: "string", editable: false
+                }, {
+                    field: "ActivityDescription",
+                    title: "Activity Description",
+                    width: 130,
+                    type: "string", editable: true
+                }, {
+                    field: "RegretConsequences",
+                    title: "Regret Consequences",
+                    width: 130,
+                    type: "string", editable: true
+                }, {
+                    field: "Rank",
+                    title: "Rank",
+                    width: 100,
+                    type: "string", editable: true
+                }, {
+                    field: "PMaster",
+                    title: "PMaster",
+                    width: 150,
+                    type: "string", editable: true
+                }, {
+                    field: "PMasterCategory",
+                    title: "PMaster Category",
+                    width: 150,
+                    type: "string", editable: true
+                }, {
+                    field: "SponsorFunction",
+                    title: "Sponsor Function",
+                    width: 130,
+                    type: "string", editable: true
+                }, {
+                    field: "Revenue",
+                    title: "Revenue",
+                    width: 150,
+                    type: "string", editable: true
+                }, {
+                    field: "CostEstimator",
+                    title: "Cost Estimator",
+                    width: 90,
+                    type: "string", editable: false
+                }, {
+                    field: "AssuranceLevel",
+                    title: "Assurance Level",
+                    width: 130,
+                    type: "string", editable: true
+                }, {
+                    field: "EstimateType",
+                    title: "Estimate Type",
+                    width: 90,
+                    attributes: { style: 'text-align:right;' },
+                    type: "string", editable: false
+                }, {
+                    field: "Regrets",
+                    title: "Regrets",
+                    width: 80,
+                    attributes: { style: 'text-align:right;' },
+                    type: "string", editable: true
+                }, {
+                    field: "Currency",
+                    title: "Currency",
+                    width: 90,
+                    type: "string", editable: false
+                }, {
+                    field: "POE",
+                    title: "POE %",
+                    width: 80,
+                    attributes: { style: 'text-align:right;' },
+                    format: "{0} %",
+                    type: "number", min: 0, max: 100, editable: true
+                }, {
+                    field: "Contingency",
+                    title: "Contingency %",
+                    width: 90,
+                    attributes: { style: 'text-align:right;' },
+                    format: "{0} %",
+                    type: "string", editable: false
+                },
+                //{
+                //    field: "LineofBusiness",
+                //    title: "Line Of Business",
+                //    width: 90,
+                //    attributes: { style: 'text-align:right;' },
+                //    type: "string", editable: false
+                //}, {
+                //    field: "AssetName",
+                //    title: "Asset Name",
+                //    width: 90,
+                //    attributes: { style: 'text-align:right;' },
+                //    type: "string", editable: false
+                //},
+                {
+                    field: "ReferenceFactorModel",
+                    title: "Reference Factor Model",
+                    width: 150,
+                    type: "string", editable: false
+                }, {
+                    field: "RigName",
+                    title: "Rig Name",
+                    width: 90,
+                    type: "string", editable: false
+                }, {
+                    field: "UARigSequenceId",
+                    title: "Sequence Id",
+                    width: 90,
+                    type: "string", editable: false
+                }],
+                excelExport: function (e) {
+                    //var sheet = e.workbook.sheets[0];
+                    //for (var rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
+                    //    var row = sheet.rows[rowIndex];
+                    //    for (var cellIndex = 0; cellIndex < row.cells.length; cellIndex++) {
+                    //        if (rowIndex == 0) {
+                    //            row.cells[cellIndex].value = row.cells[cellIndex].value.replace("<br/>", "");
+                    //        }
+                    //    }
+                    //}
+                }
+            });
+
+        setTimeout(function () {
+            $("#grid").data("kendoGrid").refresh();
+        }, 200);
+
+        //$("#grid").find('.k-header.k-grid-toolbar').find('.toolbar2121').find('span').text(model.LSInfo());
+    }
+
+    function onComplete(e) {
+        // model.LoadDataGrid();
+    }
+
+    function onRemove(e) {
+        //console.log("Remove :: " + getFileInfo(e));
+        model.reloadData();
+    }
+
+    function onSelect(e) {
+        $(".k-upload-files.k-reset").remove();
+        $.each(e.files, function (index, value) {
+            //alert(value.extension);
+            var ok = value.extension == ".xlsx"
+                     || value.extension == ".xls"
+
+            if (!ok) {
+                e.preventDefault();
+                alert("Please upload only Excel (xls, xlsx) files");
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        //$("#UpdateBy").kendoMultiSelect({
+        //    placeholder: "Select Update By ...",
+        //    dataSource: model.UpdateBy(),
+        //    filter: "contains"
+        //});
+        //input2datePicker($("#PeriodStart"));
+        //input2datePicker($("#PeriodFinish"));
+
+        //$("#ActivityEntityIDMaping").kendoDropDownList({
+        //    dataSource: model.ActivityEntityIDs()
+        //});
+        $("#MapNamesMaping").kendoDropDownList({
+            dataSource: model.MapNames()
+        });
+
+        model.reloadData();
+
+        $("#files").kendoUpload({
+            async: {
+                saveUrl: '@Url.Action("UploadMap", "STOS")',
+                //removeUrl: "remove",
+                autoUpload: false
+            },
+            localization: {
+                select: 'Import Map File',
+                remove: '',
+                cancel: ''
+            },
+            remove: onRemove,
+            complete: onComplete,
+            select: onSelect,
+            success: function (e) {
+                var res = e.response;
+                if (res.Result != "OK") {
+                    alert(res.Message);
+                    return;
+                }
+
+                alert("Upload Success!");
+                model.RenderGrid(res.Data);
+            }
+        });
+    });
+
+    function DateTimeParse(date) {
+        return moment(jsonDateStr(date), 'DD-MMM-YYYY').format("DD-MMM-YY");
+    }
+
+    model.reloadData = function () {
+        var mapnamesss = $('#MapNamesMaping').data('kendoDropDownList').value();
+        var mapnm = [];
+        mapnm.push(mapnamesss);
+
+        var url = "@Url.Action("GetDataSTOSMapping", "STOS")";
+        var param = {
+            lMapNames: mapnm
+        }
+        model.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.RenderGrid(res.Data);
+            model.IsProcessing(false);
+        }, function () {
+            model.IsProcessing(false);
+        });
+    }
+
+
+    model.savemapstos = function () {
+        @*var mapnamess = $('#MapNamesMaping').data('kendoDropDownList').value();
+        var grid = $("#grid").data("kendoGrid");
+        var data = grid.dataSource.data();
+        
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("SavePlanStos")", { list: data, mapnames: mapnamess }, function (res) {
+            if (res.Result == "NOK") {
+                model.IsProcessing(false);
+                alert(res.Message);
+                return;
+            }
+
+            if (res.Data.Status == "NOK") {
+                model.IsProcessing(false);
+                alert(res.Data.Message);
+                return;
+            }
+            model.IsProcessing(false);
+            alert("Save Map Success");
+            model.RenderGrid(res.Data.listMap);
+
+        }, function () {
+            model.IsProcessing(false);
+        });*@
+
+        
+        model.IsProcessing(true);
+        setTimeout(function () {
+            var mapnamess = $('#MapNamesMaping').data('kendoDropDownList').value();
+            var grid = $("#grid").data("kendoGrid");
+            var data = grid.dataSource.data();
+
+            ///devide data and take per 50.
+            var totalLoop = Math.ceil(data.length / 50);
+            var counter = 0;
+            var take = 50;
+            var skip = 0;
+
+            for (var i = 0; i < totalLoop; i++) {
+                var dataToThrow = Enumerable.From(data).Skip(skip).Take(take).ToArray();
+                ajaxPost("@Url.Action("SavePlanStos")", { list: dataToThrow, mapnames: mapnamess }, function (res) {
+                    counter++;
+                    CounterSaveMap(totalLoop, counter);
+                }, function () {
+                    counter++;
+                    CounterSaveMap(totalLoop, counter);
+                });
+                skip = skip + take;
+            }
+        }, 300);
+    }
+
+    function CounterSaveMap(TotalLoop, Counter) {
+        if (Counter >= TotalLoop) {
+            alert("Save Map Success");
+            model.IsProcessing(false);
+        }
+    }
+
+    @*model.updatelatestS = function () {
+        var param = $('[data-model="inlastuploadls"]').is(':checked');
+        var grid = $("#grid").data("kendoGrid");
+        var data = grid.dataSource.data();
+
+        console.log(param);
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("UpdateLS")", { listMap: data, inlastuploadls: param }, function (res) {
+            if (res.Result == "NOK") {
+                model.IsProcessing(false);
+                alert(res.Message);
+                return;
+            }
+
+            if (res.Data.Status == "NOK") {
+                model.IsProcessing(false);
+                alert(res.Data.Message);
+                return;
+            }
+            model.IsProcessing(false);
+            alert("Update Latest Sequence Success");
+
+            model.RenderGrid(res.Data.listSeq);
+        }, function () {
+            model.IsProcessing(false);
+        });
+    }*@
+</script>

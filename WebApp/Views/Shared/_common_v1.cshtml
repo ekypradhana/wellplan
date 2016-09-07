@@ -1,0 +1,316 @@
+﻿@using ECIS.Client.WEIS;
+@using ECIS.Identity;
+@using Newtonsoft.Json;
+@{
+    var roles = WEISPerson.GetRolesByEmail(WebTools.LoginUser.Email);
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EACIIT SmartView</title>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=768">
+    <script src="@Url.Content("~/Scripts/jquery-2.1.0.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/jquery-ui.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/knockout-3.1.0.js")"></script>
+    <script src="@Url.Content("~/Scripts/knockout.mapping-latest.js")"></script>
+    <script src="@Url.Content("~/Scripts/knockout.validation.js")"></script>
+    <script src="@Url.Content("~/Scripts/jszip.min.js")"></script>
+    <script src="@Url.Content("/ecsvc/content/kendoui/js/kendo.all.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/knockout-kendo.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/bootstrap.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/underscore.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/moment.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/color.js")"></script>
+    <script src="@Url.Content("~/Scripts/tools.js")"></script>
+    <script src="@Url.Content("~/Content/select2/select2.min.js")"></script>
+
+    <link href="@Url.Content("~/Content/bootstrap.css")" type="text/css" rel="stylesheet" />
+    <link href="@Url.Content("~/Content/bootstrap-theme.css")" type="text/css" rel="stylesheet" />
+    <link href="@Url.Content("~/Content/select2/select2.min.css")" type="text/css" rel="stylesheet" />
+
+    <link rel="stylesheet" href="@Url.Content("/ecsvc/content/kendoui/styles/kendo.material.min.css")" />
+    <link rel="stylesheet" href="@Url.Content("/ecsvc/content/kendoui/styles/kendo.common-bootstrap.min.css")" />
+    <link rel="stylesheet" href="@Url.Content("/ecsvc/content/kendoui/styles/kendo.dataviz.min.css")" />
+    <link rel="stylesheet" href="@Url.Content("/ecsvc/content/kendoui/styles/kendo.dataviz.bootstrap.min.css")" />
+    <link rel="stylesheet" href="@Url.Content("~/Content/font-awesome-4.4.0/css/font-awesome.min.css")" />
+
+    <script src="@Url.Content("~/Scripts/underscore.min.js")"></script>
+    <script src="@Url.Content("~/Content/Js/linq.js")"></script>
+    <script src="@Url.Content("~/Content/Js/ecis_config.js")"></script>
+    <script src="@Url.Content("/ecsvc/content/js/main.js")"></script>
+    <script src="@Url.Content("/ecsvc/content/js/ecis_start.js")"></script>
+
+    <link rel="stylesheet" href="@Url.Content("~/Content/Site.css")" />
+    <link rel="stylesheet" href="@Url.Content("~/Content/custom.css")" />
+    <script>
+        var model = {
+            Processing: ko.observable(true)
+        }
+    </script>
+
+    <style>
+        html, body {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        .menu-header {
+            height: 30px;
+            background-color: #333;
+        }
+
+        .nav-bar-header li {
+            float: left;
+        }
+
+            .nav-bar-header li a {
+                font-size: 12px;
+                margin: 0px;
+                padding: 5px;
+                background-color: #000;
+            }
+
+            .nav-bar-header li.selected a {
+                background-color: #D33;
+            }
+
+            .nav-bar-header li a:hover {
+                font-size: 12px;
+                margin: 0px;
+                padding: 5px;
+                background-color: #D33;
+            }
+
+        .form-group label {
+            text-align: right;
+            padding-right: 10px;
+        }
+
+        .form-group input {
+            border: solid 1px #ccc;
+            padding: 2px;
+        }
+
+            .form-group input[type='number'] {
+                text-align: right;
+            }
+    </style>
+
+
+    <script id="navbarTemplate" type="text/html">
+        <!-- ko if: Submenus().length==0 -->
+        <li data-bind="css:{selected:$root.PageId()==Title()}">
+            <a data-bind="text: Title, attr:{href:Url}"></a>
+        </li>
+        <!-- /ko -->
+        <!-- ko if: Submenus().length>0 -->
+        <li data-bind="css:{selected:$root.PageId()==Title()}" class="dropdown">
+            <a data-bind="text: Title" style="cursor:pointer" class="dropdown-toggle" data-toggle="dropdown"></a>
+            <ul class="dropdown-menu" role="menu" data-bind="template:{name:'navbarSubTemplate', foreach:Submenus}"></ul>
+        </li>
+        <!-- /ko -->
+    </script>
+
+    <script id="navbarSubTemplate" type="text/html">
+        <!-- ko if: Submenus().length==0 -->
+        <li data-bind="css:{selected:$root.PageId()==Title()}">
+            <a data-bind="text: Title, attr:{href:Url}"></a>
+        </li>
+        <!-- /ko -->
+        <!-- ko if: Submenus().length>0 -->
+        <li data-bind="css:{selected:$root.PageId()==Title()}" class="dropdown-submenu">
+            <a data-bind="text: Title" style="cursor:pointer" class="dropdown-toggle" data-toggle="dropdown"></a>
+            <ul class="dropdown-menu" role="menu" data-bind="template:{name:'navbarSubTemplate', foreach:Submenus}"></ul>
+        </li>
+        <!-- /ko -->
+    </script>
+
+    <script id="userTemplate" type="text/html">
+        <!-- ko if: Submenus().length==0 -->
+        <li data-bind="css:{selected:$root.PageId()==Title()}">
+            <a data-bind="text: Title, attr:{href:Url}"></a>
+        </li>
+        <!-- /ko -->
+        <!-- ko if: Submenus().length>0 -->
+        <li data-bind="css:{selected:$root.PageId()==Title()}" class="dropdown-submenu-left">
+            <a data-bind="text: Title" style="cursor:pointer" class="dropdown-toggle" data-toggle="dropdown"></a>
+            <ul class="dropdown-menu" role="menu" data-bind="template:{name:'userSubTemplate', foreach:Submenus}"></ul>
+        </li>
+        <!-- /ko -->
+    </script>
+
+    <script id="userSubTemplate" type="text/html">
+        <!-- ko if: Submenus().length==0 -->
+        <li data-bind="css:{selected:$root.PageId()==Title()}">
+            <a data-bind="text: Title, attr:{href:Url}"></a>
+        </li>
+        <!-- /ko -->
+        <!-- ko if: Submenus().length>0 -->
+        <li data-bind="css:{selected:$root.PageId()==Title()}" class="dropdown-submenu-left">
+            <a data-bind="text: Title" style="cursor:pointer" class="dropdown-toggle" data-toggle="dropdown"></a>
+            <ul class="dropdown-menu" role="menu" data-bind="template:{name:'userSubTemplate', foreach:Submenus}"></ul>
+        </li>
+        <!-- /ko -->
+    </script>
+
+</head>
+<body>
+    <div data-bind="visible:Processing()==true">
+        @Html.Partial("_processing");
+    </div>
+
+    <!-- wrapper starts here -->
+    <div class="container-fluid" style="display:none" data-bind="visible: Processing()==false">
+        <!-- header starts here -->
+        <header class="row">
+            <div class="col-sm-3">
+                <div class="header-company-name">
+                    <a>
+                        <img src="@Url.Content("~/Content/Images/shell-logo.png")" 
+                             align="middle" height="40" 
+                             border="0" />
+                    </a>
+                </div>
+            </div>
+
+            <div class="col-sm-9">
+                <div class="col-sm-10">
+                    &nbsp;
+                </div>
+
+                <div class="col-sm-2">
+                    <div class="header-profile" style="min-width:200px">
+                        <a href="#" data-toggle="dropdown">User: @User.Identity.Name</a>
+                        <!-- ko if:UserMenus().length==0 -->
+                        <ul class="dropdown-menu" role="menu">
+                            @if (roles.Where(d => d.ToLower().Contains("admin") || d.ToLower().Contains("app-supports")).Count() > 0)
+                            {
+                                <li><a href="@Url.Content("~/webmenu/menu")">Menu Configuration</a></li>
+                            }
+                            <li><a href="@Url.Content("~/Shell/User/ChangePassword")">Change Password</a></li>
+                            <li><a href="@Url.Content("~/account/logout")" class="logout-link">Logout</a></li>
+
+                        </ul>
+                        <!-- /ko -->
+                        <!-- ko if:UserMenus().length>0 -->
+                        <ul class="dropdown-menu" role="menu" data-bind="template:{name:'userTemplate', foreach:UserMenus}"></ul>
+                        <!-- /ko -->
+                    </div>
+                </div>
+            </div>
+        </header>
+        <script>
+            function MenuItem(id, url, title, submenus, baseURL) {
+                var obj = {
+                    _id: ko.observable(id),
+                    Title: ko.observable(title == undefined ? id : title),
+                    Url: ko.observable(url.replace("~/",baseURL)),
+                    Submenus: ko.observableArray([])
+                };
+                var arr = submenus;
+                for(var i in arr){
+                    obj.Submenus.push(
+                        new MenuItem(
+                            arr[i]._id,
+                            arr[i].Url,
+                            arr[i].Title,
+                            arr[i].Submenus,
+                            baseURL
+                        )
+                    );
+                }
+                return obj;
+            };
+
+            model.PageId = ko.observable("Dashboard");
+            model.MainMenus = ko.observableArray([]);
+            model.UserMenus = ko.observableArray([]);
+
+            model.getMainMenu = function(){
+                var url = "@Url.Content("~/webmenu/menu/getmenu")";
+                var baseURL = "@Url.Content("~")";
+                model.MainMenus([]);
+                ajaxPost(url,{collection_name:"Main_Menu"},function(respondse){
+                    var arr = respondse.Data;
+                    for(var i in arr){
+                        model.MainMenus.push(
+                            new MenuItem(
+                                arr[i]._id,
+                                arr[i].Url,
+                                arr[i].Title,
+                                arr[i].Submenus,
+                                baseURL
+                            )
+                        );
+                    }
+                });
+            }
+
+            model.getUserMenu = function(){
+                var url = "@Url.Content("~/webmenu/menu/getmenu")";
+                var baseURL = "@Url.Content("~")";
+                model.UserMenus([]);
+                ajaxPost(url,{collection_name:"User_Menu"},function(respondse){
+                    var arr = respondse.Data;
+                    for(var i in arr){
+                        model.UserMenus.push(
+                            new MenuItem(
+                                arr[i]._id,
+                                arr[i].Url,
+                                arr[i].Title,
+                                arr[i].Submenus,
+                                baseURL
+                            )
+                        );
+                    }
+                });
+
+            }
+        </script>
+
+        <nav class="nav navbar-inverse" role="navigation">
+            <div class="navbar-header">
+                <ul class="nav navbar-nav" data-bind="template:{name:'navbarTemplate', foreach:MainMenus}"></ul>
+            </div>
+        </nav>
+    </div>
+    <!-- header ends here -->
+    <!-- section starts here -->
+    <div class="container-fluid" data-bind="visible:Processing()==false">
+        <section class="row" style="min-height: 500px;">
+            <!-- Main panel starts here -->
+            <div class="col-sm-12">
+                <div style="margin:5px;">
+                    @if (ViewBag.Title != "Index") { 
+                        <h3 id="pageTitle">@ViewBag.Title</h3>
+                    }
+                    @RenderBody()
+                </div>
+            </div>
+        </section>
+    </div>
+    <!-- section ends here -->
+    <!-- wrapper ends here -->
+    @RenderSection("Script", false)
+    <script>
+        function setPageTitle(s) {
+            $("#pageTitle").text(s);
+        }
+
+
+        ko.applyBindings(model);
+
+        $(document).ready(function () {
+            model.getMainMenu();
+            model.getUserMenu();
+            model.Processing(false);
+            if (typeof PageUpdate == "function") {
+                PageUpdate();
+            }
+        });
+    </script>
+    @Html.Partial("_redirect")
+</body>
+</html>

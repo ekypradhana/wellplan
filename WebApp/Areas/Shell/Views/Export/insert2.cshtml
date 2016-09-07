@@ -1,0 +1,1176 @@
+﻿@using ECIS.Core;
+@using ECIS.Core.DataSerializer;
+@using Newtonsoft.Json;
+@using System.Collections.Generic;
+@{
+    var definition = new Definition();
+    definition.Name = (definition.Name == null) ? "" : definition.Name;
+    definition.Columns = (definition.Columns == null) ? new List<string>() : definition.Columns;
+    definition.Rows = (definition.Rows == null) ? new List<string>() : definition.Rows;
+    definition.DataPoint = (definition.DataPoint == null) ? "EVENT" : definition.DataPoint;
+    definition.Orientation = (definition.Orientation == null) ? "Horizontal" : definition.Orientation;
+    definition.Period = (definition.Orientation == null) ? "UpdateVersion" : definition.Period;
+    definition.PeriodGroup = (definition.PeriodGroup == null) ? "Daily" : definition.PeriodGroup;
+}
+
+<style>
+    .no-padding {
+        padding: 0px !important;
+    }
+    .no-padding-right {
+        padding-right: 0px !important;
+    }
+    .detail .k-multiselect,
+    .detail .k-multiselect * {
+        box-sizing: border-box;
+    }
+    .detail .col-md-12 {
+        min-height: 34px;
+        padding-right: 0px;
+    }
+    .detail .col-md-12 .col-md-3 {
+        text-align: right;
+        padding-right: 0px;
+        padding-top: 3px;
+    }
+    .detail .col-md-12 .col-md-3:after {
+        content: ":";
+        z-index: 1;
+        position: absolute;
+        margin-left: 3px;
+    }
+    .detail .col-md-12 .col-md-9 {
+        padding-right: 0px;
+    }
+    .loader h4 {
+        display: none;
+    }
+
+    .grid {
+        overflow: auto;
+        padding-bottom: 10px;
+        padding-right: 10px;
+    }
+    .grid table td {
+        padding: 2px 8px;
+        border: 1px solid rgb(230, 230, 230);
+    }
+    .grid table.horizontal tr:first-child td[rowspan] {
+        font-size: 14px;
+        text-align: left !important;
+        padding-left: 9px !important;
+    }
+    .grid table.horizontal tr:first-child td {
+        padding: 3px 5px;
+        text-align: center;
+        font-weight: bold;
+        background-color: #f9f9f9;
+    }
+    .grid table.horizontal tr:nth-child(2) td {
+        padding: 3px 5px;
+        min-width: 140px;
+        text-align: center;
+        background-color: #f9f9f9;
+    }
+    .grid table.horizontal tr:nth-child(n+3) td:not(.row-title) {
+        text-align: center;
+    }
+    .grid table.horizontal tr:nth-child(n+3) td.row-title {
+        min-width: 230px;
+        font-weight: bold;
+        background-color: #f9f9f9;
+    }
+    .grid table.vertical tr:first-child td {
+        text-align: center;
+        font-weight: bold;
+        background-color: #f9f9f9;
+        min-width: 150px;
+        padding: 3px 5px;
+    }
+    .grid table.vertical tr:first-child td.row-title {
+        text-align: left !important;
+        padding-left: 9px !important;
+        height: 44px;
+        font-size: 14px;
+    }
+    .grid table.vertical tr:nth-child(n+1) td[rowspan] {
+        min-width: 230px;
+        font-weight: bold;
+        background-color: #f9f9f9;
+        text-align: left !important;
+    }
+    .grid table.vertical tr td.data-point {
+        padding: 3px 5px;
+        min-width: 180px;
+        text-align: left !important;
+        background-color: #f9f9f9;
+    }
+    .grid table.vertical tr:nth-child(odd):not(:first-child) td:nth-child(n+1),
+    .grid table.vertical tr:nth-child(even):not(:first-child) td:nth-child(n+2) {
+        text-align: center;
+    }
+
+    .data-container {
+        position: relative;
+        border: 1px solid rgb(221, 221, 221);
+        border-top: none;
+    }
+    .data-container:after {
+        position: absolute;
+        content: " ";
+        z-index: 1;
+        top: 0px;
+        bottom: 0px;
+        left: 409px;
+        background-color: rgb(221, 221, 221);
+        width: 1px;
+    }
+    .data-container .detail {
+        position: absolute;
+        left: 0px;
+        width: 400px;
+        padding: 0px;
+        padding-right: 10px;
+        overflow: auto;
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+    .data-container .detail input[type=text] {
+        padding-left: 4px !important;
+    }
+    .data-container .data-content {
+        position: absolute;
+        left: 420px;
+        right: 10px;
+        top: 0px;
+        bottom: 10px;
+    }
+    .data-container .data-content.loader div {
+        width: inherit !important;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        margin-top: -66px;
+        margin-left: -69px;
+    }
+
+    .meta-container {
+        position: relative;
+        height: 50px;
+        border: 1px solid rgb(221, 221, 221);
+        border-bottom: none;
+    }
+    .meta-container .meta-detail {
+        position: absolute;
+        left: 10px;
+        padding-right: 10px;
+        width: 400px;
+        border-right: 1px solid rgb(221, 221, 221);
+        height: 100%;
+    }
+    .meta-container .meta-grid {
+        position: absolute;
+        left: 420px;
+        right: 10px;
+        top: 0px;
+        bottom: 0px;
+    }
+    .meta-container h3 {
+        text-align: left;
+        border-bottom: 3px solid rgb(221, 51, 51);
+        padding: 9px 0px 4px;
+        margin: 0px;
+        font-weight: bold;
+    }
+
+    .hide-detail .meta-container .meta-detail,
+    .hide-detail .data-container .detail,
+    .hide-detail .data-container:after {
+        display: none !important;
+    }
+
+    .hide-detail .data-container .data-content,
+    .hide-detail .meta-container .meta-grid {
+        left: 10px !important;
+    }
+
+    .filter .floated {
+        display: none;
+    }
+
+    .period-mode-custom {
+        min-height: 27px;
+        border: 1px solid rgb(239, 239, 239);
+        padding: 2px;
+        box-sizing: border-box;
+        margin-bottom: 5px;
+    }
+    .period-custom-value {
+        float: left;
+        background-color: rgb(66, 139, 202);
+        color: white;
+        padding: 3px;
+        box-sizing: border-box;
+        border-radius: 2px;
+        margin-right: 2px;
+        margin-bottom: 2px;
+    }
+    .period-custom-value .btn-item-close {
+        background-color: white;
+        color: black;
+        width: 15px;
+        display: inline-block;
+        text-align: center;
+        margin-left: 3px;
+        border-radius: 7px;
+        font-size: 10px;
+        cursor: pointer;
+    }
+    .period-custom-value .btn-item-close:hover {
+        background-color: black;
+        color: white;
+    }
+    .clearfix {
+        clear: both;
+    }
+</style>
+
+<div class="col-md-12" data-bind="visible: model.Mode() == 'Insert', css: { 'hide-detail': model.IsHideDetail() }">
+    <div class="col-md-12">
+        @Html.Partial("Filter")
+    </div>
+
+    <div class="col-md-12 no-padding" style="margin-bottom: 11px; width: 500px;">
+        <button class="btn btn-sm btn-custom btn-warning" data-bind="enable: !model.IsProcessing(), click: model.Back">
+            <span class="glyphicon glyphicon-arrow-left"></span> Back to List
+        </button>
+        <button class="btn btn-sm btn-custom btn-warning" data-bind="enable: !model.IsProcessing(), click: model.ToggleDetail">
+            <span class="glyphicon glyphicon-list" data-bind="visible: model.IsHideDetail()"></span> 
+            <span data-bind="visible: model.IsHideDetail()">Show Detail</span>
+            <span class="glyphicon glyphicon-align-justify" data-bind="visible: !model.IsHideDetail()"></span> 
+            <span data-bind="visible: !model.IsHideDetail()">Hide Detail</span>
+        </button>
+        &nbsp;
+        <button class="btn btn-sm btn-custom btn-primary" data-bind="enable: !model.IsProcessing(), click: model.Save, visible:!model.isRO() == '1'">
+            <span class="glyphicon glyphicon-ok"></span> Save
+        </button>
+        <button class="btn btn-sm btn-custom btn-primary" data-bind="enable: !model.IsProcessing(), click: model.Preview">
+            <span class="glyphicon glyphicon-eye-open"></span> Preview
+        </button>
+    </div>
+
+    <div class="clearfix"></div>
+
+    <div class="meta-container">
+        <div class="meta-detail">
+            <h3>Detail</h3>
+        </div>
+        <div class="meta-grid">
+            <h3>Preview</h3>
+        </div>
+    </div>
+
+    <div class="data-container">
+        <div class="detail" data-bind="with: model.Detail">
+            <div class="col-md-12">
+                <div class="col-md-3">Title</div>
+                <div class="col-md-9">
+                    <input type="text" style="width: 100%;" required data-required-msg="Name cannot be empty" name="name"
+                           data-bind="value: Name" />
+                    <span class="k-invalid-msg" data-for="name"></span>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-3">Data points</div>
+                <div class="col-md-9">
+                    <select style="width: 100%;" required data-required-msg="Data points cannot be empty" name="data-point"
+                            data-bind="kendoDropDownList: { optionLabel: 'Select value', dataTextField: 'Title', dataValueField: 'Value', data: $root.Config.DataPoints, value: DataPoint, change: $root.Config.DataPointOnChange }"></select>
+                    <span class="k-invalid-msg" data-for="data-point"></span>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-3">Columns</div>
+                <div class="col-md-9">
+                    <select style="width: 100%;" required data-required-msg="Columns cannot be empty" name="columns"
+                            data-bind="kendoMultiSelect: { optionLabel: 'Select value', dataTextField: 'Title', dataValueField: 'Value', data: $root.Config.Columns, value: Columns }"></select>
+                    <span class="k-invalid-msg" data-for="columns"></span>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-3">Rows</div>
+                <div class="col-md-9">
+                    <select style="width: 100%;" required data-required-msg="Rows cannot be empty" name="rows"
+                            data-bind="kendoMultiSelect: { optionLabel: 'Select value', dataTextField: 'Title', dataValueField: 'Value', data: $root.Config.Rows, value: Rows }"></select>
+                    <span class="k-invalid-msg" data-for="rows"></span>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-3">Orientation</div>
+                <div class="col-md-9">
+                    <select style="width: 100%;" required data-required-msg="Orientation cannot be empty" name="orientation"
+                            data-bind="kendoDropDownList: { optionLabel: 'Select value', dataTextField: 'Title', dataValueField: 'Value', data: $root.Config.Orientations, value: Orientation }"></select>
+                    <span class="k-invalid-msg" data-for="rows"></span>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-3">Period date</div>
+                <div class="col-md-9">
+                    <select style="width: 100%;" required data-required-msg="Period cannot be empty" name="period"
+                            data-bind="kendoDropDownList: { optionLabel: 'Select value', dataTextField: 'Title', dataValueField: 'Value', data: $root.Config.Periods, value: Period }"></select>
+                    <span class="k-invalid-msg" data-for="period"></span>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-3">Period group</div>
+                <div class="col-md-9">
+                    <select style="width: 100%;" required data-required-msg="Period group cannot be empty" name="period-group"
+                            data-bind="kendoDropDownList: { optionLabel: 'Select value', dataTextField:'Title', dataValueField:'Value', data: $root.Config.PeriodGroups, value: PeriodGroup, change: $root.Config.PeriodFilterDateChange('PeriodGroup') }"></select>
+                    <span class="k-invalid-msg" data-for="period-group"></span>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-3">Period order</div>
+                <div class="col-md-9">
+                    <select style="width: 100%;" required data-required-msg="Period order cannot be empty" name="period-order"
+                            data-bind="kendoDropDownList: { optionLabel: 'Select value', dataTextField:'Title', dataValueField:'Value', data: $root.Config.PeriodOrders, value: OrderBy }"></select>
+                    <span class="k-invalid-msg" data-for="period-order"></span>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-3">Filter mode</div>
+                <div class="col-md-9">
+                    <select style="width: 100%;" data-bind="kendoDropDownList: { dataTextField:'Title', dataValueField:'Value', data: $root.Config.PeriodFilterModeOptions, value: PeriodMode, change: $root.Config.PeriodFilterDateChange('PeriodFilterModeOptions') }"></select>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12" data-bind="visible: (PeriodMode() === 'Range')">
+                <div class="col-md-3">Start</div>
+                <div class="col-md-9">
+                    <input style="width: 100%;" data-bind="kendoDatePicker: { parseFormats: ['dd-MMM-yyyy'], format: 'dd-MMM-yyyy', value: $root.Config.PeriodFilterDate, change: $root.Config.PeriodFilterDateChange('PeriodFilterDate') }" />
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12" data-bind="visible: (PeriodMode() === 'Range')">
+                <div class="col-md-3">Finish</div>
+                <div class="col-md-9">
+                    <input style="width: 100%;" data-bind="kendoDatePicker: { parseFormats: ['dd-MMM-yyyy'], format: 'dd-MMM-yyyy', value: $root.Config.PeriodFilterDate2, change: $root.Config.PeriodFilterDateChange('PeriodFilterDate2') }" />
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12" data-bind="visible: (PeriodMode() !== null ? (PeriodMode().toLowerCase() === 'running period') : false)">
+                <div class="col-md-3">Running period</div>
+                <div class="col-md-9">
+                    <input type="text" style="width: 120px;" data-bind="kendoNumericTextBox: { min: 0, format: 'n0', value: $root.Config.RunningPeriod, change: $root.Config.PeriodFilterDateChange('RunningPeriod') }" />&nbsp;
+                    <span data-bind="text: $root.Config.PeriodGroupLabel"></span>&nbsp;
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12" data-bind="visible: (PeriodMode() === 'Custom')">
+                <div class="col-md-3">Dates</div>
+                <div class="col-md-9">
+                    <div class="pull-left" style="width: 75%;" data-bind="visible: (model.Detail.PeriodGroup() === 'Annualy')">
+                        <input style="width: 100%;" data-bind="kendoDatePicker: { depth: 'decade', start: 'decade', format: 'yyyy', parseFormats: ['yyyy'], value: $root.Config.PeriodFilterCustomAnnualy }" />
+                    </div>
+                    <div class="pull-left" style="width: 75%;" data-bind="visible: (model.Detail.PeriodGroup() === 'Monthly')">
+                        <input style="width: 100%;" data-bind="kendoDatePicker: { depth: 'year', start: 'year', format: 'MMM-yyyy', parseFormats: ['MMM-yyyy'], value: $root.Config.PeriodFilterCustomMonthly }" />
+                    </div>
+                    <div class="pull-left" style="width: 75%;" data-bind="visible: (model.Detail.PeriodGroup() === 'Weekly')">
+                        <span>Week</span>&nbsp;-&nbsp;
+                        <input style="width: 60px;" data-bind="kendoNumericTextBox: { min: 1, max: 99, format: 'n0', value: $root.Config.PeriodFilterCustomWeekNumber }" />&nbsp;-&nbsp;
+                        <input style="width: 80px;" data-bind="kendoDatePicker: { depth: 'decade', start: 'decade', format: 'yyyy', parseFormats: ['yyyy'], value: $root.Config.PeriodFilterCustomWeekYear }" />
+                    </div>
+                    <div class="pull-left" style="width: 75%;" data-bind="visible: (model.Detail.PeriodGroup() === 'Daily')">
+                        <input style="width: 100%;" data-bind="kendoDatePicker: { parseFormats: ['dd-MMM-yyyy'], format: 'dd-MMM-yyyy', value: $root.Config.PeriodFilterCustomDaily }" />
+                    </div>
+                    <div class="pull-right" style="margin-top: 2px;">
+                        <button class="btn btn-xs btn-primary btn-custom" data-bind="click: model.Config.AddPeriodCustom">
+                            <span class="glyphicon glyphicon-plus"></span> Add
+                        </button>
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12" data-bind="visible: (PeriodMode() === 'Custom')">
+                <div class="col-md-3">&nbsp;</div>
+                <div class="col-md-9">
+                    <div class="period-mode-custom"></div>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+
+        <div class="data-content grid" data-bind="visible: !model.IsMiniProcessing()"></div>
+        <div class="data-content loader" data-bind="visible: model.IsMiniProcessing()">
+            @Html.Partial("_processing")
+        </div>
+    </div>
+
+    <div class="clearfix"></div>
+</div>
+    
+<script>
+    model.IsHideDetail = ko.observable(false);
+    model.IsMiniProcessing = ko.observable(false);
+    model.DetailTemplate = @MvcTools.Obj2HtmlStr(definition);
+    model.Detail = ko.mapping.fromJS(model.DetailTemplate);
+
+    model.Insert = function () {
+        $(".data-content.grid").html("");
+        model.MapDetail(model.DetailTemplate);
+        model.IsHideDetail(false);
+        model.Mode("Insert");
+    };
+    model.Edit = function (id) {
+        $(".data-content.grid").html("");
+        model.IsHideDetail(false);
+
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        var url = "@Url.Action("Detail", "Export")";
+        var param = { id: id };
+
+        ajaxPost(url, param, function (res) {
+            if (!res.CanEdit) {
+                alert("Do not have access to edit");
+                model.IsProcessing(false);
+                return;
+            }
+
+            model.Config.Columns(model.Config.ColumnsTemplate[res.DataPoint]);
+            model.MapDetail(res);
+            model.Mode("Insert");
+            model.IsProcessing(false);
+        }, function () {
+            model.IsProcessing(false);
+            alert("Error occured when try to edit data");
+        });
+    };
+    model.ToggleDetail = function () {
+        model.IsHideDetail(!model.IsHideDetail());
+    };
+    model.Back = function () {
+        model.MapDetail(model.DetailTemplate);
+        model.Mode('');
+        model.RefreshGrid();
+    };
+    model.PrepareQuery = function (isReverse) {
+        var filters = model.getFilterValues();
+        var query = {};
+        var schema = {
+            regions: "Region",
+            operatingUnits: "OperatingUnit",
+            rigTypes: "RigType",
+            rigNames: "RigName",
+            projectNames: "ProjectName",
+            wellNames: "WellName"
+        }
+
+        if (typeof isReverse !== String(undefined)) {
+            $(".filter.disabled").removeClass("disabled");
+
+            for (var i in schema) {
+                if (schema.hasOwnProperty(i)) {
+                    var $multiSelect = $("[data-model=" + i + "]").data("kendoMultiSelect");
+                
+                    $multiSelect.value([]);
+                    $multiSelect.enable(true);
+                }
+            }
+            
+            $("[data-model=regions]").data("kendoMultiSelect").trigger("change");
+
+            try {
+                query = JSON.parse(isReverse);
+
+                for (var i in schema) {
+                    if (schema.hasOwnProperty(i)) {
+                        var $multiSelect = $("[data-model=" + i + "]").data("kendoMultiSelect");
+
+                        if (query.hasOwnProperty(schema[i])) {
+                            $multiSelect.value(query[schema[i]]["$in"]);
+                            continue;
+                        }
+
+                        $multiSelect.value([]);
+                    }
+                }
+            } catch (err) {
+                console.log(err);
+            }
+            return;
+        }
+
+        for (var i in schema)
+            if (schema.hasOwnProperty(i))
+                if (filters[i].length > 0)
+                    query[schema[i]] = { "$in" : filters[i] };
+
+        model.Detail.Query(JSON.stringify(query));
+    };
+    model.DoSave = function (callback) {
+        var $form = $(".detail"); $form.kendoValidator();
+        var $kendoValidator = $form.data("kendoValidator");
+
+        if (!$kendoValidator.validate())
+            return;
+
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        model.PrepareQuery();
+
+        var url = "@Url.Action("Save", "Export")";
+        var param = ko.mapping.toJS(model.Detail);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result === "NOK") {
+                model.IsProcessing(true);
+                alert("Error occured when saving data");
+                return;
+            }
+
+            model.MapDetail(res.Data);
+            model.IsProcessing(false);
+
+            if (typeof callback !== String(undefined))
+                callback();
+        }, function () {
+            alert("Error occured when saving data");
+            model.IsProcessing(false);
+        });
+    };
+    model.Save = function () {
+        model.DoSave();
+    };
+    model.Preview = function () {
+        if (model.IsMiniProcessing()) return;
+        model.IsMiniProcessing(true);
+
+        model.DoSave(function () {
+            $(window).trigger("resize");
+
+            url = "@Url.Action("Preview", "Export")";
+            param = { id: model.Detail._id() };
+
+            ajaxPost(url, param, function (res) {
+                var $grid = $("<div />");
+
+                model.PrepareHistoricalGrid(res);
+                model.IsMiniProcessing(false);
+            }, function () {
+                alert("Error occured when previewing data");
+                model.IsMiniProcessing(false);
+            });
+        });
+    };
+    model.MapDetail = function (data) {
+        var period = (function (p) { return (p === null) ? "" : p; }(data.PeriodMode)).toLowerCase();
+        ko.mapping.fromJS(data, model.Detail);
+        model.Config.PeriodFilterDate("");
+        model.Config.PeriodFilterDate2("");
+        model.Config.RunningPeriod("");
+        model.Config.PeriodFilterCustomDaily("");
+        model.Config.PeriodFilterCustomWeekNumber("");
+        model.Config.PeriodFilterCustomWeekYear("");
+        model.Config.PeriodFilterCustomMonthly("");
+        model.Config.PeriodFilterCustomAnnualy("");
+
+        if (period === "range") {
+            model.Config.PeriodFilterDate(data.PeriodValue.split("|")[0]);
+            model.Config.PeriodFilterDate2(data.PeriodValue.split("|")[1]);
+        } else if (period === "running period") {
+            model.Config.RunningPeriod(data.PeriodValue);
+        }
+        
+        $(".period-mode-custom").find(":not(.clearfix)").each(function (i, e) {
+            $(e).remove();
+        });
+
+        (($.trim(data.PeriodValue) === "") ? [] : data.PeriodValue.split("|")).forEach(function (p) {
+            model.Config.InsertPeriodCustom(p);
+        });
+
+        model.PrepareQuery(model.Detail.Query());
+    };
+    model.PrepareHistoricalGrid = function (res) {
+        var data = res.Data;
+
+        if (model.Detail.PeriodGroup() === "Daily") {
+            var newData = [];
+
+            var groupedData = _.groupBy(data, function (e) {
+                return e.RowName
+            });
+
+            for (var g in groupedData) {
+                if (groupedData.hasOwnProperty(g)) {
+                    var eachGroupedData = {
+                        RowName: g,
+                        ResultBy: (groupedData[g].length > 0 ? groupedData[g][0].ResultBy : ""),
+                        EachData: []
+                    };
+
+                    var periods = [];
+
+                    groupedData[g].forEach(function (h) {
+                        h.Periods.forEach(function (j) {
+                            var period = {
+                                Period: moment(j.DateGroup).format("DD MMM YYYY"),
+                                Values: _.sortBy(j.Values, function (k) {
+                                    return k.Title
+                                })
+                            };
+
+                            periods.push(period);
+                        });
+                    });
+
+                    eachGroupedData.EachData = _.sortBy(periods, function (h) {
+                        return moment(h.Period, "DD MMM YYYY").toDate();
+                    });
+
+                    newData.push(eachGroupedData);
+                }
+            }
+
+            data = _.sortBy(newData, function (j) {
+                return j.RowName;
+            });
+        } else {
+            var newData = [];
+
+            var groupedData = _.groupBy(data, function (e) {
+                return e.Title.split("|").reverse().splice(1).reverse().join("|")
+            });
+
+            for (var g in groupedData) {
+                if (groupedData.hasOwnProperty(g)) {
+                    var eachGroupedData = {
+                        RowName: g,
+                        ResultBy: (groupedData[g].length > 0 ? groupedData[g][0].ResultBy : ""),
+                        EachData: []
+                    };
+
+                    var groupedEachData = _.groupBy(groupedData[g], function (h) {
+                        if (model.Detail.PeriodGroup() === "Weekly") {
+                            return "Week " + String(h.WeekTitle).substring(4, 6) + " " + String(h.WeekTitle).substring(0, 4);
+                        } else if (model.Detail.PeriodGroup() === "Monthly") {
+                            return moment(h.Month, "YYYYMM").format("MMMM YYYY");
+                        } else {
+                            return moment(h.Year, "YYYY").format("YYYY");
+                        }
+                    });
+
+                    for (var h in groupedEachData) {
+                        if (groupedEachData.hasOwnProperty(h)) {
+                            var eachGroupedEachData = {
+                                Period: h,
+                                Values: []
+                            };
+
+                            _.sortBy(_.unique(_.map(groupedEachData[h], function (e) { 
+                                return e.Operand + "Of" + e.Title; 
+                            })), function (e) {
+                                return e;
+                            }).forEach(function (j) {
+                                var l = _.find(groupedEachData[h], function (k) {
+                                    return (k.Operand + "Of" + k.Title) === j;
+                                });
+
+                                var eachValue = {
+                                    Title: l.Title.split("|").reverse()[0],
+                                    Operand:  l.Operand,
+                                    Value: l.Value
+                                };
+
+                                eachGroupedEachData.Values.push(eachValue);
+                            });
+
+                            eachGroupedEachData.Values = _.sortBy(eachGroupedEachData.Values, function (j) {
+                                return j.Title;
+                            });
+                            eachGroupedData.EachData.push(eachGroupedEachData);
+                        }
+                    }
+
+                    newData.push(eachGroupedData);
+                }
+            }
+
+            data = _.sortBy(newData, function (j) {
+                return j.RowName;
+            });
+        }
+
+        console.log(data);
+
+        var columnPeriods = (function () {
+            var all = [];
+            var what = model.Detail.PeriodGroup();
+
+            data.forEach(function (e) {
+                e.EachData.forEach(function (f) {
+                    all.push(f.Period);
+                });
+            });
+
+            all = _.sortBy(_.unique(all), function (e) {
+                if (what === "Daily") {
+                    return moment(e).toDate();
+                } else if (what === "Weekly") {
+                    var dateRaw = e.toLowerCase().replace("Week-", "").replace(" ", "");
+                    return dateRaw.substring(2, 6) + dateRaw.substring(0, 2);
+                } else if (what === "Monthly") {
+                    return moment(e, "MMMM YYYY").toDate();
+                } else {
+                    return moment(e, "YYYY").toDate();
+                }
+            });
+
+            if (model.Detail.OrderBy() === "Descending")
+                all = all.reverse();
+
+            return all;
+        }());
+
+        console.log(columnPeriods);
+
+        var normalCase = function (e) {
+            return e.replace(/\./g, "").replace(/\_/g, "").replace(/([A-Z])/g, ' $1').replace(/^./, function (str) {
+                return str.toUpperCase();
+            });
+        }
+
+        var generateLabel = function (e, isHorizontal) {
+            isHorizontal = (typeof isHorizontal === String(undefined)) ? false : isHorizontal;
+
+            var operand = e.Operand.charAt(0).toUpperCase() + e.Operand.slice(1);
+            var connector = " of" + (isHorizontal ? "<br />" : " ");
+
+            return operand + connector + normalCase(e.Title);
+        };
+
+        if (data.length == 0) {
+            $(".grid").html("<center>no data available</center>");
+            return;
+        }
+
+        var $table = $("<table />").appendTo($(".grid").html(""))
+            .addClass(model.Detail.Orientation().toLowerCase());
+
+        if (model.Detail.Orientation() === "Horizontal") {
+            var $tr1 = $("<tr />").appendTo($table);
+            var $tr2 = $("<tr />").appendTo($table);
+
+            (function (resultBy) {
+                for (var r in resultBy)
+                    $("<td />").attr("rowspan", 2).html(normalCase(resultBy[r])).appendTo($tr1);
+            }(data[0].ResultBy.split("|")));
+
+            columnPeriods.forEach(function (e) {
+                $("<td />").attr("colspan", data[0].EachData[0].Values.length).html(e).appendTo($tr1);
+
+                _.map(data[0].EachData[0].Values, function (e) {
+                    $("<td />").html(generateLabel(e, true)).appendTo($tr2);
+                });
+            });
+
+            data.forEach(function (e) {
+                var $trData = $("<tr />").appendTo($table);
+                
+                (function (resultBy) {
+                    for (var r in resultBy)
+                        $("<td />").addClass("row-title").html(resultBy[r]).appendTo($trData);
+                }(e.RowName.split("|")));
+
+                columnPeriods.forEach(function (f) {
+                    var period = _.find(e.EachData, function (g) {
+                        return g.Period == f;
+                    });
+
+                    if (typeof period === String(undefined)) {
+                        for (var k = 0; k < data[0].EachData[0].Values.length; k++) {
+                            $("<td />").html("&nbsp;").appendTo($trData);
+                        }
+                        return;
+                    }
+
+                    period.Values.forEach(function (g) {
+                        $("<td />").html(g.Value.toFixed(2)).appendTo($trData);
+                    });
+                });
+            });
+
+            return;
+        }
+
+        var $tr1 = $("<tr />").appendTo($table);
+        
+        (function (resultBy) {
+            for (var r in resultBy)
+                $("<td />").addClass("row-title").html(normalCase(resultBy[r])).appendTo($tr1);
+        }(data[0].ResultBy.split("|")));
+
+        $("<td />").html("&nbsp;").appendTo($tr1);
+
+        columnPeriods.forEach(function (e) {
+            $("<td />").html(e).appendTo($tr1);
+        });
+
+        for (var i = 0; i < data.length; i++) {
+            for (var j = 0; j < data[i].EachData[0].Values.length; j++) {
+                var $trData = $("<tr />").appendTo($table);
+
+                if (j == 0) {
+                    (function (resultBy) {
+                        for (var r in resultBy)
+                            $("<td />").attr("rowspan", data[i].EachData[0].Values.length)
+                                .addClass("row-title").html(resultBy[r]).appendTo($trData);
+                    }(data[i].RowName.split("|")));
+                }
+
+                columnPeriods.forEach(function (e, k) {
+                    if (k == 0) {
+                        $("<td />").html(generateLabel(data[i].EachData[0].Values[j]))
+                            .addClass("data-point").appendTo($trData);
+                    }
+
+                    var period = _.find(data[i].EachData, function (g) {
+                        return g.Period == e;
+                    });
+
+                    if (typeof period === String(undefined)) {
+                        $("<td />").html("&nbsp;").appendTo($trData);
+                        return;
+                    }
+
+                    $("<td />").html(period.Values[j].Value.toFixed(2))
+                        .appendTo($trData);
+                });
+            }
+        }
+    };
+
+    model.Config = {};
+    model.Config.PeriodGroupLabel = ko.computed(function () {
+        var p = model.Detail.PeriodGroup();
+        var r = "Days";
+
+        if (p === "Weekly")
+            r = "Weeks";
+        if (p === "Monthly")
+            r = "Months";
+        if (p === "Annualy")
+            r = "Years";
+
+        return r.toLowerCase();
+    }, model);
+    model.Config.PeriodFilterModeOptions = ko.observableArray([
+        { Title: "No filter", Value: "" },
+        { Title: "Range", Value: "Range" },
+        { Title: "Custom", Value: "Custom" },
+        { Title: "Running period", Value: "Running period" },
+        { Title: "YTD (year to date)", Value: "YTD" },
+        { Title: "QTD (quarter to date)", Value: "QTD" },
+    ]);
+    model.Config.PeriodFilterDateChange = function (which) {
+        return function () {
+            var self = this;
+            
+            $(".period-mode-custom").find(":not(.clearfix)").each(function (i, e) {
+                $(e).remove();
+            });
+
+            if (which === "PeriodGroup") {
+                model.Detail.PeriodValue("");
+
+                return;
+            }
+
+            if (which === "PeriodFilterModeOptions") {
+                model.Detail.PeriodValue("");
+                model.Config.PeriodFilterDate("");
+                model.Config.PeriodFilterDate2("");
+                model.Config.RunningPeriod("");
+
+                return;
+            }
+
+            if (which === "RunningPeriod") {
+                model.Detail.PeriodValue(String(self.value()));
+                return;
+            }
+            
+            var values = [];
+
+            if (which === "PeriodFilterDate")
+                values = [self.value(), model.Config.PeriodFilterDate2()];
+            else
+                values = [model.Config.PeriodFilterDate(), self.value()];
+
+            values = _.map(values, function (v) {
+                if (v instanceof Date)
+                    return moment(v).format("DD-MMM-YYYY");
+
+                return v;
+            }).join("|");
+
+            model.Detail.PeriodValue(values);
+        };
+    };
+    model.Config.PeriodFilterCustomAnnualy = ko.observable("");
+    model.Config.PeriodFilterCustomMonthly = ko.observable("");
+    model.Config.PeriodFilterCustomWeekNumber = ko.observable("");
+    model.Config.PeriodFilterCustomWeekYear = ko.observable("");
+    model.Config.PeriodFilterCustomDaily = ko.observable("");
+    model.Config.AddPeriodCustom = function () {
+        if (model.Detail.PeriodGroup() === '') {
+            alert('Please pick period group first');
+            return;
+        }
+
+        try {
+            var datePicked = "";
+            
+            if (model.Detail.PeriodGroup() !== 'Weekly') {
+                datePicked = model.Config["PeriodFilterCustom" + model.Detail.PeriodGroup()]();
+
+                if (datePicked === "") {
+                    alert("Can not insert empty date");
+                    return;
+                }
+            } else {
+                if ($.trim(model.Config.PeriodFilterCustomWeekNumber()) === "") {
+                    alert("Week number is empty");
+                    return;
+                }
+                if ($.trim(model.Config.PeriodFilterCustomWeekYear()) === "") {
+                    alert("Week year is empty");
+                    return;
+                }
+            }
+
+            var oldVal = model.Detail.PeriodValue();
+            var newVal = "";
+            
+            if (model.Detail.PeriodGroup() === 'Annualy') {
+                newVal = moment(datePicked).format("YYYY");
+            } else if (model.Detail.PeriodGroup() === 'Monthly') {
+                newVal = moment(datePicked).format("YYYYMM");
+            } else if (model.Detail.PeriodGroup() === 'Weekly') { 
+                var weekNumber = (String(model.Config.PeriodFilterCustomWeekNumber()).split("").reverse().join("") + "0")
+                    .substring(0,2).split("").reverse().join("");
+                var weekYear = moment(model.Config.PeriodFilterCustomWeekYear()).format("YYYY");
+                newVal = weekYear + weekNumber;
+            } else if (model.Detail.PeriodGroup() === 'Daily') {
+                newVal = moment(datePicked).format("DD-MMM-YYYY");
+            }
+
+            if (model.Detail.PeriodValue().indexOf(newVal) > -1) {
+                alert("Item already exists");
+                return;
+            }
+
+            if ($.trim(oldVal) === '') {
+                model.Detail.PeriodValue(newVal);
+            } else {
+                var newPeriodValues = oldVal.split("|");
+                newPeriodValues.push(newVal);
+
+                model.Detail.PeriodValue(newPeriodValues.join("|"));
+            }
+
+            model.Config.InsertPeriodCustom(newVal);
+            
+            if (model.Detail.PeriodGroup() !== 'Weekly') {
+                model.Config["PeriodFilterCustom" + model.Detail.PeriodGroup()]("");
+            } else {
+                model.Config.PeriodFilterCustomWeekNumber("");
+                model.Config.PeriodFilterCustomWeekYear("");
+            }
+        } catch (err) {
+            console.log(err);
+        }
+    };
+    model.Config.DeletePeriodCustom = function (e) {
+        $self = $(e).parent();
+        var attr = $self.attr("data-period-custom-value");
+
+        var values = model.Detail.PeriodValue().split("|");
+        values = _.filter(values, function(item) {
+            return item !== attr;
+        });
+
+        model.Detail.PeriodValue(values.join("|"));
+        $self.remove();
+    };
+    model.Config.InsertPeriodCustom = function (what) {
+        var periodGroup = model.Detail.PeriodGroup();
+        var text = what;
+        var val = what;
+
+        if (periodGroup === "Weekly") {
+            text = "Week-" + parseInt(what.substring(4, 6)) + " " + what.substring(0, 4);
+        } else if (periodGroup === "Monthly") {
+            text = moment(what, "YYYYMM").format("MMM-YYYY");
+        }
+
+        var $periodContainer = $(".period-mode-custom");
+        var $item = $("<div />").addClass("period-custom-value")
+            .attr("data-period-custom-value", val)
+            .appendTo($periodContainer);
+
+        $("<span />").html(text)
+            .appendTo($item);
+        $("<span />").addClass("btn-item-close")
+            .attr("onclick", "model.Config.DeletePeriodCustom(this);")
+            .html("x")
+            .appendTo($item);
+
+        $periodContainer.find(".clearfix").each(function (i, e) {
+            $(e).remove();
+        });
+
+        $("<div />").addClass("clearfix").appendTo($periodContainer);
+    };
+    model.Config.RunningPeriod = ko.observable("");
+    model.Config.PeriodFilterDate = ko.observable("");
+    model.Config.PeriodFilterDate2 = ko.observable("");
+    model.Config.DataPoints = ko.observableArray([
+        { Title: "Allocation", Value: "ALLOCATION" },
+        { Title: "PIP", Value: "PIP" }, // element
+        { Title: "Event", Value: "EVENT" }, // phase
+    ]);
+    model.Config.DataPointOnChange = function () {
+        model.Detail.Columns([]);
+        model.Config.Columns(model.Config.ColumnsTemplate[this.value()]);
+    };
+    model.Config.ColumnsTemplate = {
+        "EVENT": [
+            { "Title": "Sum Of TQ Days", "Value": "SumOfTQ.Days" },
+            { "Title": "Sum Of TQ Cost", "Value": "SumOfTQ.Cost" },
+            { "Title": "Avg Of TQ Days", "Value": "AvgOfTQ.Days" },
+            { "Title": "Avg Of TQ Cost", "Value": "AvgOfTQ.Cost" },
+            { "Title": "Sum Of AFE Days", "Value": "SumOfAFE.Days" },
+            { "Title": "Sum Of AFE Cost", "Value": "SumOfAFE.Cost" },
+            { "Title": "Avg Of AFE Days", "Value": "AvgOfAFE.Days" },
+            { "Title": "Avg Of AFE Cost", "Value": "AvgOfAFE.Cost" },
+            { "Title": "Sum Of OP Days", "Value": "SumOfOP.Days" },
+            { "Title": "Sum Of OP Cost", "Value": "SumOfOP.Cost" },
+            { "Title": "Avg Of OP Days", "Value": "AvgOfOP.Days" },
+            { "Title": "Avg Of OP Cost", "Value": "AvgOfOP.Cost" },
+            { "Title": "Sum Of LE Days", "Value": "SumOfLE.Days" },
+            { "Title": "Sum Of LE Cost", "Value": "SumOfLE.Cost" },
+            { "Title": "Avg Of LE Days", "Value": "AvgOfLE.Days" },
+            { "Title": "Avg Of LE Cost", "Value": "AvgOfLE.Cost" }
+        ],
+        "PIP": [
+            { "Title": "Sum Of Days Plan Improvement", "Value": "SumOfDaysPlanImprovement" },
+            { "Title": "Avg Of Days Plan Improvement", "Value": "AvgOfDaysPlanImprovement" },
+            { "Title": "Sum Of Days Plan Risk", "Value": "SumOfDaysPlanRisk" },
+            { "Title": "Avg Of Days Plan Risk", "Value": "AvgOfDaysPlanRisk" },
+            { "Title": "Sum Of Days Actual Improvement", "Value": "SumOfDaysActualImprovement" },
+            { "Title": "Avg Of Days Actual Improvement", "Value": "AvgOfDaysActualImprovement" },
+            { "Title": "Sum Of Days Actual Risk", "Value": "SumOfDaysActualRisk" },
+            { "Title": "Avg Of Days Actual Risk", "Value": "AvgOfDaysActualRisk" },
+            { "Title": "Sum Of Days Last Week Improvement", "Value": "SumOfDaysLastWeekImprovement" },
+            { "Title": "Avg Of Days Last Week Improvement", "Value": "AvgOfDaysLastWeekImprovement" },
+            { "Title": "Sum Of Days Last Week Risk", "Value": "SumOfDaysLastWeekRisk" },
+            { "Title": "Avg Of Days Last Week Risk", "Value": "AvgOfDaysLastWeekRisk" },
+            { "Title": "Sum Of Days Current Week Improvement", "Value": "SumOfDaysCurrentWeekImprovement" },
+            { "Title": "Avg Of Days Current Week Improvement", "Value": "AvgOfDaysCurrentWeekImprovement" },
+            { "Title": "Sum Of Days Current Week Risk", "Value": "SumOfDaysCurrentWeekRisk" },
+            { "Title": "Avg Of Days Current Week Risk", "Value": "AvgOfDaysCurrentWeekRisk" },
+            { "Title": "Sum Of Cost Plan Improvement", "Value": "SumOfCostPlanImprovement" },
+            { "Title": "Avg Of Cost Plan Improvement", "Value": "AvgOfCostPlanImprovement" },
+            { "Title": "Sum Of Cost Plan Risk", "Value": "SumOfCostPlanRisk" },
+            { "Title": "Avg Of Cost Plan Risk", "Value": "AvgOfCostPlanRisk" },
+            { "Title": "Sum Of Cost Actual Improvement", "Value": "SumOfCostActualImprovement" },
+            { "Title": "Avg Of Cost Actual Improvement", "Value": "AvgOfCostActualImprovement" },
+            { "Title": "Sum Of Cost Actual Risk", "Value": "SumOfCostActualRisk" },
+            { "Title": "Avg Of Cost Actual Risk", "Value": "AvgOfCostActualRisk" },
+            { "Title": "Sum Of Cost Current Week Improvement", "Value": "SumOfCostCurrentWeekImprovement" },
+            { "Title": "Avg Of Cost Current Week Improvement", "Value": "AvgOfCostCurrentWeekImprovement" },
+            { "Title": "Sum Of Cost Current Week Risk", "Value": "SumOfCostCurrentWeekRisk" },
+            { "Title": "Avg Of Cost Current Week Risk", "Value": "AvgOfCostCurrentWeekRisk" },
+            { "Title": "Sum Of Cost Last Week Improvement", "Value": "SumOfCostLastWeekImprovement" },
+            { "Title": "Avg Of Cost Last Week Improvement", "Value": "AvgOfCostLastWeekImprovement" },
+            { "Title": "Sum Of Cost Last Week Risk", "Value": "SumOfCostLastWeekRisk" },
+            { "Title": "Avg Of Cost Last Week Risk", "Value": "AvgOfCostLastWeekRisk" }
+        ],
+        "ALLOCATION": [
+            { "Title": "Sum Of Days Plan Improvement", "Value": "SumOfDaysPlanImprovement" },
+            { "Title": "Avg Of Days Plan Improvement", "Value": "AvgOfDaysPlanImprovement" },
+            { "Title": "Sum Of Days Plan Risk", "Value": "SumOfDaysPlanRisk" },
+            { "Title": "Avg Of Days Plan Risk", "Value": "AvgOfDaysPlanRisk" },
+            { "Title": "Sum Of Cost Plan Improvement", "Value": "SumOfCostPlanImprovement" },
+            { "Title": "Avg Of Cost Plan Improvement", "Value": "AvgOfCostPlanImprovement" },
+            { "Title": "Sum Of Cost Plan Risk", "Value": "SumOfCostPlanRisk" },
+            { "Title": "Avg Of Cost Plan Risk", "Value": "AvgOfCostPlanRisk" },
+            { "Title": "Sum Of LE Days", "Value": "SumOfLEDays" },
+            { "Title": "Avg Of LE Days", "Value": "AvgOfLEDays" },
+            { "Title": "Sum Of LE Cost", "Value": "SumOfLECost" },
+            { "Title": "Avg Of LE Cost", "Value": "AvgOfLECost" }
+        ]
+    }
+    model.Config.Columns = ko.observable(model.Config.ColumnsTemplate.EVENT);
+    model.Config.RowsTemplate = {
+        "EVENT": [
+            { "Title": "Well Name", "Value": "WellName" },
+            { "Title": "Asset Name", "Value": "AssetName" },
+            { "Title": "Sequence Id", "Value": "SequenceId" },
+            { "Title": "Activity Type", "Value": "Phase.ActivityType" },
+            { "Title": "Activity Desc", "Value": "Phase.ActivityDesc" },
+        ],
+        "PIP": [
+            { "Title": "Well Name", "Value": "WellName" },
+            { "Title": "Asset Name", "Value": "AssetName" },
+            { "Title": "Sequence Id", "Value": "SequenceId" },
+            { "Title": "Action Party", "Value": "ActionParty" },
+        ],
+        "ALLOCATION": [
+            { "Title": "Well Name", "Value": "WellName" },
+            { "Title": "Asset Name", "Value": "AssetName" },
+            { "Title": "Sequence Id", "Value": "SequenceId" },
+            { "Title": "Action Party", "Value": "ActionParty" },
+        ]
+    };
+    model.Config.Rows = ko.observable(model.Config.RowsTemplate.EVENT);
+    model.Config.Orientations = ko.observableArray([
+        { Title: "Horizontal", Value: "Horizontal" },
+        { Title: "Vertical", Value: "Vertical" },
+    ]);
+    model.Config.Periods = ko.observableArray([
+        { Title: "Update Version", Value: "UpdateVersion" },
+    ]);
+    model.Config.PeriodGroups = ko.observableArray([
+        { Title: "Annualy", Value: "Annualy" },
+        { Title: "Monthly", Value: "Monthly" },
+        { Title: "Weekly", Value: "Weekly" },
+        { Title: "Daily", Value: "Daily" },
+    ]);
+    model.Config.PeriodOrders = ko.observableArray([
+        { Title: "Ascending", Value: "Ascending" },
+        { Title: "Descending", Value: "Descending" },
+    ]);
+
+    $(function () {
+        $(window).on("resize", function () {
+            var height = $(window).height();
+            $(".data-container").height(height - 235);
+            $(".data-container .detail").height(height - 255);
+        });
+
+        $(window).trigger("resize");
+    });
+</script>

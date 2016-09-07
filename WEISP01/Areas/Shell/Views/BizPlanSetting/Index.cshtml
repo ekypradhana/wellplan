@@ -1,0 +1,183 @@
+﻿@{
+    ViewBag.Title = "Business Plan Setting";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core
+@using ECIS.Client.WEIS
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+@{
+    var roles = WEISRole.Populate<WEISRole>().Select(d => Convert.ToString(d._id)).OrderBy(d => d);
+    var currencies = MacroEconomic.Populate<MacroEconomic>(Query.NE("Currency", ""), fields: new string[] { "Currency" }).Select(d => Convert.ToString(d.Currency)).Distinct().OrderBy(d => d);
+}
+
+<div class="form-horizontal" style="width:700px;margin:0px auto" data-bind="with: model.Biz">
+    <div class="form-group">
+        <div class="col-sm-12">
+            <button class="btn btn-primary btn-sm btn-custom" data-bind="click: SaveCheckbox">
+                <span class="glyphicon glyphicon-ok"></span> Save Changes
+            </button>
+        </div>
+    </div>
+
+    <h3>Business Plan Settings</h3>
+
+    <div class="form-group">
+        <div class="col-sm-4 no-padding">
+            <label>Allow to Update to Well Plan :</label>
+        </div>
+        <div class="col-sm-4">
+            <input type="checkbox" data-bind="checked: AllowUpdateWellPlan" />
+        </div>
+        <div class="clearfix"></div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-sm-4 no-padding">
+            <label>Roles allowed to edit data :</label>
+        </div>
+        <div class="col-sm-4">
+            <select data-bind="kendoMultiSelect: { data: y.Roles, value: RolesToEditBizPlan }"></select>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="form-group">
+        <div class="col-sm-4 no-padding">
+            <label>Visible Currency :</label>
+        </div>
+        <div class="col-sm-4">
+            <select data-bind="kendoMultiSelect: { data: y.Currencies, value: y.VisibleCurrency }"></select>
+            <span class="clearfix" >If desired currency is missing from the drop down menu,  please add it here:   <br /> <a href="@Url.Action("", "MacroExchangeRate")"> Administration > Master Data > Macro Data</a></span>
+             
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    @*<div class="form-group">
+        <div class="col-sm-4 no-padding">
+            <label>Compound factor for Inflation : </label>
+        </div>
+        <div class="col-sm-4">
+            <input type="text" style="width: 200px;text-align:right" data-bind="kendoNumericTextBox: { format: '{0:N2}', decimals: 2, value: CompoundFactor }" id="compoundInf" />%
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="form-group">
+        <div class="col-sm-4 no-padding">
+            <label>Start Year to Compound : </label>
+        </div>
+        <div class="col-sm-4">
+            <input type="text" style="width: 200px;text-align:right" data-bind="kendoNumericTextBox: { format: '{N}', decimals: 0, step:1, min:2017, max:2060, value: CompoundFactorYear }" />
+            <span class="clearfix">Value is used for : computation persentage value for Inflation factor in Refference factor model module create new model</span>
+
+        </div>
+        <div class="clearfix"></div>
+    </div>*@
+</div>
+
+<script>
+    model.PageId("Administration");
+
+    model.Biz = {}; var y = model.Biz;
+
+    y.SubjectMatterOptions = ko.observableArray([
+        { Id: "ActivityType", Title: "Activity Type" },
+        { Id: "Country", Title: "Country" },
+        { Id: "RigName", Title: "Rig Name" },
+    ]);
+    y.AllowUpdateWellPlan = ko.observable(true);
+    y.FilterOfSubjectMatters = ko.observable(["Country"]);
+    y.Roles = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(roles)));
+    y.RolesToEditBizPlan = ko.observableArray([]);
+
+    y.Currencies = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(currencies)));
+    y.Currency = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(roles)));
+    y.VisibleCurrency = ko.observableArray([]);
+    y.CompoundFactor = ko.observableArray([]);
+    y.CompoundFactorYear = ko.observableArray([]);
+    var newCurr = _.without(y.Currencies(), null);
+    y.Currencies = newCurr;
+
+        y.InitCheckbox = function () {
+            var url = "@Url.Action("GetBizConfig")";
+            var param = {};
+
+            ajaxPost(url, param, function (data) {
+                console.log(data);
+                y.AllowUpdateWellPlan(data.Data.BizPlanConfig);
+                y.RolesToEditBizPlan(data.Data.RolesToEditBizPlan.split(","));
+                y.VisibleCurrency(data.Data.VisibleCurrency.split(","));
+
+                //if (typeof data.Data.CompoundFactor == 'undefined')
+                //{
+                //    y.CompoundFactor(0);
+                //}
+                //else
+                //{
+                //    y.CompoundFactor(data.Data.CompoundFactor == null ? 0 : data.Data.CompoundFactor);
+
+                //}
+
+                //if (typeof data.Data.CompoundFactorYear == 'undefined') {
+                //    y.CompoundFactorYear(2017);
+                //}
+                //else {
+                //    y.CompoundFactorYear(data.Data.CompoundFactorYear == null ? 2017 : data.Data.CompoundFactorYear);
+
+                //}
+            });
+        };
+
+        y.SaveCheckbox = function () {
+            var url = "@Url.Action("SaveBizConfig")";
+            var param = {
+                AllowUpdateWellPlan: y.AllowUpdateWellPlan(),
+                RolesToEditBizPlan: y.RolesToEditBizPlan(),
+                VisibleCurrency: y.VisibleCurrency(),
+                //CompoundFactor: y.CompoundFactor(),
+                //CompoundFactorYear: y.CompoundFactorYear()
+
+            };
+            console.log(y.VisibleCurrency().length);
+            console.log(y.VisibleCurrency());
+            if ((y.RolesToEditBizPlan().length == 1 && y.RolesToEditBizPlan()[0] == "") || (y.VisibleCurrency().length == 1 && y.VisibleCurrency()[0] == "")) {
+                alert('Roles allowed to edit data or Visible Currency can not be empty');
+            }
+            else {
+                ajaxPost(url, param, function (data) {
+                    if (data.Result == "OK") {
+                        alert("Changes has been saved");
+                    }
+                    else {
+                        alert(data.Message + data.Trace);
+                    }
+                });
+
+            }
+
+        };
+
+        $(document).ready(function () {
+            y.InitCheckbox();
+        });
+</script>
+
+<style>
+    .form-horizontal h3 {
+        text-align: left;
+        border-bottom: 1px solid #ECECEC;
+        font-weight: bold;
+    }
+
+    .no-padding {
+        padding: 0px;
+    }
+
+    .form-group .col-sm-4:first-child {
+        text-align: right;
+    }
+
+    .form-horizontal .form-group .col-sm-4:first-child label {
+        margin-top: 3px;
+    }
+</style>

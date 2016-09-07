@@ -1,0 +1,679 @@
+﻿@using Newtonsoft.Json
+@using ECIS.Core
+@using ECIS.Client.WEIS
+@using ECIS.Identity
+
+@{
+    ViewBag.Title = "Snapshoot Data Layer";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+<style>
+    element.style {
+        height: 240px;
+    }
+
+    .kontainer {
+        margin: 13px 10px;
+        position: relative;
+        height: 240px;
+    }
+
+        .kontainer h3 {
+            border: none;
+            background-color: rgb(249, 249, 249);
+        }
+
+    .sidebar {
+        padding-right: 15px !important;
+    }
+
+        .sidebar .row {
+            margin-bottom: 3px;
+        }
+
+            .sidebar .row:last-child {
+                margin-top: 10px;
+            }
+
+            .sidebar .row .col-md-3 {
+                padding-top: 5px;
+                padding-right: 0px;
+                text-align: right;
+            }
+
+                .sidebar .row .col-md-3 .k-multiselect {
+                    box-sizing: border-box;
+                }
+
+            .sidebar .row .col-md-9 {
+                padding-left: 4px;
+            }
+
+    .sidebar, .content {
+        position: relative;
+    }
+
+    .header {
+        overflow: hidden !important;
+    }
+
+        .header .each h4 {
+            border: 0px;
+            margin: 0px;
+            margin-bottom: 3px;
+            font-size: 22px;
+        }
+
+        .header .each .table {
+            margin-bottom: 2px;
+        }
+
+            .header .each .table tr th {
+                border-bottom: 3px solid rgb(232, 232, 232);
+            }
+
+    .content .each .table {
+        margin-bottom: 5px;
+    }
+
+        .content .each .table tbody {
+            border: none !important;
+        }
+
+            .content .each .table tbody.b tr:first-child td {
+                border-top: 1px solid transparent !important;
+            }
+
+            .content .each .table tbody.b.n tr td {
+                border-top: 1px solid transparent !important;
+            }
+
+    .row .data-container {
+        display: flex;
+    }
+
+    .section {
+        overflow-x: scroll;
+        overflow-y: auto;
+        display: flex;
+    }
+
+        .section .each:not(:last-child) {
+            margin-right: 10px;
+        }
+
+        .section .each .title {
+            border: none !important;
+            padding: 0px !important;
+        }
+
+            .section .each .title span {
+                display: block;
+                width: 100%;
+                min-height: 35px;
+                margin-bottom: 2px;
+                padding: 10px;
+                color: white;
+                font-weight: bold;
+                text-align: center;
+            }
+
+                .section .each .title span.summary {
+                    font-size: 16px;
+                    padding: 6px 10px;
+                }
+
+        .section .each .b.n.inactive {
+            background-color: rgb(249, 249, 249);
+        }
+
+    span.h-status.summary {
+        background-color: #d33;
+    }
+
+    span.h-status.start {
+        background-color: rgb(18, 98, 55);
+    }
+
+    span.h-status.ongoing {
+        background-color: rgba(66, 139, 202, 0.95);
+    }
+
+    span.h-status.finish {
+        background-color: rgb(239, 201, 76);
+    }
+
+    span.h-status.inactive {
+        background-color: gray;
+    }
+
+    .legend {
+        padding: 0px 25px;
+    }
+
+        .legend .row {
+            margin-top: 0px !important;
+            margin-bottom: 5px;
+        }
+
+            .legend .row .h-status {
+                height: 16px;
+                width: 16px;
+                display: block;
+                float: left;
+                margin-right: 6px;
+                border-radius: 2px;
+            }
+
+    .each {
+        width: 275px;
+        float: left;
+    }
+
+    .no-space {
+        margin: 0px;
+        padding: 0px;
+    }
+
+    .filter {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+        .filter .col-md-3, .filter .col-md-4 {
+            padding: 0px;
+            margin: 0px;
+        }
+
+        .filter .col-md-4 {
+            text-align: right;
+            min-height: 27px;
+        }
+
+            .filter .col-md-4 label {
+                padding-top: 4px;
+            }
+
+        .filter .col-md-8 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .filter .floated {
+            text-align: right;
+            padding-right: 6px;
+            height: 35px;
+        }
+
+        .filter .not-floated {
+            text-align: left;
+            margin-top: 3px !important;
+            padding-right: 6px;
+            height: 35px;
+        }
+
+    .shell-button {
+        color: white;
+        background-color: #f4b350;
+        border: 1px solid #E2A952;
+        border-radius: 2px;
+        width: 115px;
+        height: 30px;
+    }
+
+    .filter.disabled {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
+    .dtl {
+        background: rgba(66, 139, 202, 0.95);
+    }
+</style>
+
+<div class="col-sm-12 row filter" data-bind="visible:!model.VisibleDataPhases()">
+
+    <div class="col-sm-2">
+        <label>Date:</label>
+        <input type="text" class="entry-date" id="parmDate" data-bind="value:model.parmFilter().parmDate,databound: getmonday('#parmdate')" />
+    </div>
+    @*<div class="col-sm-2">
+            <label>Show as:</label><br />
+            <select id="parmType" data-bind="kendoDropDownList:{data:['daily','weekly','monthly'],value:model.parmFilter().parmType}"></select>
+        </div>*@
+    <div class="col-sm-4">
+        <label>View Result :</label>
+        
+        <div class="btn-group" data-toggle="buttons">
+            <label class="btn btn-success btn-custom btn-xs" data-bind="click: function(){changeStatiRollingType('last 7 days')}, css: {active: model.parmFilter().parmStaticRollingType() == 'last 7 days' }">
+                <input type="radio" name="staticRollingType" value="last 7 days">last 7 days
+            </label>
+            <label class="btn btn-success btn-custom btn-xs" data-bind="click: function(){changeStatiRollingType('last 7 weeks')}, css: {active: model.parmFilter().parmStaticRollingType() == 'last 7 weeks' }">
+                <input type="radio" name="staticRollingType" value="last 7 weeks">last 7 weeks
+            </label>
+            <label class="btn btn-success btn-custom btn-xs" data-bind="click: function(){changeStatiRollingType('last 7 months')}, css: {active: model.parmFilter().parmStaticRollingType() == 'last 7 months' }">
+                <input type="radio" name="staticRollingType" value="last 7 months">last 7 months
+            </label>
+            <label class="btn btn-success btn-custom btn-xs" data-bind="click: function(){changeStatiRollingType('last 7 quarter')}, css: {active: model.parmFilter().parmStaticRollingType() == 'last 7 quarter' }">
+                <input type="radio" name="staticRollingType" value="last 7 quarter">last 7 quarter
+            </label>
+            @*<label class="btn btn-success btn-custom btn-sm" data-bind="click: function(){changeView('PIP')}, css: {active: getPIP().SelectData() == 'PIP' }" data-value="PIP">
+                <input type="radio" value="PIP" data-bind="checked: getPIP().SelectData"> Well PIP
+            </label>*@
+            @*<label class="btn btn-success btn-custom btn-sm" data-bind="click: function(){changeView('RigPIP')}, css: {active: getPIP().SelectData() != 'PIP' }" data-value="rigPIP"><input type="radio" value="rigPIP" data-bind="checked: getPIP().SelectData"> Rig PIP</label>*@
+        </div>
+
+        @*<select id="parmStaticRollingType" style="width:auto" data-bind="kendoDropDownList:{data:model.parmFilter().staticRollingTypes(),value:model.parmFilter().parmStaticRollingType}"></select>*@
+    </div>
+    <div class="col-sm-3">
+        <div style="text-align:left">
+            <button data-bind="visible:model.VisibleDetail() ===true" style="margin-right:-15px;" class="btn btn-sm btn-warning" onclick="BackToMain2()"><span class="glyphicon glyphicon-backward"></span> Back</button>
+            <button style="margin-left:20px;" class="btn btn-sm btn-primary" onclick="model.refresh()"><span class="glyphicon glyphicon-refresh"></span> Refresh</button>
+        </div>
+    </div>
+    <div class="col-sm-2" style="visibility:hidden">
+        <label>OP Type:</label>
+        <select id="parmOP" data-bind="kendoDropDownList:{data:['OP15','OP14',''],value:model.parmFilter().parmOP}"></select>
+    </div>
+
+    @*<div class="col-sm-2" data-bind="">
+            <label>Rolling #:</label>
+            <input type="number" style="width:100px" id="parmRolling" data-bind="kendoNumericTextBox:{value:model.parmFilter().parmRolling,min:1,max:10}" />
+            <button style="margin-left:20px;" class="btn btn-sm btn-primary" onclick="model.refresh()"><span class="glyphicon glyphicon-refresh"></span> Refresh</button>
+        </div>*@
+    <div class="col-sm-12" data-bind="" style="text-align:center">
+        <label>&nbsp;</label>
+    </div>
+
+</div>
+
+<div class="col-sm-12" style="text-align: center; margin-bottom: 20px" data-bind="visible:!model.VisibleDataPhases()">
+    <span class="btn btn-xs btn-info" style="cursor:none"><span data-bind="text:'First Data Reserved: ' + kendo.format('{0:dd-MMMM-yyyy}', jsonDate(model.FetchLastedUpdate()[0])) +', '+ 'Last Data Reserved: ' + kendo.format('{0:dd-MMMM-yyyy}', jsonDate(model.FetchLastedUpdate()[1]))"></span></span>
+
+</div>
+
+<div data-bind="visible: model.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+
+<div class="" data-bind="visible: !model.IsProcessing() && !model.VisibleDataPhases()" style="margin-top:0px;">
+    <div class="col-md-12" data-bind="visible:model.VisibleMaster()==true">
+        <ul class="nav nav-tabs" id="uldatalayer" role="tablist">
+            <li role="presentation" class="active">
+                <a href="#master_wrapper" role="tab" id="Master" data-toggle="tab">Master Data</a>
+            </li>
+            <li role="presentation">
+                <a href="#data_wrapper" role="tab" id="WellPlan" data-toggle="tab">Well Events</a>
+            </li>
+            <li role="presentation" style="display:none">
+                <a href="#bizplan_wrapper" role="tab" id="BizPlan" data-toggle="tab">Business Plan</a>
+            </li>
+            <li role="presentation">
+                <a href="#pip_wrapper" role="tab" id="Pip" data-toggle="tab">Performance Improvement Plan</a>
+            </li>
+            <li role="presentation">
+                <a href="#weeklyreport_wrapper" role="tab" data-toggle="tab">Weekly Report</a>
+            </li>
+        </ul>
+
+        <!-- Tab panes -->
+        <div class="tab-content">
+            <div role="tabpanel" class="tab-pane active" id="master_wrapper" data-bind="visible:!model.IsProcessing()">
+                <div class="row" data-bind="visible:model.AnyDataMasterWellPlan()==false">
+                    <div class="align_center" style="margin-top:20px">
+                        <h4 style="border:none;">No data found</h4>
+                    </div>
+                </div>
+                <div class="col-md-12" data-bind="visible:model.AnyDataMasterWellPlan()==true">
+                    @Html.Partial("_masterTab")
+                </div>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="data_wrapper" data-bind="visible:!model.IsProcessing()">
+                @Html.Partial("_dataTab")
+            </div>
+            <div role="tabpanel" class="tab-pane" id="bizplan_wrapper" data-bind="visible:!model.IsProcessing()">
+                <div class="row" data-bind="visible:model.AnyDataPIPBizPlan()==false">
+                    <div class="align_center" style="margin-top:20px">
+                        <h4 style="border:none;">No data found</h4>
+                    </div>
+                </div>
+                <div data-bind="visible:model.AnyDataPIPBizPlan()==true">
+                    @Html.Partial("_bizplanTab")
+                </div>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="pip_wrapper" data-bind="visible:!model.IsProcessing()">
+                <div class="row" data-bind="visible:model.AnyDataPIPBizPlan()==false">
+                    <div class="align_center" style="margin-top:20px">
+                        <h4 style="border:none;">No data found</h4>
+                    </div>
+                </div>
+                <div data-bind="visible:model.AnyDataPIPBizPlan()==true">
+                    @Html.Partial("_pipTab")
+                </div>
+
+            </div>
+            <div role="tabpanel" class="tab-pane" id="weeklyreport_wrapper" data-bind="visible:!model.IsProcessing()">
+                <div class="row" data-bind="visible:model.AnyWeeklyReport()==false">
+                    <div class="align_center" style="margin-top:20px">
+                        <h4 style="border:none;">No data found</h4>
+                    </div>
+                </div>
+                <div data-bind="visible:model.AnyWeeklyReport()==true">
+                    @Html.Partial("_weeklyreportTab")
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+    <div class="col-md-12" data-bind="visible:model.VisibleDetail() ===true">
+        @Html.Partial("_DetailDataActivity")
+    </div>
+</div>
+
+<div class="col-md-12" data-bind="visible:!model.IsProcessing() && model.VisibleDataPhases()">
+    @Html.Partial("_alldataphases")
+</div>
+
+
+<script>
+    function changeStatiRollingType(e) {
+        model.parmFilter().parmStaticRollingType(e);
+    }
+
+    function BackToMain2() {
+        model.VisibleMaster(true);
+        model.VisibleDetail(false);
+    }
+
+    model.PageId("Administration");
+    function getMonday(id) {
+        var d = $(id).data("kendoDatePicker").value();
+        //alert(d);
+        d = new Date(d);
+        var day = d.getDay(),
+            diff = d.getDate() - day + (day == 0 ? -6 : 1); // adjust when day is sunday
+        var ret = new Date(d.setDate(diff));
+        $(id).data("kendoDatePicker").value(ret);
+    }
+
+    model.IsProcessing = ko.observable(false);
+    model.AnyDataMasterWellPlan = ko.observable(false);
+    model.AnyDataPIPBizPlan = ko.observable(false);
+    model.AnyWeeklyReport = ko.observable(false);
+    model.parmFilter = ko.observable({
+        parmDate: ko.observable(""),
+        parmType: ko.observable("daily"),
+        parmRolling: ko.observable(1),
+        parmOP: ko.observable("OP15"),
+        parmStaticRollingType: ko.observable("last 7 days"),
+        staticRollingTypes: ko.observableArray(["last 7 days", "last 7 weeks", "last 7 months", "last 7 quarter"]),
+    });
+    model.FetchLastedUpdate = ko.observableArray();
+    model.getLastestUpdate = function () {
+        var url = "@Url.Action("LastestBatchInfo")";
+        ajaxPost(url, {}, function (res) {
+            model.FetchLastedUpdate(res.Data);
+        });
+    }
+    model.refresh = function () {
+        model.IsProcessing(true);
+        model.AnyWeeklyReport(true);
+        model.getLastestUpdate();
+        var x = model.parmFilter();
+        var param = { parmDate: $("#parmDate").val(), parmType: x.parmType(), parmRolling: x.parmRolling(), parmOP: x.parmOP(), parmResultType: x.parmStaticRollingType() };
+        if (param.parmRolling == null || param.parmRolling < 1) param.parmRolling = 1;
+        model.IsProcessing(true);
+        //model.CountRequest(0);
+        //model.MasterData().Refresh(param);
+        ajaxPost("@Url.Action("GetDataMasterAndWellPlan2")", param, function (res) {
+            if (res.Result == "OK") {
+                model.AnyDataMasterWellPlan(true);
+                model.MasterData().Periods(res.Data.Periods);
+                model.MasterData().Datas(res.Data.res);
+                model.getWellPlan().Data(res.Data.WellPlans);
+                model.getWeeklyReport().Data(res.Data.WeeklyReports);
+                //model.getBizplan().Data(res.Data.BizPlans);
+                //model.getPIP().Data(res.Data.PIPs);
+            } else {
+                model.AnyDataMasterWellPlan(false);
+            }
+            //model.IsProcessing(false);
+        }, function (res) {
+            model.IsProcessing(false);
+        });
+
+        ajaxPost("@Url.Action("GetDataPIPAndBizPlan2")", param, function (res) {
+            if (res.Data == null)
+            {
+                model.IsProcessing(false);
+            }
+            else
+            {
+                if (res.Data.Result == "OK") {
+                    model.AnyDataPIPBizPlan(true);
+                    model.getBizplan().Data(res.Data.BizPlans);
+                    model.getPIP().Data(res.Data.PIPs);
+                    model.getPIP().Data2(res.Data.RigPIPs);
+                } else {
+                    model.AnyDataPIPBizPlan(false);
+                }
+                model.IsProcessing(false);
+            }
+
+        }, function (res) {
+            model.IsProcessing(false);
+            //console.log(res);
+        });
+
+    };
+    model.VisibleMaster = ko.observable(true);
+    model.VisibleDetail = ko.observable(false);
+    model.VisibleDataPhases = ko.observable(false);
+
+    $(document).ready(function () {
+        input2datePicker($("#parmDate"));
+        d = new Date();
+        //var day = d.getDay(),
+        //    diff = d.getDate() - day + (day == 0 ? -6 : 1); // adjust when day is sunday
+        //var ret = new Date(d.setDate(diff));
+        $("#parmDate").data("kendoDatePicker").value(d);
+        model.refresh();
+    })
+</script>
+
+
+<script>
+    model.CurrentTab = ko.observable("");
+    model.TabInfo = ko.observable("");
+    model.ShowAll = function (date, tbl)
+    {
+        return function () {
+            model.CurrentTab(tbl);
+            if (tbl == "WEISWellActivities_tr") {
+                model.TabInfo("Table Name:Well Activites" + " Period:" + kendo.toString(date, "dd MMM yyyy"));
+            }else if(tbl=="WEISWellActivityUpdates_tr"){
+                model.TabInfo("Table Name:Weekly Report" + " Period:" + kendo.toString(date, "dd MMM yyyy"));
+            } else {
+                model.TabInfo("Table Name:Performance Improvement Plan" + " Period:" + kendo.toString(date, "dd MMM yyyy"));
+            }
+            model.VisibleDataPhases(true);
+            var Grid = $('#gridalldata');
+            var source = new kendo.data.DataSource({
+                transport: {
+                    read: {
+                        url: '@Url.Action("GetTransactTrailByDate", "DataLayer")',
+                        dataType: 'json',
+                        type: 'POST',
+                        complete: function (datas) {
+                            var data = JSON.parse(datas.responseText).Data.Activities;
+                            console.log(data);
+                            //model.report().performance().basedonproject().GridProjectProcessing(false);
+                        }
+
+                    },
+                    parameterMap: function (data, type) {
+                        if (type == "read") {
+                            return {
+                                skip: data.skip,
+                                take:10,
+                                //DateId: kendo.toString(date, "yyyy-MM-ddTHH:mm:ss"),
+                                DateId: parseInt(kendo.toString(date, "yyyyMMdd")),
+                                CollectionName: tbl
+                            }
+                        }
+                    },
+                },
+                schema: {
+                    data: 'Data.Data',
+                    total: 'Data.CountData',
+                },
+                pageSize: 10,
+                serverPaging: true,
+                //serverSorting: true,
+                //sort: { field: "Project", dir: "asc" },
+
+            });
+            Grid.html('');
+            Grid.kendoGrid({
+                dataSource: source,
+                scrollable: true,
+                resizable: true,
+                pageable: {
+                    refresh: true,
+                    //pageSizes: [5, 10, 20],
+                    buttonCount: 5
+                },
+                columns: GenerateGridColumns()
+            });
+        }
+
+    }
+
+
+    function GenerateGridColumns() {
+        var columns = [];
+        if (model.CurrentTab() == "WEISWellActivities_tr" || model.CurrentTab() == "WEISWellActivityUpdates_tr") {
+            columns.push({
+                field: "WellName", title: "Well Name", width: 150,
+
+
+            })
+            if (model.CurrentTab() == "WEISWellActivities_tr") {
+                columns.push({
+                    field: "RigName", title: "Rig Name", width: 150,
+
+
+                })
+            }
+            columns.push({
+                width: 150, field: "ActivityType", title: "Activity Type"
+            });
+
+            columns.push({
+                title: "OP", columns: [
+                    { field: "Plan.Days", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' } },//n0
+                    { field: "Plan.Cost", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' } }//n1
+                ]
+            })
+
+
+            columns.push({
+                title: "LS", columns: [
+                    { field: "OP.Days", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' } },//n0
+                    { field: "OP.Cost", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' } }//n1
+                ]
+            })
+
+            if (model.CurrentTab() == "WEISWellActivities_tr") {
+                columns.push({
+                    title: "LE", columns: [
+                        { field: "LE.Days", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' } },//n0
+                        { field: "LE.Cost", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' } }//n1
+                    ]
+                })
+            }
+
+            columns.push({
+                title: "AFE", columns: [
+                    { field: "AFE.Days", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' } },//n0
+                    { field: "AFE.Cost", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' } }//n1
+                ]
+            })
+            if (model.CurrentTab() == "WEISWellActivities_tr") {
+                columns.push({
+                    title: "MLE", columns: [
+                        { field: "LME.Days", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' } },//n0
+                        { field: "LME.Cost", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' } }//n1
+                    ]
+                })
+            }
+        }
+
+        if (model.CurrentTab() == "WEISWellPIPs_tr") {
+
+            columns.push({
+                field: "WellName", title: "Well Name", width: 150,
+
+
+            })
+            
+            columns.push({
+                width: 150, field: "ActivityType", title: "Activity Type"
+            });
+
+            columns.push({
+                width: 100, field: "Type", title: "Type"
+            });
+
+            columns.push({
+                title: "Realized", columns: [
+                    {
+                        title: "Original Estimate", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' },
+                        columns: [
+                            { field: "planDaysRealize", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' } },//n0
+                            { field: "planCostRealize", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' } }//n1
+                        ]
+                    },//n0
+                    {
+                        title: "Current Estimate", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' },
+                        columns: [
+                            { field: "leDaysRealize", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' } },//n0
+                            { field: "leCostRealize", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' } }//n1
+                        ]
+                    },//n0
+                ]
+            })
+            columns.push({
+                title: "Unrealized", columns: [
+                    { title: "Original Estimate", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' },
+                        columns:[
+                            { field: "planDaysUnRealize", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' } },//n0
+                            { field: "planCostUnRealize", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' } }//n1
+                        ] },//n0
+                    {
+                        title: "Current Estimate", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' },
+                        columns: [
+                            { field: "leDaysUnRealize", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' } },//n0
+                            { field: "leCostUnRealize", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' } }//n1
+                        ]
+                    },//n0
+                ]
+            })
+            columns.push({
+                title: "Original Estimate", columns: [
+                    { field: "planDays", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' } },//n0
+                    { field: "planCost", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' } }//n1
+                ]
+            })
+            columns.push({
+                title: "Current Estimate", columns: [
+                    { field: "leDays", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' } },//n0
+                    { field: "leCost", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' } }//n1
+                ]
+            })
+        }
+
+        return columns
+    }
+</script>

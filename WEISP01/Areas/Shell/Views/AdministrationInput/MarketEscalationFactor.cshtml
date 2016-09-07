@@ -1,0 +1,543 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+@{
+    ViewBag.Title = "Market Escalation Factor";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<style>
+    .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .control {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+    .cell-right {
+        text-align: right;
+    }
+
+    .cell-center {
+        text-align: center;
+    }
+
+    .modal .modal-body .form-group {
+        min-height: 27px;
+        margin-bottom: 4px;
+    }
+
+        .modal .modal-body .form-group input,
+        .modal .modal-body .form-group textarea {
+            border-color: #EFEFEF;
+        }
+
+        .modal .modal-body .form-group .col-md-4 {
+            text-align: right;
+            padding-top: 5px;
+            padding-right: 0px;
+        }
+</style>
+
+<script>
+    model.marketescalation = {};
+    model.marketescalation.IsProcessing = ko.observable(false);
+    model.marketescalation.IsEdited = ko.observable(false);
+    model.marketescalation.Data = ko.observable(@MvcTools.Obj2HtmlStr(new MacroEconomic()));
+
+    model.marketescalation.AddItem = {};
+    model.marketescalation.AddItem.Year = ko.observable(0);
+    model.marketescalation.AddItem.Value = ko.observable(0);
+    model.marketescalation.AddItem.Source = ko.observable("");
+    model.marketescalation.AddItem.Desc = ko.observable("");
+    model.marketescalation.AddItem.ID = ko.observable("");
+    model.marketescalation.AddItem.Type = ko.observable("GDP");
+    model.marketescalation.AddItem.InterestRatesType = ko.observable("short");
+
+    model.RigName = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+DataHelper.Populate("WEISRigNames").Select(d => d.GetString("_id")).OrderBy(d => d)
+   )));
+
+    model.reloadData = function () {
+        model.marketescalation.Refresh();
+    };
+
+    model.marketescalation.PrepareUploadForm = function () {
+        $("#upload .grid").kendoUpload({
+            async: {
+                saveUrl: '@Url.Action("Upload")',
+                removeUrl: "remove",
+                autoUpload: false
+            },
+            complete: function (e) {
+                model.marketescalation.Refresh();
+            },
+            select: function (e) {
+                $.each(e.files, function (index, value) {
+                    var ok = value.extension == ".xlsx" || value.extension == ".xls"
+
+                    if (!ok) {
+                        e.preventDefault();
+                        alert("Please upload only Excel (xls, xlsx) files");
+                    }
+                });
+            }
+        });
+    };
+    model.marketescalation.Refresh = function (callback) {
+        var url = "@Url.Action("GetDataMarketEscalation")";
+        var param = { country: $("#Country").val() };
+
+        model.marketescalation.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                model.marketescalation.IsProcessing(false);
+                return;
+            }
+
+            model.marketescalation.IsProcessing(false);
+            model.marketescalation.Data(res.Data);
+            model.marketescalation.RenderGridInflation();
+
+            $(".tab-content .tab-pane:not(.active) .grid").css("visibility", "hidden");
+
+            if (callback != undefined) {
+                callback();
+            }
+        });
+    };
+    model.marketescalation.GridSave = function () {
+        var updates = [];
+        var keys = [];
+
+        $(".grid").each(function (i, e) {
+            var data = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true });
+
+            data.forEach(function (f) {
+                var update = _.find(updates, { _id: f._id });
+
+                if (update == undefined) {
+                    for (var k in f) {
+                        if (f.hasOwnProperty(k) && k.indexOf(".") > -1) {
+                            delete f[k];
+                        }
+                    }
+                    updates.push(f);
+
+                    return;
+                }
+
+                if ($(e).parent().attr("id") == "grid-gdp")
+                    update.GDP = f.GDP;
+                else if ($(e).parent().attr("id") == "grid-inflation")
+                    update.Inflation = f.Inflation;
+                else if ($(e).parent().attr("id") == "grid-exchange-rate")
+                    update.ExchangeRate = f.ExchangeRate;
+                else if ($(e).parent().attr("id") == "grid-interest-rate-short")
+                    update.InterestRateShort = f.InterestRateShort;
+                else if ($(e).parent().attr("id") == "grid-interest-rate-long")
+                    update.InterestRateLong = f.InterestRateLong;
+            });
+        });
+
+        var url = "@Url.Action("UpdateInline")";
+        var param = { updates: updates };
+
+        model.marketescalation.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                model.marketescalation.IsProcessing(false);
+                return;
+            }
+
+            model.marketescalation.IsProcessing(false);
+            model.marketescalation.Refresh();
+        });
+    };
+    model.marketescalation.GridReset = function () {
+        $(".grid").each(function (i, e) {
+            $(e).data("kendoGrid").dataSource.read();
+        });
+        model.marketescalation.CheckGrid();
+    };
+    model.marketescalation.CheckGrid = function () {
+        var isDirty = false;
+
+        $(".grid").each(function (i, e) {
+            if (isDirty) return;
+            isDirty = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true }).length > 0;
+            if (isDirty) model.marketescalation.IsEdited(true);
+        });
+
+        if (!isDirty) {
+            model.marketescalation.IsEdited(false);
+        }
+    };
+    model.marketescalation.KendoNumericTextBoxEditor = function (container, option) {
+        var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+        input.appendTo(container);
+        input.kendoNumericTextBox({
+            change: function () {
+                model.marketescalation.CheckGrid();
+            }
+        });
+    };
+    model.marketescalation.ShowAddItem = function (o, id) {
+        var gridID = $(o).closest("[id]").attr("id");
+        var data = $(o).closest(".k-grid").data("kendoGrid").dataSource.data();
+        var year = moment(new Date()).year();
+
+        if (gridID == "grid-gdp") {
+            model.marketescalation.AddItem.Type("GDP");
+            if (data.length > 0) {
+                year = _.max(data[0].GDP.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-inflation") {
+            model.marketescalation.AddItem.Type("inflation");
+            if (data.length > 0) {
+                year = _.max(data[0].MarketEscalation.FiscalYears, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-exchange-rate") {
+            model.marketescalation.AddItem.Type("exchangerates");
+            if (data.length > 0) {
+                year = _.max(data[0].ExchangeRate.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-interest-rate-short") {
+            model.marketescalation.AddItem.Type("interestrates");
+            if (data.length > 0) {
+                year = _.max(data[0].InterestRateShort.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-interest-rate-long") {
+            model.marketescalation.AddItem.Type("interestrates");
+            model.marketescalation.AddItem.InterestRatesType("long");
+            if (data.length > 0) {
+                year = _.max(data[0].InterestRateLong.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        }
+
+        model.marketescalation.AddItem.ID(id);
+        model.marketescalation.AddItem.Value(0);
+        model.marketescalation.AddItem.Year(year);
+
+        $("#modal-add-item").modal("show");
+    }
+    model.marketescalation.SaveItem = function () {
+        var url = "@Url.Action("AddAnnualValues")";
+        var param = {
+            id: model.marketescalation.AddItem.ID(),
+            Year: model.marketescalation.AddItem.Year(),
+            Value: model.marketescalation.AddItem.Value(),
+            Type: model.marketescalation.AddItem.Type(),
+            Source: model.marketescalation.AddItem.Source(),
+            Desc: model.marketescalation.AddItem.Desc(),
+            InterestRatesType: model.marketescalation.AddItem.InterestRatesType()
+        };
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                return;
+            }
+
+            model.marketescalation.Refresh(function () {
+                $("#modal-add-item").modal("hide");
+            });
+        });
+    };
+    model.marketescalation.BuildGridConfig = function (data, columns, editableFields, interest) {
+        var width = $(".nav-tabs").closest(".col-md-12").width();
+        var schema = {};
+        var addItem = {
+            locked: true,
+            width: 40,
+            attributes: { class: "ec-center" },
+            template: function (dataItem) {
+                return "<button class='btn btn-xs btn-custom btn-primary' onclick='model.marketescalation.ShowAddItem(this, \"" + dataItem._id + "\")'><span class='glyphicon glyphicon-plus'></span></button>"
+            }
+        };
+
+        if (interest != undefined) {
+            schema = {
+                model: {
+                    fields: {
+                        Country: { editable: false },
+                        Title: { editable: true },
+                    }
+                }
+            };
+
+            schema.model.fields[interest + ".SeasonallyAdjusted"] = { type: "boolean" };
+            schema.model.fields[interest + ".DateOfLastUpdate"] = { type: "date" };
+            editableFields.forEach(function (e) {
+                schema.model.fields[e] = { type: "number" };
+            });
+
+            columns = [addItem].concat(columns).concat([
+            //columns = columns.concat([
+                { field: interest + ".Source", title: "Source", width: 240 },
+                { field: interest + ".SeasonallyAdjusted", title: "Seasonally Adjusted", attributes: { class: "cell-center" }, width: 120 },
+                { field: interest + ".BaseYearPrice", title: "Base Year Price", attributes: { class: "cell-right" }, width: 120 },
+                { field: interest + ".BaseYearIndex", title: "Base Year Index", attributes: { class: "cell-right" }, width: 120 },
+                { field: interest + ".HistoricalEndYear", title: "Historical End Year", attributes: { class: "cell-right" }, width: 120 },
+                { field: interest + ".HistoricalEndQuarter", title: "Historical End Quarter", attributes: { class: "cell-right" }, width: 140 },
+                { field: interest + ".DateOfLastUpdate", title: "Date Of Last Update", width: 120, format: "{0:dd-MMM-yyyy}", template: "#: jsonDateStr(" + interest + ".DateOfLastUpdate" + ") #" },
+                { field: interest + ".SourceDetail", title: "Source Detail", width: 160 },
+                { field: interest + ".AdditionalSourceDetail", title: "Additional Source Detail", width: 200 },
+                { field: interest + ".Location", title: "Location Code", width: 120 },
+                { field: interest + ".IndicatorCode", title: "Indicator Code", width: 120 }
+            ]);
+        } else {
+            schema = {
+                model: {
+                    fields: {
+                        Country: { editable: false },
+                        Currency: { editable: false },
+                        SwiftCode: { editable: false },
+                        Category: { editable: false },
+                        Continent: { editable: false },
+                        MajorCountry: { editable: false }
+                    }
+                }
+            };
+
+            editableFields.forEach(function (e) {
+                schema.model.fields[e] = { type: "number" };
+            });
+
+            columns = [
+                addItem,
+                { field: "MarketEscalation.FiscalYears[0].Title", title: "Title", locked: true, width: 100 }
+            ].concat(columns);
+        }
+
+        return {
+            chartArea: {
+                width: width
+            },
+            dataSource: {
+                data: data,
+                schema: schema,
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            filterable: false,
+            editable: true,
+            columns: columns
+        };
+    };
+    model.marketescalation.RenderGridInflation = function () {
+        var data = model.marketescalation.Data();
+        var columns = [];
+        var editableFields = [];
+
+        if (data.length > 0) {
+            data[0].MarketEscalation.FiscalYears.forEach(function (e, i) {
+                columns.push({
+                    field: "MarketEscalation.FiscalYears[" + i + "].Value",
+                    title: String(e.Year),
+                    width: 80,
+                    format: "{0:N2}",
+                    attributes: { class: "cell-right" },
+                    editor: model.marketescalation.KendoNumericTextBoxEditor,
+                });
+                editableFields.push("MarketEscalation.FiscalYears[" + i + "].Value");
+            });
+        }
+
+        var config = model.marketescalation.BuildGridConfig(data, columns, editableFields);
+
+        $("#grid-inflation .grid").replaceWith('<div class="grid"></div>');
+        $("#grid-inflation .grid").kendoGrid(config);
+        $("#grid-inflation .grid").on("change", function () {
+            model.marketescalation.CheckGrid();
+        });
+    };
+    model.marketescalation.Prepare = function () {
+        $(".nav-tabs a").on("click", function (e) {
+            $($(e.currentTarget).attr("href") + " .grid").each(function (i, e) {
+                var $grid = $(e);
+
+                if ($grid.css("visibility") != "hidden") {
+                    return;
+                }
+
+                setTimeout(function () {
+                    $grid.data("kendoGrid").dataSource.read();
+                    $grid.css("visibility", "visible");
+                }, 100);
+            });
+        });
+    };
+
+</script>
+
+<div class="col-md-12" data-bind="visible: model.marketescalation.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+<div class="col-md-12">
+    <h5>
+        Select Escalation if CP has no insights. Please select Global Market Escalation
+    </h5>
+</div>
+<div class="col-md-6">
+    <div>@Html.Partial("_Country")</div>
+</div>
+<div class="clearfix"></div>
+<div class="col-md-12">
+    <ul class="nav nav-tabs">
+        <li class="active"><a href="#grid-inflation" data-toggle="tab">Market Escalation</a></li>
+        <li><a href="#grid-global" data-toggle="tab">Global Escalation</a></li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane active" id="grid-inflation">
+            @*<div class="control" data-bind="template: { name: 'grid-control-template' }"></div>*@
+            <div class="control">
+                <div class="col-md-1">
+                    <button class="btn-sm btn btn-custom btn-success" data-bind="enable: model.marketescalation.IsEdited(), click: model.marketescalation.GridSave">
+                        <span class="glyphicon glyphicon-save"></span> Save Changes
+                    </button>
+                </div>
+                <div class="clearfix"></div>
+                <div class="col-md-5"></div>
+            </div>
+            <div class="grid">grid market escalation</div>
+        </div>
+        <div class="tab-pane" id="grid-global">
+            @*<div class="control" data-bind="template: { name: 'grid-control-template' }"></div>*@
+            <div class="control">
+                @*<div class="col-md-5">@Html.Partial("_Country")</div>*@
+                <div class="col-md-2">
+                    <button class="btn-sm btn btn-custom btn-success" data-bind="enable: model.marketescalation.IsEdited(), click: model.marketescalation.GridSave">
+                        <span class="glyphicon glyphicon-save"></span> Save Changes
+                    </button>
+                </div>
+                <div class="col-md-5"></div>
+                <div class="clearfix"></div>
+                <div class="col-md-6" style="margin-top:10px;">
+                    <div class="col-md-3">
+                        <label>Selected Rig:</label>
+                    </div>
+                    <div class="col-md-1">
+                        <input id="RigName" class="RigName" style="width:200px" data-bind="value:RigName" />
+                    </div>
+                    <div class="clearfix"></div>
+
+                    <div class="col-md-3">
+                        <label>Cost Weighting</label>
+                    </div>
+                    <div class="clearfix"></div>
+
+                    <div class="col-md-3">
+                        <label>Rig:</label>
+                    </div>
+                    <div class="col-md-1">
+                        <input id="Rig" style="width:200px" />
+                    </div>
+                    <div class="clearfix"></div>
+
+                    <div class="col-md-3">
+                        <label>Material:</label>
+                    </div>
+                    <div class="col-md-1">
+                        <input id="Material" style="width:200px" />
+                    </div>
+                    <div class="clearfix"></div>
+                    <div class="col-md-3">
+                        <label>Services:</label>
+                    </div>
+                    <div class="col-md-1">
+                        <input id="Services" style="width:200px" />
+                    </div>
+
+                    <div class="clearfix"></div>
+                    <div class="col-md-3">
+                        <label>Escalation Factor:</label>
+                    </div>
+                    <div class="col-md-1">
+                        <input id="EscalationFactor" style="width:200px" />
+                    </div>
+                </div>
+
+            </div>
+
+            @*<div class="grid">grid global market escalation</div>*@
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-add-item" data-bind="with: model.marketescalation">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title">Add Item</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <div class="col-md-4">
+                            <label>Year</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px" data-bind="kendoNumericTextBox: { format: '#', value: AddItem.Year }" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-md-4">
+                            <label>Value</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px" data-bind="kendoNumericTextBox: { format: '{0:N2}', decimals: 2, value: AddItem.Value }" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="visible: false">
+                        <div class="col-md-4">
+                            <label>Source</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px; min-height: 27px;" data-bind="value: AddItem.Source" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="visible: false">
+                        <div class="col-md-4">
+                            <label>Desc</label>
+                        </div>
+                        <div class="col-md-8">
+                            <textarea style="width: 200px; min-height: 50px;" data-bind="value: AddItem.Desc"></textarea>
+                        </div>
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-custom btn-warning" data-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-primary" data-bind="click: SaveItem">
+                        <span class="glyphicon glyphicon-refresh"></span> Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $(".RigName").kendoDropDownList({ dataSource: model.RigName() });
+        model.reloadData();
+    });
+</script>

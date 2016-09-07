@@ -1,0 +1,489 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+@{
+    ViewBag.Title = "Economic Inflation";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<style>
+    .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .control {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+    .cell-right {
+        text-align: right;
+    }
+
+    .cell-center {
+        text-align: center;
+    }
+
+    .modal .modal-body .form-group {
+        min-height: 27px;
+        margin-bottom: 4px;
+    }
+
+        .modal .modal-body .form-group input,
+        .modal .modal-body .form-group textarea {
+            border-color: #EFEFEF;
+        }
+
+        .modal .modal-body .form-group .col-md-4 {
+            text-align: right;
+            padding-top: 5px;
+            padding-right: 0px;
+        }
+</style>
+
+<script>
+    model.economicinflation = {};
+    model.economicinflation.IsProcessing = ko.observable(false);
+    model.economicinflation.IsEdited = ko.observable(false);
+    model.economicinflation.Data = ko.observable(@MvcTools.Obj2HtmlStr(new MacroEconomic()));
+
+    model.economicinflation.AddItem = {};
+    model.economicinflation.AddItem.Year = ko.observable(0);
+    model.economicinflation.AddItem.Value = ko.observable(0);
+    model.economicinflation.AddItem.Source = ko.observable("");
+    model.economicinflation.AddItem.Desc = ko.observable("");
+    model.economicinflation.AddItem.ID = ko.observable("");
+    model.economicinflation.AddItem.Type = ko.observable("GDP");
+    model.economicinflation.AddItem.InterestRatesType = ko.observable("short");
+
+    model.reloadData = function () {
+        model.economicinflation.Refresh();
+    };
+
+    model.economicinflation.PrepareUploadForm = function () {
+        $("#upload .grid").kendoUpload({
+            async: {
+                saveUrl: '@Url.Action("Upload")',
+                removeUrl: "remove",
+                autoUpload: false
+            },
+            complete: function (e) {
+                model.economicinflation.Refresh();
+            },
+            select: function (e) {
+                $.each(e.files, function (index, value) {
+                    var ok = value.extension == ".xlsx" || value.extension == ".xls"
+
+                    if (!ok) {
+                        e.preventDefault();
+                        alert("Please upload only Excel (xls, xlsx) files");
+                    }
+                });
+            }
+        });
+    };
+    model.economicinflation.Refresh = function (callback) {
+        var url = "@Url.Action("GetData")";
+        var param = { country: $("#Country").val() };
+
+        model.economicinflation.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                model.economicinflation.IsProcessing(false);
+                return;
+            }
+
+            model.economicinflation.IsProcessing(false);
+            model.economicinflation.Data(res.Data);
+            model.economicinflation.RenderGridInflation();
+
+            $(".tab-content .tab-pane:not(.active) .grid").css("visibility", "hidden");
+
+            if (callback != undefined) {
+                callback();
+            }
+        });
+    };
+    model.economicinflation.GridSave = function () {
+        var updates = [];
+        var keys = [];
+
+        $(".grid").each(function (i, e) {
+            var data = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true });
+
+            data.forEach(function (f) {
+                var update = _.find(updates, { _id: f._id });
+
+                if (update == undefined) {
+                    for (var k in f) {
+                        if (f.hasOwnProperty(k) && k.indexOf(".") > -1) {
+                            delete f[k];
+                        }
+                    }
+                    updates.push(f);
+
+                    return;
+                }
+
+                if ($(e).parent().attr("id") == "grid-gdp")
+                    update.GDP = f.GDP;
+                else if ($(e).parent().attr("id") == "grid-inflation")
+                    update.Inflation = f.Inflation;
+                else if ($(e).parent().attr("id") == "grid-exchange-rate")
+                    update.ExchangeRate = f.ExchangeRate;
+                else if ($(e).parent().attr("id") == "grid-interest-rate-short")
+                    update.InterestRateShort = f.InterestRateShort;
+                else if ($(e).parent().attr("id") == "grid-interest-rate-long")
+                    update.InterestRateLong = f.InterestRateLong;
+            });
+        });
+
+        var url = "@Url.Action("UpdateInline")";
+        var param = { updates: updates };
+
+        model.economicinflation.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                model.economicinflation.IsProcessing(false);
+                return;
+            }
+
+            model.economicinflation.IsProcessing(false);
+            model.economicinflation.Refresh();
+        });
+    };
+    model.economicinflation.GridReset = function () {
+        $(".grid").each(function (i, e) {
+            $(e).data("kendoGrid").dataSource.read();
+        });
+        model.economicinflation.CheckGrid();
+    };
+    model.economicinflation.CheckGrid = function () {
+        var isDirty = false;
+
+        $(".grid").each(function (i, e) {
+            if (isDirty) return;
+            isDirty = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true }).length > 0;
+            if (isDirty) model.economicinflation.IsEdited(true);
+        });
+
+        if (!isDirty) {
+            model.economicinflation.IsEdited(false);
+        }
+    };
+    model.economicinflation.KendoNumericTextBoxEditor = function (container, option) {
+        var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+        input.appendTo(container);
+        input.kendoNumericTextBox({
+            change: function () {
+                model.economicinflation.CheckGrid();
+            }
+        });
+    };
+    model.economicinflation.ShowAddItem = function (o, id) {
+        var gridID = $(o).closest("[id]").attr("id");
+        var data = $(o).closest(".k-grid").data("kendoGrid").dataSource.data();
+        var year = moment(new Date()).year();
+
+        if (gridID == "grid-gdp") {
+            model.economicinflation.AddItem.Type("GDP");
+            if (data.length > 0) {
+                year = _.max(data[0].GDP.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-inflation") {
+            model.economicinflation.AddItem.Type("inflation");
+            if (data.length > 0) {
+                year = _.max(data[0].Inflation.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-exchange-rate") {
+            model.economicinflation.AddItem.Type("exchangerates");
+            if (data.length > 0) {
+                year = _.max(data[0].ExchangeRate.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-interest-rate-short") {
+            model.economicinflation.AddItem.Type("interestrates");
+            if (data.length > 0) {
+                year = _.max(data[0].InterestRateShort.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-interest-rate-long") {
+            model.economicinflation.AddItem.Type("interestrates");
+            model.economicinflation.AddItem.InterestRatesType("long");
+            if (data.length > 0) {
+                year = _.max(data[0].InterestRateLong.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        }
+
+        model.economicinflation.AddItem.ID(id);
+        model.economicinflation.AddItem.Value(0);
+        model.economicinflation.AddItem.Year(year);
+
+        $("#modal-add-item").modal("show");
+    }
+    model.economicinflation.SaveItem = function () {
+        var url = "@Url.Action("AddAnnualValues")";
+        var param = {
+            id: model.economicinflation.AddItem.ID(),
+            Year: model.economicinflation.AddItem.Year(),
+            Value: model.economicinflation.AddItem.Value(),
+            Type: model.economicinflation.AddItem.Type(),
+            Source: model.economicinflation.AddItem.Source(),
+            Desc: model.economicinflation.AddItem.Desc(),
+            InterestRatesType: model.economicinflation.AddItem.InterestRatesType()
+        };
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                return;
+            }
+
+            model.economicinflation.Refresh(function () {
+                $("#modal-add-item").modal("hide");
+            });
+        });
+    };
+    model.economicinflation.BuildGridConfig = function (data, columns, editableFields, interest) {
+        var width = $(".nav-tabs").closest(".col-md-12").width();
+        var schema = {};
+        var addItem = {
+            locked: true,
+            width: 40,
+            attributes: { class: "ec-center" },
+            template: function (dataItem) {
+                return "<button class='btn btn-xs btn-custom btn-primary' onclick='model.economicinflation.ShowAddItem(this, \"" + dataItem._id + "\")'><span class='glyphicon glyphicon-plus'></span></button>"
+            }
+        };
+
+        if (interest != undefined) {
+            schema = {
+                model: {
+                    fields: {
+                        Country: { editable: false },
+                        Title: { editable: true },
+                    }
+                }
+            };
+
+            schema.model.fields[interest + ".SeasonallyAdjusted"] = { type: "boolean" };
+            schema.model.fields[interest + ".DateOfLastUpdate"] = { type: "date" };
+            editableFields.forEach(function (e) {
+                schema.model.fields[e] = { type: "number" };
+            });
+
+            columns = [addItem].concat(columns).concat([
+            //columns = columns.concat([
+                { field: interest + ".Source", title: "Source", width: 240 },
+                { field: interest + ".SeasonallyAdjusted", title: "Seasonally Adjusted", attributes: { class: "cell-center" }, width: 120 },
+                { field: interest + ".BaseYearPrice", title: "Base Year Price", attributes: { class: "cell-right" }, width: 120 },
+                { field: interest + ".BaseYearIndex", title: "Base Year Index", attributes: { class: "cell-right" }, width: 120 },
+                { field: interest + ".HistoricalEndYear", title: "Historical End Year", attributes: { class: "cell-right" }, width: 120 },
+                { field: interest + ".HistoricalEndQuarter", title: "Historical End Quarter", attributes: { class: "cell-right" }, width: 140 },
+                { field: interest + ".DateOfLastUpdate", title: "Date Of Last Update", width: 120, format: "{0:dd-MMM-yyyy}", template: "#: jsonDateStr(" + interest + ".DateOfLastUpdate" + ") #" },
+                { field: interest + ".SourceDetail", title: "Source Detail", width: 160 },
+                { field: interest + ".AdditionalSourceDetail", title: "Additional Source Detail", width: 200 },
+                { field: interest + ".Location", title: "Location Code", width: 120 },
+                { field: interest + ".IndicatorCode", title: "Indicator Code", width: 120 }
+            ]);
+        } else {
+            schema = {
+                model: {
+                    fields: {
+                        Country: { editable: false },
+                        Currency: { editable: false },
+                        SwiftCode: { editable: false },
+                        Category: { editable: false },
+                        Continent: { editable: false },
+                        MajorCountry: { editable: false }
+                    }
+                }
+            };
+
+            editableFields.forEach(function (e) {
+                schema.model.fields[e] = { type: "number" };
+            });
+
+            columns = [
+                addItem,
+                { field: "Country", locked: true, width: 100 },
+                { field: "Currency", locked: true, width: 140 },
+                { field: "SwiftCode", title: "Swift Code", locked: true, width: 100 },
+                { field: "Category", locked: true, width: 100 },
+                { field: "Continent", locked: true, width: 100 },
+                { field: "MajorCountry", title: "Major Country", locked: true, width: 100 },
+                {
+                    field: "Inflation.Forecast",
+                    title: "Forecast",
+                    width: 90,
+                    format: "{0:N2}",
+                    attributes: { class: "cell-right" },
+                    editor: model.economicinflation.KendoNumericTextBoxEditor,
+                    locked: true,
+                    width: 100
+                }
+            ].concat(columns);
+        }
+
+        return {
+            chartArea: {
+                width: width
+            },
+            dataSource: {
+                data: data,
+                schema: schema,
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            filterable: false,
+            editable: true,
+            columns: columns
+        };
+    };
+    model.economicinflation.RenderGridInflation = function () {
+        var data = model.economicinflation.Data();
+        var columns = [];
+        var editableFields = [];
+
+        if (data.length > 0) {
+            data[0].Inflation.AnnualValues.forEach(function (e, i) {
+                columns.push({
+                    field: "Inflation.AnnualValues[" + i + "].Value",
+                    title: String(e.Year),
+                    width: 80,
+                    format: "{0:N2}",
+                    attributes: { class: "cell-right" },
+                    editor: model.economicinflation.KendoNumericTextBoxEditor,
+                });
+                editableFields.push("Inflation.AnnualValues[" + i + "].Value");
+            });
+        }
+
+        var config = model.economicinflation.BuildGridConfig(data, columns, editableFields);
+
+        $("#grid-inflation .grid").replaceWith('<div class="grid"></div>');
+        $("#grid-inflation .grid").kendoGrid(config);
+        $("#grid-inflation .grid").on("change", function () {
+            model.economicinflation.CheckGrid();
+        });
+    };
+    model.economicinflation.Prepare = function () {
+        $(".nav-tabs a").on("click", function (e) {
+            $($(e.currentTarget).attr("href") + " .grid").each(function (i, e) {
+                var $grid = $(e);
+
+                if ($grid.css("visibility") != "hidden") {
+                    return;
+                }
+
+                setTimeout(function () {
+                    $grid.data("kendoGrid").dataSource.read();
+                    $grid.css("visibility", "visible");
+                }, 100);
+            });
+        });
+    };
+
+    //$(function () {
+    //    model.economicinflation.Prepare();
+    //    model.economicinflation.Refresh();
+    //});
+</script>
+
+<script type="text/html" id="grid-control-template">
+
+</script>
+
+<div class="col-md-12" data-bind="visible: model.economicinflation.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+
+<div class="col-md-5">@Html.Partial("_Country")</div>
+<div class="col-md-2" style="margin-left:-80px">
+    <button class="btn-sm btn btn-custom btn-success" data-bind="enable: model.economicinflation.IsEdited(), click: model.economicinflation.GridSave">
+        <span class="glyphicon glyphicon-save"></span> Save Changes
+    </button>
+</div>
+<div class="col-md-5"></div>
+
+<div class="col-md-12" data-bind="with: model.economicinflation, style: { 'visibility': model.economicinflation.IsProcessing() ? 'hidden' : 'visible' }">
+    
+    <div id="grid-inflation">
+        <div class="control" data-bind="template: { name: 'grid-control-template' }"></div>
+        <div class="grid"></div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-add-item" data-bind="with: model.economicinflation">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title">Add Item</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <div class="col-md-4">
+                            <label>Year</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px" data-bind="kendoNumericTextBox: { format: '#', value: AddItem.Year }" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-md-4">
+                            <label>Value</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px" data-bind="kendoNumericTextBox: { format: '{0:N2}', decimals: 2, value: AddItem.Value }" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="visible: false">
+                        <div class="col-md-4">
+                            <label>Source</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px; min-height: 27px;" data-bind="value: AddItem.Source" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="visible: false">
+                        <div class="col-md-4">
+                            <label>Desc</label>
+                        </div>
+                        <div class="col-md-8">
+                            <textarea style="width: 200px; min-height: 50px;" data-bind="value: AddItem.Desc"></textarea>
+                        </div>
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-custom btn-warning" data-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-primary" data-bind="click: SaveItem">
+                        <span class="glyphicon glyphicon-refresh"></span> Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        model.economicinflation.Prepare();
+        model.reloadData();
+    });
+</script>
+
+

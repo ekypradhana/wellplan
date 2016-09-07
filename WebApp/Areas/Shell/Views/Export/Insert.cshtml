@@ -1,0 +1,1033 @@
+﻿@using ECIS.Core
+@using Newtonsoft.Json;
+@using System.Collections.Generic;
+@{
+    var TableAndFields = DataHelper.Populate("TablesAndFields")
+        .Select(d => new { id = d.GetString("_id"), text = d.GetString("_id").Replace("WEIS","") })
+        .OrderBy(d => d.id);
+}
+
+<style>
+    .form { width: 500px; }
+    .block { float: left; }
+    .block .col-md-12 { margin-bottom: 4px; }
+    .form .col-md-4 { text-align: right; padding-top: 4px; padding-right: 0px; }
+    .mlabel { text-align: right; padding-top: 4px; padding-right: 0px; margin: 0 10px 0 10px; }
+    .block .col-md-8 { padding-left: 5px; }
+    .block .col-md-8 input[type=text] { height: auto; padding: 5px 7px; line-height: inherit; }
+
+    .query-raw-container { position: relative; float: left; width: 227px; }
+    .query-raw-container label { position: absolute; left: -38px; top: 8px; font-weight: normal; }
+    .query-raw-container textarea { width: 100%; min-height: 100px; margin-top: 4px; border: 1px solid rgb(221, 221, 221); }
+
+    #modal-preview .modal-dialog {
+        width: 90% !important;
+        min-width: 600px !important;
+    }
+
+    .grid-preview-hirarcial-container {
+        overflow: auto;
+        padding-bottom: 10px;
+    }
+    .grid-preview-hirarcial-container table {
+        margin: 0px auto;
+    }
+    .grid-preview-hirarcial-container table td {
+        padding: 2px 8px;
+        border: 1px solid rgb(230, 230, 230);
+    }
+    .grid-preview-hirarcial-container table.horizontal tr:first-child td:first-child {
+        font-size: 14px;
+    }
+    .grid-preview-hirarcial-container table.horizontal tr:first-child td {
+        padding: 3px 5px;
+        text-align: center;
+        font-weight: bold;
+        background-color: #f9f9f9;
+    }
+    .grid-preview-hirarcial-container table.horizontal tr:nth-child(2) td {
+        padding: 3px 5px;
+        min-width: 129px;
+        text-align: center;
+        background-color: #f9f9f9;
+    }
+    .grid-preview-hirarcial-container table.horizontal tr:nth-child(n+3) td:not(:first-child) {
+        text-align: center;
+    }
+    .grid-preview-hirarcial-container table.horizontal tr:nth-child(n+3) td:first-child {
+        min-width: 230px;
+        font-weight: bold;
+        background-color: #f9f9f9;
+    }
+
+    .grid-preview-hirarcial-container table.vertical tr:first-child td {
+        text-align: center;
+        font-weight: bold;
+        background-color: #f9f9f9;
+        min-width: 150px;
+        padding: 3px 5px;
+    }
+    .grid-preview-hirarcial-container table.vertical tr:nth-child(n+1) td[rowspan] {
+        min-width: 230px;
+        font-weight: bold;
+        background-color: #f9f9f9;
+        text-align: left !important;
+    }
+    .grid-preview-hirarcial-container table.vertical tr td.data-point {
+        padding: 3px 5px;
+        min-width: 150px;
+        text-align: left !important;
+        background-color: #f9f9f9;
+    }
+    .grid-preview-hirarcial-container table.vertical tr:nth-child(odd):not(:first-child) td:nth-child(n+1),
+    .grid-preview-hirarcial-container table.vertical tr:nth-child(even):not(:first-child) td:nth-child(n+2) {
+        text-align: center;
+    }
+
+</style>
+
+<script>
+
+    var dataTemp = [{
+        Row: "Perdido",
+        Data: [{
+            Period: "01 Jan 2015",
+            Columns: [{
+                Title: "Sum of OP Days",
+                Value: 30
+            }, {
+                Title: "AVG pf OP Days",
+                Value: 28
+            }]
+        }, {
+            Period: "02 Jan 2015",
+            Columns: [{
+                Title: "Sum of OP Days",
+                Value: 35
+            }, {
+                Title: "AVG pf OP Days",
+                Value: 29
+            }]
+        }]
+    }, {
+        Row: "Auger",
+        Data: [{
+            Period: "01 Jan 2015",
+            Columns: [{
+                Title: "Sum of OP Days",
+                Value: 22
+            }, {
+                Title: "AVG pf OP Days",
+                Value: 28
+            }]
+        }, {
+            Period: "02 Jan 2015",
+            Columns: [{
+                Title: "Sum of OP Days",
+                Value: 40
+            }, {
+                Title: "AVG pf OP Days",
+                Value: 28
+            }]
+        }]
+    }];
+
+    model.IsHistorical = ko.observable(false);
+    model.IsMiniProcessing = ko.observable(false);
+    model.Tables = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(TableAndFields)));
+    model.DetailTemplate = { _id: -1, Name: "", CollectioName: "", OutputPath: "", Query: "", Fields: [], Rows: [], Columns: [], Period: "", PeriodGroup: "", DataPoint: "", Orientation: "Horizontal" };
+    model.Detail = ko.mapping.fromJS(model.DetailTemplate);
+    model.FieldsTemplate = ko.observableArray([]);
+    model.isRO = ko.observable('@ViewBag.isRO');
+    model.Rows = ko.observableArray([]);
+    model.Columns = ko.observableArray([]);
+    model.DataPointsColumns = ko.observableArray([]);
+    model.Periods = ko.observableArray([]);
+    model.PeriodGroups = ko.observableArray([]);
+    model.DataPoints = ko.observableArray([]);
+    model.Orientations = ko.observableArray([]);
+    model.IsHistorical = ko.observable(false);
+
+    model.Insert = function () {
+        model.IsHistorical(false);
+        ko.mapping.fromJS(model.DetailTemplate, model.Detail);
+        model.Mode("Insert");
+        model.FieldsTemplate([]);
+        $(".qcontainer").find(".qcontent:eq(0)").html("");
+    };
+
+    model.ChangeFields = function (e) {
+        model.Detail.Fields([]);
+        model.Detail.Query("");
+        model.SelectField(this.value());
+        $(".qcontainer").find(".qcontent:eq(0)").html("");
+    };
+
+    model.SelectField = function (tableName, detail, callback) {
+        model.IsHistorical(false);
+        model.Rows([]);
+        model.Columns([]);
+        model.Periods([]);
+        model.PeriodGroups([]);
+        model.Orientations([]);
+        model.DataPoints([]);
+        model.DataPointsColumns([]);
+
+        model.Detail.Fields([]);
+        model.Detail.Rows([]);
+        model.Detail.Columns([]);
+        model.Detail.Period("");
+        model.Detail.PeriodGroup("");
+        model.Detail.Orientation("Horizontal");
+        model.Detail.DataPoint("");
+
+        var url = "@Url.Action("GetFields", "Export")";
+        var param = { TableName: tableName };
+
+        if (param.TableName == "") {
+            if (typeof callback !== "undefined") callback();
+            return;
+        }
+
+        ajaxPost(url, param, function (res) {
+            model.IsHistorical(res.IsHistorical);
+
+            if (res.hasOwnProperty("IsHistorical")) {
+                if (res.IsHistorical) {
+                    model.Rows(res.Rows);
+                    model.Periods(res.Periods);
+                    model.PeriodGroups(res.PeriodGroups);
+                    model.Orientations(res.Orientations);
+
+                    if (res.Columns[0].indexOf('-') > -1) {
+                        model.DataPointsColumns((function () {
+                            var dataPointParsed = _.groupBy(res.Columns, function (e) {
+                                return e.split("-")[0];
+                            });
+
+                            for (var dpi in dataPointParsed) {
+                                if (dataPointParsed.hasOwnProperty(dpi)) {
+                                    dataPointParsed[dpi] = _.map(dataPointParsed[dpi], function (e) {
+                                        return e.split("-")[1];
+                                    });
+                                }
+                            }
+
+                            return dataPointParsed;
+                        }()));
+
+                        model.DataPoints(_.unique(_.map(res.Columns, function (e) {
+                            return e.split("-")[0];
+                        })));
+
+                        if (typeof detail !== "undefined")
+                            if (detail.DataPoint !== "")
+                                model.Columns(model.DataPointsColumns()[detail.DataPoint]);
+                            else
+                                model.Columns(model.DataPointsColumns()[model.DataPoints()[0]]);
+                        else
+                            model.Columns(model.DataPointsColumns()[model.DataPoints()[0]]);
+                    } else {
+                        model.Columns(res.Columns);
+                    }
+                }
+            }
+
+            if (typeof callback !== "undefined") callback();
+
+            model.FieldsTemplate(res.Data);
+        }, function (res) {
+            alert("Error occured when fetching fields");
+        });
+
+    };
+
+    model.DataPointChange = function () {
+        model.Columns(model.DataPointsColumns()[this.value()]);
+        model.Detail.Columns([]);
+    };
+
+    model.ValidateRawData = function (raw) {
+        var data = {};
+
+        for (var i in raw) {
+            if (model.DetailTemplate.hasOwnProperty(i)) {
+                data[i] = raw[i];
+            }
+        }
+
+        return data;
+    }
+
+    model.IsValidate = function () {
+        var $form = $(".form form"); $form.kendoValidator();
+        var $kendoValidator = $form.data("kendoValidator");
+
+        $kendoValidator.validate();
+
+        var errs = $kendoValidator.errors();
+        var res = [];
+
+        for (var ei in errs) {
+            var err = errs[ei];
+
+            if (model.IsHistorical()) {
+                if (err.indexOf('Fields') > -1)
+                    continue;
+
+                res.push(err);
+            } else {
+                if (err.indexOf('Rows') > -1)
+                    continue;
+                if (err.indexOf('Data Points') > -1)
+                    continue;
+                if (err.indexOf('Columns') > -1)
+                    continue;
+                if (err.indexOf('Period') > -1)
+                    continue;
+                if (err.indexOf('Period Group') > -1)
+                    continue;
+                if (err.indexOf('Orientation') > -1)
+                    continue;
+
+                res.push(err);
+            }
+        }
+
+
+        return (res.length > 0);
+    };
+
+    model.Edit = function (id) {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        var url = "@Url.Action("Detail", "Export")";
+        var param = { id: id };
+
+        ajaxPost(url, param, function (res) {
+            var data = model.ValidateRawData(res);
+            model.SelectField(data.CollectioName, data, function () {
+                setTimeout(function () {
+                    try {
+                        var raw = JSON.parse(data.Query);
+                        model.RevParseQuery(raw);
+                    } catch (err) {
+
+                    }
+
+                    ko.mapping.fromJS(data, model.Detail);
+
+                    model.Mode("Insert");
+                    model.IsProcessing(false);
+                }, 500);
+            });
+        }, function () {
+            model.IsProcessing(false);
+            alert("Error occured when try to edit data");
+        });
+    };
+
+    model.PrepareHistoricalGrid = function (res) {
+        var data = res.Data;
+
+        data.forEach(function(e) {
+            var group = function(which, what, callbackTitle) {
+                var res = [];
+                var grouped = _.groupBy(which, function(f) {
+                    return f[what];
+                })
+
+                for (var g in grouped) {
+                    if (grouped.hasOwnProperty(g)) {
+                        var each = {
+                            DateGroup: callbackTitle(String(g)),
+                            Values: []
+                        };
+
+                        grouped[g].forEach(function (h) {
+                            each.Values.push({
+                                Title: h.Title,
+                                Value: h.Value
+                            });
+                        });
+
+                        res.push(each);
+                    }
+                }
+
+                return _.sortBy(res, function (f) {
+                    return ;
+                });
+            };
+
+            var eachData = [];
+
+            if (model.Detail.PeriodGroup() === "Daily") {
+                eachData = _.map(e.Periods, function (h) {
+                    h.DateGroup = moment(h.DateGroup).format("DD MMM YYYY");
+                    return h;
+                });
+            } else if (model.Detail.PeriodGroup() === "Weekly") {
+                eachData = group(e.WeeklyResult, "WeekTitle", function (h) {
+                    return "Week " + h.substring(4, 6) + " " + h.substring(0, 4);
+                });
+            } else if (model.Detail.PeriodGroup() === "Monthly") {
+                eachData = group(e.MonthlyResult, "Month", function (h) {
+                    return moment(h, "YYYYMM").format("MMMM YYYY");
+                });
+            } else if (model.Detail.PeriodGroup() === "Annualy") {
+                eachData = group(e.AnnualResult, "Year", function (h) {
+                    return moment(h, "YYYY").format("YYYY");
+                });
+            }
+
+            e.EachData = eachData;
+        });
+
+        var normalCase = function (s) {
+            return s.replace(/([A-Z])/g, ' $1').replace(/^./, function (str) {
+                return str.toUpperCase();
+            });
+        };
+
+        if (data.length == 0) {
+            $(".grid-preview-hirarcial-container").html("no data available");
+            return;
+        }
+
+        var $table = $("<table />").appendTo($(".grid-preview-hirarcial-container").html(""))
+            .addClass(model.Detail.Orientation().toLowerCase());
+
+        var columnPeriods = (function () {
+            var all = [];
+            var what = model.Detail.PeriodGroup();
+
+            data.forEach(function (e) {
+                e.EachData.forEach(function (f) {
+                    all.push(f.DateGroup);
+                });
+            });
+
+            all = _.sortBy(_.unique(all), function (e) {
+                if (what === "Daily") {
+                    return moment(e).toDate();
+                } else if (what === "Weekly") {
+                    var dateRaw = e.toLowerCase().replace("Week-", "").replace(" ", "");
+                    return dateRaw.substring(2, 6) + dateRaw.substring(0, 2);
+                } else if (what === "Monthly") {
+                    return moment(e, "MMMM YYYY").toDate();
+                } else {
+                    return moment(e, "YYYY").toDate();
+                }
+            });
+
+            return all;
+        }())
+
+        console.log(columnPeriods);
+        console.log(data);
+
+        if (model.Detail.Orientation() === "Horizontal") {
+            var $tr1 = $("<tr />").appendTo($table);
+            var $tr2 = $("<tr />").appendTo($table);
+
+            $("<td />").attr("rowspan", 2).html(data[0].ResultBy).appendTo($tr1);
+
+            columnPeriods.forEach(function (e) {
+                $("<td />").attr("colspan", data[0].EachData[0].Values.length).html(e).appendTo($tr1);
+
+                _.map(data[0].EachData[0].Values, function (e) {
+                    $("<td />").html(normalCase(e.Title)).appendTo($tr2);
+                });
+            });
+
+            data.forEach(function (e) {
+                var $trData = $("<tr />").appendTo($table);
+
+                $("<td />").html(e.RowName).appendTo($trData);
+
+                columnPeriods.forEach(function (f) {
+                    var period = _.find(e.EachData, function (g) {
+                        return g.DateGroup == f;
+                    });
+
+                    if (typeof period === String(undefined)) {
+                        $("<td />").attr("colspan", data[0].EachData[0].Values.length).html("&nbsp;").appendTo($trData);
+                        return;
+                    }
+
+                    period.Values.forEach(function (g) {
+                        $("<td />").html(g.Value.toFixed(2)).appendTo($trData);
+                    });
+                });
+            });
+
+            return;
+        }
+
+        var $tr1 = $("<tr />").appendTo($table);
+
+        $("<td />").attr("colspan", 2).html(data[0].ResultBy).appendTo($tr1);
+
+        columnPeriods.forEach(function (e) {
+            $("<td />").html(e).appendTo($tr1);
+        });
+
+        for (var i = 0; i < data.length; i++) {
+            for (var j = 0; j < data[i].EachData[0].Values.length; j++) {
+                var $trData = $("<tr />").appendTo($table);
+
+                if (j == 0) {
+                    $("<td />").attr("rowspan", data[i].EachData[0].Values.length)
+                        .html(data[i].RowName).appendTo($trData);
+                }
+
+                columnPeriods.forEach(function (e, k) {
+                    if (k == 0) {
+                        $("<td />").html(normalCase(data[i].EachData[0].Values[j].Title))
+                            .addClass("data-point").appendTo($trData);
+                    }
+
+                    var period = _.find(data[i].EachData, function (g) {
+                        return g.DateGroup == e;
+                    });
+
+                    if (typeof period === String(undefined)) {
+                        $("<td />").html("&nbsp;").appendTo($trData);
+                        return;
+                    }
+
+                    $("<td />").html(period.Values[j].Value.toFixed(2))
+                        .appendTo($trData);
+                });
+            }
+        }
+    };
+
+    model.DoPreview = function (preback) {
+        if (model.IsMiniProcessing()) return;
+        model.IsMiniProcessing(true);
+
+        try { preback(); } catch (err) { };
+
+        model.DoSave(function () {
+            var url = "@Url.Action("Save", "Export")";
+            var param = ko.mapping.toJS(model.Detail);
+
+            var height = $(window).height() - 200;
+            $(".grid-preview-container").height(height);
+            $(".grid-preview-hirarcial-container").height(height);
+
+            ajaxPost(url, param, function (res) {
+                if (res.Result === "NOK") {
+                    model.IsProcessing(true);
+                    alert("Error occured when saving data");
+                    return;
+                }
+
+                ko.mapping.fromJS(model.ValidateRawData(res.Data), model.Detail);
+
+                url = "@Url.Action("Preview", "Export")";
+                param = { id: model.Detail._id() };
+
+                ajaxPost(url, param, function (res) {
+                    var $grid = $("<div />");
+
+                    if (model.IsHistorical()) {
+                        model.PrepareHistoricalGrid(res);
+                    } else {
+                        $grid.appendTo($(".grid-preview-container").html(""));
+                        try { $grid.kendoGrid({ title: model.Detail.Name(), columns: res.Columns, dataSource: { data: res.Data } }); } catch (err) { }
+                    }
+
+                    model.IsMiniProcessing(false);
+                }, function () {
+                    alert("Error occured when previewing data");
+                    model.IsMiniProcessing(false);
+                });
+            }, function () {
+                alert("Error occured when previewing data");
+                model.IsMiniProcessing(false);
+            });
+        });
+    };
+
+    model.Preview = function (e) {
+        if (model.IsValidate())
+            return;
+
+        if (model.Detail._id() <= 0) {
+            alert("You need to save first to preview");
+            return;
+        }
+
+        model.DoPreview(function () {
+            $("#modal-preview").modal("show");
+        });
+    };
+
+    model.Back = function () {
+        ko.mapping.fromJS(model.DetailTemplate, model.Detail);
+        model.Mode('');
+        model.RefreshGrid();
+    }
+
+    model.DoSave = function (callback) {
+        if (model.IsValidate() > 0)
+            return;
+
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        var url = "@Url.Action("Save", "Export")";
+        var param = ko.mapping.toJS(model.Detail);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result === "NOK") {
+                model.IsProcessing(true);
+                alert("Error occured when saving data");
+                return;
+            }
+
+            ko.mapping.fromJS(model.ValidateRawData(res.Data), model.Detail);
+            model.IsProcessing(false);
+
+            if (typeof callback !== String(undefined)) callback();
+        }, function () {
+            alert("Error occured when saving data");
+            model.IsProcessing(false);
+        });
+    };
+
+    model.Save = function (e) {
+        model.DoSave(function () {
+            alert("Saved!");
+        });
+    };
+
+    model.parseQuery = function () {
+        var parse = function ($qwindow) {
+            var parent = {};
+
+            if (typeof $qwindow === "undefined")
+                $qwindow = $(".qcontainer").find(".qwindow:first");
+
+            var gate = $qwindow.find("select.label-title:first").data("kendoDropDownList").value();
+            var values = [];
+
+            var $qcontents = $qwindow.find(".qcontent:first").children();
+
+            if ($qcontents.length == 0)
+                return parent;
+
+            $qcontents.each(function (i, e) {
+                if ($(e).hasClass("qitem")) {
+                    var key = $(e).find("select.field").data("kendoDropDownList").value();
+                    var operand = $(e).find("select.operand").data("kendoDropDownList").value();
+                    var value = $(e).find(".value").val();
+
+                    var item = {};
+                    item[key] = {};
+
+                    if (operand === "like") {
+                        item[key]["$regex"] = ".*" + String(value).toLowerCase() + ".*";
+                    } else {
+                        item[key]["$" + operand] = value;
+                    }
+
+                    values.push(item);
+                } else {
+                    values.push((parse($(e))));
+                }
+            });
+
+            parent["$" + gate.toLowerCase()] = values;
+
+            return parent;
+        };
+
+        model.Detail.Query(JSON.stringify(parse()));
+    };
+
+    model.RevParseQuery = function (raw, $qwindow) {
+        if (typeof $qwindow === "undefined") {
+            $qwindow = $(".qcontainer > .qwindow:first");
+            $qwindow.find(".qcontent:first").html("");
+        }
+
+        for (var i in raw) {
+            if (raw.hasOwnProperty(i)) {
+                $qwindow.find("select.label-title").data("kendoDropDownList").value(String(i).replace("$", "").toUpperCase());
+
+                for (var j in raw[i]) {
+                    if (raw[i].hasOwnProperty(j)) {
+
+                        for (var k in raw[i][j]) {
+                            if (raw[i][j].hasOwnProperty(k)) {
+                                var field = k;
+                                var operand = "";
+                                var value = "";
+
+                                if (["or", "and"].indexOf(String(k).toLowerCase().replace("$", "")) > -1) {
+                                    var $newQWindow = $($("#qcontainer-template").html());
+                                    $newQWindow.appendTo($qwindow.find("> .qcontent"));
+                                    $newQWindow.find("select.label-title").kendoDropDownList();
+                                    model.RevParseQuery(raw[i][j], $newQWindow);
+                                } else {
+                                    $qwindow.find(".btn-add-item").trigger("click");
+                                    var $currentItem = $qwindow.find("> .qcontent").find(".qitem:last");
+
+                                    for (var l in raw[i][j][k]) {
+                                        if (raw[i][j][k].hasOwnProperty(l)) {
+                                            operand = String(l).replace("$", "");
+                                            value = raw[i][j][k][l];
+                                            break;
+                                        }
+                                    }
+
+                                    $currentItem.find("select.field").data("kendoDropDownList").value(field);
+                                    $currentItem.find("select.operand").data("kendoDropDownList").value(operand);
+                                    $currentItem.find("input.value").val(value);
+                                }
+
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    model.PrepareQueryBuilder = function () {
+        var $qwindow = $($("#qcontainer-template").html());
+        $qwindow.appendTo($(".qcontainer"));
+        $qwindow.find("select.label-title").kendoDropDownList({ value: "AND", change: function () { model.parseQuery(); } });
+
+        $(".qcontainer").on("click", ".btn-custom", function () {
+            if ($(this).hasClass("btn-remove-block")) {
+                $(this).closest(".qwindow").remove();
+                model.parseQuery();
+                return;
+            }
+
+            if ($(this).hasClass("btn-add-item")) {
+                var $qwindow = $(this).parent().next().find(".qwindow:eq(0)");
+                var $template = $($("#qitem-template").html());
+
+                if ($qwindow.size() > 0) {
+                    $template.insertBefore($qwindow);
+                } else {
+                    $template.appendTo($(this).parent().next());
+                }
+
+                $template.find(".operand").kendoDropDownList({
+                    placeholder: "Select one",
+                    change: function () { model.parseQuery(); }
+                });
+                $template.find(".field").kendoDropDownList({
+                    placeholder: "Select one",
+                    dataSource: { data: model.FieldsTemplate() },
+                    change: function () { model.parseQuery(); }
+                });
+
+                model.parseQuery();
+                return;
+            }
+
+            if ($(this).hasClass("btn-remove-item")) {
+                $(this).closest(".qitem").remove();
+                model.parseQuery();
+                return;
+            }
+
+            var isOR = $(this).hasClass("btn-add-block-or");
+
+            var $qwindow = $($("#qcontainer-template").html());
+            $qwindow.appendTo($(this).parent().next());
+            $qwindow.find("select.label-title").kendoDropDownList({ value: (isOR ? "OR" : "AND") });
+
+            model.parseQuery();
+        });
+
+        $(".qcontainer").on("keyup", ".value", function () {
+            model.parseQuery();
+        });
+    };
+
+    $(function () {
+        model.PrepareQueryBuilder();
+    });
+</script>
+
+<div class="col-md-12" data-bind="with: Detail, visible: model.Mode() == 'Insert'">
+    <div class="col-md-12" style="margin-bottom: 30px; width: 500px;">
+        <div class="col-md-4">&nbsp;</div>
+        <div class="col-md-8">
+            <button class="btn btn-sm btn-custom btn-warning" onclick="model.Back();">
+                <span class="glyphicon glyphicon-arrow-left"></span> Back to List
+            </button>
+            &nbsp;
+            <button class="btn btn-sm btn-custom btn-primary" onclick="model.Save();" data-bind="visible:!model.isRO()=='1'">
+                <span class="glyphicon glyphicon-ok"></span> Save
+            </button>
+            <button class="btn btn-sm btn-custom btn-primary" onclick="model.Preview();">
+                <span class="glyphicon glyphicon-eye-open"></span> Preview
+            </button>
+        </div>
+    </div>
+
+    <div class="clearfix"></div>
+
+    <div class="block form">
+        <form>
+            <div class="col-md-12">
+                <div class="col-md-4">
+                    Title:
+                </div>
+                <div class="col-md-8">
+                    <input style="width: 100%;" name="name" type="text" placeholder="Type title here ..."
+                           data-bind="value: Name" required data-required-msg="Name cannot be empty" />
+                    <span class="k-invalid-msg" data-for="name"></span>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-4">
+                    Path (opt):
+                </div>
+                <div class="col-md-8">
+                    <input style="width: 100%;" type="text" placeholder="Type output path here ..." data-bind="value: OutputPath" />
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-4">
+                    Table:
+                </div>
+                <div class="col-md-8">
+                    <select style="width: 100%;" required data-required-msg="Table cannot be empty" name="table"
+                            data-bind="kendoDropDownList: { dataSource: $root.Tables, dataTextField:'text', dataValueField:'id', value: CollectioName, optionLabel: 'Select one', change: $root.ChangeFields }"></select>
+                    <span class="k-invalid-msg" data-for="table"></span>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div data-bind="visible: !$root.IsHistorical()">
+                <div class="col-md-12">
+                    <div class="col-md-4">
+                        Fields:
+                    </div>
+                    <div class="col-md-8">
+                        <select style="width: 100%;" required data-required-msg="Fields cannot be empty" name="fields"
+                                data-bind="kendoMultiSelect: { data: $root.FieldsTemplate, value: Fields, optionLabel: 'Select one' }"></select>
+                        <span class="k-invalid-msg" data-for="fields"></span>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+            <div data-bind="visible: $root.IsHistorical()">
+                <div class="col-md-12">
+                    <div class="col-md-4">
+                        Rows:
+                    </div>
+                    <div class="col-md-8">
+                        <select style="width: 100%;" required data-required-msg="Rows cannot be empty" name="rows"
+                                data-bind="kendoDropDownList: { data: $root.Rows, value: Rows, optionLabel: 'Select one' }"></select>
+                        <span class="k-invalid-msg" data-for="rows"></span>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="col-md-12">
+                    <div class="col-md-4">
+                        Data Points:
+                    </div>
+                    <div class="col-md-8">
+                        <select style="width: 100%;" required data-required-msg="Data Points cannot be empty" name="data-point"
+                                data-bind="kendoDropDownList: { data: $root.DataPoints, value: DataPoint, change: $root.DataPointChange }"></select>
+                        <span class="k-invalid-msg" data-for="data-point"></span>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="col-md-12">
+                    <div class="col-md-4">
+                        Columns:
+                    </div>
+                    <div class="col-md-8">
+                        <select style="width: 100%;" required data-required-msg="Columns cannot be empty" name="columns"
+                                data-bind="kendoMultiSelect: { data: $root.Columns, value: Columns, optionLabel: 'Select one' }"></select>
+                        <span class="k-invalid-msg" data-for="columns"></span>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="col-md-12">
+                    <div class="col-md-4">
+                        Period:
+                    </div>
+                    <div class="col-md-8">
+                        <select style="width: 100%;" required data-required-msg="Period cannot be empty" name="period"
+                                data-bind="kendoDropDownList: { data: $root.Periods, value: Period, optionLabel: 'Select one' }"></select>
+                        <span class="k-invalid-msg" data-for="period"></span>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="col-md-12">
+                    <div class="col-md-4">
+                        Period Group:
+                    </div>
+                    <div class="col-md-8">
+                        <select style="width: 100%;" required data-required-msg="Period Group cannot be empty" name="period-group"
+                                data-bind="kendoDropDownList: { data: $root.PeriodGroups, value: PeriodGroup, optionLabel: 'Select one' }"></select>
+                        <span class="k-invalid-msg" data-for="period-group"></span>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="col-md-12">
+                    <div class="col-md-4">
+                        Orientation:
+                    </div>
+                    <div class="col-md-8">
+                        <select style="width: 100%;" required data-required-msg="Orientation cannot be empty" name="orientation"
+                                data-bind="kendoDropDownList: { data: $root.Orientations, value: Orientation }"></select>
+                        <span class="k-invalid-msg" data-for="orientation"></span>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-4">
+                    Query:
+                </div>
+                <div class="col-md-8">
+                    <textarea style="width: 100%; min-height: 100px" class="query-raw" data-bind="value: Query, enable: false"></textarea>
+                </div>
+            </div>
+            <div class="clearfix"></div>
+        </form>
+    </div>
+
+    <div class="block qcontainer">
+        <div class="qtitle">Query Builder:</div>
+    </div>
+
+    <div class="clearfix"></div>
+</div>
+
+<script type="text/template" id="qcontainer-template">
+    <div class="qwindow">
+        <div class="qcontrol left">
+            <select class="label-title" style="width: 70px;">
+                <option value="AND">AND</option>
+                <option value="OR">OR</option>
+            </select>
+        </div>
+        <div class="qcontrol right">
+            <button class="btn btn-custom btn-success btn-xs btn-add-block-and" title="Add new 'AND' block">
+                <span class="glyphicon glyphicon-plus"></span> <b>AND</b> Block
+            </button>
+            <button class="btn btn-custom btn-success btn-xs btn-add-block-or" title="Add new 'OR' block">
+                <span class="glyphicon glyphicon-plus"></span> <b>OR</b> Block
+            </button>
+            <button class="btn btn-custom btn-primary btn-xs btn-add-item" title="Add new condition">
+                <span class="glyphicon glyphicon-plus"></span> Filter
+            </button>
+            <button class="btn btn-custom btn-danger btn-xs btn-remove-block" title="Remove current block">
+                <span class="glyphicon glyphicon-remove"></span>
+            </button>
+        </div>
+        <div class="qcontent"></div>
+    </div>
+</script>
+
+<script type="text/template" id="qitem-template">
+    <div class="qitem">
+        <div class="col-md-4">
+            <select class="field" style="width: 100%"></select>
+        </div>
+        <div class="col-md-4">
+            <select class="operand" style="width: 100%">
+                <option value="eq">Equals</option>
+                <option value="ne">Not Equals</option>
+                <option value="gt">Greater Than</option>
+                <option value="gte">Greater Than / Equals</option>
+                <option value="lt">Lower Than</option>
+                <option value="lte">Lower Than / Equals</option>
+                <option value="like">Like</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <input type="text" style="width: 100%" class="value" placeholder="Type value here ..." />
+        </div>
+        <div class="col-md-1" style="padding-top: 2px; padding-left: 0px;">
+            <button class="btn btn-custom btn-danger btn-xs btn-remove-item" title="Remove current block">
+                <span class="glyphicon glyphicon-remove"></span>
+            </button>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+</script>
+
+<div class="modal fade myModal" id="modal-preview" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="myModalLabel">Preview <span data-bind="text: model.Detail.Name()"></span> using 10 Data</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row" style="margin-bottom: 10px;">
+                    <div class="col-md-12">
+                        <div style="width: 730px; margin: 0px auto;">
+                            <label class="mlabel">Period :</label>
+                            <select style="width: 120px;" required data-required-msg="Period cannot be empty" name="period"
+                                    data-bind="kendoDropDownList: { data: model.Periods, value: model.Detail.Period }"></select>
+
+                            <label class="mlabel">Period Group :</label>
+                            <select style="width: 120px;" required data-required-msg="Period Group cannot be empty" name="period-group"
+                                    data-bind="kendoDropDownList: { data: model.PeriodGroups, value: model.Detail.PeriodGroup }"></select>
+
+                            <label class="mlabel">Orientation :</label>
+                            <select style="width: 120px;" required data-required-msg="Orientation cannot be empty" name="orientation"
+                                    data-bind="kendoDropDownList: { data: model.Orientations, value: model.Detail.Orientation }"></select>
+
+                            <button style="margin-left:20px;" class="btn btn-custom btn-sm btn-primary" data-bind="click: model.DoPreview">
+                                <i class="glyphicon glyphicon-refresh"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div data-bind="visible: model.IsMiniProcessing()">
+                    @Html.Partial("_processing")
+                </div>
+                <div data-bind="visible: !model.IsMiniProcessing()">
+                    <div data-bind="visible: model.IsHistorical()">
+                        <div class="grid-preview-hirarcial-container"></div>
+                    </div>
+                    <div data-bind="visible: !model.IsHistorical()">
+                        <div class="grid-preview-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .qcontainer { width: 600px; position: relative; }
+    .qcontainer > .qwindow > .qcontrol.right .btn-danger { display: none; }
+    .qcontainer .qtitle { padding-top: 4px; height: 22px; }
+    .qcontainer.invalid { opacity: 0.4; pointer-events: none; }
+    .qcontainer.invalid:after { content: "Invalid Query!"; position: absolute; z-index: 1; top: 50%; height: 46px; text-align: center; margin-top: -12px; left: 0px; right: 0px; font-size: 30px; color: #CBCBCB; }
+    .qwindow { border: 1px solid rgb(221, 221, 221); padding: 5px; width: 100%; height: 100%; padding: 5px; position: relative; margin-bottom: 5px; }
+    .qwindow .qcontrol { width: 320px; position: absolute; top: 5px; }
+    .qwindow .qcontrol.right { text-align: right; right: 5px; top: 7px; }
+    .qwindow .qcontrol.left { text-align: left; left: 5px; }
+    .qwindow .label-title { font-weight: bold; }
+    .qcontent { min-height: 60px; padding-top: 32px; }
+    .qcontent > .qwindow:last-child { margin-bottom: 0px !important; }
+    .qitem { margin-bottom: 4px; }
+    .qitem .value { height: auto; line-height: inherit; padding: 5px 7px; }
+</style>

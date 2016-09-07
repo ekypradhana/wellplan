@@ -1,0 +1,145 @@
+﻿<style>
+    .grid h6 { text-align: center; font-weight: bold; font-size: 14px; }
+    .grid .grid-cost { margin-bottom: 30px; }
+    .grid .k-header.k-grid-toolbar { background-color: #F9F9FB; }
+    .grid .k-header.k-grid-toolbar .k-button { background-color: #f4b350; border-color: #E2A952; }
+    .grid .k-header[role=columnheader] { vertical-align: middle; }
+    .grid .k-header[role=columnheader][data-colspan] { text-align: center; font-weight: bold; color: #a8a8a8; }
+    .grid .k-header[role=columnheader]:nth-child(n+2) { text-align: center; }
+</style>
+
+<script>
+    function ShowPIPType(Type) {
+        return Type == "Reduction" ? "CR" : "CE";
+    }
+    function createCumulativeData(wfmodel) {
+        wfmodel.CumulativeDataType = model.showDataType();
+
+        var url = "@Url.Action("GetCumulativeDataForGrid")";
+        ajaxPost(url, wfmodel,
+            function (data) {
+                if (data.Result != "OK") {
+                    showErr(data.Message + data.Trace);
+                    return;
+                }
+                
+                console.log(data);
+
+                renderGridCumulative("Day",  data.Data.DataDay,  data.Data.Periods);
+                renderGridCumulative("Cost", data.Data.DataCost, data.Data.Periods);
+                renderGridCumulative("LECost", data.Data.DataLECost, data.Data.Periods);
+                renderGridCumulative("LEDay", data.Data.DataLEDay, data.Data.Periods);
+            },
+            showErr)
+    }
+
+    function renderGridCumulative(what, data, period) {
+        var format = (what === 'Day' ? "{0:N0}" : "{0:N1}");
+        var columnsTemplate = [
+            { field: "WellName", title: "Well", locked: true, width: 180 },
+            { field: "RigName", title: "Rig", locked: true, width: 100 },
+            { field: "Type", title: "Type", locked: true, width: 100, template: "#: ShowPIPType(Type) #" },
+            { field: "ActivityType", title: "Activity", locked: true, width: 250 }
+        ];
+        var columns = columnsTemplate.slice(0);
+        var aggregates = [];
+
+        _.each(_.sortBy((function (d) {
+            var r = [];
+            for (var i in d)
+                r.push(moment(d[i], "MMM_YY").toDate());
+            return r;
+        }(period)), function (e) { return e; }), function (e) {
+            columns.push({
+                field: moment(e).format("MMM_YY"),
+                title: moment(e).format("MMM YY"),
+                width: 60,
+                format: format,
+                attributes: { style: 'text-align:right;' },
+                //footerTemplate: "Total: #= sum #"
+            });
+
+            aggregates.push({
+                field: moment(e).format("MMM_YY"),
+                aggregate: "sum"
+            });
+        });
+
+        if (columns.length == columnsTemplate.length)
+            for (var i in columns)
+                columns[i].locked = false;
+
+        //$('.grid').css('opacity', 0);
+        $('.grid-' + what.toLowerCase()).replaceWith($('<div />').addClass('grid-' + what.toLowerCase()));
+        $('.grid-' + what.toLowerCase()).kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "Cumulative " + what + " of Improvement and risk.pdf" },
+            excel: { fileName: "Cumulative " + what + " of Improvement and risk.xlsx", allPages: true, filterable: true },
+            dataSource: { data: data, type: "json" },
+            aggregate: aggregates,
+            height: 205,
+            scrollable: true,
+            sortable: true,
+            resizable: true,
+            columns: columns
+        });
+
+        if (model.showDataType() === 'Total') {
+            model.GridCostTitle("Cumulative Cost of Improvement and Risk");
+            model.GridDaysTitle("Cumulative Days of Improvement and Risk");
+        } else if (model.showDataType() === 'Improvement') {
+            model.GridCostTitle("Cumulative Cost of Improvement");
+            model.GridDaysTitle("Cumulative Days of Improvement");
+        } else {
+            model.GridCostTitle("Cumulative Cost of Risk");
+            model.GridDaysTitle("Cumulative Days of Risk");
+        }
+    }
+
+    $(function () {
+        $('[href=#cummulative-data-cost]').on('click', function () {
+            setTimeout(function () {
+                //$('.grid').css('opacity', 1);
+                $('.grid-cost').data('kendoGrid').refresh();
+                $('.grid-lecost').data('kendoGrid').refresh();
+            }, 500);
+        });
+        $('[href=#cummulative-data-days]').on('click', function () {
+            setTimeout(function () {
+                //$('.grid').css('opacity', 1);
+                $('.grid-day').data('kendoGrid').refresh();
+                $('.grid-leday').data('kendoGrid').refresh();
+            }, 500);
+        });
+    });
+
+    model.cumulativeDatas = ko.observableArray([]);
+    model.showDataType = ko.observable("Total");
+    model.GridCostTitle = ko.observable("");
+    model.GridDaysTitle = ko.observable("");
+    model.GridLECostTitle = ko.observable("");
+    model.GridLEDaysTitle = ko.observable("");
+</script>
+
+<div>
+    <div id="chart-cumulative-panel" style="width:1020px; margin: 0px auto; ">
+        <div class="mini-nav bordered-mini-nav" style="width: 220px; margin: 0px;">
+            <div class="each-nav no-border-nav">
+                Select Data Type:
+                <select data-bind="value:showDataType">
+                    <option value="Total">Improvement + Risk</option>
+                    <option value="Improvement">Improvement</option>
+                    <option value="Risk">Risk</option>
+                </select>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+</div>
+
+<div style="padding: 0px 30px 20px;" class="grid">
+    <h6 data-bind="text: GridCostTitle"></h6>
+    <div class="grid-cost"></div>
+    <h6 @*data-bind="text: GridLECostTitle"*@>Cumulative Last Estimate Cost</h6>
+    <div class="grid-lecost"></div>
+</div>

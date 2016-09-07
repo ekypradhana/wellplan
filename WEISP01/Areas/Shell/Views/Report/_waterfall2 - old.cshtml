@@ -1,0 +1,166 @@
+﻿<div id="chart-waterfall2" style="width:1020px;height:400px;"></div>
+<div style="text-align:center">
+    <label style="background-color:darkblue;width:20px;">&nbsp;</label>
+    <label style="font-weight:normal">OP</label>
+    &nbsp;|&nbsp;
+    <label style="background-color:green;width:20px;">&nbsp;</label>
+    <label style="font-weight:normal">Plan Opportunity</label>
+    &nbsp;|&nbsp;
+    <label style="background-color:lightblue;width:20px;">&nbsp;</label>
+    <label style="font-weight:normal">LE Opportunity</label>
+    &nbsp;|&nbsp;
+    <label style="background-color:maroon;width:20px;">&nbsp;</label>
+    <label style="font-weight:normal">Plan Risk</label>
+    &nbsp;|&nbsp;
+    <label style="background-color:#EF6E4F;width:20px;">&nbsp;</label>
+    <label style="font-weight:normal">LE Risk</label>
+    &nbsp;|&nbsp;
+    <label style="background-color:gray;width:20px;height:1px;">&nbsp;</label>
+    <label style="font-weight:normal">AFE</label>
+</div>
+
+<script>
+    function createWaterfallMultiSeries(wfmodel) {
+        var wf = $("#chart-waterfall2");
+        var url = "@Url.Action("GetWaterfallMultiSeries")";
+        wf.html("");
+        ajaxPost(url, wfmodel, function (data) {
+            if (data.Result != "OK") {
+                showErr(data.Message + data.Trace);
+                return;
+            };
+
+            wf.height((data.Data.length <= 15) ? 450 : 550);
+
+            _.each(data.Data,function (obj) {
+                if (obj.Serie1 == 0) obj.Serie1 = null;
+                if (obj.Serie2 == 0) obj.Serie2 = null;
+            });
+
+            var colorLabel = function (point) {
+                //alert(ks(point));
+                switch (point.dataItem.Title) {
+                    case "OP":
+                        return "white";
+                        break;
+
+                    case "TQ/Target":
+                    case "TQ/Agreed Target":
+                        return "black";
+                        break;
+
+                    case "LE":
+                    case "Last Estimate":
+                        return "black";
+                        break;
+
+                    default:
+                        return "black";
+                }
+            };
+
+            var color1 = function (point) {
+                //alert(ks(point));
+                switch (point.dataItem.Title) {
+                    case "OP":
+                        return "darkblue";
+                        break;
+
+                    case "TQ/Target":
+                    case "TQ/Agreed Target":
+                        return "gray";
+                        break;
+
+                    case "LE":
+                    case "Last Estimate":
+                        return "golden";
+                        break;
+                }
+
+                if (point.dataItem.Ref1 == "Plan") {
+                    return "green";
+                } else {
+                    return "red";
+                }
+            };
+
+            var color2 = function (point) {
+                if (point.dataItem.Ref2 == "Plan") {
+                    return "lightblue";
+                } else {
+                    return "#EF6E4F";
+                }
+            };
+
+            wf.kendoChart({
+                dataSource: { data: data.Data },
+                series: [
+                    {
+                        type: "column",
+                        field: "Offset1",
+                        stack: "Serie1",
+                        color: "transparent",
+                        border: { visible: false, width: 0, color:"transparent" },
+                        labels: { visible: false, color: colorLabel, font: "9px verdana", format: "N0", position: "outsideEnd" },
+                        tooltip: { visible: false, template: '#: category #: #: kendo.format("{0:N1}", value) #' }
+                    },
+                    {
+                        type: "column",
+                        field: "Serie1",
+                        stack: "Serie1",
+                        color: color1,
+                        labels: { visible: true, color: colorLabel, font: "9px verdana", format: "N0", position: "above", background: "transparent" },
+                        tooltip: { visible: true, template: '#: category #: #: kendo.format("{0:N1}", value) #' }
+                    },
+                    {
+                        type: "column",
+                        field: "Offset2",
+                        stack: "Serie2",
+                        color: "transparent",
+                        border: { visible: false, width: 0, color: "transparent" },
+                        labels: { visible: false, color: colorLabel, font: "9px verdana", format: "N0", position: "outsideEnd" },
+                        tooltip: { visible: false, template: '#: category #: #: kendo.format("{0:N1}", value) #' }
+                    },
+                    {
+                        type: "column",
+                        field: "Serie2",
+                        stack: "Serie2",
+                        color: color2,
+                        labels: {
+                            visible: true, color: colorLabel, font: "9px verdana", format: "N0",
+                            position: "outsideEnd", background: "transparent"
+                        },
+                        tooltip: { visible: true, template: '#: category #: #: kendo.format("{0:N1}", value) #' }
+                    },
+                    {
+                        type: "line", name: "AFE", color: "gray", field: "TrendLines[0]", markers: { visible: false }, width: 1,
+                        tooltip: { visible: true, template: 'AFE: #: kendo.format("{0:N1}", value) #' }
+                    }
+                ],
+                legend: { visible: false, position: "bottom" },
+                valueAxis: {
+                    visible: true,
+                    labels: { font: "9px verdana", format: "N0" },
+                    majorGridLines: { visible: false }
+                },
+                categoryAxis: {
+                    field: "Title",
+                    labels: { font: "9px verdana", rotation: 40 },
+                    majorGridLines: { visible: false }
+                }
+            });
+
+            if (!model.waterfall().IncludeGaps()) {
+                var allGapsData = _.filter(data.Data, function (e) { return (e.Title.toLowerCase().indexOf("gap") > -1) });
+                _.each(allGapsData, function (e) {
+                    var gapsData = e;
+                    var gapsIndex = data.Data.indexOf(gapsData);
+
+                    $("tspan:contains('" + gapsData.Title + "')").closest("g").hide();
+                    $("svg > g:eq(0) > g[opacity]:eq(" + gapsIndex + ")").hide();
+                    $("svg > g:eq(0) > g:eq(0) > g[clip-path] > g:eq(" + gapsIndex + ")").hide();
+                });
+            }
+        });
+    }
+</script>

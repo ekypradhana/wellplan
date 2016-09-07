@@ -1,0 +1,334 @@
+﻿@{
+    ViewBag.Title = "Business Plan";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<style>
+    h3{font-size:14px}
+
+    .row{
+        margin-bottom:2px;
+        padding-bottom:0px;
+    }
+</style>
+
+<script>
+    model.PageId("Business Plan");
+    
+    model.IsProcessing = ko.observable(false);
+    model.NumberOfTowers = ko.observable();
+    model.Loaders = ko.observable();
+    
+    model.SelectedActivity = {};
+    model.SelectedActivity.Activity = ko.observable('');
+    model.SelectedActivity.VirtualPhase = ko.observable(false);
+    model.SelectedActivity.ShiftFutureEventDate = ko.observable(false);
+
+    var dataDropDown = {};
+    dataDropDown.Regions = @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRegions")
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d)));
+    dataDropDown.OperatingUnits = @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISOperatingUnits")
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d)));
+    dataDropDown.RigTypes = @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigTypes")
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d)));
+    dataDropDown.RigNames = @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigNames")
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d)));
+    dataDropDown.ProjectNames = @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISProjectNames")
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d)));
+    dataDropDown.WellNames = @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISWellNames", Query.NE("IsVirtualWell", true))
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d)));
+
+    model.columns = ko.observableArray([]);
+
+    function makeMultiSelect(objs, ds, vs) {
+        $.each(objs, function (idx, obj) {
+            var jobj = $(obj);
+            if (jobj.data("kendoMultiSelect") == undefined) {
+                jobj.kendoMultiSelect({
+                    dataSource: ds,
+                    filter: "contains",
+                    value: vs
+                });
+            }
+        });
+    }
+
+    function modelFilter(id) {
+        if (id == undefined) id = model.columns().length;
+        var mf = ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new DataModeler())));
+        mf.id = ko.observable(id);
+        mf.mode = ko.observable("");
+        mf.OP = ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellDrillData()))));
+        mf.AFE = ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellDrillData()))));
+        mf.LE = ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellDrillData()))));
+        mf.LW = ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellDrillData()))));
+
+        mf.initForm = function(){
+            var x = this;
+            var panel = $("#column_" + mf.id());
+            var prepareFilters = (function (config, i, e) {
+                config.change = function () {
+                    var currentModelName = (function (str) {
+                        return str.replace(/\w\S*/g, function (txt) { return txt.charAt(0).toUpperCase() + txt.substr(1); });
+                    }($(e).attr('role')));
+
+                    if (['Regions', 'RigNames', 'ProjectNames', 'WellNames'].indexOf(currentModelName) <= -1) {
+                        return;
+                    }
+
+                    var targetsByModel = {
+                        Regions: [],
+                        RigNames: ['Regions'],
+                        ProjectNames: ['RigNames', 'Regions'],
+                        WellNames: ['ProjectNames', 'RigNames', 'Regions'],
+                    };
+
+                    var selectsByModel = {
+                        Regions: panel.find('[role=Regions]').data('kendoMultiSelect'),
+                        RigNames: panel.find('[role=RigNames]').data('kendoMultiSelect'),
+                        ProjectNames: panel.find('[role=ProjectNames]').data('kendoMultiSelect'),
+                        WellNames: panel.find('[role=WellNames]').data('kendoMultiSelect')
+                    };
+
+                    for (var f in targetsByModel[currentModelName]) {
+                        var g = targetsByModel[currentModelName][f];
+
+                        if (selectsByModel[currentModelName].value().length === 0) {
+                            selectsByModel[g].enable(true);
+
+                            if (selectsByModel[g].value().length > 0) {
+                                break;
+                            }
+                        } else {
+                            selectsByModel[g].enable(false);
+                        }
+                    }
+
+                    var paramsByModel = {
+                        Regions: {
+                            get: ['RigName', 'ProjectName', 'WellName'],
+                            key: 'Region',
+                            val: this.value() },
+                        RigNames: {
+                            get: ['ProjectName', 'WellName'],
+                            key: 'RigName',
+                            val: this.value() },
+                        ProjectNames: {
+                            get: ['WellName'],
+                            key: 'ProjectName',
+                            val: this.value() },
+                        WellNames: {
+                            get: [],
+                            key: '',
+                            val: []
+                        }
+                    }
+
+                    if (paramsByModel[currentModelName].get.length === 0) {
+                        return;
+                    }
+
+                    ajaxPost("@Url.Action("GetAvailableFilter", "Dashboard")", paramsByModel[currentModelName], function (res) {
+                        var modelFor = ['Regions', 'RigNames', 'ProjectNames'];
+
+                        for (var key in res.Data) if (res.Data.hasOwnProperty(key)) {
+                            var jey = key.substring(0, key.length - 1);
+
+                            if (modelFor.indexOf(currentModelName) > -1 && paramsByModel[currentModelName].get.indexOf(jey) > -1) {
+                                selectsByModel[key].setDataSource({ data: res.Data[key] });
+                            }
+                        }
+                    });
+                }
+            });
+
+            panel.find("[role]").each(function (i, e) {
+                var config = {
+                    dataSource: { data: dataDropDown[$(e).attr("role")] },
+                    filter: "contains",
+                    value: x[$(e).attr("role")]
+                };
+
+                prepareFilters(config, i, e);
+                $(e).kendoMultiSelect(config);
+            });
+        };
+
+        mf.run = function(){
+            var x = this;
+            var panel = $("#column_"+x.id());
+            push2ObservableArray(x.Regions, panel.find("[role='Regions']").data("kendoMultiSelect").value());
+            push2ObservableArray(x.OperatingUnits, panel.find("[role='OperatingUnits']").data("kendoMultiSelect").value());
+            push2ObservableArray(x.RigTypes, panel.find("[role='RigTypes']").data("kendoMultiSelect").value());
+            push2ObservableArray(x.RigNames, panel.find("[role='RigNames']").data("kendoMultiSelect").value());
+            push2ObservableArray(x.ProjectNames, panel.find("[role='ProjectNames']").data("kendoMultiSelect").value());
+            push2ObservableArray(x.WellNames, panel.find("[role='WellNames']").data("kendoMultiSelect").value());
+
+            x.mode("Processing");
+            var url = "@Url.Action("Calc")";
+            ajaxPost(url,x,function(data){
+                
+                var loader = model.Loaders() + 1;
+                model.Loaders(loader);
+                if(model.Loaders() == model.NumberOfTowers()){
+                    model.IsProcessing(false);
+                }
+
+                if(data.Result=="OK"){
+                    x.OP(ko.mapping.fromJS(data.Data.OP));
+                    x.AFE(ko.mapping.fromJS(data.Data.AFE));
+                    x.LE(ko.mapping.fromJS(data.Data.LE));
+                    x.LW(ko.mapping.fromJS(data.Data.LW));
+                }
+                x.mode("Done");
+            },
+            function(err){
+                var loader = model.Loaders() + 1;
+                model.Loaders(loader);
+                if(model.Loaders() == model.NumberOfTowers()){
+                    model.IsProcessing(false);
+                }
+                x.mode("Done");
+            })
+        }
+
+        return mf;
+    }
+
+    model.add = function () {
+        var mf = new modelFilter();
+        model.columns.push(mf);
+        mf.initForm();
+    }
+
+    model.remove = function (d) {
+        model.columns.remove(d);
+    }
+
+    model.run = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        var towers = model.columns().length;
+        model.NumberOfTowers(towers);
+        model.Loaders(0);
+
+        model.columns().forEach(function(obj){
+            obj.run();
+        });
+    }
+</script>
+
+<div class="col-md-12" style="margin-bottom: 6px;">
+    <button class="btn btn-custom btn-primary btn-sm" data-bind="click:add">
+        <span class="glyphicon glyphicon-plus"></span> Add Tower
+    </button>
+    <button class="btn btn-custom btn-primary btn-sm" data-bind="click:run" style="margin-left: 6px;">
+        <span class="glyphicon glyphicon-random" style="margin-right: 2px;"></span> Compare
+    </button>
+</div>
+
+<div data-bind="visible: model.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+
+<div data-bind="visible: !model.IsProcessing()">
+    <div class="row" data-bind="foreach:columns" style="width:95%;margin-left:3%;">
+        <div class="col-sm-4" data-bind="attr:{id:'column_'+(id())}">
+            <h3>
+                <span style="text-align:right;">
+                    <a href="#" data-bind="click:$parent.remove, visible:$index()>0">[ x ]</a>
+                </span>
+                <label>Tower <span data-bind="text:$index()+1"></span></label>
+            </h3>
+            <div style="width:95%">
+                <div class="row">
+                    <label class="col-sm-3">Region</label>
+                    <div class="col-sm-9">
+                        <input type="text" role="Regions" style="width:90%" />
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-sm-3">Opr Unit</label>
+                    <div class="col-sm-9">
+                        <input type="text" role="OperatingUnits" style="width:90%" />
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-sm-3">Rig Type</label>
+                    <div class="col-sm-9">
+                        <input type="text" role="RigTypes" style="width:90%" />
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-sm-3">Rig Name</label>
+                    <div class="col-sm-9">
+                        <input type="text" role="RigNames" style="width:90%" />
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-sm-3">Project</label>
+                    <div class="col-sm-9">
+                        <input type="text" role="ProjectNames" style="width:90%" />
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-sm-3">Well</label>
+                    <div class="col-sm-9">
+                        <input type="text" role="WellNames" style="width:90%" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="row" data-bind="visible:mode()=='Processing'" style="text-align:center">
+                ..... please wait while processing ...
+            </div>
+
+            <div class="row" data-bind="visible:mode()!='Processing'" style="width:98%">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Days</th>
+                            <th>Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><b>OP-15</b></td>
+                            <td style="text-align:right" data-bind="text:fd('{0:N0}',OP().Days())"></td>
+                            <td style="text-align:right" data-bind="text:fd('{0:N0}',OP().Cost())"></td>
+                        </tr>
+                        <tr>
+                            <td><b>AFE</b></td>
+                            <td style="text-align:right" data-bind="text:fd('{0:N0}',AFE().Days())"></td>
+                            <td style="text-align:right" data-bind="text:fd('{0:N0}',AFE().Cost())"></td>
+                        </tr>
+                        <tr>
+                            <td><b>Previous LE</b></td>
+                            <td style="text-align:right" data-bind="text:fd('{0:N0}',LW().Days())"></td>
+                            <td style="text-align:right" data-bind="text:fd('{0:N0}',LW().Cost())"></td>
+                        </tr>
+                        <tr>
+                            <td><b>LE</b></td>
+                            <td style="text-align:right" data-bind="text:fd('{0:N0}',LE().Days())"></td>
+                            <td style="text-align:right" data-bind="text:fd('{0:N0}',LE().Cost())"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        model.add();
+        model.add();
+    });
+</script>

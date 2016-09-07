@@ -1,0 +1,625 @@
+﻿@{
+    ViewBag.Title = "Fiscal Year View";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+    var PerformanceUnits = new List<string>();
+
+    var elements = DataHelper.Populate("WEISPerformanceUnits").Select(x => BsonHelper.GetString(x, "_id"));
+    PerformanceUnits = elements.ToList(); //.Where(d => d.PerformanceUnit != null).GroupBy(d => d.PerformanceUnit).Select(d => d.Key).OrderBy(d => d).ToList();
+    
+    //var elements = DataHelper.Populate<WellPIP>("WEISWellPIPs").SelectMany(d => d.Elements);
+    //if (elements.Where(d => d.PerformanceUnit != null).Count() > 0)
+    //{
+    //    PerformanceUnits = elements.Where(d => d.PerformanceUnit != null).GroupBy(d => d.PerformanceUnit).Select(d => d.Key).OrderBy(d => d).ToList();
+    //}
+}
+
+<script>
+    model.SelectedActivityTemplate = { "_id": null, "Region": null, "RigType": null, "RigName": null, "OperatingUnit": null, "ProjectName": null, "AssetName": null, "WellName": null, "NonOP":false, "WorkingInterest": 0, "FirmOrOption": null, "UARigSequenceId": null, "UARigDescription": null, "Targets": { "M0": { "Identifier": null, "Days": 0, "Cost": 0 }, "M1": { "Identifier": null, "Days": 0, "Cost": 0 }, "M2": { "Identifier": null, "Days": 0, "Cost": 0 }, "M3": { "Identifier": null, "Days": 0, "Cost": 0 }, "M4": { "Identifier": null, "Days": 0, "Cost": 0 } }, "OpsDuration": 0, "OpsSchedule": { "Start": null, "Finish": null }, "PsSchedule": { "Start": null, "Finish": null },
+        "PerformanceUnit": null, "EXType":null, "Activity" : null, "VirtualPhase" : null, "ShiftFutureEventDate" : null};
+    model.PageId("Business Plan");
+    model.ShowBrowser = ko.observable(true);
+    model.ShowEditForm = ko.observable(false);
+    model.ShowOnePageEst = ko.observable(false);
+    model.ShowInsertActivityForm = ko.observable(false);
+    model.selectedWellId = ko.observable();
+    model.IsProcessing = ko.observable(false);
+    model.SelectedActivity = ko.mapping.fromJS(model.SelectedActivityTemplate);
+    model.IsEditMode = ko.observable(false);
+
+
+    model.SetActivity = function (activityUnparsed) {
+        var template = ko.mapping.toJS(model.SelectedActivityTemplate),
+            activity = {};
+        for (var i in template) if (template.hasOwnProperty(i)) activity[i] = activityUnparsed[i];
+        ko.mapping.fromJS(activity, model.SelectedActivity);
+    };
+    model.BusPlan = ko.observable({
+        record : ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(BizPlanActivity.Get<BizPlanActivity>(null,null))))),
+        phases : ko.observableArray([]),
+        rigRates: ko.observableArray([]),
+        longLeads: ko.observableArray([]),
+        conversionToUSD: ko.observable(1)
+    });
+    model.setButton = function(isEnabled){
+        $(".btn.btn-custom.btn-sm.btn-primary.do-filter").prop('disabled', isEnabled);
+        $(".do-excel-export").prop('disabled', isEnabled);
+    }
+</script>
+
+<style>
+    #grid .k-header.k-grid-toolbar {
+        background-color: #F9F9FB;
+    }
+
+    #grid > .k-pager-wrap.k-grid-pager.k-widget > .k-link.k-pager-nav,
+    #grid > .k-pager-wrap.k-grid-pager.k-widget > .k-pager-numbers {
+        display: none;
+    } 
+    
+    
+    #grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+        #grid .k-header[role=columnheader][data-field=_id] {
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-field=OpsDuration],
+        #grid .k-header[role=columnheader][data-field=PlanDuration],
+        #grid .k-header[role=columnheader][data-field=PhRiskDuration] {
+            vertical-align: bottom;
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-colspan] {
+            text-align: center;
+            font-weight: bold;
+            color: #a8a8a8;
+        }
+
+    #grid [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #grid .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+    tr.k-footer-template td {
+        text-align: right;
+    }
+    .isSummaryField {
+        font-weight: bold;
+        background-color: antiquewhite;
+    }
+</style>
+<div class="col-md-12" style="margin-bottom: 10px;" data-bind="visible:ShowBrowser">
+    
+    <!-- filters -->
+    @*@Html.Partial("Filter")*@
+    @Html.Partial("FilterForWaterfall")
+    <script>
+        model.ViewBy = ko.observable("Year");
+        model.ViewByList = ko.observableArray(["Year","Month","Quarter"]);
+        //model.ViewByList = ko.observableArray(["Year"]);
+        model.FilterVisibility.PerformanceUnits(false);
+        model.FilterVisibility.MonthlySequence(false);
+        model.FilterVisibility.YearsCalc(true);
+        model.FilterVisibility.OPs(true);
+        model.FilterVisibility.OpRelation(true);
+        model.FilterVisibility.Activities(true);
+        model.FilterVisibility.Date(true);
+        model.FilterVisibility.Date2(true);
+        model.FilterVisibility.PeriodBase(false);
+        model.FilterVisibility.PeriodView(true);
+        model.FilterVisibility.PeriodRelation(false);
+        model.FilterVisibility.isInPlan(true);  
+        model.FilterVisibility.Status(true);  
+        model.FilterVisibility.inlastuploadls(true);
+        model.FilterVisibility.ExType(true);
+        model.FilterVisibility.showLabelLSFilter(true);
+        model.FilterVisibility.LineOfBusiness(true);
+
+    </script>
+    <script>
+        model.options = {
+            regions: model.regions(),
+            operatingUnits: model.operatingUnits(),
+            rigTypes: model.rigTypes(),
+            rigNames: model.rigNames(),
+            projectNames: model.projectNames(),
+            wellNames: model.wellNames(),
+            assetNames: @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISAssetNames").Select(d=>d.GetString("_id")).OrderBy(d=>d))),
+            performanceUnits: @MvcHtmlString.Create(JsonConvert.SerializeObject(PerformanceUnits)),
+            firmOrOptions: ["Firm", "Option"],
+            EXType: ["","EXPEX", "CAPEX", "ABEX", "OPEX"],
+            isInPlan: model.isInPlan()
+        };
+        
+        model.FYModel = ko.observable({
+            FiscalYear : ko.observableArray([]),
+            ColumnDetail: [
+                {title:"Well Name", field:"WellName", width:150},
+                {title:"Activity Type", field:"ActivityType", width:150},
+                {title:"Rig Name", field:"RigName", width:150},
+                {title:"Project Name", field:"ProjectName", width:120},
+                {title:"OP Start", field:"LESchedule.Start", template: "#: jsonDateStr(LESchedule.Start) #", width:80},
+                {title:"OP Finish", field:"LESchedule.Finish", template: "#: jsonDateStr(LESchedule.Finish) #", width:80},
+                {title:"Esc Cost<br>Rig", field:"EscCostRig", width:100, attributes:{"style":"text-align:right"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+                {title:"Esc Cost<br>Services", field:"EscCostServices", width:100, attributes:{"style":"text-align:right"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+                {title:"Esc Cost<br>Materials", field:"EscCostMaterial", width:100, attributes:{"style":"text-align:right"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+                {title:"Esc Cost<br>Total", field:"EscCostTotal", width:100, attributes:{"style":"text-align:right","class":"isSummaryField"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+                {title:"CSO Cost", field:"CSOCost", width:100, attributes:{"style":"text-align:right"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+                {title:"Inflation Cost", field:"InflationCost", width:100, attributes:{"style":"text-align:right"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+                {title:"Mean Cost<br>EDM", field:"MeanCostEDM", width:100, attributes:{"style":"text-align:right","class":"isSummaryField"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+                {title:"Mean Cost<br>EDM<br>With Shell Share", field:"MeanCostEDMSS", width:100, attributes:{"style":"text-align:right","class":"isSummaryField"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+                {title:"Mean Cost<br>Real Term", field:"MeanCostRealTerm", width:100, attributes:{"style":"text-align:right","class":"isSummaryField"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+                {title:"Mean Cost<br>Real Term<br>With Shell Share", field:"MeanCostRealTermSS", width:100, attributes:{"style":"text-align:right","class":"isSummaryField"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+                {title:"Mean Cost<br>MOD", field:"MeanCostMOD", width:100, attributes:{"style":"text-align:right","class":"isSummaryField"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+                {title:"Mean Cost<br>MOD<br>With Shell Share", field:"MeanCostMODSS", width:100, attributes:{"style":"text-align:right","class":"isSummaryField"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+                //{title:"Shell Share", field:"ShellShare", width:100, attributes:{"style":"text-align:right","class":"isSummaryField"}, format: "{0:N2}", aggregates: ["sum"], footerTemplate: "#: kendo.format('{0:N2}', sum ) #"},
+            ],
+            GridDetailDataSource: function(data){
+                var ds = new kendo.data.DataSource({
+                    data: data,
+                    schema: {
+                        model: {
+                            LESchedule: 'date'
+                        }
+                    },
+                    pageSize: 10,
+                    aggregate: [
+                        { field: "OP", aggregate: "sum" },
+                        { field: "EscCostRig", aggregate: "sum" },
+                        { field: "EscCostServices", aggregate: "sum" },
+                        { field: "EscCostMaterial", aggregate: "sum" },
+                        { field: "EscCostTotal", aggregate: "sum" },
+                        { field: "CSOCost", aggregate: "sum" },
+                        { field: "InflationCost", aggregate: "sum" },
+                        { field: "MeanCostEDM", aggregate: "sum" },
+                        { field: "MeanCostRealTerm", aggregate: "sum" },
+                        { field: "MeanCostMOD", aggregate: "sum" },
+                        { field: "ShellShare", aggregate: "sum" },
+                        { field: "MeanCostEDMSS", aggregate: "sum" },
+                        { field: "MeanCostRealTermSS", aggregate: "sum" },
+                        { field: "MeanCostMODSS", aggregate: "sum" },
+                    ],
+                });
+                return ds;
+            }
+        });
+
+        model.ExportExcel = function(){
+            if (model.IsProcessing()) return;
+            model.IsProcessing(true);
+            var param = model.getFilterValues();
+            param.yearStart= param.FiscalYearStart; 
+            param.yearFinish= param.FiscalYearFinish;
+            param.ViewBy = model.ViewBy();
+            ajaxPost("@Url.Action("GenerateFiscalYearExcel")", param, function (data) {
+                if (data.RFMChecking.length > 0) {
+                    alert("This data set contains activities with no RFM assigned.  Cost columns are not accurate under these circumstances");
+                    renderRFMNotice(data.RFMChecking);
+                }
+
+                model.IsProcessing(false);
+                url = "@Url.Action("DownloadBrowserFile")"+"?stringName="+data.Path+"&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss");
+                location.href = url;
+            }, function () {
+                model.IsProcessing(false);
+            });
+        }
+
+        model.GridDetail = ko.observable({
+            dataSource:model.FYModel().GridDetailDataSource([]),
+            data:[],columns:model.FYModel().ColumnDetail,
+            pageable:true,sortable:true,filterable:false,
+            dataBound: function () {
+                //var y = $('.k-pager-info.k-label').html().replace(/items/g, 'activities');
+                //$('.k-pager-info.k-label').html(y);
+            },
+            toolbar:['excel'],
+            excel:{fileName:'Detail_FY',allPages:true,filterable: true},
+            excelExport: function (e) {
+
+                var sheet = e.workbook.sheets[0];
+                var regex = /<br\s*[\/]?>/gi;
+                var a = e.workbook.sheets;
+                a.forEach(function(c) {
+                    c.rows.forEach(function(d) {
+                        if(d.type == "header") {
+                            d.cells.forEach(function(i, j) {
+                                //console.log("before:",i.value);
+                                
+                                i.value = i.value.replace("<br/>", " ");
+                                i.value = i.value.replace("<br />", " ");
+                                i.value = i.value.replace("<br>", " ");
+                                i.value = i.value.replace("<b>", " ");
+                                i.value = i.value.replace("</b>", " ");
+                                i.value = i.value.replace(regex," ");
+                                //console.log("after:",i.value);
+                            });
+                        }
+                        if (d.type == "data") {
+                            d.cells.forEach(function(x,y) {
+                                if(x.value != null){
+                                    if (typeof x.value == "string") {
+                                        if (x.value.substring(0, 6) == "/Date(") {
+                                            x.NumberFormat  = "Short Date";
+                                            x.value = jsonDate(x.value);//.toDate();
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    });
+                });
+            }
+        });
+    </script>
+
+    
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden') }">
+        <div class="clearfix"></div>
+        <ul class="nav nav-tabs" id="nav-tabs-detail" role="tablist">
+            <li role="presentation" data-model="tab_phase" class="nav-detail-tab active">
+                <a href="#summary" role="tab" data-toggle="tab" id="tab_summary" onclick="">Summary</a>
+            </li>
+
+            <!-- ko foreach: model.FYModel().FiscalYear -->
+            <li role="presentation" data-model="tab_phase" class="nav-detail-tab">
+                <a role="tab" data-toggle="tab" data-bind="attr:{'href':'#Detail'+$data},text:$data"></a>
+            </li>
+            <!-- /ko -->
+
+        </ul>
+        <div class="tab-content" style="padding-top: 10px;" id="tab_detail">
+            <div role="tabpanel" class="tab-pane active" id="summary">
+                <div class="">
+                    <label>View by : </label>
+                    <input data-bind="kendoDropDownList: { data: model.ViewByList, value: model.ViewBy , dataBound:onChangeView}" />
+                </div>
+                <div class="col-md-12 no-padding">
+                    <div id="grid"></div>
+                </div>
+
+                <div style="clear: both;"></div>
+            </div>
+
+            <!-- ko foreach: model.FYModel().FiscalYear -->
+            <div role="tabpanel" class="tab-pane" data-bind="attr:{'id':'Detail'+$data}">
+                <div class="col-md-12 no-padding">
+                    <div data-bind="attr:{'id':'grid_'+$data}"><!--,kendoGrid:model.GridDetail-->
+
+                    </div>
+                </div>
+
+                <div style="clear: both;"></div>
+            </div>
+            <!-- /ko -->
+
+        </div>
+    </div>
+
+</div>
+
+<script>
+    model.data = ko.observable({
+        summary: ko.observableArray([]),
+        detail:ko.observableArray([])
+    });
+
+    function AddActivitiesCount(){
+        var result = {};
+        _.each(model.data().detail(),function(data,index){
+            var group = _.uniq(data.Data,false,function(p){return p.ActivityType;}).length;
+            result["FY"+data.Year] = group;
+            result["TitleBagus"] = "Activities Count";
+            result["ColumnClass"] = "";
+        })
+        model.data().summary().push(result);
+    }
+    model.totalActivities = ko.observable(0);
+    model.totalGroupActivities = ko.observable(0);
+    model.totalUniqueActivities = ko.observable(0);
+    model.all = ko.observableArray([]);
+    model.reloadData = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);model.setButton(true);
+        var param = model.getFilterValues();
+        param.yearStart= param.FiscalYearStart; 
+        param.yearFinish= param.FiscalYearFinish;
+        param.ViewBy = model.ViewBy();
+        
+        ajaxPost("@Url.Action("GetDataFiscalYear2")", param, 
+            function (res) {
+                var minYear = _.min(res.Data.periodYears);
+                var maxYear = _.max(res.Data.periodYears);
+                //model.data().summary(res.Data.Summary);
+                //model.data().detail(res.Data.Detail);
+                var result = {};
+                var ck = _.size(res.Data.Detail);
+                var total = 0;
+                var ViewBy = model.ViewBy();
+                
+                var datas = [];
+
+                _.each(res.Data.Detail,function(data,index){
+                    //var group = _.uniq(data.Data,false,function(p){return p.ActivityType;}).length;
+                    var lngth = data.Data.length;
+                    if(ViewBy == "Year"){
+                        result["FY"+data.Year] = lngth;
+                    }else{
+                        result[data.Year] = lngth;
+                    }
+                    
+                    result["TitleBagus"] = "Activities Count";
+                    result["ColumnClass"] = "";
+                    total += lngth;
+                    
+                    //var group = _.uniq(data.Data,false,function(p){return  p.UARigSequenceId;});
+                    var group = _.groupBy(data.Data,function(p){return p.UARigSequenceId && p.ActivityType;});
+                    
+                    //if(group.length > 0 ){_.each(group,function(dt){datas.push(dt);})}
+                    //if(group !=  null){
+                    //    _.each(group,function(p){
+                    //        if(p != null){
+                    //            _.each(p,function(q){datas.push(q);})
+                    //        }
+                    //    })
+                    //}
+                })
+                //var totUniq = 0;
+                //if(datas.length > 0){
+                //    var grp = _.groupBy(datas,function(p){
+                //        return p.UARigSequenceId;
+                //    })
+                //    if(grp != null){
+                //        _.each(grp,function(q){totUniq += q.length})
+                //    }
+                //}
+
+                model.totalGroupActivities(res.Data.totalGroupBySeq);
+                model.totalActivities(total);
+                model.totalUniqueActivities(res.Data.totalUniqueActivities);
+                if(ck==0){
+                    result["TitleBagus"] = "Activities Count";
+                    result["ColumnClass"] = "";
+                }
+                
+                res.Data.Summary.push(result);
+                //AddActivitiesCount();
+                var ViewBy = model.ViewBy();
+                var fiscalYear = [];
+                switch(ViewBy){
+                case "Year":
+                    for(var i = minYear;i<=maxYear;i++){
+                        fiscalYear.push("FY"+i);
+                    }
+                    break;
+                case "Month":
+                    //for (var i = new Date(res.Data.periodStart,0,1); i <= new Date(res.Data.periodFinish,11,1); i.setMonth(i.getMonth()+1)) {
+                    //    fiscalYear.push(kendo.toString(i,"MMMyyyy"));
+                    //}
+                    if(res.Data.periodMonths.length > 0){
+                        for(var i = 0; i<res.Data.periodMonths.length; i++){
+                            fiscalYear.push(res.Data.periodMonths[i]);
+                        }
+                    }
+                    break;
+                case "Quarter":
+                    //for (var i = new Date(res.Data.periodStart,0,1); i <= new Date(res.Data.periodFinish,11,1); i.setMonth(i.getMonth()+1)) {
+                    //    fiscalYear.push(kendo.toString(i,"MMMyyyy"));
+                    //}
+                    if(res.Data.periodMonths.length > 0){
+                        for(var i = 0; i<res.Data.periodMonths.length; i++){
+                            fiscalYear.push(res.Data.periodMonths[i]);
+                        }
+                    }
+                    break;
+                default:break;
+                }
+                model.FYModel().FiscalYear(fiscalYear);
+                //GenerateGrid(res.Data.Summary, res.Data.periodYears,res.Data.periodMonths);
+                GenerateGrid(res.Data.Summary, res.Data.periodYears,res.Data.periodMonths);
+                GenerateGridDetail(res.Data.Detail, res.Data.periodYears, res.Data.periodMonths);
+                $("#tab_summary").trigger("click");
+                model.IsProcessing(false);model.setButton(false);
+                if(model.getFilterValues().inlastuploadls==="false"){
+                    alert("These results will include items that are not in the latest LS. To limit your results to the latest LS, please check the Current Latest Sequence Only box and click refresh.");
+                }
+                //console.log("succes")
+            }, function (a,b,c) {
+                model.IsProcessing(false);
+            });
+    }
+
+    // prepare everything
+    $(document).ready(function () {
+        var dateValue = moment(new Date(2015, 11, 31)).add(15, 'years').toDate();
+        $('[data-model="dateFinish"]:last').data("kendoDatePicker").value(dateValue);
+        var setStatus = ['Complete', 'Draft','Modified'];
+        $('[data-model="OPs"]').data("kendoMultiSelect").value("OP16");
+        $('[data-model="Status"]').data("kendoMultiSelect").value(setStatus);
+
+        var isRO = "@ViewBag.isRO";
+
+        model.getFilterValues().YearsCalc = new Date().getFullYear();
+
+        var arr = [];
+        arr.push(new Date().getFullYear());
+        //$("[data-model=YearsCalc]").data('kendoMultiSelect').value(arr);
+
+        model.reloadData();
+        $('<button />')
+            .addClass('btn btn-warning btn-sm do-excel-export')
+            .css('margin-right', '5px')
+            .html('<span class="fa fa-file-excel-o"></span> Export to Excel')
+            .insertBefore($('.do-filter'))
+
+            .on('click', function () {
+                model.ExportExcel();
+            });
+       
+    });
+
+    function onChangeView(){
+        //console.log("change:",model.ViewBy());
+        //if(model.ViewBy() =="Quarter") {
+        //    $(".btn.btn-warning.btn-sm.do-excel-export").hide();
+        //}else{
+        //    $(".btn.btn-warning.btn-sm.do-excel-export").show();
+        //}
+    }
+
+    function GenerateGridDetail(data,periodYears,periodMonths){
+        var interval = setInterval(function () {
+            var ViewBy = model.ViewBy();
+            switch(ViewBy){
+            case "Year":
+                var minYear = _.min(periodYears);
+                var maxYear = _.max(periodYears);
+                for(var i = minYear;i<=maxYear;i++){
+                    var filterData = _.where(data,{Year:i});
+                    $("#grid_"+"FY"+i).kendoGrid(model.GridDetail());
+                    if(filterData.length > 0){
+                        var ds = model.FYModel().GridDetailDataSource(filterData[0].Data);
+                        $("#grid_"+"FY"+i).data("kendoGrid").setDataSource(ds);
+                        $("#grid_"+"FY"+i).data("kendoGrid").options.excel.fileName = "FYV_FY"+i+" - "+moment(new Date()).format("YYYY-MM-DD HHmmss");
+                    }else{
+                        var ds = model.FYModel().GridDetailDataSource([]);
+                        $("#grid_"+"FY"+i).data("kendoGrid").setDataSource(ds);
+                        $("#grid_"+"FY"+i).data("kendoGrid").options.excel.fileName = "FYV_FY"+i+" - "+moment(new Date()).format("YYYY-MM-DD HHmmss");
+                    }
+                }
+                break;
+            case "Month":
+                if(periodMonths.length > 0){
+                    for(var i = 0; i<periodMonths.length; i++) {
+                        var filterData = _.where(data,{Year:periodMonths[i]});
+                        $("#grid_" + periodMonths[i]).kendoGrid(model.GridDetail());
+                        if(filterData.length > 0){
+                            var ds = model.FYModel().GridDetailDataSource(filterData[0].Data);
+                            $("#grid_"+periodMonths[i]).data("kendoGrid").setDataSource(ds);
+                            $("#grid_"+periodMonths[i]).data("kendoGrid").options.excel.fileName = "FYV_"+periodMonths[i]+" - "+moment(new Date()).format("YYYY-MM-DD HHmmss");
+                        }else{
+                            var ds = model.FYModel().GridDetailDataSource([]);
+                            $("#grid_"+periodMonths[i]).data("kendoGrid").setDataSource(ds);
+                            $("#grid_"+periodMonths[i]).data("kendoGrid").options.excel.fileName = "FYV_"+periodMonths[i]+" - "+moment(new Date()).format("YYYY-MM-DD HHmmss");
+                        }
+                    }
+                }
+
+                //for (var i = new Date(start,0,1); i <= new Date(finish,11,1); i.setMonth(i.getMonth()+1)) {
+                //    var filterData = _.where(data,{Year:kendo.toString(i,"MMMyyyy")});
+                //    if(filterData.length > 0){
+                //        var ds = model.FYModel().GridDetailDataSource(filterData[0].Data);
+                //        $("#grid_"+kendo.toString(i,"MMMyyyy")).data("kendoGrid").setDataSource(ds);
+                //    }
+                //}
+                break;
+            case "Quarter":
+                if(periodMonths.length > 0){
+                    for(var i = 0; i<periodMonths.length; i++){
+                        var filterData = _.where(data,{Year:periodMonths[i]});
+                        $("#grid_"+periodMonths[i]).kendoGrid(model.GridDetail());
+                        if(filterData.length > 0){
+                            var ds = model.FYModel().GridDetailDataSource(filterData[0].Data);
+                            $("#grid_"+periodMonths[i]).data("kendoGrid").setDataSource(ds);
+                            $("#grid_"+periodMonths[i]).data("kendoGrid").options.excel.fileName = "FYV_"+periodMonths[i]+" - "+moment(new Date()).format("YYYY-MM-DD HHmmss");;
+                        }else{
+                            var ds = model.FYModel().GridDetailDataSource([]);
+                            $("#grid_"+periodMonths[i]).data("kendoGrid").setDataSource(ds);
+                            $("#grid_"+periodMonths[i]).data("kendoGrid").options.excel.fileName = "FYV_"+periodMonths[i]+" - "+moment(new Date()).format("YYYY-MM-DD HHmmss");;
+                        }
+                    }
+                }
+
+                //for (var i = new Date(start,0,1); i <= new Date(finish,11,1); i.setMonth(i.getMonth()+1)) {
+                //    var filterData = _.where(data,{Year:kendo.toString(i,"MMMyyyy")});
+                //    if(filterData.length > 0){
+                //        var ds = model.FYModel().GridDetailDataSource(filterData[0].Data);
+                //        $("#grid_"+kendo.toString(i,"MMMyyyy")).data("kendoGrid").setDataSource(ds);
+                //    }
+                //}
+                break;
+            default:break;
+            }
+
+            clearInterval(interval);
+        }, 500);
+    }
+
+    function GenerateGrid(data,periodYears,periodMonths) {
+        var self = this;
+        $("#grid").replaceWith($('<div id="grid" />'));
+        var $grid = $("#grid");
+        var column = [
+            { title: "Title", field: "TitleBagus", width: 200, attributes: { "class": "#:ColumnClass#" } },
+        ];
+        var ViewBy = model.ViewBy();
+        switch(ViewBy){
+        case "Year":
+            var minYear = _.min(periodYears);
+            var maxYear = _.max(periodYears);
+            for (var i = minYear; i <= maxYear; i++) {
+                var fieldName = "FY"+String(i);
+                column.push({ title: fieldName, field: fieldName, width: 100, attributes: { "style": "text-align:right", "class": "#:ColumnClass#" }, format: "{0:N2}" });
+            }
+            break;
+        case "Month":
+            if(periodMonths.length > 0){
+                for(var i = 0; i<periodMonths.length; i++){
+                    column.push({ title: periodMonths[i], field: periodMonths[i], width: 100, attributes: { "style": "text-align:right", "class": "#:ColumnClass#" }, format: "{0:N2}" });
+                }
+            }
+            break;
+        case "Quarter":
+            if(periodMonths.length > 0){
+                for(var i = 0; i<periodMonths.length; i++){
+                    column.push({ title: periodMonths[i], field: periodMonths[i], width: 100, attributes: { "style": "text-align:right", "class": "#:ColumnClass#" }, format: "{0:N2}" });
+                }
+            }
+            //console.log(column);
+            break;
+        default:break;
+        }
+        var dataSource = new kendo.data.DataSource({
+            data: data,
+            pageSize: 20,
+            selectable: true
+        });
+
+        $grid.kendoGrid({
+            columns: column,
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            scrollable: true,
+            dataSource: dataSource,
+            //width: 500,
+            //selectable: "cell"
+        });
+        var find = $("#grid > .k-pager-wrap.k-grid-pager.k-widget").find(".k-pager-info");
+        if(find.length > 0)
+            find.remove();
+
+        $('<span class="k-pager-info k-label total-activities">'+model.totalUniqueActivities()+' Unique Activities  &nbsp;    Total '+ model.totalActivities() +'  Items</span>').insertAfter('#grid > .k-pager-wrap.k-grid-pager.k-widget > .k-link.k-pager-nav.k-pager-last');
+    }
+</script>
+@Html.Partial("NoRFMNotice")

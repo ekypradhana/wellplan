@@ -1,0 +1,57 @@
+﻿<style>
+    #modalNoticeRFM > .modal-dialog {
+        width: 1200px;
+    }
+
+    #modalNoticeRFM > .modal-content {
+        height: 450px;
+    }
+</style>
+
+<div class="modal fade" id="modalNoticeRFM" tabindex="-1" role="dialog" aria-labelledby="NORFMMODAL">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="myModalLabel">
+                    No RFM
+                </h4>
+            </div>
+            <div class="modal-body">
+                <div>This data set contains activities with no RFM assigned</div>
+                <div class="clearfix"></div>
+                <div id="gridRFMNotice"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function renderRFMNotice(data) {
+        $("#modalNoticeRFM").modal("show");
+        $("#gridRFMNotice").replaceWith('<div id="gridRFMNotice"></div>');
+        $("#gridRFMNotice").kendoGrid({
+            dataSource: {
+                data: data,
+                pageSize: 10
+            },
+            height: 300,
+            scrollable: true,
+            sortable: true,
+            filterable: true,
+            pageable: true,
+            columns: [
+                { field: "UARigSequenceId", title: "Sequence ID", width: 60 },
+                { field: "WellName", title: "Well Name",  },
+                { field: "RigName", title: "Rig Name",  },
+                { field: "ActivityType", title: "Activity Type",  },
+                { field: "Project", title: "Project",  },
+                { field: "Country", title: "Country",  },
+                { field: "ReferenceFactorModel", title: "Reference Factor Model",  }
+            ]
+        });
+        setTimeout(function() {
+            $("#gridRFMNotice").data("kendoGrid").refresh();
+        }, 200);
+    }
+</script>

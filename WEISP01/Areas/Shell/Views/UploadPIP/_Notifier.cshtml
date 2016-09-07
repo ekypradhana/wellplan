@@ -1,0 +1,60 @@
+﻿<script>
+    toastr.options = {
+        "closeButton": false,
+        "debug": false,
+        "newestOnTop": false,
+        "progressBar": false,
+        "positionClass": "toast-bottom-right",
+        "preventDuplicates": false,
+        "onclick": null,
+        "showDuration": "300000",
+        "hideDuration": "1000",
+        "timeOut": "300000",
+        "extendedTimeOut": "1000",
+        "showEasing": "swing",
+        "hideEasing": "linear",
+        "showMethod": "fadeIn",
+        "hideMethod": "fadeOut"
+    }
+
+    model.GetCalculationStatus = function () {
+
+        var DoGetCalculationStatus = function () {
+            $(".btn.btn-xs.btn-danger").prop("disabled", true);
+            
+            var message_data = "";
+            var url = "@Url.Action("GetStatus")";
+            ajaxPost(url, {}, function (res){
+ 
+                //model.StatusProgress(res.Data[0].Status);
+                //message_data = "Insert Well Name:" + model.ProgressData()[0].Well_Name + " Idea:" + model.ProgressData()[i].Idea + "<br>";
+                 
+                if (res.Data[0].Status == 'In Progress') {
+                    if ($("#toast-container").size() == 0) {
+                        toastr["info"](res.Data[0].Note);
+                    }
+
+                    if ($(".toast-message:first").find("span").size() == 0) {
+                        $(".toast-message:first").append("<span style='padding-left: 5px;'></span>");
+                    }
+                    setTimeout(function () {
+                        DoGetCalculationStatus();
+                    }, 3000);
+
+                    return;
+                } else {
+                    $("#toast-container").remove();
+                    $(".btn.btn-xs.btn-danger").prop("disabled", false);
+                }
+            });
+        };
+
+        DoGetCalculationStatus();
+    };
+</script>
+
+<style>
+    #toast-container * {
+        opacity: 1 !important;
+    }
+</style>

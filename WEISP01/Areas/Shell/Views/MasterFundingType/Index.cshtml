@@ -1,0 +1,208 @@
+﻿@{
+    ViewBag.Title = "Funding Type";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+
+<script>
+    model.IsProcessing = ko.observable(false);
+    model.PageId("Administration");
+    model.Classification = ko.observable({
+        FundingTypeName: ko.observable(""),
+        AddClassification: function () {
+            //alert("ok");
+            var x = model.Classification();
+            x.FundingTypeName("");
+            $("#modalClassification").modal("show");
+        },
+        SaveClassification: function () {
+            var add_class_validator = $("#form_add_class").kendoValidator().data("kendoValidator");
+            var x = model.Classification();
+            var datas = {
+                Name: x.FundingTypeName()
+            };
+            if (add_class_validator.validate()) {
+                ajaxPost("@Url.Action("Save")", datas,
+                    function (data) {
+                        if (data.Success == true) {
+                            $("#modalClassification").modal("hide");
+                            x.refresh();
+                        } else {
+                            alert(data.Message);
+                        }
+                    });
+            }
+        },
+        refresh: function () {
+            var x = model.Classification();
+            model.IsProcessing(true);
+            ajaxPost("@Url.Action("Populate")", {},
+            function (data) {
+                model.IsProcessing(false);
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+                //console.log(data);
+
+                var ds = new kendo.data.DataSource({
+                    data: data.Data,
+                    pageSize: 10,
+                    schema: {
+                        //data: "Phases",
+                        model: {
+                            id: "_id",
+                            fields: {
+                                "Name": { type: "string" },
+                                "_id": { editable: false }
+                            }
+                        },
+                    },
+                    batch: true
+                });
+
+                $("#grid").data("kendoGrid").setDataSource(ds);
+            });
+        },
+        Update: function () {
+            var x = model.Classification();
+            model.IsProcessing(true);
+            var updated = getChangedData("grid","dirty");
+
+
+            var datas = { updated: updated };
+            ajaxPost("@Url.Action("Update")", datas,
+                function (data) {
+                    if (data.Success == true) {
+                        x.refresh();
+                    } else {
+                        alert(data.Message);
+                    }
+                });
+        },
+        Delete: function (id) {
+            var konf = confirm("Are you sure you want to delete this data?");
+            if(konf == true){
+                var x = model.Classification();
+                model.IsProcessing(true);
+                var datas = { _id: id };
+                ajaxPost("@Url.Action("Delete")", datas,
+                    function (data) {
+                        if (data.Success == true) {
+                            x.refresh();
+                        } else {
+                            alert(data.Message);
+                            x.refresh();
+                        }
+                    });
+            } else {
+                return;
+            }
+        }
+    });
+</script>
+
+<div style="padding: 0px 15px 15px;">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing()">
+        <div class="ec-toolbar" style="margin-left:15px">
+            <button class="btn btn-success btn-sm btn-custom" data-bind="click:model.Classification().AddClassification">
+                <span class="glyphicon glyphicon-plus"></span> Add New
+            </button>
+            <button class="btn btn-warning btn-sm btn-custom" data-bind="click:model.Classification().Update">
+                <span class="glyphicon glyphicon-ok"></span> Save Changes
+            </button>
+            (inline editing is enabled)
+        </div>
+        <div class="col-md-12 no-padding">
+            <div class="grid" id="grid" data-bind="kendoGrid:{data:[],columns:gridColumnsClassification,pageable:true,sortable:true,filterable:true,editable:true}"></div>
+        </div>
+    </div>
+
+    <div style="clear: both;"></div>
+
+    <!-- Modal Classification -->
+    <div data-bind="with:Classification" class="modal fade myModal" id="modalClassification" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                    <h4 class="modal-title" id="myModalLabel" data-bind="">Add New Funding Type</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group form-group-sm form-wrapper" id="form_add_class">
+                        <div class="row">
+                            <label class="col-md-3">Name</label>
+                            <div class="col-md-8">
+                                <input type="text" style="width:100%;" id="Name" name="Name" data-bind="value:FundingTypeName" required="required">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-custom btn-warning" data-dismiss="modal">
+                        <span class="glyphicon glyphicon-remove-circle"></span> Close
+                    </button>
+                    <button type="button" class="btn btn-custom btn-primary" onclick="model.Classification().SaveClassification()">
+                        <span class="glyphicon glyphicon-ok"></span> Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- End Modal Classification -->
+
+</div>
+<script>
+    var gridColumnsClassification = [
+        { field: "Name", title: "Funding Type Name", filterable: false },
+        { field: "_id", title: "Delete", editable: false, filterable: false, attributes: { class: "cell-date" }, width: 70, template: "<button type='button' class='btn btn-danger btn-custom btn-xs' onclick='model.Classification().Delete(\"#=_id#\")'><span class='glyphicon glyphicon-remove-circle'></span> Delete</button>" }
+    ];
+</script>
+
+<script>
+    $(document).ready(function () {
+        model.Classification().refresh();
+    });
+
+    function getChangedData(grid_id, type) {
+        var g = $("#" + grid_id);
+        var updatedRecords = [];
+
+        var gridData = g.data("kendoGrid").dataSource._data;
+        gridData.forEach(function (f) {
+            if (type == "dirty") {
+                if (f.dirty) updatedRecords.push(f);
+            } else {
+                updatedRecords.push(f);
+            }
+        });
+
+
+        //console.log(updatedRecords);
+
+        //var data = {};
+        //data.id = model.selectedWellId();
+        var updated = updatedRecords;
+        //$.extend(data, parameterMap({ updated: updatedRecords }));
+
+        //console.log(data);
+        for (var a = 0; a < updated.length; a++) {
+            var b = updated[a];
+            for (i in b) if (b.hasOwnProperty(i)) {
+                //console.log(i);
+                if (i.indexOf(".") > -1) {
+                    delete updated[a][i];
+                }
+            }
+        }
+
+        return updated;
+    }
+</script>

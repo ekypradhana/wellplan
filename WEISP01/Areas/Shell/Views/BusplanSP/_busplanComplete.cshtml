@@ -1,0 +1,161 @@
+﻿<script>
+    function renderGridUsingDataCatalog(data) {
+        //model.sement(data);
+    //var data = model.catalog();
+        data = jsonObjsConvDate(pushData(data));
+        console.log(data);
+    var gridColumns = [];
+    var isRO = "@ViewBag.isRO";
+    //alert(isRO);
+   
+        gridColumns.push(
+             { field: "Status", title: "Status", width: 70, attributes: { style: 'text-align: center;' }, locked: true, lockable: true, editor: false },
+            { field: "_id", title: "ID", width: 50, attributes: { style: 'text-align: center;' }, locked: true, lockable: true, editor: false },
+            { field: "RigName", title: "Rig Name", width: 100, locked: true, lockable: true },
+            { field: "WellName", title: "Well", width: 150, locked: true, lockable: true },
+            { field: "ActivityType", title: "Activity Type", width: 170, locked: true, lockable: true },
+            { field: "UARigSequenceId", title: "Rig<br>Sequence ID", width: 100, locked: true, lockable: true },
+            //{ field: "NonOP", title: "Non OP", width: 80, locked: true, lockable: true, 
+            //    template:"#: NonOP==true ? 'Yes' : '' #"
+            //},
+            {
+                field: "SaveToOP", title: "Save to OP", width: 80, locked: true, lockable: true,
+            },
+            //{ title: "OP-14", columns: [
+            //    { field: "PreviousPsStart", template:"#: jsonDateStr(PreviousPsStart) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },
+            //    { field: "PreviousPsFinish", template:"#: jsonDateStr(PreviousPsFinish) #", title: "Finish", width: 90, attributes: { style: 'text-align: center;' } },
+            //    { field: "PreviousPlanDuration", title: "Days", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+            //    { field: "PreviousPlanCost", title: "Cost<br/>($mm)", width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } }
+            //] },
+            {
+                title: "Est. OP", columns: [
+                    { field: "PsStart", template: "#: jsonDateStr(PsStart) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "PsFinish", template: "#: jsonDateStr(PsFinish) #", title: "Finish", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "PlanDuration", title: "Days", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+                    { field: "PlanCost", title: "Cost<br/>($mm)", width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } }
+                ]
+            },
+            {
+                title: "Latest Sequence", columns: [
+                    {
+                        field: "OpsStart", title: "Start",
+                        format: "{0:dd-MMM-yyyy}",
+                        width: 90, attributes: { style: 'text-align: center;' }
+                    },
+                    { field: "OpsFinish", title: "Finish", template: "#: jsonDateStr(OpsFinish) #", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "OpsDuration", title: "Duration<br />(Days)", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+                    { field: "OpsCost", title: "Cost<br/>($mm)", width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } }
+                ]
+            },
+            // { field: "PhRiskDuration", title: "PL Risk<br/>Duration<br />(Days)", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+            {
+                field: "LE", columns: [
+                    { field: "LEStart", title: "Start", template: "#: jsonDateStr(LEStart) #", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "LEFinish", title: "Finish", template: "#: jsonDateStr(LEFinish) #", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "LEDuration", title: "Duration<br />(Days)", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+                    { field: "LECost", title: "Cost<br />(US$ m)", width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } }
+                ]
+            },
+            {
+                field: "AFE", columns: [
+                    { field: "AFEDuration", title: "Duration<br />(Days)", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+                    { field: "AFECost", title: "Cost<br />(US$ m)", width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } },
+                ]
+            },
+            { field: "Region", title: "Region", width: 80 },
+            { field: "OperatingUnit", title: "Operating Unit", width: 80 },
+            { field: "RigType", title: "Rig Type", width: 80 },
+            { field: "ProjectName", title: "Project Name", width: 120 },
+            { field: "AssetName", title: "Asset Name", width: 120 },
+            { field: "ShellShare", title: "Working Interest", width: 80, attributes: { style: 'text-align:right;' }, template: '#=kendo.format("{0:n2}", ShellShare)#' },
+            { field: "FirmOrOption", title: "Firm/Option", width: 80 },
+            { field: "UARigDescription", title: "UA Rig Description", width: 150 }
+            //,
+            //{
+            //    title: "No Well Schedule", field: 'VirtualPhase', width: 100, locked: true, lockable: false, editable: true,
+            //    template: '<input disabled="disabled" onclick="generateEditor(this)" type="checkbox" #= VirtualPhase ? checked="checked" : "" # ></input>'
+            //}
+    );
+
+
+    for (var i = 0; i < data.length; i++) {
+        var PsStart = data[i].PsStart;
+        var PsFinish = data[i].PsFinish;
+
+        var OpsStart = data[i].OpsStart;
+        var OpsFinish = data[i].OpsFinish;
+        var LEStart = data[i].LEStart;
+        var LEFinish = data[i].LEFinish;
+        data[i].PsStart = jsonDateStr(PsStart);
+        data[i].PsFinish = jsonDateStr(PsFinish);
+        data[i].OpsStart = jsonDateStr(OpsStart);
+        data[i].OpsFinish = jsonDateStr(OpsFinish);
+        data[i].LEStart = jsonDateStr(LEStart);
+        data[i].LEFinish = jsonDateStr(LEFinish);
+
+        var Period = jsonDateStr(LEStart) + " -- " + jsonDateStr(LEFinish);
+        data[i].Period = Period;
+    }
+
+    $('#gridCatalog').replaceWith($('<div />').attr('id', 'gridCatalog'));
+    $('#gridCatalog').kendoGrid({
+        //toolbar: ["pdf", "excel"],
+        //pdf: { fileName: "Business Plan.pdf" },
+        //excel: { fileName: "Business Plan.xlsx", allPages: true, filterable: true },
+        dataSource: {
+            schema: {
+                model: {
+                    PhStart: 'date',
+                    PhFinish: 'date',
+                    OpsStart: 'date',
+                    OpsFinish: 'date',
+                    fields: {
+                        "VirtualPhase": { type: "boolean", editable: false },
+                    }
+                }
+            },
+            data: data,
+            type: "json",
+            pageSize: 10
+        },
+
+        pageable: true,
+        sortable: true,
+        resizable: true,
+        columns: gridColumns,
+        excelExport: function (e) {
+            e.preventDefault()
+            //ExportToExcel();
+            return false;
+            //var sheet = e.workbook.sheets[0];
+            //var row = sheet.rows[1];
+
+            //for (var i = 0; i < row.cells.length; i++) {
+            //    console.log("Before : " + row.cells[i].value);
+
+            //    row.cells[i].value = row.cells[i].value.replace("<br />", " ");
+            //    row.cells[i].value = row.cells[i].value.replace("<br/>", " ");
+            //    row.cells[i].value = row.cells[i].value.replace("<b>", "");;
+            //    row.cells[i].value = row.cells[i].value.replace("</b>", "");;
+            //    console.log("After : " + row.cells[i].value);
+
+            //}
+        },
+    });
+
+    }
+
+</script>
+ 
+<div class="col-md-12 no-padding">
+    <button class="btn btn-custom btn-warning btn-sm" onclick="changeMode('browser','');" style="margin-bottom:10px">
+        <span class="glyphicon glyphicon-arrow-left"></span> Back to Browser
+    </button>
+    <span style="font-size:12px;margin-left:35%;padding:5px" class="label label-success">Business Plan Catalog: Status Complete or Draft</span>
+    <div id="gridCatalog"></div>
+</div>
+<div class="col-md-12 no-padding" data-bind="visible:model.catalogresult">
+    <span style="margin-bottom:160px;margin-left:50%;width:100%;text-align:center;font-style:italic;font-size:14px;">
+        No Data Found
+    </span>
+</div>

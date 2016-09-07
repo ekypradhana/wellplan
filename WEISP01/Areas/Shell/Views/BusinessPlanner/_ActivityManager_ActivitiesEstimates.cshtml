@@ -1,0 +1,255 @@
+﻿<div data-bind="with:model.bpmodel()">
+    <div class="col-md-12" style="margin-top:15px">
+        <div class="col-md-6">
+            <div data-bind="visible:false,text:id"></div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Line Of Business</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Region</label></div>
+                <div class="col-md-7"><div data-bind="text:region"></div></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Operating Unit</label></div>
+                <div class="col-md-7"><div data-bind="text:operatingunit"></div></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Performance Unit</label></div>
+                <div class="col-md-7"><div data-bind="text:performanceunit"></div></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Aset</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Wellname</label></div>
+                <div class="col-md-7"><div id="wellname" data-bind="text:wellname"></div></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Currency</label></div>
+                <div class="col-md-7">% Shell Share</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Input By</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Status</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Data Last Submitted:to Plan </label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Maturity Level (0-4)</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Funding Type</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Water Depth MD (ft)</label></div>
+                <div class="col-md-7"><input id="parmWaterDept" style="width:200px" data-bind="value:parmWaterDept" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Total Well Depth MD (ft)</label></div>
+                <div class="col-md-7"><input id="parmWellDept" style="width:200px" data-bind="value:parmWellDept" /></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-12" style="margin-top:20px">
+        <div class="col-md-4">
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Rig Name</label></div>
+                <div class="col-md-7"><input id="parmRig" style="width:200px" data-bind="value:parmRig" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Project Start Date</label></div>
+                <div class="col-md-7"><input id="parmProjectStartDate" style="width:100px" data-bind="value:parmProjectStartDate" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Rig Date</label></div>
+                <div class="col-md-7"><input id="parmRigDate" style="width:100px" data-bind="value:parmRigDate" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Tangibels (Total)</label></div>
+                <div class="col-md-7"><input id="parmTangibelTotal" style="width:200px" data-bind="value:parmTangibelTotal" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>% Of Tangibles Long Lead</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Spread Rate w/o Rig</label></div>
+                <div class="col-md-7"><input id="parmSpreadRate" style="width:200px" data-bind="value:parmSpreadRate" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Burn Rate</label></div>
+                <div class="col-md-7"><input id="parmBurnRate" style="width:200px" data-bind="value:parmBurnRate" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Spread Rate Total</label></div>
+                <div class="col-md-7"><input id="parmSpreadRateTotal" style="width:200px" data-bind="value:parmSpreadRateTotal" /></div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Project value driver</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Value Driver Related Estimate</label></div>
+                <div class="col-md-7"><input id="parmValueDriver" style="width:200px" data-bind="value:parmValueDriver" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>TQ Threshold</label></div>
+                <div class="col-md-7"><input id="parmTQThreshold" style="width:200px" data-bind="value:parmTQThreshold" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>BIC Threshold</label></div>
+                <div class="col-md-7"><input id="parmBIC" style="width:200px" data-bind="value:parmBIC" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>TQ Gap</label></div>
+                <div class="col-md-7"><input id="parmTQGap" data-bind="value:parmTQGap" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>BIC Gap</label></div>
+                <div class="col-md-7"><input id="parmBIC" style="width:200px" data-bind="value:parmBIC" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Performance Score</label></div>
+                <div class="col-md-7"><input id="parmPerformanceScore" data-bind="value:parmPerformanceScore" /></div>
+            </div>
+        </div>
+        <div class="col-md-4"></div>
+    </div>
+    <div class="col-md-12" style="margin-top:20px">
+        <div class="col-md-4">
+            <div class="col-md-12">
+                <div class="col-md-5"><label>TIME ESTIMATE</label></div>
+                <div class="col-md-7">Use TA Approved % 's?</div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Trouble Free Time (days)</label></div>
+                <div class="col-md-7"><input id="parmTroubleFreeTime" style="width:200px" data-bind="value:parmTroubleFreeTime" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>NPT Time %</label></div>
+                <div class="col-md-7"><input id="parmNptTime" style="width:200px" data-bind="value:parmNptTime" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>TECOP Time %</label></div>
+                <div class="col-md-7"><input id="parmTecopTime" data-bind="value:parmTecopTime" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>NPT Time (days)</label></div>
+                <div class="col-md-7"><input id="parmNptTimeDays" style="width:200px" data-bind="value:parmNptTimeDays" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Mean Time (days)</label></div>
+                <div class="col-md-7"><input id="parmNptMeanDays" style="width:200px" data-bind="value:parmNptMeanDays" /></div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Scope Description</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Drilling (# of Casings)</label></div>
+                <div class="col-md-7"><input id="parmDrilling" data-bind="value:parmDrilling" style="width:200px" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>MRI</label></div>
+                <div class="col-md-7"><input id="parmMri" data-bind="value:parmMri" style="width:200px" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Completion Type</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>#Of Completion Zones</label></div>
+                <div class="col-md-7"><input id="parmZone" data-bind="value:parmZone" style="width:200px" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Brine Density (ppg)</label></div>
+                <div class="col-md-7"><input id="parmBrine" data-bind="value:parmBrine" style="width:200px" /></div>
+            </div>
+        </div>
+        <div class="col-md-4"></div>
+    </div>
+    <div class="col-md-12" style="margin-top:10px">
+        <div class="col-md-4">
+            <div class="col-md-12">
+                <div class="col-md-5"><label>COST ESTIMATE</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Trouble Free Cost</label></div>
+                <div class="col-md-7"><input id="parmTroubleFreeCost" data-bind="value:parmTroubleFreeCost" style="width:200px" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>NPT Cost %</label></div>
+                <div class="col-md-7"><input id="parmNpt" data-bind="value:parmNpt" style="width:200px" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>TECO Cost</label></div>
+                <div class="col-md-7"><input id="parmTeco" data-bind="value:parmTeco" style="width:200px" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Mean Cost EDM</label></div>
+                <div class="col-md-7"></div>
+            </div>
+        </div>
+        <div class="col-md-4"></div>
+        <div class="col-md-4"></div>
+    </div>
+    <div class="col-md-12" style="margin-top:10px">
+        <div class="col-md-4">
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Convertion to USD</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Trouble Free Cost</label></div>
+                <div class="col-md-7"><input id="parmTroubleCost2" data-bind="value:parmTroubleCost2" style="width:200px" /></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>NPT Cost USD MM</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>TECOP Cost USD MM</label></div>
+                <div class="col-md-7"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-5"><label>Cost EDM USD MM</label></div>
+                <div class="col-md-7"></div>
+            </div>
+        </div>
+        <div class="col-md-4"></div>
+        <div class="col-md-4"></div>
+    </div>
+    <div class="col-md-12" style="margin-top:10px">
+        <div class="col-md-6" style="text-align:left">
+            <button class="btn btn-sm btn-primary" data-bind="click:FY_Expense()">FY Expense Profile</button>
+            <button class="btn btn-sm btn-primary" data-bind="click:SaveDraft_Estimate()">Pproject Expense Profile</button>
+
+        </div>
+        <div class="col-md-6" style="text-align:right">
+            <button class="btn btn-sm btn-primary" onclick="projectExpense()">Fixed Event</button>
+            <button class="btn btn-sm btn-primary" data-bind="click:SaveDraft_Estimate()">Save Draft</button>
+            <button class="btn btn-sm btn-primary" data-bind="click:Save_Estimate()">Save/Submit</button>
+            <button class="btn btn-sm btn-primary" onclick="projectExpense()">Delete</button>
+        </div>
+    </div>
+    
+
+</div>
+    

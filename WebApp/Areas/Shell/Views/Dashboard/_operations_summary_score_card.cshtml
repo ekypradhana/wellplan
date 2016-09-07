@@ -1,0 +1,223 @@
+﻿
+
+<script>
+    model.DataOSSC = ko.observableArray([]);
+    model.Threshold = ko.observable(5);
+    var scoreCardData = null;
+
+    function get_score_card() {
+        var param = model.getFilterValues();
+        param.group = "Well";
+        //param.activeWell = "None";
+        param.type = "ScoreCard";
+        var url = "@Url.Action("GetOperationSummaryScoreCard")";
+        ajaxPost(url, param, function (res) {
+            //scoreCardData = res.Data;
+            console.log(res);
+            model.DataOSSC([]);
+            for (var i = 0; i < res.Data.length; i++) {
+                model.DataOSSC.push(res.Data[i]);
+            }
+            //model.DataOSSC(res.Data);
+            renderGridScore(res.Period,res.Total);
+        }, function (a, b, c) {
+            console.log(a);
+            console.log(b);
+            console.log(c);
+        });
+    }
+
+    function joinLeadEngineer(LE) {
+        var a = [];
+        if (LE != null) {
+            for (var i = 0; i < LE.length; i++) {
+                if (LE[i] != "" && LE[i] != null) {
+                    if(a.indexOf(LE[i]) == -1)
+                    a.push(LE[i]);
+                }
+            }
+            return a.join();
+        } else {
+            return "-";
+        }
+    }
+
+    function countWithThreshold(data,threshold) {
+        //var data = model.DataOSSC();
+        //var threshold = model.Threshold();
+
+        for (var i = 0; i < data.length; i++) {
+            var OP = data[i].OP;
+            var threshold_val = (parseFloat(threshold) / 100);
+            var OP_threshold = OP + (threshold_val * OP);
+            data[i].Threshold = OP_threshold;
+
+            var LE_CurrentYear = data[i].LE_CurrentYear;
+            var LE_CurrentNextYear = data[i].LE_CurrentNextYear;
+            var LE_PreviousYear = data[i].LE_PreviousYear;
+            var LE_NextYear = data[i].LE_NextYear;
+            var LE = data[i].LE;
+
+            data[i].LEColor = pushLEClass(LE, OP, OP_threshold);
+            data[i].LE_CurrentYearColor = pushLEClass(LE_CurrentYear, OP, OP_threshold);
+            data[i].LE_CurrentNextYearColor = pushLEClass(LE_CurrentNextYear, OP, OP_threshold);
+            data[i].LE_PreviousYearColor = pushLEClass(LE_PreviousYear, OP, OP_threshold);
+            data[i].LE_NextYearColor = pushLEClass(LE_NextYear, OP, OP_threshold);
+
+        }
+
+        
+
+        return data;
+    }
+
+    function pushLEClass(LE, OP, OP_threshold) {
+        var Color = "";
+        if ( parseFloat(kendo.toString(LE,"N1")) > 0) {
+            if (LE <= OP) {
+                Color = "le-green";
+                //data[i].Class = "le-green";
+            } else if (LE > OP && LE < OP_threshold) {
+                Color = "le-yellow";
+                //data[i].Class = "le-yellow";
+            } else {
+                Color = "le-red";
+                //data[i].Class = "le-red";
+            }
+        } else {
+            Color = "";
+        }
+        return Color;
+
+    }
+
+    function renderGridScore(period,total) {
+        var cols = [
+            { field: "WellName", title: "Well", width: 230, locked: true, lockable: true },
+            {
+                title: "Period", width: 250, columns: [
+                    { field: "LEStart", width: 125, title: "Start" },
+                    { field: "LEFinish", width: 125, title: "Finish" }
+                ]
+            },
+            //{ field: "LEStart", title: "Period", width: 250, locked: true, lockable: true, template: "#: jsonDateStr(LEStart) # -- #: jsonDateStr(LEFinish) #" },
+            {
+                field: "OP", title: "OP-14 ($)", width: 80, format: "{0:N1}", attributes: { class: "cell-number" }, aggregates: ["sum"],
+                footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                //footerTemplate:"<div class='align_right'>#: kendo.format('{0:N1}',"+total.OP14Total+") #</div>"
+            },
+            {
+                field: "AFE", title: "AFE ($)", width: 80, format: "{0:N1}", attributes: { class: "cell-number" }, aggregates: ["sum"],
+                footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                //footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + total.AFETotal + ") #</div>"
+            },
+            {
+                field: "LE", title: "LE ($)", format: "{0:N1}", attributes: { class: "cell-number #: LEColor #" }, width: 80, aggregates: ["sum"],
+                footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                //footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + total.LETotal + ") #</div>"
+
+                //title: "LE",
+                //columns: [
+                //    {
+                //        field: "LE_PreviousYear", title: period.LE_PreviousYear, format: "{0:N1}", attributes: { class: "cell-number #: LE_PreviousYearColor #" }, width: 80,
+                //        footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + total.LE_PreviousYearTotal + ") #</div>"
+                //    },
+                //    {
+                //        field: "LE_CurrentYear", title: period.LE_CurrentYear, format: "{0:N1}", attributes: { class: "cell-number #: LE_CurrentYearColor #" }, width: 80,
+                //        footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + total.LE_CurrentYearTotal + ") #</div>"
+                //    },
+                //    {
+                //        field: "LE_CurrentNextYear", title: period.LE_CurrentNextYear, format: "{0:N1}", attributes: { class: "cell-number #: LE_CurrentNextYearColor #" }, width: 80,
+                //        footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + total.LE_CurrentNextYearTotal + ") #</div>"
+                //    },
+                //    {
+                //        field: "LE_NextYear", title: period.LE_NextYear, format: "{0:N1}", attributes: { class: "cell-number #: LE_NextYearColor #" }, width: 80,
+                //        footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + total.LE_NextYearTotal + ") #</div>"
+                //    },
+                //]
+            },
+            {
+                field: "LeadEngineer", title: "Lead Engineers", filterable: false, template: "#: joinLeadEngineer(LeadEngineer) #", width: 250
+            }
+        ];
+
+        var data = countWithThreshold(model.DataOSSC(), model.Threshold());
+
+
+        for (var i = 0; i < data.length; i++) {
+            var LEStart = data[i].LEStart;
+            var LEFinish = data[i].LEFinish;
+
+            data[i].LEStart = jsonDateStr(LEStart);
+            data[i].LEFinish = jsonDateStr(LEFinish);
+
+            var Period = jsonDateStr(LEStart) + " -- " + jsonDateStr(LEFinish);
+            data[i].Period = Period;
+        }
+
+        console.log(data);
+        $('#grid_score').replaceWith($('<div />').attr('id', 'grid_score'));
+        $('#grid_score').kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "Operation Summary Score Card.pdf" },
+            excel: { fileName: "Operation Summary Score Card.xlsx", allPages: true },
+            dataSource: {
+                schema: {
+                    model: {
+                        LEStart: 'date',
+                        LEFinish: 'date'
+                    }
+                },
+                data: data,
+                type: "json",
+                pageSize: data.length,
+                aggregate: [
+                    { field: "OP", aggregate: "sum" },
+                    { field: "AFE", aggregate: "sum" },
+                    { field: "LE", aggregate: "sum" }
+                ]
+            },
+            excelExport: function (e) {
+                var sheet = e.workbook.sheets[0];
+                var row = sheet.rows[1];
+
+                var row2 = sheet.rows[sheet.rows.length - 1];
+                console.log("row2 : " + row2);
+                for (var i = 1; i < sheet.rows[sheet.rows.length - 1].cells.length; i++) {
+                    console.log(row2.cells[i]);
+                    if (i > 2 && i <= 5) {
+                        row2.cells[i].value = parseFloat(row2.cells[i].value.replace(",", ""));
+                    }
+                }
+            },
+            pageable: false,
+            sortable: true,
+            resizable: true,
+            height: 400,
+            columns: cols,
+            scrollable: true
+        });
+    }
+
+    $(function () {
+        $('[href=#operations-summary-score-card]').on('click', function () {
+            setTimeout(function () {
+                $('#grid_score').data('kendoGrid').refresh();
+            }, 500);
+        });
+    });
+
+</script>
+<div class="col-md-1 grids">&nbsp;</div>
+<div class="col-md-10 grids" style="margin-bottom:20px;">
+    <div style="margin-bottom:20px;">
+        <label>Threshold (%) : </label>
+        <input id="threshold" type="number" min="0" max="100" style="width: 80px; margin-right: 10px;" data-bind="value:model.Threshold">
+        <button class="btn btn-sm btn-custom btn-warning" onclick="renderGridScore();">
+            <span class="glyphicon glyphicon-refresh"></span> Refresh
+        </button>
+    </div>
+    <div id="grid_score"></div>
+</div>
+<div class="col-md-1 grids">&nbsp;</div>
+<div class="clearfix"></div>

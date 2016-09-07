@@ -1,0 +1,62 @@
+﻿<style></style>
+
+<div style="padding: 0px 15px 15px;">
+    <div class="ec-panel" data-bind="with:model.bpmodel()">
+        <div class="col-md-12" style="text-align:center">
+
+            <ul class="nav nav-stacked" style="margin-bottom:10px">
+                <li class="stacked" style="background-color: #23be23; border: none; padding: 10px; color: #ffffff">Economic Inflation</li>
+            </ul>
+        </div>
+        <div class="clearfix"></div>
+
+        <div class="col-md-12" style="margin-top:15px;">
+            <div class="col-md-6">
+                <label>Country:</label>
+                <input type="text" data-bind="kendoDropDownList:{data:['Australia','Indonesia', 'Singapore']}" />
+                <button type="button" class="btn btn-primary btn-sm" style="width:100px" onclick="model.bpmodel().unhideDetail()">Submit</button>
+                @*<div class="col-md-4 text-right">
+                        <label>Country:</label>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" data-bind="kendoDropDownList:{data:['Australia','Indonesia', 'Singapore']}" />
+                    </div>
+                    <div class="col-md-4">
+                        <button type="button" class="btn btn-primary btn-sm">Submit</button>
+                    </div>*@
+            </div>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="ec-panel" data-bind="visible:model.bpmodel().detail()">
+        <div class="col-md-12 no-padding" style="margin-top:25px;">
+            <ul class="nav nav-tabs">
+                <li class="active"><a href="#upload" id="" data-toggle="tab">Upload Forecast</a></li>
+                <li><a href="#view" data-toggle="tab" id="">View Forecast</a></li>
+                <li><a href="#edit" data-toggle="tab" id="">Edit Forecast</a></li>
+            </ul>
+            <div class="tab-content" style="padding-top:10px;">
+                <div class="tab-pane active" id="upload" style="overflow-y:auto;">
+                    <div class="col-md-12">
+                        <label>Economic Inflation Factor:</label>
+                        <input type="text" data-bind="value:model.bpmodel().economicInflation"/>
+                        <button type="button" class="btn btn-primary btn-sm" style="width:100px">Submit</button>
+                    </div>
+                </div>
+                <div class="tab-pane" id="view" style="overflow-y:auto;">
+                    <div class="col-md-12">
+                        <label>Economic Inflation Factor:</label>
+                        <input type="text" data-bind="value:model.bpmodel().economicInflation">
+                    </div>
+                </div>
+                <div class="tab-pane" id="edit" style="overflow-y:auto;">
+                    <div class="col-md-12">
+                        <label>Economic Inflation Factor:</label>
+                        <input type="text" data-bind="value:model.bpmodel().economicInflation"/>
+                        <button type="button" class="btn btn-primary btn-sm" style="width:100px">Submit</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

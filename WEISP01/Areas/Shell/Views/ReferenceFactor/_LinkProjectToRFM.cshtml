@@ -1,0 +1,110 @@
+﻿<script>
+    n.ChangeProjectName = function () {
+        p.RFMs([]);
+        $(".rfm input").each(function (i, e) { $(e).prop("checked", false); });
+
+        setTimeout(function () {
+            var url = "@Url.Action("GetProjectRFM")";
+            var param = ko.mapping.toJS(p);
+
+            n.IsModalProcessing(true);
+
+            ajaxPost(url, param, function (res) {
+                if (res.Result != "OK") {
+                    alert(res.Message);
+                    n.IsModalProcessing(false);
+                    return;
+                }
+
+                n.IsModalProcessing(false);
+                p.RFMs(res.Data);
+
+                n.GroupCase().forEach(function (d) {
+                    var $input = $(".rfm .key:contains('" + d + "')").next();
+                    $input.prop("checked", (p.RFMs().indexOf(d) > -1));
+                });
+            });
+        }, 100);
+    };
+    n.SaveProjectRFM = function () {
+        var param = ko.mapping.toJS(p);
+
+        if (param.ProjectName == '') {
+            alert("Project name cannot be empty");
+            return;
+        }
+
+        var url = "@Url.Action("SaveProjectRFM")";
+        param.RFMs = [];
+
+        $(".rfm input:checked").each(function (i, e) {
+            var key = $(e).prev().html();
+            param.RFMs.push(key);
+        });
+
+        n.IsModalProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                n.IsModalProcessing(false);
+                $("#modal-link-to-project").modal("hide");
+                return;
+            }
+
+            n.IsModalProcessing(false);
+            p.RFMs(res.Data);
+            $("#modal-link-to-project").modal("hide");
+
+            if (p.CallbackFromProjectRFM != undefined)
+                p.CallbackFromProjectRFM();
+        });
+    };
+    n.IsShowViewLinkedProjectButton = ko.observable(false);
+    n.GoToViewLinkedProject = function () {
+        document.location.href = "@Url.Action("ProjectRFM")";
+    };
+</script>
+
+<div class="modal fade" id="modal-link-to-project" data-bind="with: n">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                <h4 class="modal-title">Link RFM to Project</h4>
+            </div>
+            <div class="modal-body" data-bind="visible: IsModalProcessing()">
+                @Html.Partial("_processing")
+            </div>
+            <div class="modal-body" data-bind="visible: !IsModalProcessing()">
+                <div class="col-md-6">
+                    <h5>Project Name :</h5>
+                </div>
+                <div class="col-md-6">
+                    <h5>Reference Factor Models :</h5>
+                </div>
+                <div class="col-md-6">
+                    <select class="rfms" style="width: 100%;" data-bind="kendoDropDownList: { data: ProjectNames, value: p.ProjectName, select: ChangeProjectName, optionLabel: 'Select one' }"></select>
+                </div>
+                <div class="col-md-6 rfm">
+                    <!-- ko foreach: GroupCase -->
+                    <div>
+                        <div class="key" data-bind="text: $data" style="display: none;"></div>
+                        <input type="checkbox" />
+                        <span data-bind="text: $data"></span>
+                    </div>
+                    <!-- /ko -->
+                    @*<select style="width: 100%;" data-bind="kendoMultiSelect: { data: GroupCase, value: p.RFMs }"></select>*@
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="modal-footer" data-bind="visible: !IsModalProcessing()">
+                <button type="button" class="btn btn-warning btn-sm btn-custom" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary btn-sm btn-custom" data-bind="visible: n.IsShowViewLinkedProjectButton(), enable: !model.BisPlanRecalculateStatus() && n.CanEdit(), click: GoToViewLinkedProject">View Linked Project</button>
+                <button type="button" class="btn btn-primary btn-sm btn-custom" data-bind="click: SaveProjectRFM, enable: !model.BisPlanRecalculateStatus() && n.CanEdit()">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>

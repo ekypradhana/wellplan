@@ -1,0 +1,1144 @@
+﻿@using ECIS.AppServer.Areas.Shell.Controllers
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using MongoDB.Bson;
+@using Newtonsoft.Json;
+@{
+    var BaseOP = DataHelper.Populate("WEISOPs").Select(x => BsonHelper.GetString(x, "_id")).OrderBy(x => x).ToList<string>();
+    var AssetNames = MasterAssetName.Populate<MasterAssetName>().Select(x => x._id).Distinct().ToList();
+    var LineOfBusiness = DataHelper.Populate("WEISLineOfBusiness").Select(x => BsonHelper.GetString(x, "_id")).OrderBy(x => x).ToList<string>();
+    var q = Query.And(Query.NE("Currency", ""));
+    var PerformanceUnits = new List<Dictionary<string, object>>();
+    var elements = DataHelper.Populate<WellPIP>("WEISWellPIPs").SelectMany(d => d.Elements);
+    if (elements.Where(d => d.PerformanceUnit != null).Count() > 0)
+    {
+        PerformanceUnits = elements.Where(d => d.PerformanceUnit != null).GroupBy(d => d.PerformanceUnit)
+            .Select(d => new
+            {
+                DataText = d.Key == "" ? "All Others" : d.Key,
+                DataValue = d.Key
+            }.ToBsonDocument()).OrderBy(d => d.GetString("DataValue"))
+            .Select(d => d.ToDictionary()).ToList();
+    }
+}
+
+<style>
+    .filter {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+        .filter .col-md-3, .filter .col-md-4 {
+            padding: 0px;
+            margin: 0px;
+        }
+
+        .filter .col-md-4 {
+            text-align: right;
+            min-height: 28px;
+        }
+
+            .filter .col-md-4 label {
+                padding-top: 4px;
+            }
+
+        .filter .col-md-8 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .filter .floated {
+            text-align: right;
+            padding-right: 6px;
+            height: 35px;
+        }
+
+        .filter .not-floated {
+            text-align: left;
+            margin-top: 3px !important;
+            padding-right: 6px;
+            height: 35px;
+        }
+
+    .shell-button {
+        color: white;
+        background-color: #f4b350;
+        border: 1px solid #E2A952;
+        border-radius: 2px;
+        width: 115px;
+        height: 30px;
+    }
+
+    .filter.disabled {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+</style>
+
+<div class="col-md-12 row filter" data-bind="with: $root.FilterVisibility">
+
+    <!-- by status in busplan -->
+    <div class="col-md-4" data-bind="visible: LineOfBusiness">
+        <div class="col-md-4">
+            <label>Line of Business: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="LineOfBusiness" data-placeholder="Select Line Of Business ..." style="width:100%"></select>
+        </div>
+    </div>
+
+    <!-- by rig types -->
+    <div class="col-md-4" data-bind="visible: RigTypes">
+        <div class="col-md-4">
+            <label>Rig Types: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="rigTypes" data-placeholder="Select rig types ..."></select>
+        </div>
+    </div>
+
+    <!-- by rig names -->
+    <div class="col-md-4" data-bind="visible: RigNames">
+        <div class="col-md-4">
+            <label>Rig Names: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="rigNames" data-placeholder="Select rig names ..."></select>
+        </div>
+    </div>
+
+    <!-- by regions -->
+    <div class="col-md-4" data-bind="visible: Regions">
+        <div class="col-md-4">
+            <label>Regions: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="regions" data-placeholder="Select regions ..."></select>
+        </div>
+    </div>
+
+    <!-- by projects -->
+    <div class="col-md-4" data-bind="visible: ProjectNames">
+        <div class="col-md-4">
+            <label>Projects: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="projectNames" data-placeholder="Select projects ..."></select>
+        </div>
+    </div>
+
+    <!-- by wellname -->
+    <div class="col-md-4" data-bind="visible: WellNames">
+        <div class="col-md-4">
+            <label>Well: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="wellNames" data-placeholder="Select wells ..."></select>
+        </div>
+    </div>
+
+    <!-- by operation units -->
+    <div class="col-md-4" data-bind="visible: OperatingUnits">
+        <div class="col-md-4">
+            <label>Operation Units: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="operatingUnits" data-placeholder="Select operating units ..."></select>
+        </div>
+    </div>
+
+    <!-- by activitiesCategory -->
+    <div class="col-md-4" data-bind="visible: Activities">
+        <div class="col-md-4">
+            <label>Activity Category: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="activitiesCategory" data-placeholder="Select activities category ..."></select>
+        </div>
+    </div>
+
+    <!-- by activities -->
+    <div class="col-md-4" data-bind="visible: Activities">
+        <div class="col-md-4">
+            <label>Activities: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="activities" data-placeholder="Select activities ..."></select>
+        </div>
+    </div>
+
+    <!-- by performance units -->
+    <div class="col-md-4" data-bind="visible: PeriodView()" style="margin-bottom: 8px !important;">
+        <div class="col-md-4">
+            <label>Period View: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="periodView" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: PeriodBase">
+        <div class="col-md-4">
+            <label>Period Base:</label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="periodBase" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: ExType" style="margin-bottom: 8px !important;">
+        <div class="col-md-4">
+            <label>Funding Type: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="exType" data-placeholder="Select Funding Type ..."></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: Asset">
+        <div class="col-md-4">
+            <label>Asset: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="Asset" data-placeholder="Select Asset ..." style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <!-- InPlan-->
+    <div class="col-md-4" data-bind="visible: isInPlan">
+        <div class="col-md-4">
+            <label>In Plan:</label>
+        </div>
+        <div class="col-md-8">
+            <select id="isInPlan" data-model="isInPlan" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: EDMWellNames" style="margin-bottom: 8px !important;">
+        <div class="col-md-4">
+            <label>EDM Well: </label>
+        </div>
+        <div class="col-md-8">
+            <input data-model="edmwellnames" />
+        </div>
+    </div>
+
+    <!-- by Firm or Option -->
+    <div class="col-md-4" data-bind="visible: firmoption">
+        <div class="col-md-4">
+            <label>Firm / Option:</label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="firmoption" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <!-- by performance units -->
+    <div class="col-md-4" data-bind="visible: PerformanceUnits">
+        <div class="col-md-4">
+            <label>Performance Units: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="performanceUnits" data-placeholder="Select performance units ..."></select>
+        </div>
+    </div>
+    <div class="clearfix"></div>
+
+    <!-- by ops -->
+    <div class="col-md-4" data-bind="visible: OPs">
+        <div class="col-md-4">
+            <label>Base OP: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="OPs" data-placeholder="Select Base OP ..."></select>
+        </div>
+    </div>
+
+    <!-- by op relation -->
+    <div class="col-md-4" data-bind="visible: OpRelation">
+        <div class="col-md-4">
+            <label>OP Relation: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="opRelation" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <!-- by status in busplan -->
+    <div class="col-md-4" data-bind="visible: Status">
+        <div class="col-md-4">
+            <label>Status: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="Status" data-placeholder="Select Status ..."></select>
+        </div>
+    </div>
+    <div class="clearfix"></div>
+
+    <!-- by single OP -->
+    <div class="col-md-4" data-bind="visible: singleOP">
+        <div class="col-md-4">
+            <label>Base OP: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="singleOP" data-placeholder="Select Base OP ..."></select>
+        </div>
+    </div>
+    <div class="clearfix"></div>
+
+    @* <div class="clearfix" data-bind="visible: (inlastuploadls() || Activities() || PerformanceUnits() || ExType())"></div>*@
+
+
+
+    <div class="col-md-4 active-well" data-bind="visible: YearsCalc() && !model.FilterVisibility.PeriodViewIsProjectView()">
+        <div class="col-md-4">
+            <label>Fiscal Year :</label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="YearsCalc" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <div class="clearfix" data-bind="visible: PeriodView()"></div>
+
+    <div data-bind="visible: PeriodViewIsProjectView()">
+        <!-- by date -->
+        <div class="col-md-4" data-bind="visible: Date" style="margin-bottom: 8px !important;">
+            <div class="col-md-4">
+                <label>Period<span data-bind="visible: showLabelLSFilter"> (LS)</span> Start: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="date" style="width: 100%;"></select>
+            </div>
+        </div>
+
+        <!-- by start date -->
+        <div class="col-md-4" data-bind="visible: DateStart" style="margin-bottom: 8px !important;">
+            <div class="col-md-4">
+                <label>Date Range Start: </label>
+            </div>
+            <div class="col-md-8">
+                <input data-model="dateStart" type="date" style="width: 45%" />
+                <span style="width: 10%">&nbsp;-&nbsp;</span>
+                <input data-model="dateFinish" type="date" style="width: 45%; " />
+            </div>
+        </div>
+
+        <div class="col-md-4" data-bind="visible: PeriodViewIsProjectView() ? Date() : PeriodRelation()" style="margin-bottom: 8px !important;">
+            <div class="col-md-4">
+                <label>Period Relation: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="dateRelation" style="width: 100%;"></select>
+            </div>
+        </div>
+
+        <div class="col-md-4" data-bind="visible: inlastuploadls" style="text-align:left">
+            <div class="col-md-4">
+                <label>In Latest Sequence:</label>
+            </div>
+            <div class="col-md-8">
+                <input data-model="inlastuploadls" type="checkbox" id="inlastuploadls" checked="checked" style="width:100%"/> 
+            </div>
+        </div>
+        <div class="clearfix"></div>
+
+        <!-- by date -->
+        <div class="col-md-4" data-bind="visible: Date2">
+            <div class="col-md-4">
+                <label>Period<span data-bind="visible: showLabelLSFilter"> (LS)</span>  Finish: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="date2" style="width: 100%;"></select>
+            </div>
+        </div>
+
+        <!-- by start date -->
+        <div class="col-md-4" data-bind="visible: DateStart2">
+            <div class="col-md-4">
+                <label>Date Range Finish: </label>
+            </div>
+            <div class="col-md-8">
+                <input data-model="dateStart2" type="date" style="width: 45%" />
+                <span style="width: 10%">&nbsp;-&nbsp;</span>
+                <input data-model="dateFinish2" type="date" style="width: 45%; " />
+            </div>
+        </div>
+    </div>
+
+    <div data-bind="visible: !PeriodViewIsProjectView()">
+        <div class="col-md-4" style="margin-bottom: 8px !important;">
+            <div class="col-md-4">
+                <label>Period<span data-bind="visible: showLabelLSFilter"> (LS)</span>  Start: </label>
+            </div>
+            <div class="col-md-8">
+                <input data-model="dateStart" type="date" style="width: 100%;" />
+            </div>
+        </div>
+
+        <div class="col-md-4" style="margin-bottom: 8px !important;">
+            <div class="col-md-4">
+                <label>Period<span data-bind="visible: showLabelLSFilter"> (LS)</span>  Finish: </label>
+            </div>
+            <div class="col-md-8">
+                <input data-model="dateFinish" type="date" style="width: 100%;" />
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: riskcheck">
+        <div class="col-md-4">
+            <label>Include Risk:</label>
+        </div>
+        <div class="col-md-2" style="padding-left: 3px; text-align: left;">
+            <input data-model="riskcheck" type="checkbox" style="width: 45%" id="riskcheck" checked="checked" />
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: wellwithpipcheck">
+        <div class="col-md-4">
+            <label>Well With PIPs:</label>
+        </div>
+        <div class="col-md-2" style="padding-left: 3px; text-align: left;">
+            <input data-model="wellwithpipcheck" type="checkbox" style="width: 45%" id="wellwithpipcheck" checked="checked" />
+        </div>
+    </div>
+
+    <div class="col-md-4 active-well" data-bind="visible: ActiveWell">
+        <div class="col-md-4">
+            <label>Show Active Well:</label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="activeWell" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: AlreadyAssignTo">
+        <div class="col-md-4">
+            <label>Already Assigned to: </label>
+        </div>
+        <div class="col-md-8">
+            <select data-model="AlreadyAssignTo" data-placeholder="Select already assigned to ..."></select>
+        </div>
+    </div>
+
+    <div class="col-md-4 active-well" data-bind="visible: MonthlySequence">
+        <div class="col-md-4">
+            <label>Monthly Sequence:</label>
+        </div>
+        <div class="col-md-8">
+            <input data-model="monthlysequence" style="width: 100%;" />
+        </div>
+    </div>
+
+    <div class="col-md-4 active-well" data-bind="visible: lsresource">
+        <div class="col-md-4">
+            <label>Resouce LS:</label>
+        </div>
+        <div class="col-md-8">
+            <input type="checkbox" data-model="lsresource" class="checkbox" style="width: 45%" checked="checked" />
+        </div>
+    </div>
+
+
+
+    <!-- Status -->
+    <div class="col-md-4 active-well" data-bind="visible: busplanStatus">
+        <div class="col-md-4">
+            <label>Status:</label>
+        </div>
+        <div class="col-md-8">
+            <select id="busplanStatus" data-model="busplanStatus" style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: false" style="margin-bottom: 8px !important;">
+        <div class="col-md-4">
+            <label>Show by: </label>
+        </div>
+        <div class="col-md-8">
+            <div class="btn-group" data-toggle="buttons">
+                <label class="btn btn-primary btn-custom btn-sm active btn-trend btn-groupby" id="haveweekly" data-value="1" onclick='setShowDataBy(this)' data-bind="    css: { active: model.showdataby() =='1' }"><input type="radio"> Have Weekly</label>
+                <label class="btn btn-primary btn-custom btn-sm btn-trend btn-groupby" id="havemonthly" data-value="2" onclick='setShowDataBy(this)' data-bind="css:{active:model.showdataby() =='2' }"><input type="radio">  Have Monthly</label>
+                <label class="btn btn-primary btn-custom btn-sm btn-trend btn-groupby" id="alldata" data-value="0" onclick='setShowDataBy(this)' data-bind="css:{active:model.showdataby() =='0'}"><input type="radio">  All</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: MoneyType">
+        <div class="col-md-4">
+            <label>Money Type:</label>
+        </div>
+        <div class="col-md-8" style="padding-left: 3px; text-align: left;">
+            <select data-model="MoneyType" data-placeholder="Select Money Type ..."></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: Currency">
+        <div class="col-md-4">
+            <label>Currency:</label>
+        </div>
+        <div class="col-md-8" style="padding-left: 3px; text-align: left;">
+            <select data-model="Currency" data-placeholder="Select Currency ..." style="width: 100%;"></select>
+        </div>
+    </div>
+
+    <div class="col-md-4" data-bind="visible: SSorTG">
+        <div class="col-md-4">
+            <label>SS or TG:</label>
+        </div>
+        <div class="col-md-8" style="padding-left: 3px; text-align: left;">
+            <select data-model="SSorTG" data-placeholder="Select SS or TG ..." style="width: 100%;"></select>
+        </div>
+    </div>
+
+
+    <!-- button reload filter -->
+    <div data-bind="css: { 'col-md-12 floated': FloatedButton(), 'col-md-4 not-floated': !FloatedButton() }">
+        <button class="btn btn-custom btn-sm btn-primary do-filter">
+            <span class="glyphicon glyphicon-refresh"></span> Refresh
+        </button>
+    </div>
+
+
+</div>
+
+<script>
+
+    function setShowDataBy(param) {
+        var tt = $(param).attr("data-value");
+        model.showdataby(tt);
+    }
+    // set kendo datasource
+    (function () {
+        model.FilterVisibility = {
+            Regions: ko.observable(true),
+            OperatingUnits: ko.observable(true),
+            RigTypes: ko.observable(true),
+            RigNames: ko.observable(true),
+            ProjectNames: ko.observable(true),
+            WellNames: ko.observable(true),
+            Activities: ko.observable(false),
+            PerformanceUnits: ko.observable(false),
+            FloatedButton: ko.observable(true),
+            Date: ko.observable(false),
+            DateStart: ko.observable(false),
+            DateFinish: ko.observable(false),
+            Date2: ko.observable(false),
+            DateStart2: ko.observable(false),
+            DateFinish2: ko.observable(false),
+            riskcheck: ko.observable(false),
+            inlastuploadls: ko.observable(false),
+            MoneyType: ko.observable(false),
+            Currency: ko.observable(false),
+            SSorTG: ko.observable(false),
+            wellwithpipcheck: ko.observable(false),
+            ActiveWell: ko.observable(false),
+            PeriodBase: ko.observable(false),
+            ExType: ko.observable(false),
+            Asset: ko.observable(false),
+
+            EDMWellNames: ko.observable(false),
+            MonthlySequence: ko.observable(false),
+            YearsCalc: ko.observable(false),
+            PeriodViewIsProjectView: ko.observable(true),
+            PeriodView: ko.observable(false),
+            PeriodRelation: ko.observable(true),
+            OPs: ko.observable(false),
+            singleOP: ko.observable(false),
+            Status: ko.observable(false),
+            AlreadyAssignTo: ko.observable(false),
+            OpRelation: ko.observable(false),
+            firmoption: ko.observable(false),
+            lsresource: ko.observable(false),
+            showLabelLSFilter: ko.observable(false),
+            isInPlan: ko.observable(false),
+            busplanStatus: ko.observable(false),
+            LineOfBusiness: ko.observable(false),
+        };
+
+
+        model.showdataby = ko.observable('0');
+
+        model.maxDate = new Date(3001, 1, 1);
+        model.defaultDateStart = moment(new Date(2000, 1, 1)).startOf('year').toDate();
+        model.defaultDateFinish = moment(new Date(3000, 1, 1)).endOf('year').toDate();
+
+        model.MonthlySequence = moment(new Date(2000, 1, 1)).startOf('year').toDate();
+
+        @{
+
+             IMongoQuery qs;
+            qs = Query.NE("IsVirtualWell", true);
+            if (new WaterfallReportController().GetWellListBasedOnEmail().Any(x => x != "*"))
+            {
+                qs = Query.And(Query.In("_id", new BsonArray(new WaterfallReportController().GetWellListBasedOnEmail())), Query.NE("IsVirtualWell", true));
+            }
+            var wells = DataHelper.Populate("WEISWellNames", qs).Select(d => d.GetString("_id")).OrderBy(d => d);
+        }
+        model.MoneyType = ko.observableArray(["EDM", "MOD", "RT"]);
+        model.Currency = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(MacroEconomic.Populate<MacroEconomic>(q, fields: new string[]{"Currency"}).Select(x => x.Currency).Distinct().ToList())));
+        model.SSorTG = ko.observableArray([]);
+        model.regions = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRegions")
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        model.operatingUnits = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISOperatingUnits")
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        model.rigTypes = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigTypes")
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        model.rigNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigNames")
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        model.projectNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISProjectNames")
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        model.wellNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(wells)));
+        model.activities = ko.observableArray(model.MasterActivityTypes);
+        model.activitiesCategory = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate<ActivityMaster>("WEISActivities")
+            .Where(z=>null != z.ActivityCategory).GroupBy(d => d.ActivityCategory.Trim()).Select(d => d.Key))));
+        model.performanceUnits = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(PerformanceUnits)));
+        model.edmwellnames = ko.observable('');
+        var items = ["EXPEX", "CAPEX", "ABEX", "OPEX", "C2E", "EXPEX SUCCESS"];
+        model.exType = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISFundingTypes")
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        model.Asset = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(AssetNames)));
+        //model.exType = ko.observableArray(items);
+        //var OPs = ["OP14", "OP15"];
+        model.OPs = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(BaseOP)));
+        @*model.LineOfBusiness = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(LineOfBusiness)));*@
+        model.LineOfBusiness = ko.observableArray(['DEEPWATER']);
+        model.lsresource = ko.observable();
+        model.AlreadyAssignTo = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISOPs")
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+        var InPlanSource = [{ "name": "Yes", "value": true }, { "name": "No", "value": false }];
+        model.isInPlan = ko.observableArray(InPlanSource);
+        model.inlastuploadls = ko.observableArray(InPlanSource);
+        model.busplanStatus = ko.observableArray(['Draft', 'Complete', 'Modified']);
+        var arr = [];
+        for (var i = 2014; i < 2040; i++) {
+            arr.push(i);
+        }
+        model.YearsCalc = ko.observableArray(arr);
+
+
+        // date validation
+        model.InvalidDate1Message = ko.observable("Date range start cannot be empty");
+        model.InvalidDate2Message = ko.observable("Date range finish cannot be empty");
+        model.IsDateInputValid = function () {
+            if ($('[data-model=date]').data('kendoDropDownList').value() === 'Custom') {
+                var date1 = (function (d) { return !(d == null || d == ""); }($('[data-model=dateStart]').data('kendoDatePicker').value()));
+                var date2 = (function (d) { return !(d == null || d == ""); }($('[data-model=dateFinish]').data('kendoDatePicker').value()));
+
+                if (!(date1 || date2)) {
+                    alert(model.InvalidDate1Message());
+                    return false;
+                }
+            }
+
+            if ($('[data-model=date2]').data('kendoDropDownList').value() === 'Custom') {
+                var date1 = (function (d) { return !(d == null || d == ""); }($('[data-model=dateStart2]').data('kendoDatePicker').value()));
+                var date2 = (function (d) { return !(d == null || d == ""); }($('[data-model=dateFinish2]').data('kendoDatePicker').value()));
+
+                if (!(date1 || date2)) {
+                    alert(model.InvalidDate2Message());
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+        // return params of filter
+        model.getFilterValues = function () {
+            var result = {};
+
+            $('.filter').find('select:not([data-model="date"],[data-model="date2"],[data-model="singleOP"],[data-model="Status"],[data-model="LineOfBusiness"],[data-model="Asset"],[data-model="opRelation"],[data-model="firmoption"],[data-model="dateRelation"],[data-model="riskcheck"],[data-model="inlastuploadls"],[data-model="wellwithpipcheck"],[data-model="activeWell"],[data-model="periodBase"],[data-model="periodView"],[data-model="sortBy"],[data-model="sortType"],[id="PIPTypeFilter"], [id="YearsCalc"],[data-model="lsresource"],[data-model="isInPlan"],[data-model="busplanStatus"], [data-model="SSorTG"])').each(function (i, e) {
+                result[$(e).attr('data-model')] = $(e).data('kendoMultiSelect').value();
+            });
+
+            $(['dateStart', 'dateFinish', 'dateStart2', 'dateFinish2']).each(function (i, e) {
+                var val = $('[data-model="' + e + '"]').data('kendoDatePicker').value();
+                if ($.trim(val).length === 0) return;
+
+                result[e] = moment(val).format('YYYY-MM-DD');
+            });
+
+            if (!model.FilterVisibility.PeriodViewIsProjectView()) {
+                result["dateStart"] = moment($("[data-model='dateStart']:last").data("kendoDatePicker").value()).format('YYYY-MM-DD');
+                result["dateFinish"] = moment($("[data-model='dateFinish']:last").data("kendoDatePicker").value()).format('YYYY-MM-DD');
+            }
+
+            result['wellwithpipcheck'] = $('[data-model="wellwithpipcheck"]').is(':checked');
+            result['riskcheck'] = $('[data-model="riskcheck"]').is(':checked');
+            result['inlastuploadls'] = $('[data-model="inlastuploadls"]').data('kendoDropDownList').value();
+            result['dateRelation'] = $('[data-model="dateRelation"]').data('kendoDropDownList').value();
+            result['opRelation'] = $('[data-model="opRelation"]').data('kendoDropDownList').value();
+            result['firmoption'] = $('[data-model="firmoption"]').data('kendoDropDownList').value();
+            result['BaseOP'] = $('[data-model="singleOP"]').data('kendoDropDownList').value();
+            result['Status'] = $('[data-model="Status"]').data('kendoMultiSelect').value();
+            result['activeWell'] = $('[data-model="activeWell"]').data('kendoDropDownList').value();
+            result['periodBase'] = $('[data-model="periodBase"]').data('kendoDropDownList').value();
+            result['edmwellnames'] = $('[data-model="edmwellnames"]').val();
+            result['LineOfBusiness'] = $('[data-model="LineOfBusiness"]').data('kendoDropDownList').value();
+
+            result['AssetNames'] = $('[data-model="Asset"]').data('kendoMultiSelect').value();
+
+            result['monthlysequence'] = $('[data-model="monthlysequence"]').data('kendoDatePicker').value();
+            result['periodview'] = $('[data-model="periodView"]').data('kendoDropDownList').value();
+
+            var rangeYear = $("[data-model=YearsCalc]").data('kendoMultiSelect').value();
+            if (rangeYear.length > 0) {
+                result['FiscalYearStart'] = _.min(rangeYear);
+                result['FiscalYearFinish'] = _.max(rangeYear);
+            } else {
+                result['FiscalYearStart'] = 0;
+                result['FiscalYearFinish'] = 0;
+            }
+            //console.log('model.getFilterValues function()');
+            //console.log(result);
+            result['lsresource'] = $('[data-model="lsresource"]').is(':checked');
+            result['isInPlan'] = $('[data-model="isInPlan"]').data('kendoDropDownList').value();
+            result['busplanStatus'] = $('[data-model="busplanStatus"]').data('kendoDropDownList').value();
+            result['showdataby'] = model.showdataby();
+            result['inlastuploadlsBoth'] = $('[data-model="inlastuploadls"]').data('kendoDropDownList').value();
+            return result;
+        }
+
+        // detect is filter implemented
+        model.validateFilterImplementation = function () {
+            if (typeof model.reloadData !== 'undefined') return true;
+
+            //console.error('Filter.cshtml is used but model.reloadData() not yet implemented. model.reloadData() function required for filter action!');
+            return false;
+        }
+
+        //console.log('use model.getFilterValues() to get filter values');
+    }());
+
+    // prepare filters
+    $(function () {
+        var datex = new Date();
+        var current = datex.getFullYear();
+        var last = datex.getFullYear() - 1;
+        var next = datex.getFullYear() + 1;
+        var dateBuilder = function (dateModel, dateStartModel, dateFinishModel) {
+            $('[data-model="' + dateModel + '"]').kendoDropDownList({
+
+                dataSource: ["Current Year" + " (" + current.toString() + ")", "Last Year" + " (" + last.toString() + ")", "Next Year" + " (" + next.toString() + ")", "Custom", "None"],
+                change: function (e) {
+                    var self = this;
+                    var isCustom = self.value() === 'Custom';
+
+                    model.FilterVisibility['DateStart' + (dateStartModel.indexOf('2') > -1 ? '2' : '')](isCustom);
+                    model.FilterVisibility['DateFinish' + (dateStartModel.indexOf('2') > -1 ? '2' : '')](isCustom);
+
+                    $([dateStartModel, dateFinishModel]).each(function (i, e) {
+                        var datePickerStart = $('[data-model="' + dateStartModel + '"]').data('kendoDatePicker');
+                        var datePickerFinish = $('[data-model="' + dateFinishModel + '"]').data('kendoDatePicker');
+
+                        if (self.value().indexOf('Current Year') > -1) {
+                            datePickerStart.value(moment(new Date()).startOf('year').toDate());
+                            datePickerFinish.value(moment(new Date()).endOf('year').toDate());
+                        } else if (self.value().indexOf('Last Year') > -1) {
+                            datePickerStart.value(moment(new Date()).subtract(1, 'years').startOf('year').toDate());
+                            datePickerFinish.value(moment(new Date()).subtract(1, 'years').endOf('year').toDate());
+                        } else if (self.value().indexOf('Next Year') > -1) {
+                            datePickerStart.value(moment(new Date()).add(1, 'years').startOf('year').toDate());
+                            datePickerFinish.value(moment(new Date()).add(1, 'years').endOf('year').toDate());
+                        } else if (self.value() === 'Custom') {
+                            datePickerStart.value(model.defaultDateStart);
+                            datePickerFinish.value(model.defaultDateFinish);
+                        } else {
+                            datePickerStart.value('');
+                            datePickerFinish.value('');
+                        }
+                    });
+                }
+            });
+
+            $([dateStartModel, dateFinishModel]).each(function (i, e) {
+                $('[data-model="' + e + '"]').kendoDatePicker({ format: "dd-MMM-yyyy", max: model.maxDate });
+            });
+
+            $('[data-model="' + dateStartModel + '"]').data('kendoDatePicker').value(moment(new Date()).startOf('year').toDate());
+            $('[data-model="' + dateFinishModel + '"]').data('kendoDatePicker').value(moment(new Date()).endOf('year').toDate());
+        };
+
+        // date picker
+        (function () {
+            dateBuilder('date', 'dateStart', 'dateFinish');
+            dateBuilder('date2', 'dateStart2', 'dateFinish2');
+
+
+
+            $('[data-model="monthlysequence"]').kendoDatePicker({
+                value: new Date(),
+                format: ('MMM-yyyy'),
+                start: 'year', depth: 'year'
+            });
+
+            $('[data-model="opRelation"]').kendoDropDownList({
+                dataSource: ["AND", "OR"],
+                value: ["AND"]
+            });
+
+            $('[data-model="dateRelation"]').kendoDropDownList({
+                dataSource: ["AND", "OR"],
+                value: ["OR"]
+            });
+
+            $('[data-model="firmoption"]').kendoDropDownList({
+                dataSource: [
+                    { value: "All", name: "All" },
+                    { value: "Firm", name: "Firm" },
+                    { value: "Option", name: "Optional" },
+                    { value: "Both", name: "Both" },
+                    { value: "NotFirm", name: "Not Firm" },
+                    { value: "NotOption", name: "Not Optional" },
+                    { value: "NotBoth", name: "Not Both" },
+                ],
+                dataTextField: "name",
+                dataValueField: "value",
+                value: ["All"]
+            });
+
+            $('[data-model="activeWell"]').kendoDropDownList({
+                dataSource: ["All Wells to Date", "Per Last Sequence", "Per Last Estimate", "Per Last Estimate or Last Sequence"],
+                value: ["All Wells to Date"]
+            });
+
+            $('[data-model="LineOfBusiness"]').kendoDropDownList({
+                dataSource: model.LineOfBusiness(),
+                optionLabel: "Select Line of Business ...",
+                value: model.LineOfBusiness()[0]
+            });
+
+            $('[data-model="periodBase"]').kendoDropDownList({
+                dataSource: ["By Last Sequence", "By Last Estimate"],
+                value: ["By Last Sequence"]
+            });
+
+            $('[data-model="periodView"]').kendoDropDownList({
+                dataSource: ["Fiscal View", "Project View"],
+                value: ["Project View"],
+                change: function () {
+                    model.FilterVisibility.PeriodViewIsProjectView(this.value() == "Project View");
+
+                    if (!model.FilterVisibility.PeriodViewIsProjectView()) {
+                        $('[data-model="dateStart"]:last').data("kendoDatePicker").value(moment(new Date()).startOf("year").toDate());
+                        $('[data-model="dateFinish"]:last').data("kendoDatePicker").value(moment(new Date()).endOf("year").toDate());
+                    }
+                }
+            });
+
+            $('[data-model="singleOP"]').kendoDropDownList({
+                dataSource: model.OPs(),
+                value: model.OPs().length == 0 ? [] : [model.OPs()[0]]
+            });
+
+            $('[data-model="Status"]').kendoMultiSelect({
+                dataSource: ['Draft', 'Complete', 'Modified'],
+                value: ''
+            });
+
+            $('[data-model="isInPlan"]').kendoDropDownList({
+                dataSource: [
+                    { value: null, name: "Both" },
+                    { value: true, name: "Yes" },
+                    { value: false, name: "No" },
+
+                ],
+                dataTextField: "name",
+                dataValueField: "value",
+                value: model.isInPlan().length == 0 ? [] : [model.isInPlan()[0]]
+            });
+
+            $('[data-model="inlastuploadls"]').kendoDropDownList({
+                dataSource: [
+                    { value: true, name: "Yes" },
+                    { value: false, name: "No" },
+                    { value: "", name: "Both" }
+                ],
+                dataTextField: "name",
+                dataValueField: "value",
+                value: model.inlastuploadls().length == 0 ? [] : [model.inlastuploadls()[0]]
+            });
+
+            $('[data-model="busplanStatus"]').kendoDropDownList({
+                dataSource: model.busplanStatus(),
+                value: model.busplanStatus()[0]
+            });
+
+            $('[data-model="SSorTG"]').kendoDropDownList({
+                dataSource: ["Shell Share", "Total Gross"],
+                value: ["Shell Share"]
+            });
+
+            $('[data-model="dateStart"]:last').data("kendoDatePicker").value(moment(new Date()).startOf("year").toDate());
+            $('[data-model="dateFinish"]:last').data("kendoDatePicker").value(moment(new Date()).endOf("year").toDate());
+        }());
+
+        function prepareFilters(callbackEachFilter) {
+            if (typeof callbackEachFilter === 'undefined') {
+                callbackEachFilter = function (c, i, e) { return c; };
+            }
+
+            // prepare filters
+            $('.filter').find('select:not([data-model="date"],[data-model="date2"],[data-model="singleOP"],[data-model="Status"],[data-model="firmoption"],[data-model="opRelation"],[data-model="dateRelation"],[data-model="riskcheck"],[data-model="wellwithpipcheck"],[data-model="activeWell"],[data-model="periodBase"],[data-model="periodView"],[data-model="sortBy"],[data-model="sortType"],[data-model="monthlysequence"],[data-model="lsresource"],[data-model="LineOfBusiness"],[data-model="isInPlan"],[data-model="busplanStatus"], [data-model="SSorTG"])').each(function (i, e) {
+
+                var config = {
+                    placeholder: $(e).attr('data-placeholder'),
+                    dataSource: { data: model[$(e).attr('data-model')]() },
+                    filter: "contains",
+                    value: (function (v) { return typeof v === 'undefined' ? '' : v; }($(e).attr('data-value')))
+                };
+
+                var configAct = {
+                    placeholder: $(e).attr('data-placeholder'),
+                    dataSource: { data: model[$(e).attr('data-model')]() },
+                    filter: "contains",
+                    value: (function (v) { return typeof v === 'undefined' ? '' : v; }($(e).attr('data-value'))),
+                    change: function (p) {
+                        var $filter = $('.filter');
+                        if ($filter.find('[data-model=activities]').data("kendoMultiSelect").value().length > 0) {
+                            $filter.find('[data-model=activitiesCategory]').data('kendoMultiSelect').enable(false);
+                        } else {
+                            $filter.find('[data-model=activitiesCategory]').data('kendoMultiSelect').enable(true);
+                        }
+                    }
+                };
+
+                var configActCat = {
+                    placeholder: $(e).attr('data-placeholder'),
+                    dataSource: { data: model[$(e).attr('data-model')]() },
+                    filter: "contains",
+                    value: (function (v) { return typeof v === 'undefined' ? '' : v; }($(e).attr('data-value'))),
+                    change: function (p) {
+                        var $filter = $('.filter');
+                        ajaxPost("@Url.Action("GetActivitiesByCategory", "Dashboard")", { activitiesCategory: $filter.find('[data-model=activitiesCategory]').val() }, function (res) {
+                            $filter.find('[data-model=activities]').data('kendoMultiSelect').setDataSource({ data: res.Data });
+                        }, function () {
+                            //enableFilterTargets(true);
+                        });
+                        //$filter.find('[data-model=activities]').data('kendoMultiSelect').setDataSource({ data: ["aaaa", "bbbb"] });
+
+
+                    }
+                };
+
+                var configPerfUnit = {
+                    placeholder: $(e).attr('data-placeholder'),
+                    dataSource: model[$(e).attr('data-model')](),
+                    dataTextField: "DataText",
+                    dataValueField: "DataValue",
+                    filter: "contains",
+                    value: (function (v) { return typeof v === 'undefined' ? '' : v; }($(e).attr('data-value')))
+                };
+
+                if (['activities'].indexOf($(e).attr('data-model')) < 0)
+                    callbackEachFilter(config, i, e);
+
+                if (['performanceUnits'].indexOf($(e).attr('data-model')) < 0)
+                    callbackEachFilter(configPerfUnit, i, e);
+
+                //if ($(e).attr('data-model') == 'performanceUnits') {
+                //    $(e).kendoMultiSelect(configPerfUnit);
+                //} else {
+                //    $(e).kendoMultiSelect(config);
+                //}
+
+
+                //if (['activities'].indexOf($(e).attr('data-model')) < 0) {
+                //    callbackEachFilter(configAct, i, e);
+                //}
+
+                //if (['activitiesCategory'].indexOf($(e).attr('data-model')) < 0)
+                //    callbackEachFilter(configActCat, i, e);
+
+                //if (['performanceUnits'].indexOf($(e).attr('data-model')) < 0)
+                //    callbackEachFilter(configPerfUnit, i, e);
+
+                if ($(e).attr('data-model') == 'performanceUnits') {
+                    $(e).kendoMultiSelect(configPerfUnit);
+                } else if ($(e).attr('data-model') == 'activities') {
+                    $(e).kendoMultiSelect(configAct);
+                } else if ($(e).attr('data-model') == 'activitiesCategory') {
+                    $(e).kendoMultiSelect(configActCat);
+                } else {
+                    $(e).kendoMultiSelect(config);
+                }
+            });
+        }
+
+        // seqeuence filter feature
+        $(function () {
+            var enableFilterTargets = function (bool) {
+                (function ($f) { (bool ? $f.removeClass('disabled') : $f.addClass('disabled')) }($('.filter')));
+            };
+
+            prepareFilters(function (config, i, e) {
+                if ($(e).data("model") == "YearsCalc") return;
+
+                config.change = function (p) {
+                    enableFilterTargets(false);
+
+                    var firstLevelLowercase = p.sender.element.attr('data-model');
+                    var firstLevel = firstLevelLowercase.substring(0, 1).toUpperCase() + firstLevelLowercase.substring(1);
+
+                    var currentModelName = (function (str) {
+                        return str.replace(/\w\S*/g, function (txt) { return txt.charAt(0).toUpperCase() + txt.substr(1); });
+                    }($(e).attr('data-model')));
+
+                    if ([firstLevel, 'RigNames', 'ProjectNames', 'WellNames'].indexOf(currentModelName) <= -1) {
+                        enableFilterTargets(true);
+                        return;
+                    }
+
+                    var targetsByModel = {
+                        Regions: [],
+                        OperatingUnits: [],
+                        RigTypes: [],
+                        RigNames: [['Regions', 'OperatingUnits', 'RigTypes']],
+                        ProjectNames: ['RigNames', ['Regions', 'OperatingUnits', 'RigTypes']],
+                        WellNames: ['ProjectNames', 'RigNames', ['Regions', 'OperatingUnits', 'RigTypes']],
+                        ExType: [],
+                        LineOfBusiness: [],
+                        EDMWellNames: '',
+                        AlreadyAssignTo: [],
+                    };
+
+                    var $filter = $('.filter');
+                    var selectsByModel = {
+                        Regions: $filter.find('[data-model=regions]').data('kendoMultiSelect'),
+                        OperatingUnits: $filter.find('[data-model=operatingUnits]').data('kendoMultiSelect'),
+                        RigTypes: $filter.find('[data-model=rigTypes]').data('kendoMultiSelect'),
+                        RigNames: $filter.find('[data-model=rigNames]').data('kendoMultiSelect'),
+                        ProjectNames: $filter.find('[data-model=projectNames]').data('kendoMultiSelect'),
+                        WellNames: $filter.find('[data-model=wellNames]').data('kendoMultiSelect'),
+                        ExType: $filter.find('[data-model=exType]').data('kendoMultiSelect'),
+
+                        LineOfBusiness: $filter.find('[data-model=LineOfBusiness]').data('kendoDropDownList'),
+
+                        EDMWellNames: $filter.find('[data-model=edmwellnames]').data('')
+                    };
+
+                    for (var f in targetsByModel[currentModelName]) {
+                        var g = targetsByModel[currentModelName][f];
+
+                        if (selectsByModel[currentModelName].value().length === 0) {
+                            if (g instanceof Array) {
+                                for (var o in g) selectsByModel[g[o]].enable(true);
+                                break;
+                            } else {
+                                selectsByModel[g].enable(true);
+                            }
+
+                            if (selectsByModel[g].value().length > 0) {
+                                break;
+                            }
+                        } else {
+                            if (g instanceof Array) {
+                                for (var o in g) selectsByModel[g[o]].enable(false);
+                            } else {
+                                selectsByModel[g].enable(false);
+                            }
+                        }
+                    }
+
+                    var paramsByModel = {
+                        Regions: {
+                            get: ['RigName', 'ProjectName', 'WellName'],
+                            regions: selectsByModel['Regions'].value(),
+                            operatingUnits: selectsByModel['OperatingUnits'].value(),
+                            rigTypes: selectsByModel['RigTypes'].value(),
+                            key: 'Region'
+                        },
+                        OperatingUnits: {
+                            get: ['RigName', 'ProjectName', 'WellName'],
+                            regions: selectsByModel['Regions'].value(),
+                            operatingUnits: selectsByModel['OperatingUnits'].value(),
+                            rigTypes: selectsByModel['RigTypes'].value(),
+                            key: 'OperatingUnit'
+                        },
+                        RigTypes: {
+                            get: ['RigName', 'ProjectName', 'WellName'],
+                            regions: selectsByModel['Regions'].value(),
+                            operatingUnits: selectsByModel['OperatingUnits'].value(),
+                            rigTypes: selectsByModel['RigTypes'].value(),
+                            key: 'RigType'
+                        },
+                        RigNames: {
+                            get: ['ProjectName', 'WellName'],
+                            key: 'RigName',
+                            val: this.value()
+                        },
+                        ProjectNames: {
+                            get: ['WellName'],
+                            key: 'ProjectName',
+                            val: this.value()
+                        },
+                        WellNames: {
+                            get: [],
+                            key: '',
+                            val: []
+                        },
+                        ExType: {
+                            get: [],
+                            key: '',
+                            val: []
+                        },
+                        LineOfBusiness: {
+                            get: [],
+                            key: '',
+                            val: []
+                        },
+                        AlreadyAssignTo: {
+                            get: [],
+                            key: '',
+                            val: []
+                        }
+
+                    }
+
+                    //alert(currentModelName);
+
+                    if (_.size(paramsByModel[currentModelName]) == 0 || paramsByModel[currentModelName].get.length === 0) {
+                        enableFilterTargets(true);
+                        return;
+                    }
+
+                    //console.log(paramsByModel[currentModelName]);
+                    ajaxPost("@Url.Action("GetAvailableFilter", "Dashboard")", paramsByModel[currentModelName], function (res) {
+                        var modelFor = [firstLevel, 'RigNames', 'ProjectNames', 'ExType', 'AlreadyAssignTo'];
+
+                        for (var key in res.Data) if (res.Data.hasOwnProperty(key)) {
+                            var jey = key.substring(0, key.length - 1);
+
+                            if (modelFor.indexOf(currentModelName) > -1 && paramsByModel[currentModelName].get.indexOf(jey) > -1) {
+                                selectsByModel[key].setDataSource({ data: res.Data[key] });
+                            }
+                        }
+
+                        enableFilterTargets(true);
+                    }, function () {
+                        enableFilterTargets(true);
+                    });
+                }
+            });
+        }());
+
+        // filter action
+        $('.filter').find('.do-filter').on('click', function () {
+            if (!model.IsDateInputValid()) {
+                return;
+            }
+
+            if (model.validateFilterImplementation())
+                model.reloadData();
+        });
+
+    });
+
+    $(function () {
+        model.validateFilterImplementation();
+    });
+</script>

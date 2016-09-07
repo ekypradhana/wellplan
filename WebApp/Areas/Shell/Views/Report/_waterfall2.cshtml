@@ -1,0 +1,184 @@
+﻿<div style="width:1020px;margin:0px auto;" data-bind="with:waterfall">
+    <div style="width:1020px;float:left;display:block">
+        <div class="mini-nav bordered-mini-nav" style="width: 570px; margin: 0px;">
+            <div class="each-nav">
+                Show:
+                <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                    <option value="Day">Days</option>
+                    <option value="Cost">Cost</option>
+                </select>
+            </div>
+            <div class="each-nav">
+                Breakdown by:
+                <select data-bind="value:GroupBy" style="margin-right: 5px;">
+                    <option value="Classification">Classification</option>
+                    <option value="Theme">Theme</option>
+                    <option value="Title">Idea</option>
+                    <option value="PerformanceUnit">Performance Unit</option>
+                    <option value="ActionParty">Action Party (PIC)</option>
+                    <option value="WellName">Well Name</option>
+                    <option value="RigName">Rig Name</option>
+                </select>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeZero" />
+                </div>
+                <div>Include 0 value data point</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav no-border-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeGaps" />
+                </div>
+                <div>Include Gaps</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+
+        <div style="text-align: center; font-weight: bold; font-size: 14px;" id="wtitle"></div>
+    </div>
+    <div style="width:1020px;float:left;display:block">
+        <div id="chart-waterfall2TQ" style="width:510px;height:400px;display:inline;float:left;"></div>
+        <div id="chart-waterfall2LE" style="width:510px;height:400px;display:inline;float:left;"></div>
+    </div>
+    <div style="text-align:center">
+        <label style="background-color:darkblue;width:20px;">&nbsp;</label>
+        <label style="font-weight:normal">OP</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:green;width:20px;">&nbsp;</label>
+        <label style="font-weight:normal">Opportunity</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:red;width:20px;">&nbsp;</label>
+        <label style="font-weight:normal">Risk</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:gray;width:20px;">&nbsp;</label>
+        <label style="font-weight:normal">TQ / Agreed Target</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:brown;width:20px;">&nbsp;</label>
+        <label style="font-weight:normal">LE</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:gray;width:20px;height:1px;">&nbsp;</label>
+        <label style="font-weight:normal">AFE</label>
+    </div>
+</div>
+
+<script>
+    function createWaterfall2(wfmodel) {
+        var wftq = $("#chart-waterfall2TQ");
+        var wfle = $("#chart-waterfall2LE");
+        var url = "@Url.Action("GetWaterfallData2")";
+        wftq.html(""); wfle.html("");
+        ajaxPost(url, wfmodel, function (data) {
+            if (data.Result != "OK") {
+                showErr(data.Message + data.Trace);
+                return;
+            };
+
+            $("#wtitle").html('Waterfall - breakdown by ' + model.waterfall().GroupBy() + ' (' + model.waterfall().DayOrCost() + ')');
+
+            renderWaterfall2(wftq, data.Data.OP2TQ, data.Data.MaxHeight);
+            renderWaterfall2(wfle, data.Data.OP2LE, data.Data.MaxHeight);
+        });
+    }
+
+    function renderWaterfall2(wf, data, maxHeight) {
+        wf.height(400);
+
+        _.each(data, function (obj) {
+            if (obj.Serie1 == 0) obj.Serie1 = null;
+            if (obj.Serie2 == 0) obj.Serie2 = null;
+        });
+
+        var colorLabel = function (point) {
+            //alert(ks(point));
+            switch (point.dataItem.Title) {
+                case "OP":
+                    return "white";
+                    break;
+
+                case "TQ/Target":
+                case "TQ/Agreed Target":
+                    return "black";
+                    break;
+
+                case "LE":
+                case "Last Estimate":
+                    return "black";
+                    break;
+
+                default:
+                    return "black";
+            }
+        };
+
+        var color = function (point) {
+            //alert(ks(point));
+            switch (point.dataItem.Title) {
+                case "OP":
+                    return "darkblue";
+                    break;
+
+                case "TQ / Target":
+                case "TQ / Agreed Target":
+                    return "gray";
+                    break;
+
+                case "LE":
+                case "Last Estimate":
+                    return "brown";
+                    break;
+            }
+
+            if (point.value > 0) {
+                return "red";
+            } else {
+                return "green";
+            }
+        };
+
+        wf.kendoChart({
+            dataSource: { data: data },
+            series: [
+                {
+                    type: "waterfall",
+                    field: "Value",
+                    categoryField: "Title",
+                    summaryField: "ItemType",
+                    color: color,
+                    line: { visible: false, width: 0 },
+                    labels: { visible: true, font: "9px verdana", format: "N1", position: "outsideEnd" },
+                    tooltip: { visible: true, template: '#: category #: #: kendo.format("{0:N1}", value) #' }
+                },
+                {
+                    type: "line", name: "AFE", color: "gray", field: "TrendLines[0]", markers: { visible: false }, width: 1,
+                    tooltip: { visible: true, template: 'AFE: #: kendo.format("{0:N1}", value) #' }
+                }
+            ],
+            legend: { visible: false, position: "bottom" },
+            valueAxis: {
+                min: 0,
+                max: maxHeight,
+                labels: { font: "9px verdana", format: "N1" },
+                majorGridLines: { visible: false }
+            },
+            categoryAxis: {
+                labels: { font: "9px verdana", rotation: 40, template: '#= trimIfGreaterThan(value, 25) #' },
+                majorGridLines: { visible: false }
+            }
+        });
+
+        if (!model.waterfall().IncludeGaps()) {
+            var allGapsData = _.filter(data, function (e) { return (e.Title.toLowerCase().indexOf("gaps") > -1) });
+            _.each(allGapsData, function (e) {
+                var gapsData = e;
+                var gapsIndex = data.indexOf(gapsData);
+
+                wf.find("tspan:contains('" + gapsData.Title + "')").closest("g").hide();
+                wf.find("svg > g:eq(0) > g[opacity]:eq(" + gapsIndex + ")").hide();
+                wf.find("svg > g:eq(0) > g:eq(0) > g[clip-path] > g:eq(" + gapsIndex + ")").hide();
+            });
+        }
+    }
+</script>

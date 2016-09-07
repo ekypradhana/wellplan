@@ -1,0 +1,1083 @@
+﻿@using ECIS.Core
+@using Newtonsoft.Json
+@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    var offsetServer = parseInt("@ViewBag.Offset");
+    var offsetClient = -(new Date().getTimezoneOffset() / 60);
+    model.RigNamePreLS = ko.observable("");
+    model.FirstTimeFileType = ko.observable("Full");
+    model.FileType = ko.observable("Full");
+    model.isOriginal = ko.observable(true);
+    model.RigNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigNames")
+            .Select(d => d.GetString("_id")).OrderBy(d => d))));
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.filenameEdit = ko.observable("");
+</script>
+
+
+<div>
+
+    <div class="box">
+        <h4>Latest Sequence Data Maintenance</h4>
+        <b>This module is use for upload Latest Sequence (LS) Excel </b>
+        <ul type="circle">
+            <li><b style="color:brown"> Select</b> a LS file to upload</li>
+            <li>After data has been uploaded, you can <a class="btn-xs btn-warning">Download</a> it, or <a class="btn-xs btn-danger">Load to WEIS</a> function, </li>
+            <li>Before Executing Process will start, application will create a single restore point of Well Activity Datas, naming it with : <i style="color:darkorange;">_WellActivity_yyyyMMddhhmmss</i>, so you be able to roolback your data, with run restore function and select data point you decided <a href="~/shell/BackupRestore"> Administration Page - Backup and Restore </a>menu </li>
+        </ul>
+    </div>
+    <div class="col-md-12 no-padding">
+        <div data-bind="visible: model.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div data-bind="visible: !model.IsProcessing()">
+            <button class="btn btn-sm btn-primary" onclick="model.downloadPreLS()">Download Pre LS</button>
+            @*<button class="btn btn-sm btn-primary" onclick="model.openModalPreLSRig()">Download Single Rig Pre LS</button>*@
+            <div class="clearfix" style="margin-bottom:5px"></div>
+            <div>
+                <div class="demo-section k-header">
+                    <input name="files" id="files" type="file" />
+                </div>
+            </div>
+
+            <ul class="nav nav-tabs" role="tablist" style="margin-top: 20px;">
+                <li role="presentation" class="active">
+                    <a href="#tab1" aria-controls="home" role="tab" data-toggle="tab">Uploaded LS Files</a>
+                </li>
+                <li role="presentation">
+                    <a href="#tab2" aria-controls="profile" role="tab" data-toggle="tab">Loaded LS Data</a>
+                </li>
+                <li role="presentation">
+                    <a href="#tab3" aria-controls="Log" role="tab" data-toggle="tab">Current LS</a>
+                </li>
+                <li role="presentation">
+                    <a href="#tab4" aria-controls="Log" role="tab" data-toggle="tab">Change Log</a>
+                </li>
+            </ul>
+
+            <div class="tab-content" style="margin-top: 10px;">
+                <div role="tabpanel" class="tab-pane active" id="tab1">
+                    <div class="grid grid1"></div>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="tab2">
+                    <div class="grid grid2"></div>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="tab3">
+                    @*<div class="row">
+                            <div class="col-md-8">
+                                <span style="font-weight: 700">Edit LS Start Date and LS End Date to Load Manually</span>
+                            </div>
+                            <div class="col-md-4" style="text-align: right; margin-bottom: 20px;">
+                                <button class="btn btn-sm btn-danger load-weis-button" onclick="ManualLoadToWeis()" type="button"><span class="glyphicon glyphicon-export"></span> Load to WEIS</button>
+                            </div>
+                        </div>*@
+                    <div class="gridLog"></div>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="tab4">
+                    @*<div class="row" style="margin-bottom: 20px;">
+                            <div class="col-md-12">
+                                <button onclick="GenerateChangeLogExcel()" class="btn btn-sm btn-warning"><span class="fa fa-file-excel-o"></span> Save to Excel</button>
+                            </div>
+                        </div>*@
+                    <div class="changeLog"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        function ManualLoadToWeis() {
+            var allData = $(".gridLog").data("kendoGrid").dataSource._data;
+            var dirty = Enumerable.From(allData).Where("$.dirty == true").ToArray();
+            if (dirty.length == 0) {
+                alert("No Data Changed!");
+                return;
+            }
+            var start = new Date();
+            if (!confirm('Are you sure you want to execute changed data?'))
+                return;
+            //disable all execute button. to avoid double execute
+            var executeButtons = $(".load-weis-button");
+            executeButtons.each(function (idxx, e) {
+                $(e).prop("disabled", true);
+            });
+            model.IsProcessing(true);
+            dirty.forEach(function(e) {
+                delete e._id;
+                delete e.defaults;
+                delete e.fields;
+                e.Executed_At = jsonDateStr(e.Executed_At);
+                e.End_Date = jsonDateStr(e.End_Date);
+                e.Start_Date = jsonDateStr(e.Start_Date);
+            });
+            //model.IsProcessing(false);
+            ajaxPost("@Url.Action("ManualLoadToWEIS")", { doc: dirty, DateSequence: start },
+                function (res) {
+                    if (res.Result == "OK") {
+                        model.LoadDataGridCollection();
+                        ajaxPost("@Url.Action("updateexecute")", { filename: res.Data }, function(res2) {
+                            model.IsProcessing(false);
+                            //alert("Converting LE File to Collection Done");
+                            //Execute(res.CollectionName);
+                            model.LoadDataGridCollection();
+                            model.GetCalculationStatusGlobal();
+
+                            setTimeout(function() {
+                                GridLog();
+                                GridChangeLog();
+                            }, 5000);
+                        });
+
+                    } else {
+                        alert(res.Message);
+                        model.IsProcessing(false);
+                    }
+                }, function(a) {
+                    //  console.log(a);
+                    model.IsProcessing(false);
+                }
+            );
+        };
+
+        $(document).ready(function() {
+            //$("#rigNameModal").kendoDropDownList({
+            //    dataSource: model.RigNames(),
+            //    optionLabel: "Select Rig"
+            //});
+
+            $("#files").kendoUpload({
+                async: {
+                    saveUrl: '@Url.Action("Upload", "UploadLS")',
+                    removeUrl: "remove",
+                    autoUpload: false
+                },
+                complete: onComplete,
+                select: onSelect,
+                success: function (e) {
+                    var res = e.response;
+                    if (res.Result != "OK") {
+                        model.LoadDataGrid();
+                        alert("File refuse to Upload");
+                        var a = '<li class="k-file k-file-success" style="height: 150px; overflow-x: auto;">';
+                        if (res.Data.length > 0) {
+                            res.Data.forEach(function (hh) {
+                                console.log(hh);
+                                a = a + "<div>" + hh + "</div>";
+                            });
+                        }
+                        a = a + "</li>";
+                        $(a).appendTo($(".k-upload-files.k-reset"));
+                        $(".k-upload-pct").html("FAILED!");
+                        return;
+                    }
+                    alert("Upload Success!");
+                },
+            });
+
+            $('span:contains("Select files...")').html("Select file...");
+
+
+            $("#inputName").kendoDatePicker({
+                format: jsonDateFormat,
+                start: "month",
+                depth: "month",
+                parseFormats: ["dd-MMM-yyyy"],
+                max: new Date(3001, 1, 1)
+            }
+            );
+
+            var dateNow = Date();
+            //  console.log(dateNow);
+            var s = moment(dateNow).format('DD-MMM-YYYY');
+            //  console.log(s);
+            $('#inputName').data('kendoDatePicker').value(s);
+        });
+
+        function ChangeLoadType() {
+            var change = "Full";
+            var type = model.FileType();//$('#inputFileType').val();
+            if (type == "Single"){
+                if (!confirm('This file only contains one rig.  Changing to Full Replacement will remove and replace the entire current LS.  Are you sure you want to continue?'))
+                    return;
+            }
+            if (type == "Full")
+                change = "Single";
+            //$('#inputFileType').val(change);
+            if (change != model.FirstTimeFileType())
+                model.isOriginal(false);
+            else
+                model.isOriginal(true);
+            model.FileType(change);
+        }
+
+        //function RollBackLoadType() {
+        //    var change = "Full";
+        //    var type = model.FileType();;//$('#inputFileType').val();
+        //    if (type == "Full")
+        //        change = "Single";
+        //    //$('#inputFileType').val(change);
+        //    model.isOriginal(true);
+        //    model.FileType(change);
+        //}
+
+    </script>
+
+    <div class="modal fade myModal" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title">Latest Sequence Date</h4>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form_new_phase" class="k-content">
+                            <div class="form-group">
+                                <div class="col-md-12">
+                                    <label class="col-md-3" style="text-align:left; font-weight:bold;">File to Load  </label>
+                                    <div class="col-md-9">
+                                        <input readonly="readonly" id="inputFile" type="text" style="border:none;width:400px">
+                                    </div>
+                                </div>
+                                @*<div class="col-md-12">
+                                        <label class="col-md-3" style="text-align:left; font-weight:bold;">File Type  </label>
+                                        <div class="col-md-9">
+                                            <input readonly="readonly" type="text" style="border:none; font-weight: bold;" data-bind="value: model.FileType() == 'Single' ? 'Single Rig Replacement' : 'Full Replacement'">
+                                            <button type="button" onclick="ChangeLoadType()" class="btn btn-xs btn-warning" data-bind="visible : model.FirstTimeFileType() == 'Single'">Change Load Type</button>
+                                        </div>
+                                    </div>*@
+                                @*<div class="col-md-12" data-bind="visible: !model.isOriginal()">
+                                        <div class="col-md-3"></div>
+                                        <label class="col-md-9" style="text-align:left; font-weight:bold; color: red">Load Type Changed!</label>
+                                    </div>*@
+                                <div class="col-md-12">
+                                    <label class="col-md-3" style="text-align:left; font-weight:bold;">LS Date  </label>
+                                    <div class="col-md-9">
+                                        <input id="inputName" type="text" class="entry-date">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-custom btn-sm btn-shell" data-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-custom btn-sm btn-primary" onclick="LoadToWEIS();">
+                            <span class="glyphicon glyphicon-ok"></span> Load to WEIS
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade myModal" id="modal-preview" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog" style="width:700px">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="myModalLabel">Preview</h4>
+            </div>
+            <div class="modal-body">
+                <div class="grid-preview-container">
+                    <div id="grid-preview"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@*@Html.Partial("_NotifierProgress")*@
+
+<script>
+    function Execute(id) {
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("Execute")", { id: id }, function (res) {
+            if (res.Result == "OK") {
+                alert("Lastest Sequence Updater success");
+                model.IsProcessing(false);
+            } else {
+                //alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function (a) {
+            //alert(res.Message);
+            //  console.log(a);
+            model.IsProcessing(false);
+        });
+    }
+
+    function GenerateChangeLogExcel(elem) {
+        var th = $(elem);
+        var file1 = th.attr("file1");
+        var file2 = th.attr("file2");
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("GenerateFileChangeLog")", {file1 : file1, file2 : file2},
+            function(res) {
+                if (res.Result != "OK") {
+                    alert(res.Message);
+                    model.IsProcessing(false);
+                    return;
+                }
+                model.IsProcessing(false);
+                var url = "@Url.Action("DownloadLSFile")"+"?stringName="+res.Data;
+                location.href = url;
+            }
+        );
+    }
+
+    function DeleteBackup(id) {
+        if (!confirm('Are you sure want to delete?'))
+            return;
+        alert(id);
+        model.IsProcessing(true);
+
+        ajaxPost("@Url.Action("DeleteBackup")", { id: id }, function (res) {
+            if (res.Result == "OK") {
+                alert("Backup Data has been deleted");
+                model.IsProcessing(false);
+                model.LoadDataGridCollection();
+            } else {
+                //alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function (a) {
+            //alert(res.Message);
+            //  console.log(a);
+            model.IsProcessing(false);
+        });
+    }
+    function ClearDataUpload() {
+
+        var up = $('#files').data().kendoUpload;
+        var allLiElementsToBeRemoved = up.wrapper.find('.k-file');
+        up._removeFileEntry(allLiElementsToBeRemoved);
+
+    }
+
+    function onSelect(e) {
+        $(".k-upload-files.k-reset").remove();
+        $.each(e.files, function (index, value) {
+            //alert(value.extension);
+            var ok = value.extension == ".xlsx"
+                || value.extension == ".xls"
+
+            if (!ok) {
+                e.preventDefault();
+                alert("Please upload only Excel (xls, xlsx) files");
+            }
+        });
+        setTimeout(function() {
+            $('button:contains("Upload files")').html("Upload file");
+        }, 200);
+    }
+
+
+    function Preview(e) {
+        $("#modal-preview").modal("show");
+        //  console.log(e);
+        var url = "@Url.Action("Preview", "UploadLS")";
+        ajaxPost(url, { collName: e }, function (res) {
+            if (res.Result === "NOK") {
+                model.IsProcessing(true);
+                alert("Error occured when saving data");
+                return;
+            }
+            else {
+                //  console.log(res.Data);
+
+
+
+
+                //var kg = g.data("kendoGrid");
+
+                var columnsConfig = [];
+                //columnsConfig.push({ field: "_id", title: "id" });
+                columnsConfig.push({ field: "Rig_Type", title: "Rig Type" });
+                columnsConfig.push({ field: "Rig_Name", title: "Rig Name" });
+                columnsConfig.push({ field: "Well_Name", title: "Well Name" });
+                columnsConfig.push({ field: "Activity_Type", title: "Activity Type" });
+                columnsConfig.push({ field: "Activity_Description", title: "Activity Description" });
+                columnsConfig.push({ field: "Start_Date", title: "Start Date" });
+                columnsConfig.push({ field: "End_Date", title: "End Date" });
+                columnsConfig.push({ field: "YearStart", title: "Year Start" });
+                columnsConfig.push({ field: "YearEnd", title: "Year End" });
+
+                //console.log(columnsConfig);
+
+                var $grid = $("#grid-preview");
+                //$grid.replaceWith($('<div />').attr('id', 'grid-preview'));
+                $grid.kendoGrid({
+                    dataSource: {
+                        //schema: {
+                        //    model: {
+                        //        PhStart: 'date',
+                        //        PhFinish: 'date',
+                        //        OpsStart: 'date',
+                        //        OpsFinish: 'date',
+                        //    }
+                        //},
+                        data: res.Data,
+                        type: "json",
+                        pageSize: 10
+                    },
+                    editable: true,
+                    sortable: true,
+                    scrollable: false,
+                    pageable: true,
+                    columns: columnsConfig
+                });
+            }
+        }, function (a) {
+            console.log(a);
+            //alert('Error occured when loading data');
+        });
+
+    };
+    function loadPartial(WellName,RigName,ActivityType) {
+
+        alert( WellName + " " + RigName + " " + ActivityType + " Selected! \nthis function is still under construction");
+    }
+
+    function EditorDate(container, options) {
+        $('<input style="width: 100%" data-bind="value:' + options.field + '"/>')
+            .appendTo(container)
+            .kendoDatePicker({
+                format: "dd-MMM-yyyy",
+            });
+    }
+
+    function GridLog() {
+
+        var url = "@Url.Action("ShowLog")";
+        ajaxPost(url, {}, function (res) {
+            if (res.Result === "NOK") {
+                alert("Error occured when showing data");
+                return;
+            }
+            else {
+                var columnsConfig = [];
+                //columnsConfig.push({ field: "_id", title: "id" });
+                //columnsConfig.push({ field: "Executed_From", title: "Loaded Via", template: "#if(Executed_From == 'Full'){# Full Replace #}else if(Executed_From == 'Single'){# Single Rig #}else{# Activity Edit #}#" });
+                columnsConfig.push({ field: "Rig_Type", title: "Rig Type" });
+                columnsConfig.push({ field: "Rig_Name", title: "Rig Name" });
+                columnsConfig.push({ field: "Well_Name", title: "Well Name" });
+                columnsConfig.push({ field: "Activity_Type", title: "Activity Type" });
+                columnsConfig.push({ field: "Activity_Description", title: "Activity Description" });
+                columnsConfig.push({ field: "Start_Date", title: "LS Start Date", template: "#:jsonDateStr(Start_Date)#", editor: EditorDate, width: 100 });
+                columnsConfig.push({ field: "End_Date", title: "LS End Date", template: "#:jsonDateStr(End_Date)#", editor: EditorDate, width: 100 });
+
+                //columnsConfig.push({ field: "Year_Start", title: "Year - Start",  width: 100 });
+                //columnsConfig.push({ field: "Year_End", title: "Year - End",  width: 100 });
+                columnsConfig.push({ field: "Executed_From", title: "Loaded Via", template: "#if(Executed_From == 'Full'){# Full Replace #}else if(Executed_From == 'Single'){# Single Rig #}else{# Activity Edit #}#" });
+                columnsConfig.push({ field: "Executed_By", title: "Last Load by" });
+                columnsConfig.push({ field: "Executed_At", title: "Last Load Date", template: "#: jsonDateStr(Executed_At, 'dd-MMM-yyyy HH:mm:ss') #" });
+
+                //columnsConfig.push({ title: "Status Load", template: "<span class='glyphicon glyphicon-ok' style='color: green'></span> Success" });
+
+                //console.log(columnsConfig);
+
+                $(".gridLog").replaceWith("<div class='gridLog'></div>");
+                var $grid = $(".gridLog");
+
+                //$(".changeLog").replaceWith("<div class='changeLog'></div>");
+                //var $gridLog = $(".changeLog");
+
+                res.Data.forEach(function(e) {
+                    //e.End_Date = jsonDateStr(e.End_Date);
+                    //e.Start_Date = jsonDateStr(e.Start_Date);
+                    e.Executed_At = jsonDate(e.Executed_At);
+                    e.Executed_At.setHours(e.Executed_At.getHours() - (offsetServer - offsetClient));
+                });
+
+                $grid.kendoGrid({
+                    //toolbar: ["excel"],
+                    dataSource: {
+                        data: res.Data,
+                        type: "json",
+                        schema: {
+                            model: {
+                                fields: {
+                                    Executed_From: { editable: false },
+                                    Rig_Type: { editable: false },
+                                    Rig_Name: { editable: false },
+                                    Well_Name: { editable: false },
+                                    Activity_Type: { editable: false },
+                                    Activity_Description: { editable: false },
+                                    Start_Date: { editable: true, type: "Date" },
+                                    End_Date: { editable: true, type: "Date" },
+                                    Year_Start: { editable: false },
+                                    Year_End: { editable: false },
+                                    Executed_By: { editable: false },
+                                    Executed_At: { editable: false },
+                                }
+                            }
+                        },
+                        //pageSize: 10
+                    },
+
+                    filterable: true,
+                    editable: false,
+                    sortable: true,
+                    scrollable: false,
+                    pageable: {
+                        refresh: false,
+                        pageSize: 10,
+                        pageSizes: [10,25,50],
+                        buttonCount: 5
+                    },
+                    columns: columnsConfig,
+                    excelExport: function (e) {
+                        e.preventDefault();
+                        ajaxPost("@Url.Action("DownloadAllLatestLS")", {offsetClient : offsetClient},
+                            function(res) {
+                                var dt = moment(new Date()).format("DD-MMM-YYYY");
+                                window.location.href = "@Url.Action("DownloadFile")?stringName=" + res.Path + "&date=" + dt;
+                            }
+                        );
+                    }
+                });
+
+                //columnsConfig = [];
+                //columnsConfig.push({ field: "Rig_Type", title: "Rig Type" });
+                //columnsConfig.push({ field: "Rig_Name", title: "Rig Name" });
+                //columnsConfig.push({ field: "Well_Name", title: "Well Name" });
+                //columnsConfig.push({ field: "Activity_Type", title: "Activity Type" });
+                //columnsConfig.push({ title: "Status", template: "#if(Status == 'Update'){# <span class='btn-xs btn-primary'>Update</span> #}else if(Status == 'New'){# <span class='btn-xs btn-success'>New</span> #}else{# <span class='btn-xs btn-danger'>Removed</span> #}#" });
+
+                //$gridLog.kendoGrid({
+                //    dataSource: {
+                //        data: res.Data,
+                //        type: "json",
+                //        pageSize: 10
+                //    },
+                //    editable: false,
+                //    sortable: true,
+                //    scrollable: false,
+                //    pageable: true,
+                //    columns: columnsConfig
+                //});
+            }
+        }, function (a) {
+            //  console.log(a);
+            //alert('Error occured when loading data');
+        });
+
+    };
+
+    function GridChangeLog() {
+        var url = "@Url.Action("ShowSuccessedFileCompare")";
+        ajaxPost(url, {}, function (res) {
+            if (res.Result === "NOK") {
+                alert("Error occured when loading data");
+                return;
+            }
+            else {
+                var columnsConfig = [];
+
+                columnsConfig = [];
+                columnsConfig.push({ field: "FileName1", title: "File 1" });
+                columnsConfig.push({ field: "LastUpdate1", title: "Execute Date", width: 90, template: "#: DateTimeParse(LastUpdate1) #" });
+                columnsConfig.push({ field: "UserUpdate1", title: "Executed By" });
+                columnsConfig.push({ title: "", template: "<< Compare With >> " });
+                columnsConfig.push({ field: "FileName2", title: "File 2" });
+                columnsConfig.push({ field: "LastUpdate2", title: "Execute Date", width: 90, template: "#: DateTimeParse(LastUpdate2) #" });
+                columnsConfig.push({ field: "UserUpdate2", title: "Executed By" });
+                columnsConfig.push({ template: "<button onclick='GenerateChangeLogExcel(this)' file1='#:FileName1#' file2='#:FileName2#' class='btn btn-sm btn-warning'><span class='fa fa-file-excel-o'></span> Generate Result</button>" });
+                //columnsConfig.push({ title: "Status", template: "#if(Status == 'Update'){# <span class='btn-xs btn-primary'>Update</span> #}else if(Status == 'New'){# <span class='btn-xs btn-success'>New</span> #}else{# <span class='btn-xs btn-danger'>Removed</span> #}#" });
+                $(".changeLog").replaceWith("<div class='changeLog'></div>");
+                var $gridLog = $(".changeLog");
+
+                $gridLog.kendoGrid({
+                    dataSource: {
+                        data: res.Data,
+                        type: "json",
+                        pageSize: 10
+                    },
+                    editable: false,
+                    sortable: true,
+                    scrollable: false,
+                    pageable: true,
+                    columns: columnsConfig
+                });
+            }
+        }, function (a) {
+            //  console.log(a);
+            //alert('Error occured when loading data');
+        });
+
+    };
+
+    function onUpload(e) {
+        alert('onUpload');
+        //  console.log("onupload");
+
+        var url = '@Url.Action("Upload", "UploadOP")';
+        //model.IsProcessing(true);
+
+        ajaxPost(url, "", function (res) {
+            alert('after upload');
+        }, function (a, b, c) {
+            alert('error upload');
+            //alert('Error occured when loading data');
+        });
+
+    }
+
+    function onSuccess(e) {
+        alert('onSuccess');
+        //  console.log("onSuccess");
+        //kendoConsole.log("Success (" + e.operation + ") :: " + getFileInfo(e));
+    }
+
+    function onError(e) {
+        alert('onError');
+        //  console.log("onError");
+
+        //kendoConsole.log("Error (" + e.operation + ") :: " + getFileInfo(e));
+    }
+
+    function onComplete(e) {
+        model.LoadDataGrid();
+    }
+
+    function onCancel(e) {
+        alert('onCancel');
+
+        //  console.log("onCancel");
+
+    }
+
+    function onRemove(e) {
+        alert('onRemove');
+        //  console.log("Remove :: " + getFileInfo(e));
+    }
+
+    function onProgress(e) {
+        alert('onProgress');
+
+        //  console.log("Upload progress :: " + e.percentComplete + "% :: " + getFileInfo(e));
+    }
+
+    function getFileInfo(e) {
+        return $.map(e.files, function (file) {
+            var info = file.name;
+
+            // File size is not available in all browsers
+            if (file.size > 0) {
+                info += " (" + Math.ceil(file.size / 1024) + " KB)";
+            }
+            return info;
+        }).join(", ");
+    }
+
+    function DateTimeParse(date) {
+        var t = new Date();
+        var defaultDate = new Date(1900, 1, 1);
+        var result = " - ";
+        if (date != "") {
+            t = new Date(parseInt(date.replace('/Date(', '')));
+            if (t > defaultDate) {
+                result = moment(t).format("DD-MMM-YY hh:mm:ss A");
+            }
+        }
+        return result;
+
+        //return moment(jsonDateStr(date), 'DD-MMM-YYYY').format("DD-MMM-YYYY ");
+    }
+
+    function DateTimeParseMonth(date) {
+        return moment(jsonDateStr(date), 'DD-MMM-YYYY').format("MMM-YYYY ");
+    }
+
+    function OpenModal(id, type) {
+        //alert(id);
+        $('#inputFile').val(id);
+        //$('#inputFileType').val(type);
+        $("#myModal").modal('show');
+        model.isOriginal(true);
+        model.FileType(type);
+        model.FirstTimeFileType(type);
+    }
+
+    function alerter() {
+        alert("Upload LS Done");
+        model.LoadDataGridCollection();
+        model.LoadDataGrid();
+    }
+
+    function LoadToWEIS(id) {
+        var start = $('#inputName').data('kendoDatePicker').value();
+        var file = $('#inputFile').val();
+        var type = model.FileType();//$('#inputFileType').val();
+        var firstTimeType = model.FirstTimeFileType();
+
+        //if (type == "Full") {
+        //    if (!confirm('This is Full Type Upload. This action will completely remove and replace current LS. Are you sure you want to continue this action?'))
+        //        return;
+        //} else {
+        //    if (!confirm('This is Rig Upload. This action will fully replace the LS for specific Rig and leave the rest of LS intact. Are you sure you want to continue this action?'))
+        //        return;
+        //}
+        //disable all execute button. to avoid double execute
+        var executeButtons = $(".load-weis-button");
+        executeButtons.each(function (idxx, e) {
+            $(e).prop("disabled", true);
+        });
+        model.IsProcessing(true);
+
+        //model.IsProcessing(false);
+        ajaxPost("@Url.Action("LoadToWEIS")", { FileName: file, fileType: "Full", DateSequence: start, fileLocation: firstTimeType }, function (res) {
+            if (res.Result == "OK") {
+                $("#myModal").modal('hide');
+                ajaxPost("@Url.Action("updateexecute")", { filename: file }, function (res2) {
+                    model.IsProcessing(false);
+                    //alert("Converting LE File to Collection Done");
+                    //Execute(res.CollectionName);
+                    model.LoadDataGridCollection();
+                    model.GetCalculationStatusGlobal();
+
+                    setTimeout(function () {
+                        GridLog();
+                        GridChangeLog();
+                    }, 5000);
+                })
+
+            } else {
+                $("#myModal").modal('hide');
+                alert(res.Message );
+                model.IsProcessing(false);
+            }
+        }, function (a) {
+            //  console.log(a);
+            //alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+
+    function Download(id, fileType) {
+        model.IsProcessing(true);
+        var url = '@Url.Action("Download")' + "?id=" + id + "&fileType=" + fileType;
+        location.href = url;
+        model.IsProcessing(false);
+    }
+
+    function Edit(fn) {
+        model.filenameEdit(fn);
+        ajaxPost("@Url.Action("EditExcel")", { FileName: fn },
+            function(res) {
+                if (res.Result == "NOK") {
+                    alert(res.Message);
+                    return;
+                }
+                $("#modalEdit").modal("show");
+                RenderEditExcel(res.Data);
+            }
+        );
+    }
+
+    function SaveExcelEdited() {
+
+        var conf = confirm("Are you sure want to change this file?");
+
+        if (conf) {
+            var filename = model.filenameEdit();
+            var $gd = $('#EditExcel').data("kendoGrid");
+            var data = $gd.dataSource._data;
+
+
+            ajaxPost("@Url.Action("SaveExcel")", { datas: data, filename: filename },
+                function(res) {
+                    if (res.Result == "NOK") {
+                        alert(res.Message);
+                        return;
+                    }
+                    RenderEditExcel(res.Data);
+                    alert("File" + model.filenameEdit() + " Updated.");
+                }
+            );
+        }
+    }
+
+    function RenderEditExcel(data) {
+        $('#EditExcel').replaceWith($('<div id="EditExcel" />'));
+        $('#EditExcel').kendoGrid({
+            dataSource: new kendo.data.DataSource({
+                data: data,
+                type: "json",
+                pageSize: 10
+            }),
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            editable: true,
+            columns: [
+                { field: "Row", title: "Row", width: 20 },
+                { field: "Rig_Type", title: "Rig Type", width: 40 },
+                { field: "Rig_Name", title: "Rig Name", width: 60 },
+                { field: "Well_Name", title: "Well Name", width: 100 },
+                { field: "Activity_Type", title: "Activity Type", width: 100 },
+                { field: "Activity_Description", title: "Activity Description", width: 100 },
+                { field: "Start_Date", title: "Start Date", width: 80, template: "#:jsonDateStr(Start_Date)#" },
+                { field: "End_Date", title: "End Date", width: 80, template: "#:jsonDateStr(End_Date)#" },
+                { field: "Year__Start", title: "Year<br />Start", width: 30 },
+                { field: "Year__End", title: "Year<br />End", width: 30 }
+            ],
+
+        });
+    }
+
+    $(document).ready(function () {
+        model.LoadDataGrid();
+        ClearDataUpload();
+        model.LoadDataGridCollection();
+        //model.GetCalculationStatus();
+        GridLog();
+        GridChangeLog();
+    });
+
+    model.LoadDataGrid = function () {
+        model.IsProcessing(true);
+        var url = '@Url.Action("LoadGridData", "UploadLS")';
+        ajaxPost(url, "", function (res) {
+            res.Data.forEach(function (e) {
+                e.CreateDate = moment(e.CreateDate).toDate();
+                //if (e.CreateDate != ""){
+                //    e.CreateDate.setHours(e.CreateDate.getHours() - (offsetClient));//offsetServer -
+                //    //e.CreateDate = jsonDateStr(e.CreateDate, "dd-MMM-yyyy HH:mm:ss");
+                //}
+
+                e.LastExecute = moment(e.LastExecute).toDate();
+                //if (e.LastExecute != ""){
+                //    e.LastExecute.setHours(e.LastExecute.getHours() - (offsetClient));//offsetServer -
+                //    //e.LastExecute = jsonDateStr(e.LastExecute, "dd-MMM-yyyy HH:mm:ss");
+                //}
+
+                e.LastLoaded = moment(e.LastLoaded).toDate();
+                //if (e.LastLoaded != ""){
+                //    e.LastLoaded.setHours(e.LastLoaded.getHours() - (offsetClient));//offsetServer -
+                //    //e.LastLoaded = jsonDateStr(e.LastLoaded, "dd-MMM-yyyy HH:mm:ss");
+                //}
+                //console.log(e);
+            });
+            LoadGrid(res.Data);
+            model.IsProcessing(false);
+        }, function (a, b, c) {
+            //  console.log(a);
+            //  console.log(b);
+            //  console.log(c);
+            //alert('Error occured when fetching data from server');
+            model.IsProcessing(false);
+        });
+
+        LoadGrid = function (data) {
+            $('.grid1').replaceWith($('<div />').addClass('grid grid1'));
+            $('.grid1').kendoGrid({
+                dataSource: { data: data, type: "json", pageSize: 10 },
+                pageable: true,
+                sortable: true,
+                resizable: true,
+                columns: [
+                    //{ field: "FileType", title: "File <br /> Type", width: 80, template: "#if(FileType == 'Single'){# Single Rig #}else{# Full Replace #}#" },
+                    { field: "FileName", title: "File Name" },
+                    { field: "CreateDate", title: "Last Upload Date", width: 100, template: "#: jsonDateStr(CreateDate, 'dd-MMM-yyyy HH:mm:ss') #", },
+                    //{ field: "LastWrite", title: "Last Write", width: 90, template: "#: DateTimeParse(LastWrite) #", },
+                    //{ field: "LastLoaded", title: "Last Loaded", width: 90, template: "#: DateTimeParse(CreateDate) #", },
+                    { field: "LastExecute", title: "Last Loaded", width: 90, template: "#: jsonDateStr(LastExecute, 'dd-MMM-yyyy HH:mm:ss') #", },
+                    { field: "UserUpload", title: "Uploaded By", width: 90 },
+                    { field: "LastExecuteBy", title: "Last Run By", width: 90 },
+                    {
+                        field: "LastLoadedStatus", title: "Status", width: 90, template: function (d) {
+                            var ret = "<span>"+d.LastLoadedStatus+"</span>";
+                            if (d.LastLoadedStatus == 'Failed') {
+                                ret = "<a href='#' class='cursor: pointer;'  onClick='LoadError(\""+ d.FileName +"\")'>" + d.LastLoadedStatus + "</a>";
+                            }
+                            return ret; //"<a #if(LastLoadedStatus == 'Failed'){# href='#'  #}#> #:LastLoadedStatus# </a>";
+                        } },
+                    {
+                        title: "", width: 110,
+                        template: "<button class='btn btn-sm btn-warning' onclick='Download(\"#: FileName #\", \"#: FileType #\")'> <span class='glyphicon glyphicon-download'></span> Download</a>"
+                    },
+                    //{
+                    //    title: "", width: 50,
+                    //    template: "<button class='btn btn-xs btn-primary' onclick='Edit(\"#: FileName #\")'>Edit</a>"
+                    //},
+                    {
+                        title: "", width: 130,
+                        template: "<button class='btn btn-sm btn-danger load-weis-button' onclick='OpenModal(\"#: FileName #\", \"#: FileType #\")'><span class='glyphicon glyphicon-export'></span> Load to WEIS</a>"
+                    }
+
+
+                ],
+
+            });
+        };
+    };
+    model.LoadDataGridCollection = function () {
+
+        var url = '@Url.Action("LoadCollection", "UploadLS")';
+        ajaxPost(url, "", function (res) {
+
+            LoadGridCollection(res.Data);
+
+        }, function (a, b, c) {
+            //  console.log(a);
+            //  console.log(b);
+            //  console.log(c);
+            //alert('Error occured when fetching data from server');
+            model.IsProcessing(false);
+        });
+
+        LoadGridCollection = function (data) {
+            $('.grid2').replaceWith($('<div />').addClass('grid grid2'));
+            $('.grid2').kendoGrid({
+                dataSource: { data: data, type: "json", pageSize: 10 },
+                pageable: true,
+                sortable: true,
+                resizable: true,
+                columns: [
+                    { field: "CollectionName", title: "Collection Name" },
+                    { field: "LatestSequenceDate", title: "Latest Sequence Date", width: 200, template: "#: DateTimeParse(LatestSequenceDate) #", },
+                    //{
+                    //    title: "", width: 135,
+                    //    template: "<button class='btn btn-xs btn-warning' onclick='Execute(\"#: CollectionName #\")'>Execute and Update</a>"
+                    //    //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='Restore(\"#: CollectionName #\")'>Restore</a></div>", width: 100
+                    //},
+                    {
+                        title: "", width: 100,
+                        template: "<button class='btn btn-sm btn-custom btn-primary' onclick='Preview(\"#: CollectionName #\")'><span class='glyphicon glyphicon-eye-open'></span> Preview</a>"
+                        //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='Restore(\"#: CollectionName #\")'>Restore</a></div>", width: 100
+                    },
+                    {
+                        title: "", width: 100,
+                        template: "<button class='btn btn-sm btn-danger' onclick='DeleteBackup(\"#: CollectionName #\")'><span class='glyphicon glyphicon-minus-sign'></span> Delete</a>"
+                        //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='DeleteBackup(\"#: CollectionName #\")'>Delete</a></div>", width: 90
+                    }
+                ],
+
+            });
+        };
+    };
+
+    function LoadError(msg) {
+        $("#PutErrorHere").html(msg);
+        var g = $('.grid1').data("kendoGrid");
+        if (g != undefined) {
+            var dt = g.dataSource._data;
+            if (dt != undefined) {
+                var fd = Enumerable.From(dt).FirstOrDefault(undefined, "$.FileName == '" + msg + "'");
+                if (fd != undefined) {
+                    $("#PutErrorHere").html(fd.Message);
+                    $("#modalError").modal("show");
+                }
+            }
+        }
+    }
+
+    model.downloadPreLS = function (rigName) {
+        model.IsProcessing(true);
+        var url = '@Url.Action("DownloadPreLS")';
+        var param = { offsetClient: offsetClient };
+        if (rigName != undefined)
+            param = { rigName: rigName, offsetClient: offsetClient };
+        ajaxPost(url, param, function (data) {
+            model.IsProcessing(false);
+            $("#modelSelectRig").modal("hide");
+            if (rigName != undefined)
+                url = "@Url.Action("GenerateFilePreLS")" + "?stringName=" + data.Path + "&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss") + "&rigName=" + rigName;
+            else
+                url = "@Url.Action("GenerateFilePreLS")" + "?stringName=" + data.Path + "&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss");
+            location.href = url;
+        });
+    }
+
+    model.downloadRigPreLS = function () {
+        if (model.RigNamePreLS() == "") {
+            alert("Please select Rig");
+            return;
+        }
+        var rig = model.RigNamePreLS();
+        $("#modelSelectRig").modal("hide");
+        model.downloadPreLS(rig);
+    }
+
+    model.openModalPreLSRig = function() {
+        $("#modelSelectRig").modal("show");
+        model.RigNamePreLS("");
+    }
+
+
+</script>
+
+<div class="modal fade" id="modalError" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="myModalLabel">Error Handler</h4>
+            </div>
+            <div class="modal-body">
+                <div id="PutErrorHere"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEdit" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false" aria-labelledby="myModalLabel">
+    <div class="modal-dialog" role="document" style="width: 85%">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="myModalLabel" data-bind="text: model.filenameEdit"></h4>
+            </div>
+            <div class="modal-body">
+                <div id="EditExcel"></div>
+
+                <div class="row" style="margin-top: 20px;">
+                    <div class="col-md-12" style="text-align: right">
+                        <button class="btn btn-sm btn-warning" data-dismiss="modal"> Close</button>
+                        <button class="btn btn-sm btn-primary" onclick="SaveExcelEdited()"> Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modelSelectRig" tabindex="-1" role="dialog" aria-labelledby="modelSelectRig">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h5 class="modal-title">Download Single Rig Pre LS</h5>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4" style="text-align: right">
+                        <label>RigName</label>
+                    </div>
+                    <div class="col-md-4">
+                        <select style="width: 100%" id="rigNameModal" data-bind="kendoDropDownList: {dataSource : model.RigNames, value: model.RigNamePreLS, optionLabel: 'Select Rig'}"></select><!-- />-->
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-sm btn-primary" onclick="model.downloadRigPreLS()"><span class="glyphicon glyphicon-download"></span> Download</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,40 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<script>
+    model.capitalizedmodel = ko.observable({
+        Country: ko.observable(),
+    });
+    @*model.Country = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+DataHelper.Populate("WEISMacroEconomics").Select(d => d.GetString("Country")).OrderBy(d => d)
+   )));
+    model.computedcountry = ko.computed(function () {
+        return _.uniq(model.Country(), false, ko.toJSON);
+    }, this);
+    model.selectedcountry = ko.observableArray([]);*@
+</script>
+
+<div class="col-md-12" data-bind="visible: Country">
+    <div class="col-md-3">
+        <label>Country </label>
+    </div>
+    <div class="col-md-9">        
+        <div class="col-md-6">
+            <select id="Country" style="width:150px" data-bind="kendoMultiSelect:{data:computedcountry, value:selectedcountry}"></select>
+        </div>
+        <div class="col-md-6">
+            <button class="btn-sm btn btn-custom btn-primary" onclick="model.reloadData()">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+        </div>
+        
+    </div>
+</div>
+<script>
+    $(document).ready(function () {
+        //$("#Country").kendoMultiSelect({ dataSource: model.Country() });
+    });
+</script>

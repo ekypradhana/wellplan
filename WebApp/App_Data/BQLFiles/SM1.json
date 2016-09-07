@@ -1,0 +1,11 @@
+﻿[
+{$group:{
+	_id:{
+		Hour:"$USAGE_HOUR",
+		Rating:"$RATING_GROUP_ID",
+		District: "$GIS_DISTRICT"
+	},
+	Amount:{$sum:"$AMOUNT"},
+	Volume:{$sum:"$VOLUME"}
+}}
+] 

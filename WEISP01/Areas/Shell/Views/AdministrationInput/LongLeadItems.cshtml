@@ -1,0 +1,547 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+@{
+    ViewBag.Title = "Long Lead Items";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<style>
+    .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    th .k-header {
+        text-align: center;
+    }
+
+    .control {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+    .cell-right {
+        text-align: right;
+    }
+
+    .cell-center {
+        text-align: center;
+    }
+
+    .modal .modal-body .form-group {
+        min-height: 27px;
+        margin-bottom: 4px;
+    }
+
+        .modal .modal-body .form-group input,
+        .modal .modal-body .form-group textarea {
+            border-color: #EFEFEF;
+        }
+
+        .modal .modal-body .form-group .col-md-4 {
+            text-align: right;
+            padding-top: 5px;
+            padding-right: 0px;
+        }
+</style>
+
+<script>
+    model.LongLeadItems = {};
+    model.LongLeadItems.IsProcessing = ko.observable(false);
+    model.LongLeadItems.IsEdited = ko.observable(false);
+    model.LongLeadItems.Data = ko.observable(@MvcTools.Obj2HtmlStr(new MacroEconomic()));
+
+    model.LongLeadItems.AddItem = {};
+    model.LongLeadItems.AddItem.Year = ko.observable(0);
+    model.LongLeadItems.AddItem.Value = ko.observable(0);
+    model.LongLeadItems.AddItem.Source = ko.observable("");
+    model.LongLeadItems.AddItem.Desc = ko.observable("");
+    model.LongLeadItems.AddItem.ID = ko.observable("");
+    model.LongLeadItems.AddItem.Type = ko.observable("");
+    model.LongLeadItems.AddItem.InterestRatesType = ko.observable("short");
+
+    model.LongLeadItems.PrepareUploadForm = function () {
+        $("#upload .grid").kendoUpload({
+            async: {
+                saveUrl: '@Url.Action("Upload")',
+                removeUrl: "remove",
+                autoUpload: false
+            },
+            complete: function (e) {
+                model.LongLeadItems.Refresh();
+            },
+            select: function (e) {
+                $.each(e.files, function (index, value) {
+                    var ok = value.extension == ".xlsx" || value.extension == ".xls"
+
+                    if (!ok) {
+                        e.preventDefault();
+                        alert("Please upload only Excel (xls, xlsx) files");
+                    }
+                });
+            }
+        });
+    };
+    model.LongLeadItems.Refresh = function (callback) {
+        var url = "@Url.Action("GetLongLeadItems")";
+        var param = {};
+
+        model.LongLeadItems.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                model.LongLeadItems.IsProcessing(false);
+                return;
+            }
+
+            model.LongLeadItems.IsProcessing(false);
+            model.LongLeadItems.Data(res.Data);
+            model.LongLeadItems.RenderGridDrilling();
+            //model.LongLeadItems.RenderGridCompletion();
+            //model.LongLeadItems.RenderGridAbandonment();
+
+            $(".tab-content .tab-pane:not(.active) .grid").css("visibility", "hidden");
+
+            if (callback != undefined) {
+                callback();
+            }
+        });
+    };
+    model.LongLeadItems.UpdateLongLead = function () {
+        var url = "@Url.Action("UpdateLongLead")";
+        var param = {};
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                return;
+            }
+    
+            model.LongLeadItems.IsProcessing(false);
+            model.LongLeadItems.Refresh();
+        });
+    },
+    model.LongLeadItems.GridSave = function () {
+        var updates = [];
+        var keys = [];
+
+        $(".grid").each(function (i, e) {
+ 
+            var data = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true });
+            //var data = $(".grid").data("kendoGrid").dataSource.data();
+            //var filteredData = _.filter(data, { dirty: true });
+            data.forEach(function (f) {
+                var update = _.find(updates, { _id: f._id });
+                if (update == undefined) {
+                    for (var k in f) {
+                        if (f.hasOwnProperty(k) && k.indexOf(".") > -1) {
+                            delete f[k];
+                        }
+                    }
+                    updates.push(f);
+                    return;
+                }
+               
+                if ($(e).parent().attr("id") == "grid-drilling")
+                    update.Details = f.Details;
+                else if ($(e).parent().attr("id") == "grid-completion")
+                    update.Details = f.Details;
+                else if ($(e).parent().attr("id") == "grid-abandonment")
+                    update.Details = f.Details;
+            });
+        });
+        
+        var url = "@Url.Action("UpdateInlineLongLead")";
+        var param = { updates: updates };
+      
+        model.LongLeadItems.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                model.LongLeadItems.IsProcessing(false);
+                return;
+            }
+
+            model.LongLeadItems.IsProcessing(false);
+            model.LongLeadItems.Refresh();
+        });
+    };
+    model.LongLeadItems.GridReset = function () {
+        $(".grid").each(function (i, e) {
+            $(e).data("kendoGrid").dataSource.read();
+        });
+        model.LongLeadItems.CheckGrid();
+    };
+    model.LongLeadItems.CheckGrid = function () {
+        var isDirty = false;
+
+        $(".grid").each(function (i, e) {
+            if (isDirty) return;
+            //isDirty = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true }).length > 0;
+            isDirty = _.filter($(e).data("kendoGrid"), { dirty: true });
+            if (isDirty) model.LongLeadItems.IsEdited(true);
+        });
+
+        if (!isDirty) {
+            model.LongLeadItems.IsEdited(false);
+        }
+    };
+    model.LongLeadItems.KendoNumericTextBoxEditor = function (container, option) {
+        var input = $("<input min='0' data-bind=\"value:" + option.field + "\"></input>");
+        input.appendTo(container);
+        input.kendoNumericTextBox({
+            //change: function () {
+            //    model.LongLeadItems.CheckGrid();
+            //}
+        });
+    };
+    model.LongLeadItems.KendoNumericTextBoxEditorCustomizable = function (min, max) {
+        return function (container, option) {
+            var config = {
+                change: function () {
+                    model.LongLeadItems.CheckGrid();
+                }
+            };
+
+            if (min != undefined) config.min = min;
+            if (max != undefined) config.max = max;
+
+            var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+            input.appendTo(container);
+            input.kendoNumericTextBox(config);
+        };
+    };
+    model.LongLeadItems.ShowAddItem = function (o, id) {
+        var gridID = $(o).closest("[id]").attr("id");
+        var data = $(o).closest(".k-grid").data("kendoGrid").dataSource.data();
+        var year = moment(new Date()).year();
+
+        if (gridID == "grid-drilling") {
+            model.LongLeadItems.AddItem.Type("TDrilling");
+            if (data.length > 0) {
+                year = _.max(data[0].Details.Year, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-completion") {
+            model.LongLeadItems.AddItem.Type("TCompletion");
+            if (data.length > 0) {
+                year = _.max(data[0].Details.Year, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-abandonment") {
+            model.LongLeadItems.AddItem.Type("TAbandonment");
+            if (data.length > 0) {
+                year = _.max(data[0].Details.Year, function (e) { return e.Year }).Year + 1;
+            }
+        }  
+        model.LongLeadItems.AddItem.ID(id);
+        model.LongLeadItems.AddItem.Value(0);
+        model.LongLeadItems.AddItem.Year(year);
+
+        //$("#modal-add-item").modal("show");
+        model.LongLeadItems.SaveItem();
+    }
+    model.LongLeadItems.SaveItem = function () {
+        var url = "@Url.Action("LongLeadItemsAddAnnualValues")";
+        var param = {};
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                return;
+            }
+
+            model.LongLeadItems.Refresh(function () {
+                $("#modal-add-item").modal("hide");
+            });
+        });
+    };
+    model.LongLeadItems.BuildGridConfig = function (data, columns, editableFields, interest) {
+        var width = $(".nav-tabs").closest(".col-md-12").width();
+        var schema = {};
+        var addItem = {
+            locked: true,
+            width: 40,
+            attributes: { class: "ec-center" },
+            template: function (dataItem) {
+                return "<button class='btn btn-xs btn-custom btn-primary' onclick='model.LongLeadItems.ShowAddItem(this, \"" + dataItem._id + "\")' data-bind='enable: !model.BisPlanRecalculateStatus()'><span class='glyphicon glyphicon-plus'></span></button>"
+            }
+        };
+
+        if (interest != undefined) {
+            schema = {
+                model: {
+                    fields: {
+                        Title: { editable: false, locked: true },
+                    }
+                }
+            };
+            editableFields.forEach(function (e) {
+                schema.model.fields[e] = { type: "number" };
+            });
+
+            columns = [addItem].concat(columns).concat([
+            //columns = columns.concat([
+              { field: "FiscalYear", width: 100 }, 
+            ]);
+        } else {
+            schema = {
+                model: {
+                    fields: {
+                        Title: { editable: false },
+                    }
+                }
+            };
+
+            editableFields.forEach(function (e) {
+                schema.model.fields[e] = { type: "number" };
+            });
+
+            columns = [
+                addItem,
+                { field: "Title", width: 100, locked:true }, 
+            ].concat(columns);
+        }
+
+        return {
+            chartArea: {
+                width: width
+            },
+            dataSource: {
+                data: data,
+                schema: schema,
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            filterable: false,
+            editable: true,
+            columns: columns
+        };
+    };
+
+    model.LongLeadItems.RenderGridDrilling = function () {
+        var data = model.LongLeadItems.Data();
+        var columns = [];
+        var editableFields = [];
+        //console.log(data[0]);
+            if (data.length > 0) {
+                data[1].Details.forEach(function (e, i) {
+                    columns.push({
+                        title: String(e.Year), attributes: { style: "text-align:center;" },
+                        columns: [
+
+                                    {
+                                        title: "Materials Long Lead", width: 115, field: "Details[" + i + "].TangibleValue", attributes: { style: "text-align:right;" },
+                                        editor: model.LongLeadItems.KendoNumericTextBoxEditorCustomizable(0, 100),
+                                        format: "{0} %", 
+                                    },
+                                    {
+                                        title: "Months", width: 50, field: "Details[" + i + "].MonthRequiredValue", attributes: { style: "text-align:right;" },
+                                        editor: model.LongLeadItems.KendoNumericTextBoxEditorCustomizable(1, 12),
+                                        format: "{0}",
+                                    },
+                        ],
+                        width: 80,
+                        
+                        attributes: { class: "cell-right" },
+                    });
+                    editableFields.push("Details[" + i + "].TangibleValue");
+                    editableFields.push("Details[" + i + "].MonthRequiredValue");
+                });
+            }
+            //console.log(columns);
+            var config = model.LongLeadItems.BuildGridConfig(data, columns, editableFields);
+            $("#grid-drilling .grid").replaceWith('<div class="grid"></div>');
+            $("#grid-drilling .grid").kendoGrid(config);
+            $("#grid-drilling .grid").on("change", function () {
+                model.LongLeadItems.CheckGrid();
+            });
+
+            $("#grid-drilling button[data-bind]").each(function (i, e) {
+                try { ko.applyBindings(model, e); } catch (err) { }
+            });
+ 
+    };
+    model.LongLeadItems.RenderGridCompletion = function () {
+        var data = model.LongLeadItems.Data();
+        var columns = [];
+        var editableFields = [];
+
+        //console.log(data[0]);
+        if (data.length > 0) {
+            data[2].Details.forEach(function (e, i) {
+                columns.push({
+                    title: String(e.Year), columns: [
+                                { title: "Tangible %", width: 67, field: "Details[" + i + "].TangibleValue" },
+                                { title: "# Month Of Required", width: 200, field: "Details[" + i + "].MonthRequiredValue" },
+                    ],
+                    width: 80,
+                    format: "{0:N2}",
+                    attributes: { class: "cell-right" },
+                    editor: model.LongLeadItems.KendoNumericTextBoxEditor,
+                });
+                editableFields.push("Details[" + i + "].TangibleValue");
+                editableFields.push("Details[" + i + "].MonthRequiredValue");
+            });
+        }
+        //console.log(columns);
+        var config = model.LongLeadItems.BuildGridConfig(data[2], columns, editableFields);
+
+        $("#grid-completion .grid").replaceWith('<div class="grid"></div>');
+        $("#grid-completion .grid").kendoGrid(config);
+        $("#grid-completion .grid").on("change", function () {
+            model.LongLeadItems.CheckGrid();
+        });
+    };
+    model.LongLeadItems.RenderGridAbandonment = function () {
+        var data = model.LongLeadItems.Data();
+        var columns = [];
+        var editableFields = [];
+
+        //console.log(data[0]);
+        if (data.length > 0) {
+            data[0].Details.forEach(function (e, i) {
+                columns.push({
+                    title: String(e.Year), columns: [
+                                { title: "Tangible %", width: 67, field: "Details[" + i + "].TangibleValue" },
+                                { title: "# Month Of Required", width: 200, field: "Details[" + i + "].MonthRequiredValue" },
+                    ],
+                    width: 80,
+                    format: "{0:N2}",
+                    attributes: { class: "cell-center" },
+                    editor: model.LongLeadItems.KendoNumericTextBoxEditor,
+                });
+                editableFields.push("Details[" + i + "].TangibleValue");
+                editableFields.push("Details[" + i + "].MonthRequiredValue");
+            });
+        }
+        //console.log(columns);
+        var config = model.LongLeadItems.BuildGridConfig(data[0], columns, editableFields);
+
+        $("#grid-abandonment .grid").replaceWith('<div class="grid"></div>');
+        $("#grid-abandonment .grid").kendoGrid(config);
+        $("#grid-abandonment .grid").on("change", function () {
+            model.LongLeadItems.CheckGrid();
+        });
+    };
+    model.LongLeadItems.Prepare = function () {
+        $(".nav-tabs a").on("click", function (e) {
+            $($(e.currentTarget).attr("href") + " .grid").each(function (i, e) {
+                var $grid = $(e);
+                //alert($grid);
+                if ($grid.css("visibility") != "hidden") {
+                    return;
+                }
+                 
+                setTimeout(function () {
+                    $grid.data("kendoGrid").dataSource.read();
+                    $grid.css("visibility", "visible");
+                }, 100);
+            });
+        });
+    };
+
+ 
+</script>
+
+@Html.Partial("_BusPlanCalculationNotifier")
+
+<script type="text/html" id="grid-control-template">
+    <button class="btn-sm btn btn-custom btn-primary" data-bind="enable: !IsEdited(), click: Refresh">
+        <span class="glyphicon glyphicon-refresh"></span> Refresh
+    </button>
+    <button class="btn-sm btn btn-custom btn-success" data-bind="enable: IsEdited() && !model.BisPlanRecalculateStatus(), click: GridSave">
+        <span class="glyphicon glyphicon-save"></span> Save
+    </button>
+    <button class="btn-sm btn btn-custom btn-warning" data-bind="enable: IsEdited() && !model.BisPlanRecalculateStatus(), click: GridReset">
+        <span class="glyphicon glyphicon-remove"></span> Reset
+    </button>
+</script>
+
+<div class="col-md-12" data-bind="visible: model.LongLeadItems.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+
+<div class="col-md-12" data-bind="with: model.LongLeadItems, style: { 'visibility': model.LongLeadItems.IsProcessing() ? 'hidden' : 'visible' }">
+    <div class="tab-pane active" id="grid-drilling">
+        <div class="control" data-bind="template: { name: 'grid-control-template' }"></div>
+        <div class="grid"></div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-add-item" data-bind="with: model.LongLeadItems">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title">Add Item</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <div class="col-md-4">
+                            <label>Year</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px" data-bind="kendoNumericTextBox: { format: '#', value: AddItem.Year }" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="visible: false">
+                        <div class="col-md-4">
+                            <label>Value</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px" data-bind="kendoNumericTextBox: { format: '{0:N2}', decimals: 2, value: AddItem.Value }" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="visible: false">
+                        <div class="col-md-4">
+                            <label>Source</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" style="width: 200px; min-height: 27px;" data-bind="value: AddItem.Source" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="visible: false">
+                        <div class="col-md-4">
+                            <label>Desc</label>
+                        </div>
+                        <div class="col-md-8">
+                            <textarea style="width: 200px; min-height: 50px;" data-bind="value: AddItem.Desc"></textarea>
+                        </div>
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-custom btn-warning" data-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-primary" data-bind="click: SaveItem">
+                        <span class="glyphicon glyphicon-refresh"></span> Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        model.LongLeadItems.Prepare();
+        model.LongLeadItems.Refresh();
+    });
+</script>

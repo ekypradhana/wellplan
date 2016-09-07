@@ -1,0 +1,318 @@
+﻿<link rel="stylesheet" href="@Url.Content("~/Content/jquery-ui.css")">
+<style>
+    .symbol {
+        float: left;
+        width: 30%;
+    }
+
+    .value {
+        text-align: right;
+    }
+
+    .state-overview .panel {
+        padding: 0 5px 0 5px;
+        border: 1px solid darkgray;
+    }
+
+    #sdl2 .ui-slider-handle {
+        background: #F74040;
+    }
+    #sdl1 .ui-slider-handle {
+        background: #00C210;
+    }
+</style>
+
+<div class="row state-overview">
+    <div class="col-md-6">
+        <div class="col-md-3"></div>
+        <div class="col-md-4">&nbsp;</div>
+        <div class="col-md-5">
+            <section class="panel" style=" background-color: #00C210; color: white; border-radius: 5px; font-weight: bold; border: solid 2px #DBD9D9; box-shadow: 0px 0px 5px #888888;">
+                <!--ko if: model.DataScatterPlot().yAxisLabel() == 'days'-->
+                <span style="position: absolute; font-size: 65px; top: 15px; left: 25px; opacity: 0.5;" class="glyphicon glyphicon-calendar"></span>
+                <!--/ko-->
+                <!--ko if: model.DataScatterPlot().yAxisLabel() != 'days'-->
+                <span style="position: absolute; font-size: 80px; top: 10px; left: 5px; opacity: 0.5;" class="glyphicon glyphicon-usd"></span>
+                <!--/ko-->
+                <div class="symbol blue">&nbsp;</div>
+                <div class="value">
+                    <h1 data-bind="text:kendo.toString(model.DataTopBottom().TotalRealized(),'n2')"></h1>
+                    <p>Total PIP <span data-bind="text:model.DataScatterPlot().yAxisLabel()"></span> Realized</p>
+                </div>
+                <div class="clearfix"></div>
+            </section>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="col-md-5">
+            <section class="panel" style="background-color: #F74040; color: white; border-radius: 5px; font-weight: bold; border: solid 2px #DBD9D9; box-shadow: 0px 0px 5px #888888;">
+                <!--ko if: model.DataScatterPlot().yAxisLabel() == 'days'-->
+                <span style="position: absolute; font-size: 65px; top: 15px; left: 25px; opacity: 0.5;" class="glyphicon glyphicon-calendar"></span>
+                <!--/ko-->
+                <!--ko if: model.DataScatterPlot().yAxisLabel() != 'days'-->
+                <span style="position: absolute; font-size: 80px; top: 10px; left: 5px; opacity: 0.5;" class="glyphicon glyphicon-usd"></span>
+                <!--/ko-->
+                <div class="symbol yellow">&nbsp;</div>
+                <div class="value">
+                    <h1 data-bind="text:kendo.toString(model.DataTopBottom().TotalUnRealized(),'n2')"></h1>
+                    <p id="lable_sales">Total PIP <span data-bind="text:model.DataScatterPlot().yAxisLabel()"></span> Unrealized</p>
+                </div>
+                <div class="clearfix"></div>
+            </section>
+        </div>
+        <div class="col-md-4"></div>
+        <div class="col-md-3"></div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6" style="text-align:center;">
+
+        <label>Show Data: &nbsp; &nbsp; &nbsp;</label>
+        <div class="btn-group" data-toggle="buttons">
+            <label class="btn btn-primary btn-custom btn-sm active btn-trend show-sum" id="defaultShowSum" data-value="total"><input type="radio"> Total</label>
+            <label class="btn btn-primary btn-custom btn-sm btn-trend show-sum" data-value="risk"><input type="radio"> Only Risk</label>
+            <label class="btn btn-primary btn-custom btn-sm btn-trend show-sum" data-value="opportunity"><input type="radio"> Only Opportunity</label>
+        </div>
+    </div>
+    <div class="col-md-6" style="text-align:center;">
+        <label>Show Data: &nbsp; &nbsp; &nbsp;</label>
+        <div class="btn-group" data-toggle="buttons">
+            <label class="btn btn-primary btn-custom btn-sm active btn-trend btn-shownum" id="defaultShowNum" data-value="20"><input type="radio"> 20</label>
+            <label class="btn btn-primary btn-custom btn-sm btn-trend btn-shownum" data-value="15"><input type="radio"> 15</label>
+            <label class="btn btn-primary btn-custom btn-sm btn-trend btn-shownum" data-value="10"><input type="radio"> 10</label>
+            <label class="btn btn-primary btn-custom btn-sm btn-trend btn-shownum" data-value="5"><input type="radio"> 5</label>
+        </div>
+    </div>
+
+    <div class="col-md-12">
+        <div class="col-md-6" style="margin-top: 10px">
+            <label class="col-md-12">Scale: &nbsp; &nbsp; &nbsp;</label>
+            <div class="col-md-12">
+                <label class="col-md-1">0%</label>
+                <div id="sdl1" class="col-md-10"></div>
+                <label class="col-md-1">100%</label>
+            </div>
+            @*<label>Scale: &nbsp; &nbsp; &nbsp;</label>
+            <div class="btn-group" data-toggle="buttons">
+                <input type="number" style="width: 20%" onchange="changeScaleRealize('top10realized')" data-bind="value: model.DataTopBottom().ValueAxisMinRealized" /> - 
+                <input type="number" style="width: 20%" onchange="changeScaleRealize('top10realized')" data-bind="value: model.DataTopBottom().ValueAxisMaxRealized" />
+            </div>*@
+        </div>
+        <div class="col-md-6" style="margin-top: 10px">
+            <label class="col-md-12">Scale: &nbsp; &nbsp; &nbsp;</label>
+            <div class="col-md-12">
+                <label class="col-md-1">0%</label>
+                <div id="sdl2" class="col-md-10"></div>
+                <label class="col-md-1">100%</label>
+            </div>
+            @*<label>Scale: &nbsp; &nbsp; &nbsp;</label>
+            <div class="btn-group" data-toggle="buttons">
+                <input type="number" style="width: 20%" onchange="changeScaleRealize('top10unrealized')" data-bind="value: model.DataTopBottom().ValueAxisMinUnRealized" /> - 
+                <input type="number" style="width: 20%" onchange="changeScaleRealize('top10unrealized')" data-bind="value: model.DataTopBottom().ValueAxisMaxUnRealized" />
+            </div>*@
+        </div>
+        <div class="col-md-6" id="top10realized">
+            <div class="chart"></div>
+        </div>
+        <div class="col-md-6" id="top10unrealized">
+            <div class="chart"></div>
+        </div>
+        <div class="col-md-6" id="bottom10realized" style="display:none;">
+            <div class="chart"></div>
+        </div>
+        <div class="col-md-6" id="bottom10unrealized" style="display:none;">
+            <div class="chart"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function changeScaleRealize(xx, pct) {
+        var a = $("#" + xx).find(".k-chart").data("kendoChart");
+        setTimeout(function() {
+            if (a != undefined) {
+                //var o = b.options.valueAxis;
+                if (xx == "top10realized") {
+                    if (model.DataTopBottom().ValueAxisMinRealized() > 0)
+                        model.DataTopBottom().ValueAxisMinRealized(0);
+                    var ss = parseFloat(model.DataTopBottom().ValueAxisMaxRealized()) * (pct / 100);
+                    $("#" + xx).find(".k-chart").data("kendoChart").options.valueAxis.max = parseFloat(ss);
+                    $("#" + xx).find(".k-chart").data("kendoChart").options.valueAxis.min = parseFloat(model.DataTopBottom().ValueAxisMinRealized());//model.DataTopBottom().ValueAxisMinRealized()
+                } else {
+                    if (model.DataTopBottom().ValueAxisMinUnRealized() > 0)
+                        model.DataTopBottom().ValueAxisMinUnRealized(0);
+                    var dd = parseFloat(model.DataTopBottom().ValueAxisMaxUnRealized()) * (pct / 100);
+                    $("#" + xx).find(".k-chart").data("kendoChart").options.valueAxis.max = parseFloat(dd);
+                    $("#" + xx).find(".k-chart").data("kendoChart").options.valueAxis.min = parseFloat(model.DataTopBottom().ValueAxisMinUnRealized());//model.DataTopBottom().ValueAxisMinUnRealized()
+                }
+                $("#" + xx).find(".k-chart").data("kendoChart").refresh();
+            }
+        }, 100);
+        //console.log($("#" + xx).find(".k-chart").data("kendoChart").options.valueAxis);
+    }
+
+    $(function () {
+        $(".btn-shownum").click(function () {
+            model.ShowNum($(this).attr("data-value"));
+            generateChartTopBottom("top10realized");
+            generateChartTopBottom("bottom10realized");
+            generateChartTopBottom("top10unrealized");
+            generateChartTopBottom("bottom10unrealized");
+        });
+        $(".show-sum").click(function () {
+            setTimeout(function() {
+                model.reloadData();
+            }, 100);
+        });
+        $("#sdl1").slider({
+            value: 100
+        });
+        $("#sdl2").slider({
+            value: 100
+        });
+        $("#sdl1").on("slidechange", function (event, ui) {
+            var vl = ui.value;
+            if (vl < 5) {
+                vl = 5;
+            }
+            changeScaleRealize("top10realized", vl);
+        });
+        $("#sdl2").on("slidechange", function (event, ui) {
+            var vl = ui.value;
+            if (vl < 5) {
+                vl = 5;
+            }
+            changeScaleRealize("top10unrealized", vl);
+        });
+    });
+    function generateChartTopBottom(divid) {
+
+        var datas;
+        var title;
+        var max;
+        var min;
+        var color;
+
+        switch (divid) {
+        case "top10realized":
+            datas = _.first(model.DataTopBottom().TopRealized(), parseInt(model.ShowNum()));
+            title = "Top " + model.ShowNum() + " Realized";
+            max = model.DataTopBottom().ValueAxisMaxRealized();
+            min = model.DataTopBottom().ValueAxisMinRealized();
+            color = "#00C210";
+            break;
+        case "bottom10realized":
+            datas = _.first(model.DataTopBottom().BottomRealized(), parseInt(model.ShowNum()));
+            title = "Bottom " + model.ShowNum() + " Realized";
+            max = model.DataTopBottom().ValueAxisMaxRealized();
+            min = model.DataTopBottom().ValueAxisMinRealized();
+            break;
+        case "top10unrealized":
+            datas = _.first(model.DataTopBottom().TopUnRealized(), parseInt(model.ShowNum()));
+            title = "Top " + model.ShowNum() + " UnRealized";
+            max = model.DataTopBottom().ValueAxisMaxUnRealized();
+            min = model.DataTopBottom().ValueAxisMinUnRealized();
+            color = "#F74040";
+            break;
+        case "bottom10unrealized":
+            datas = _.first(model.DataTopBottom().BottomUnRealized(), parseInt(model.ShowNum()));
+            title = "Bottom " + model.ShowNum() + " UnRealized";
+            max = model.DataTopBottom().ValueAxisMaxUnRealized();
+            min = model.DataTopBottom().ValueAxisMinUnRealized();
+            break;
+        }
+
+        var valueLEField = "";
+        var valueOPField = "";
+
+        switch (model.DataPoint()) {
+        case "days":
+            valueLEField = "LEDays";
+            valueOPField = "PlanDays";
+            break;
+        case "cost":
+            valueLEField = "LECost";
+            valueOPField = "PlanCost";
+            break;
+        case "costperdays":
+            valueLEField = "LECostPerDay";
+            valueOPField = "PlanCostPerDay";
+            break;
+        }
+
+
+        $("#" + divid).find($(".chart")).kendoChart({
+            title:title,
+            dataSource: {
+                data: datas
+            },
+            legend: {
+                visible: true,
+                position:"bottom"
+            },
+            seriesDefaults: {
+                type: "column",
+                labels: {
+                    //visible: true,
+                    //background: "transparent"
+                }
+            },
+            series: [{
+                field: valueLEField,
+                tooltip: {
+                    visible: true,
+                    //background: "green"
+                    template: "Current Estimate -- #= category  #: #= kendo.toString(value * -1, 'n1') #",
+                },
+                name: "Current Estimate",
+                color: color
+            }, {
+                type: "line",
+                field: valueOPField,
+                opacity: 0,
+                width: 0,
+                tooltip: {
+                    visible: true,
+                    //background: "green"
+                    template: "Original Estimate -- #= category  #: #= kendo.toString(value * -1, 'n1') #",
+                },
+                color:"purple",
+                name: "Original Estimate"
+            }],
+            valueAxis: {
+                majorGridLines: {
+                    visible: false
+                },
+                visible: false,
+                max : max, //+ (0.2 * max),
+                min : min, //- (0.8 * min)
+            },
+            categoryAxis: {
+                field: "Title",
+                majorGridLines: {
+                    visible: false
+                },
+                minorGridLines: {
+                    visible: false
+                },
+                line: {
+                    visible: true
+                },
+                labels: {
+                    rotation: -90,
+                    template: "#if(value.length > 25) {# #=value.substring(0,25)+'...'# #}else{# #=value# #}#",
+                    font: "10px Arial,Helvetica,sans-serif"
+                }
+            },
+            chartArea: {
+                width: 0.9 * $("#wd").width(),
+                height: 300
+            },
+            //tooltip: {
+            //    visible: true,
+            //    template: "#= category  #: #= kendo.toString(value, 'n0') #"
+            //}
+        });
+    }
+</script>

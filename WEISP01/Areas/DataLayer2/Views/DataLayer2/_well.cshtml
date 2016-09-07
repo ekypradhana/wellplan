@@ -1,0 +1,238 @@
+﻿<script>
+    model.getWellPlan = ko.observable({
+        NumberOfPeriod: ko.observable(3),
+        MasterCols: ko.observableArray(['Plan', 'LE']),
+        Data: ko.observable([]),
+        AllData: ko.observable([]),
+        Detail: ko.observable(),
+        LiWidth: ko.observable(1205),
+        NumberOfDatas: ko.observable(1),
+        List: ko.observableArray([])
+
+    });
+    model.wellcurrentpage = ko.observable(0);
+    model.Dummy = ko.observable({
+        Detail: ko.observableArray([
+         { "WellName": "Well Name", "Version": "17 March 2016", "Items": [{ "Title": "Plan", "Days": 2, "Cost": 15 }, { "Title": "Latest Sequence", "Days": 2, "Cost": 10 }, { "Title": "AFE", "Days": 2, "Cost": 10 }, { "Title": "LE", "Days": 2, "Cost": 10 }] },
+            { "WellName": "Well Name", "Version": "18 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "Latest Sequence", "Days": 2, "Cost": 10 }, { "Title": "AFE", "Days": 2, "Cost": 10 }, { "Title": "LE", "Days": 3, "Cost": 15 }] },
+            { "WellName": "Well Name", "Version": "19 March 2016", "Items": [{ "Title": "Plan", "Days": 5, "Cost": 25 }, { "Title": "Latest Sequence", "Days": 2, "Cost": 10 }, { "Title": "AFE", "Days": 2, "Cost": 10 }, { "Title": "LE", "Days": 1, "Cost": 5 }] },
+            { "WellName": "Well Name", "Version": "17 March 2016", "Items": [{ "Title": "Plan", "Days": 2, "Cost": 15 }, { "Title": "Latest Sequence", "Days": 2, "Cost": 10 }, { "Title": "AFE", "Days": 2, "Cost": 10 }, { "Title": "LE", "Days": 2, "Cost": 10 }] },
+            { "WellName": "Well Name", "Version": "18 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "Latest Sequence", "Days": 2, "Cost": 10 }, { "Title": "AFE", "Days": 2, "Cost": 10 }, { "Title": "LE", "Days": 3, "Cost": 15 }] },
+            { "WellName": "Well Name", "Version": "19 March 2016", "Items": [{ "Title": "Plan", "Days": 5, "Cost": 25 }, { "Title": "Latest Sequence", "Days": 2, "Cost": 10 }, { "Title": "AFE", "Days": 2, "Cost": 10 }, { "Title": "LE", "Days": 1, "Cost": 5 }] },
+            { "WellName": "Well Name", "Version": "17 March 2016", "Items": [{ "Title": "Plan", "Days": 2, "Cost": 15 }, { "Title": "Latest Sequence", "Days": 2, "Cost": 10 }, { "Title": "AFE", "Days": 2, "Cost": 10 }, { "Title": "LE", "Days": 2, "Cost": 10 }] },
+            { "WellName": "Well Name", "Version": "18 March 2016", "Items": [{ "Title": "Plan", "Days": 3, "Cost": 20 }, { "Title": "Latest Sequence", "Days": 2, "Cost": 10 }, { "Title": "AFE", "Days": 2, "Cost": 10 }, { "Title": "LE", "Days": 3, "Cost": 15 }] },
+            { "WellName": "Well Name", "Version": "19 March 2016", "Items": [{ "Title": "Plan", "Days": 5, "Cost": 25 }, { "Title": "Latest Sequence", "Days": 2, "Cost": 10 }, { "Title": "AFE", "Days": 2, "Cost": 10 }, { "Title": "LE", "Days": 1, "Cost": 5 }] },
+
+        ]),
+        Data: ko.observableArray([])
+
+    })
+    
+    model.WellPagination = function (sign)
+    {
+        return function () {
+            //model.IsProcessing(true);
+
+            if (sign == "prev") {
+                var current = model.wellcurrentpage()-1;
+                if (current <= 0) {
+                    model.wellcurrentpage(0);
+                    $("#prev").attr("disabled", "disabled")
+                } else {
+                    model.wellcurrentpage(current);
+                    $("#prev").removeAttr('disabled');
+                }
+            }else{
+                var current = model.wellcurrentpage()+1;
+                model.wellcurrentpage(current);
+                $("#prev").removeAttr('disabled');
+            }
+            var param = { parmResultType: model.parmFilter().parmStaticRollingType(), skip: model.wellcurrentpage(), EventsWellRig: "events", search: $("#search-well").data("kendoMultiSelect").value() };
+            ajaxPost("@Url.Action("GetDataWellPlanPage")", param, function (res) {
+                if (res.Result == "OK") {
+                    model.AnyDataMasterWellPlan(true);
+                    model.AnyDataPIPBizPlan(true);
+                    model.getWellPlan().Data(res.Data.WellPlans);
+                    if (res.Data.Next) {
+                        $("#next").removeAttr('disabled');
+                    } else {
+                        $("#next").attr("disabled", "disabled")
+                    }
+                
+                } else {
+                    model.AnyDataMasterWellPlan(false);
+                    model.AnyDataPIPBizPlan(false);
+                }
+                model.IsProcessing(false);
+            }, function (res) {
+                model.IsProcessing(false);
+            });
+        }
+
+    }
+
+    function SearchByWell() {
+        var search = $("#search-well").data("kendoMultiSelect").value()
+        model.IsProcessing(true);
+        model.AnyWeeklyReport(true);
+        model.getLastestUpdate();
+        var x = model.parmFilter();
+        var param = { parmResultType: x.parmStaticRollingType(),search :search };//wellnames:$("#parmWell").data("kendoMultiSelect").value(),
+        if (param.parmRolling == null || param.parmRolling < 1) param.parmRolling = 1;
+        ajaxPost("@Url.Action("GetDataWellPlan")", param, function (res) {
+            if (res.Result == "OK") {
+                model.getWellPlan().Data(res.Data.WellPlans);                
+                if (res.Data.Next) {
+                    $("#next").removeAttr('disabled');
+                } else {
+                    $("#next").attr("disabled", "disabled")
+                }
+                $("#prev").attr("disabled", "disabled")
+            } else {
+                //model.AnyDataMasterWellPlan(false);
+                //model.AnyDataPIPBizPlan(false);
+            }
+            model.IsProcessing(false);
+        }, function (res) {
+            model.IsProcessing(false);
+        });
+
+    }
+
+</script>
+
+<div class="row kontainer">
+    <div class="col-md-12 no-space">
+
+        <div class="row" data-bind="visible:model.AnyDataMasterWellPlan()==false">
+            <div class="align_center" style="margin-top:20px">
+                <h4 style="border:none;">No data found</h4>
+            </div>
+        </div>
+        @*<span style=" cursor:pointer;margin-bottom:160px;margin-left:30%;width:100%;text-align:center;font-style:italic;">
+            Details in this page not showing all details data, please click show all data if you want to show all
+        </span>*@
+        @*<div class="col-md-12 text-center">
+            <div id="sdlPager" class="pagination" style="display:inline-block"></div>
+        </div>*@
+        
+        <div class="col-md-12" data-bind="visible:model.AnyDataMasterWellPlan()">
+            
+            <div class="col-md-6">
+                <div class="col-md-6" style="padding-left:0px;">
+                    <select id="search-well" data-placeholder="Select wells ..."style="width: 100%;"></select>
+
+                </div>
+                <div class="col-md-2">
+                    <button class="btn-sm btn btn-custom btn-primary" onclick="SearchByWell()">
+                        <span class="glyphicon glyphicon-search"></span> Search
+                    </button>
+                </div>
+                
+            </div>
+            @*<div class="col-md-2"><h4 data-bind="click:model.ExportToExcell('event'),attr:{id:'PrintingEvent'}" style="cursor:pointer;margin-bottom:10px;width:100%" class="btn btn-sm btn-success">Export To Excell</h4></div>*@
+            
+            @*<div class="col-md-2"></div>
+            <div class="col-md-2"></div>*@
+            <div class="col-md-2"></div>
+            <div class="col-md-2"><h4 data-bind="click:model.WellPagination('prev')" id="prev" style="cursor:pointer;margin-bottom:10px;width:100%" class="btn btn-sm btn-success">Previous</h4></div>
+            <div class="col-md-2"><h4 data-bind="click:model.WellPagination('next')" id="next" style="cursor:pointer;margin-bottom:10px;width:100%" class="btn btn-sm btn-success">Next</h4></div>
+
+        </div>
+        
+        <div class="clearfix" style="margin-bottom:20px"></div>
+        <div data-bind="visible:model.AnyDataMasterWellPlan()==true">
+            <div class="section content">
+                <div data-bind="foreach: model.getWellPlan().Data()" class="row data-container no-space">
+                    <div class="each" >
+                        <h4 data-bind="text: kendo.format('{0:dd-MMM-yyyy}', jsonDate(Version))"></h4>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th style="vertical-align: middle; text-align: left;">Title</th>
+                                    <th width="50" style="vertical-align: middle; text-align: right;">Days</th>
+                                    <th width="80" style="vertical-align: middle; text-align: right; padding-bottom: 5px;">
+                                        Cost<br />(US$ MM)
+                                    </th>
+                                </tr>
+                            </thead>
+                        </table>
+
+                        <table class="table">
+                            <tbody class="h">
+                                <tr>
+                                    <td colspan="4" class="title">
+                                        <span class="h-status summary">Summary</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+
+                            <tbody class="b" data-bind="foreach: Items">
+                                <tr>
+                                    <td data-bind="text: Identifier == 'Current OP' ? 'OP 15':Identifier == 'Previous OP'?'OP 14':Identifier"></td>
+                                    <td width="50" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Days)"></td>
+                                    <td width="80" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Cost)"></td>
+                                </tr>
+                            </tbody>
+
+                        </table>
+
+                        @*<h4 style="cursor:pointer;margin-bottom:10px;width:100%" class="btn btn-sm btn-success">Detail</h4>@*onclick="alert('On Progress')"   data-bind="click:model.ShowAll(jsonDate(Version),'WEISWellActivities_tr')" *@
+                                                
+
+                        <div id="accordionTaskUser" class="panel-group" data-bind="template:{name:'acordionList', foreach:WellItems}"></div>
+                        
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    $(document).ready(function () {
+        var $window = $(window);
+        var $header = $(".header");
+        var $content = $(".content");
+        var $headerDataContainer = $header.find(".data-container");
+
+        $window.on("resize", function () {
+            var self = $(this);
+            var otherHeight = 200;
+            var navHeight = (function (d) { return (d === 0 ? 30 : d); }($(".navbar-header").height()));
+            $(".content").height($(this).height() - otherHeight - navHeight);
+        });
+
+        setTimeout(function () { $window.trigger("resize"); }, 0);
+        setTimeout(function () { $window.trigger("resize"); }, 500);
+
+        $content.on("scroll", function () {
+            $headerDataContainer.css("margin-left", -1 * $content.scrollLeft());
+        });
+
+        //setTimeout(model.RecalcObjects, 0); // enable for testing purpose
+    });
+</script>
+
+<script id="acordionList" type="text/html">
+    <table class="table">
+        <tbody class="h">
+            <tr>
+                <td colspan="4" class="title">
+                    <span class="h-status dtl" data-bind="text: WellName + ' - ' + ActivityType"></span>
+                </td>
+            </tr>
+        </tbody>
+
+        <tbody class="b" data-bind="foreach: Items">
+            <tr>
+                <td data-bind="text: Identifier == 'Current OP' ? 'OP 15':Identifier == 'Previous OP'?'OP 14':Identifier"></td>
+                <td width="50" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Days)"></td>
+                <td width="80" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Cost)"></td>
+            </tr>
+        </tbody>
+
+    </table>
+</script>
+

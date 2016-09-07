@@ -1,0 +1,467 @@
+﻿<div style="width:1020px;margin:0px auto;" data-bind="with:waterfall">
+    <div style="width:1020px;float:left;display:block">
+        <div class="mini-nav bordered-mini-nav" style="width: 740px; margin: 0px;">
+            <div class="each-nav">
+                Show:
+                <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                    <option value="Day">Days</option>
+                    <option value="Cost">Cost</option>
+                </select>
+            </div>
+            <div class="each-nav">
+                Breakdown by:
+                <select data-bind="value:GroupBy" style="margin-right: 5px;">
+                    <option value="Classification">Classification</option>
+                    <option value="Theme">Theme</option>
+                    <option value="Title">Idea</option>
+                    <option value="PerformanceUnit">Performance Unit</option>
+                    <option value="ActionParty">Action Party (PIC)</option>
+                    <option value="WellName">Well Name</option>
+                    <option value="RigName">Rig Name</option>
+                </select>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeZero" />
+                </div>
+                <div>Include 0 value data point</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeGaps" />
+                </div>
+                <div>Include Gap</div>
+                <div class="clearfix"></div>
+            </div>
+            @*<div class="each-nav checkbox-nav no-border-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeCR" />
+                </div>
+                <div>Include Rig/ General SCM</div>
+                <div class="clearfix"></div>
+            </div>*@
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:Scaled" />
+                </div>
+                <div>Autoscale</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+
+        <div style="text-align: center; font-weight: bold; font-size: 14px;" id="wtitle-byrealised"></div>
+    </div>
+    <div style="width:1020px;float:left;display:block">
+        <div id="chart-waterfall2TQByRealisedOrNotTQ" style="width:510px;height:400px;display:inline;float:left;"></div>
+        <div id="chart-waterfall2LEByRealisedOrNotTQ" style="width:510px;height:400px;display:inline;float:left;"></div>
+    </div>
+    <div style="text-align:center">
+        <label style="background-color:#8AAAE0; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">OP</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A0C065; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Realised</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#C25654; width: 20px; ">&nbsp;</label>
+        <label style="font-weight:normal">Unrealised</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#888279; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Gap</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#373737; width: 20px; ">&nbsp;</label>
+        <label style="font-weight:normal">TQ/Agreed Target</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A48EC1; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">LE</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#E2A037; width: 20px; height: 1px;">&nbsp;</label>
+        <label style="font-weight:normal">AFE</label>
+        @*&nbsp;|&nbsp;
+        <label style="background-color:#213C69; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal" title="Elements which value is overlapping between Realized and Unrealized">Overlap Element</label>*@
+    </div>
+</div>
+
+<script>
+    model.waterfall().IncludeCR.subscribe(function (v) {
+        if (v) model.waterfall().DayOrCost("Cost");
+    });
+
+    function createWaterfall2ByRealisedOrNot(d) {
+        var wftq = $("#chart-waterfall2TQByRealisedOrNotTQ");
+        var wfle = $("#chart-waterfall2LEByRealisedOrNotTQ");
+
+        $("#wtitle-byrealised").html('Waterfall (By Realised / Unrealised) - Breakdown By ' + model.waterfall().GroupBy() + ' (' + model.waterfall().DayOrCost() + ')');
+
+        renderWaterfall2ByRealisedOrNot(wftq, d.DataTQ, d.AFE, d.OP, d.GapsTQ, d.TQ, d.MaxHeight, "TQ/Agreed Target");
+        renderWaterfall2ByRealisedOrNot(wfle, d.DataLE, d.AFE, d.OP, d.GapsLE, d.LE, d.MaxHeight, "LE");
+    }
+
+    function makeSeriesFromDataV1(data, AFE, OP, Gaps, TQorLE, TQorLELabel) {
+        var createTooltip = function (title, value) {
+            return {
+                visible: true,
+                template: [title, ": ", kendo.format("{0:N1}", value)].join("")
+            };
+        };
+
+        var prepareSeriesData = function (howMany, callback) {
+            return _.times(howMany, function (i) {
+                if (typeof callback !== undefined) return callback(i, howMany);
+                return 0;
+            });
+        };
+
+        var series = [];
+        var categories = ["OP"];
+        var running = OP;
+        var totalSeries = data.length + (model.waterfall().IncludeGaps() ? 3 : 2);
+
+        var AFELabel = "AFE";
+        var OPLabel = "OP";
+        var GapsLabel = "Gap";
+
+        (function () {
+            series.push({
+                note: "afe",
+                type: "line",
+                color: "#E2A037",
+                data: prepareSeriesData(totalSeries, function (i) {
+                    return AFE;
+                }),
+                width: 1,
+                markers: { visible: false },
+                tooltip: createTooltip(AFELabel, AFE),
+            });
+        }()); // AFE (line)
+
+        (function () {
+            series.push({
+                note: "op",
+                type: "bar",
+                color: "#8AAAE0",
+                stacked: true,
+                data: prepareSeriesData(totalSeries, function (i) {
+                    return (i == 0) ? OP : 0;
+                }),
+                tooltip: createTooltip(OPLabel, OP),
+            });
+        }()); // OP (bar)
+
+        (function () {
+            series.push({
+                note: "tq/le",
+                type: "column",
+                color: (TQorLELabel === "LE" ? "#A48EC1" : "#373737"),
+                stacked: true,
+                data: prepareSeriesData(totalSeries, function (i, j) {
+                    return ((i + 1) == j) ? TQorLE : 0;
+                }),
+                tooltip: createTooltip(TQorLELabel, TQorLE),
+            });
+        }()); // TQ/LE (bar)
+
+        var totalItem = 0;
+        (function () {
+            data.forEach(function (each, i) {
+                var eachTotal = each.Realized + each.Unrealized;
+                totalItem += eachTotal;
+
+                if (eachTotal < 0) {
+                    running += eachTotal;
+                }
+
+                categories.push(each.Title);
+
+                series.push({
+                    type: "column",
+                    color: "transparent",
+                    stacked: true,
+                    data: prepareSeriesData(totalSeries, function (j) {
+                        return (j == (i + 1)) ? running : 0;
+                    }),
+                    border: { opacity: 0 },
+                });
+
+                var colorUnreal = "#A0C065";
+                var colorReal = "#C25654";
+                var unreal = each.Unrealized;
+                var real = each.Realized;
+
+                if ((each.Unrealized > 0 && each.Realized < 0) || (each.Realized > 0 && each.Unrealized < 0)) {
+                    if (Math.abs(each.Unrealized) > Math.abs(each.Realized)) {
+                        unreal = each.Unrealized + each.Realized;
+                        colorReal = "#213C69";
+                    }
+                }
+
+                if ((each.Unrealized > 0 && each.Realized < 0) || (each.Realized > 0 && each.Unrealized < 0)) {
+                    if (Math.abs(each.Realized) > Math.abs(each.Unrealized)) {
+                        real = each.Realized + each.Unrealized;
+                        colorUnreal = "#213C69";
+                    }
+                }
+
+                series.push({
+                    note: each.Title + " (Unrealized)",
+                    type: "column",
+                    color: colorUnreal,
+                    stacked: true,
+                    data: prepareSeriesData(totalSeries, function (j) {
+                        return (j == (i + 1)) ? Math.abs(unreal) : 0;
+                    }),
+                    tooltip: createTooltip(each.Title + " (Unrealized)", each.Unrealized),
+                });
+
+                series.push({
+                    note: each.Title + " (Realized)",
+                    type: "column",
+                    color: colorReal,
+                    stacked: true,
+                    data: prepareSeriesData(totalSeries, function (j) {
+                        return (j == (i + 1)) ? Math.abs(real) : 0;
+                    }),
+                    tooltip: createTooltip(each.Title + " (Realized)", each.Realized),
+                });
+
+                if (eachTotal > 0) {
+                    running += eachTotal;
+                }
+            });
+        }()); // each element
+        Gaps = TQorLE - (OP + totalItem);
+
+        (function () {
+            if (!model.waterfall().IncludeGaps())
+                return;
+
+            series.push({
+                note: "gap space",
+                type: "column",
+                color: "transparent",
+                stacked: true,
+                data: prepareSeriesData(totalSeries, function (i, j) {
+                    return ((i + 2) == j) ? (Gaps < 0 ? TQorLE : running) : 0;
+                }),
+                border: { opacity: 0 },
+            });
+
+            series.push({
+                note: "gap",
+                type: "column",
+                color: "#888279",
+                stacked: true,
+                data: prepareSeriesData(totalSeries, function (i, j) {
+                    return ((i + 2) == j) ? (Gaps < 0 ? Math.abs(Gaps) : Gaps) : 0;
+                }),
+                tooltip: createTooltip(GapsLabel, Gaps),
+            });
+        }()); // Gap (bar)
+
+        if (model.waterfall().IncludeGaps())
+            categories.push("Gap");
+
+        categories.push(TQorLELabel);
+
+        return {
+            series: series,
+            categories: categories
+        };
+    }
+
+    function makeSeriesFromData(data, AFE, OP, Gaps, TQorLE, TQorLELabel) {
+        var seriesRealized = [],
+            seriesUnrealized = [],
+            totalRealized = 0,
+            totalUnrealized = 0;
+
+        var series = [{
+            title: "OP",
+            tooltipLabel: "OP",
+            value: OP,
+            realValue: OP,
+            AFE: AFE,
+        }];
+
+        var isZero = model.waterfall().IncludeZero();
+
+        data.forEach(function (each) {
+            if (isZero || (!isZero && each.Realized != 0)) {
+                seriesRealized.push({
+                    title: each.Title,
+                    tooltipLabel: each.Title + " (Realized)",
+                    value: each.Realized,
+                    realValue: each.Realized,
+                    AFE: AFE,
+                });
+                totalRealized += each.Realized;
+            }
+
+            if (isZero || (!isZero && each.Unrealized != 0)) {
+                seriesUnrealized.push({
+                    title: each.Title + " ",
+                    tooltipLabel: each.Title + " (Unrealized)",
+                    value: each.Unrealized,
+                    realValue: each.Unrealized,
+                    AFE: AFE,
+                });
+
+                totalUnrealized += each.Unrealized;
+            }
+        });
+
+        series = series.concat(_.sortBy(seriesRealized, function (e) { return Math.abs(e.realValue); }));
+
+        var realizedGap = TQorLE - OP - totalRealized;
+        series.push({
+            title: "Realized Gap",
+            tooltipLabel: "Realized Gap",
+            value: realizedGap,
+            realValue: realizedGap,
+            AFE: AFE,
+        });
+
+        series.push({
+            title: TQorLELabel,
+            tooltipLabel: TQorLELabel,
+            summary: "runningTotal",
+            realValue: TQorLE,
+            AFE: AFE,
+        })
+
+        series = series.concat(_.sortBy(seriesUnrealized, function (e) { return Math.abs(e.realValue); }));
+
+        //var unrealizedGap = totalUnrealized;
+        //if (unrealizedGap != 0) {
+        //    series.push({
+        //        title: "Unrealized Gap",
+        //        tooltipLabel: "Unrealized Gap",
+        //        value: (unrealizedGap * -1),
+        //        realValue: (unrealizedGap * -1),
+        //        AFE: AFE,
+        //    });
+        //}
+
+        return {
+            data: series,
+        };
+    }
+
+    function waterfall2color(point) {
+        switch (point.dataItem.title) {
+            case "OP":
+                return "#8AAAE0";
+                break;
+
+            case "Realized Gap":
+            case "Unrealized Gap":
+                return "#888279";
+                break;
+
+            case "TQ / Target":
+            case "TQ / Agreed Target":
+            case "TQ/Target":
+            case "TQ/Agreed Target":
+                return "#373737";
+                break;
+
+            case "LE":
+            case "Last Estimate":
+                return "#A48EC1";
+                break;
+        }
+
+        if (point.dataItem.tooltipLabel.indexOf("Realized") > -1) {
+            return "#A0C065";
+        } else {
+            return "#C25654";
+        }
+    }
+
+    function renderWaterfall2ByRealisedOrNot(wf, data, AFE, OP, Gaps, TQorLE, maxHeight, TQorLELabel) {
+        var configMeta = makeSeriesFromData(data, AFE, OP, Gaps, TQorLE, TQorLELabel);
+        var config = {
+            dataSource: {
+                data: configMeta.data
+            },
+            chartArea: {
+                background: "",
+                height: 400
+            },
+            seriesDefaults: {
+                type: "waterfall",
+                overlay: {
+                    gradient: "none"
+                },
+                border: {
+                    opacity: 0.4
+                }
+            },
+            series: [{
+                type: "waterfall",
+                field: "value",
+                categoryField: "title",
+                summaryField: "summary",
+                color: waterfall2color,
+                line: {
+                    visible: false,
+                    width: 0
+                },
+                labels: {
+                    visible: true,
+                    format: "N1",
+                    position: "outsideEnd",
+                    font: "9px verdana"
+                },
+                tooltip: {
+                    visible: true,
+                    template: "#: dataItem.tooltipLabel #: #: kendo.format('{0:N1}', dataItem.realValue) #"
+                },
+            }, {
+                type: "line",
+                color: "#E2A037",
+                field: "AFE",
+                markers: {
+                    visible: false
+                },
+                width: 1,
+                tooltip: {
+                    visible: true,
+                    template: 'AFE: #: kendo.format("{0:N1}", dataItem.AFE) #'
+                }
+            }],
+            legend: { visible: false, position: "bottom" },
+            valueAxis: {
+                labels: { font: "9px verdana", template: "#: kendo.format('{0:N1}', value) #" },
+                majorGridLines: { visible: false }
+            },
+            categoryAxis: {
+                labels: { font: "9px verdana", rotation: 90, template: '#= trimIfGreaterThan(value, 25) #' },
+                majorGridLines: { visible: false }
+            },
+        };
+
+        if (!model.waterfall().Scaled()) {
+            config.valueAxis.max = maxHeight;
+        }
+
+        window.series = configMeta;
+        window.config = config;
+
+        wf.kendoChart(config);
+
+        if (!model.waterfall().IncludeGaps()) {
+            var allGapsData = _.filter(configMeta.data, function (e) { return (e.title.toLowerCase().indexOf("gap") > -1) });
+            _.each(allGapsData, function (e) {
+                var gapsData = e;
+                var gapsIndex = configMeta.data.indexOf(gapsData);
+
+                wf.find("tspan:contains('" + gapsData.title + "')").closest("g").hide();
+                wf.find("svg > g:eq(0) > g[opacity]:eq(" + gapsIndex + ")").hide();
+                wf.find("svg > g:eq(0) > g:eq(0) > g[clip-path] > g:eq(" + gapsIndex + ")").hide();
+            });
+        }
+    }
+</script>

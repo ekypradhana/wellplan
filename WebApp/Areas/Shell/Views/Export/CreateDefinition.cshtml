@@ -1,0 +1,290 @@
+﻿@using ECIS.Core
+@using Newtonsoft.Json;
+@using System.Collections.Generic;
+
+<script type="text/javascript">
+    model.Tables = ko.observableArray(
+      @MvcHtmlString.Create(JsonConvert.SerializeObject(
+                        DataHelper.Populate("TablesAndFields").Select(d => d.GetString("_id")).OrderBy(d => d)
+                  )));
+    model.isRO = ko.observable('@ViewBag.isRO');
+    //alert(model.isRO);
+</script>
+
+<style>
+    .cell-date {
+        text-align: center;
+    }
+
+    .cell-number {
+        text-align: right;
+    }
+
+    #tableAllocation th {
+        text-align: center;
+    }
+
+    #tableAllocation td {
+        padding: 5px;
+    }
+
+    #tableAllocation tfoot td {
+        font-weight: bold;
+        text-align: right;
+        background-color: lightgrey;
+    }
+
+    #tableAllocation tbody td {
+        text-align: right;
+    }
+</style>
+
+<div class="form-group col-md-10" id="form-wrapper">
+
+    <table id="tableAllocation" style="width:100%">
+        <thead>
+        </thead>
+        <tbody id="tableAllocationBody">
+            <tr class="row">
+                <td class="col-md-3" align="left">Title</td>
+                <td class="col-md-12">
+                    <input id="tbTitle" type="text" style="width:100%;">
+                </td>
+            </tr>
+            <tr class="row">
+                <td class="col-md-3" align="left">Table</td>
+                <td class="col-md-12">
+                    <input id="tbCollection" type="text" style="width:100%;">
+                </td>
+            </tr>
+            <tr class="row">
+                <td class="col-md-3" align="left">Path (opt)</td>
+                <td class="col-md-12">
+                    <input id="tbPath" type="text" style="width:100%;">
+                </td>
+            </tr>
+            <tr class="row">
+                <td class="col-md-3" align="left">Fields</td>
+                <td class="col-md-12">
+                    <textarea id="tbFields" style="width:100%;"></textarea>
+                </td>
+            </tr>
+            <tr class="row">
+                <td class="col-md-3" align="left">Query</td>
+                <td class="col-md-12">
+                    <textarea id="tbQuery" style="width:100%; "></textarea>
+                </td>
+            </tr>
+        </tbody>
+        <tfoot>
+
+        </tfoot>
+    </table>
+    <div id="ctrlGen">
+        <button type="button" id="btAdd" class="btn btn-primary">+</button>
+        <button type="button" id="btMin" class="btn btn-primary">Clear</button>
+    </div>
+
+    <div id="main">
+
+    </div>
+</div>
+<div style="clear:both;"></div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-primary" onclick="Save()" data-bind="visible:!model.isRO()=='1'">Save</button>
+</div>
+
+
+
+
+<script type="text/javascript">
+
+    $(document).ready(function () {
+        var dropdownlist = $("#tbCollection").data("kendoDropDownList");
+        dropdownlist.select(0);
+        
+        // ------------------------ add control ------------------------
+        var iCnt = 0;
+        var container = $(document.createElement('div')).css({
+            padding: '5px', margin: '20px', width: '470px', border: '1px dashed',
+            borderTopColor: '#999', borderBottomColor: '#999',
+            borderLeftColor: '#999', borderRightColor: '#999'
+        }).addClass('cc');
+        $('#btAdd').click(function () {
+            //alert(iCnt);
+            console.log($(container));
+            if (iCnt <= 5) {
+                iCnt = iCnt + 1;
+
+
+                if (iCnt > 1) {
+                    var $ddop = $(' <br /> <select class=ddop id=ddop' + iCnt + '><option value="AND">AND</option><option value="OR">OR</option></select>  <br />');
+                    $(container).append($ddop);
+                }
+
+                var $ddown = $(' <input class="ddown" type=text id=dd_' + iCnt + ' ' + 'value="" /> ');
+                $(container).append($ddown);
+                var $ddopr = $(' <input class="ddopr" type=text id=dd2' + iCnt + ' ' + 'value="" /> ');
+                $(container).append($ddopr);
+                var $tbcrt = $(' <input class="tbcrt" type=text id=tb' + iCnt + ' ' + 'value="" />  ');
+                $(container).append($tbcrt);
+                //$(container).append($('<input class="btcrt" type=button  id=btmin' + iCnt + ' ' + 'value=" (-) " onclick=alert(' + iCnt + ')  >'));
+                //$(container).append($('<input class="btcrt" type=button  id=btplus' + iCnt + ' ' + 'value=" (+) " onclick=alert(' + iCnt + ')  >'));
+
+                var data = $("#tbFields").data("kendoMultiSelect");
+                var len = data.dataSource.data();
+
+                var values = new Array();
+                for (var i = 0 ; i < len.length ; i++) {
+                    values[i] = len[i];
+                }
+
+                //console.log($(container).html())
+                //console.log($(".ddown"));
+                //console.log($(".ddown").size());
+
+                $ddown.kendoDropDownList({
+                    dataSource: values,
+                });
+
+                var valuesOpr = new Array();
+                valuesOpr[0] = "Equal";
+                valuesOpr[1] = "Not Equal";
+                valuesOpr[2] = "Greater Than";
+                valuesOpr[3] = "Lower Than";
+                valuesOpr[4] = "Like";
+
+                $ddopr.kendoDropDownList({
+                    //$(".ddopr").kendoDropDownList({
+                    dataSource: valuesOpr,
+                });
+
+
+
+                if (iCnt == 1) {
+                    var divSubmit = $(document.createElement('div'));
+                    divSubmit.className = "CustomControl";
+                    $(divSubmit).append('<input type=button id="btProcess" class="proc btn btn-primary" onclick="ProcessQuery()"' +
+                            'id=btSubmit value=Generate />');
+                }
+                $('#main').after(container, divSubmit);
+            }
+            else {
+                //$(container).append('<label>Reached the limit</label>');
+                //$('#btAdd').attr('class', 'bt-disable');
+                //$('#btAdd').attr('disabled', 'disabled');
+            }
+        });
+
+        $('#btMin').click(function () {
+            //alert(iCnt);
+
+            $(".cc").remove();
+            $(".proc").remove();
+            container = $(document.createElement('div')).css({
+                padding: '5px', margin: '20px', width: '470px', border: '1px dashed',
+                borderTopColor: '#999', borderBottomColor: '#999',
+                borderLeftColor: '#999', borderRightColor: '#999'
+            }).addClass('cc');
+            iCnt = 0;
+            console.log($(container));
+        });
+
+    });
+
+
+    function ProcessQuery() {
+        //alert('Process Query');
+        $('#tbQuery').val("");
+
+        var strRet = "";
+        var stringBuilder = [];
+
+        var scratch = "";
+        for (var i = 1; i <= 5 ; i++) {
+            var ddFields = document.getElementById('dd_' + i) == null ? "" : document.getElementById('dd_' + i).value;
+            var ddOperand = document.getElementById('dd2' + i) == null ? "" : document.getElementById('dd2' + i).value;
+            var tbval = document.getElementById('tb' + i) == null ? "" : document.getElementById('tb' + i).value;
+            strRet = strRet + ddFields + "|" + ddOperand + "|" + tbval + "|";
+
+            var ddop = document.getElementById('ddop' + (i + 1)) == null ? "" : document.getElementById('ddop' + (i + 1)).value;
+            if (ddop != null) {
+                //stringBuilder.push(ddFields, ddOperand, tbval);
+                strRet = strRet + "," + ddop + ",";
+            }
+            else {
+                break;
+            }
+
+        }
+
+        //alert(strRet);
+
+        ajaxPost("@Url.Action("CreateQuery", "Export")" + "?scratch=" + strRet, {}, function (res) {
+            $('#tbQuery').val(res);
+            console.log(res);
+        });
+
+        return false;
+
+    }
+
+    function Save() {
+        var title = $('#tbTitle').val();
+        var collection = $('#tbCollection').val();
+        var path = $('#tbPath').val();
+        var fields = $("#tbFields").data("kendoMultiSelect").value();// $('#tbFields').val();
+        var query = $('#tbQuery').val();
+        var id = $('#tbId').val();
+        //alert(fields);
+        ajaxPost("@Url.Action("Save", "Export")" + "?title=" + title
+                                                 + "&collection=" + collection
+                                                 + "&path=" + path
+                                                 + "&fields=" + fields
+                                                 + "&query=" + query
+                                                 + "&id=" + id
+                                                 , {}, function (res) {
+
+                                                     $(".cc").remove();
+                                                     $(".proc").remove();
+                                                     container = $(document.createElement('div')).css({
+                                                         padding: '5px', margin: '20px', width: '470px', border: '1px dashed',
+                                                         borderTopColor: '#999', borderBottomColor: '#999',
+                                                         borderLeftColor: '#999', borderRightColor: '#999'
+                                                     }).addClass('cc');
+                                                     iCnt = 0;
+
+
+                                                     $("#myModal").modal('hide');
+                                                     $('#grid').data('kendoGrid').refresh();
+                                                     $('#grid').data('kendoGrid').dataSource.read();
+                                                     RefreshGrid();
+                                                 });
+    }
+    var selectedTablesName = "";
+
+
+    $("#tbCollection").kendoDropDownList({
+        optionLabel: " ",
+        dataSource: model.Tables(),
+        change: function (e) {
+            $("#tbFields").data("kendoMultiSelect").value([]);
+            var values = this.value();
+            selectedTablesName = values.toString();
+            //alert();
+            ajaxPost("@Url.Action("GetFields", "Export")" + "?TableName=" + selectedTablesName, {}, function (res) {
+                //alert(selectedTablesName);
+                if (selectedTablesName.trim() != "")
+                    $("#tbFields").data("kendoMultiSelect").setDataSource(res.Data);
+                else {
+                    $("#tbFields").data("kendoMultiSelect").setDataSource([]);
+
+                }
+                console.log(res.Data);
+            });
+        }
+    });
+
+    $("#tbFields").kendoMultiSelect({ dataSource: "" });
+
+</script>

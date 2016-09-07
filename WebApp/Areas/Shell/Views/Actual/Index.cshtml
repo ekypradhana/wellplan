@@ -1,0 +1,494 @@
+﻿@{
+    ViewBag.Title = "Activity Actual Info";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using Newtonsoft.Json
+@using ECIS.Core
+@using ECIS.Client.WEIS
+<script>
+    model.PageId("Weekly Report");
+    model.IsProcessing = ko.observable(false);
+    model.EDMActivities = ko.observable('');
+</script>
+
+<style>
+    .grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+        .grid .k-header[role=columnheader][data-field=_id] {
+            text-align: center;
+        }
+
+        .grid .k-header[role=columnheader][data-field=OpsDuration], .grid .k-header[role=columnheader][data-field=PhRiskDuration] {
+            vertical-align: bottom;
+            text-align: center;
+        }
+
+        .grid .k-header[role=columnheader][data-colspan], .grid [data-title=Actual] {
+            text-align: center !important;
+            font-weight: bold !important;
+            color: #a8a8a8;
+        }
+
+    .grid [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .grid [data-field=PhStart], .grid [data-field=PhFinish], .grid [data-field=OpsStart], .grid [data-field=OpsFinish] {
+        pointer-events: none;
+    }
+
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+
+    .tab-content {
+        margin-top: 15px;
+    }
+
+    #form_new_phase .col-md-5 {
+        text-align: right;
+        padding-top: 5px;
+        padding-right: 0px !important;
+    }
+
+    #form_new_phase .col-md-7 {
+        padding-left: 0px !important;
+    }
+</style>
+
+<div style="padding: 0px 15px 15px;">
+
+    @Html.Partial("Filter")
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible: !model.IsProcessing()">
+        <div id="DivLoad" class="col-md-12" style="text-align:right">
+            <button id="btnLoad" class="btn btn-custom btn-sm btn-warning do-filter">
+                <span class="glyphicon glyphicon-plus"></span> Import Actual from EDM to WEIS
+            </button>
+        </div>
+
+        <div class="col-md-12 no-padding">
+            <ul class="nav nav-tabs" role="tablist">
+                <li role="presentation" class="active">
+                    <a href="#tab1" aria-controls="home" role="tab" data-toggle="tab">WEIS Actual Data</a>
+                </li>
+                <li role="presentation">
+                    <a href="#tab2" aria-controls="profile" role="tab" data-toggle="tab">EDM Oracle Actual Data</a>
+                </li>
+                <li role="presentation">
+                    <a href="#tab3" aria-controls="profile" role="tab" data-toggle="tab">Fail Load from (Import Actual) </a>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <div role="tabpanel" class="tab-pane active" id="tab1">
+                    <div class="grid grid1"></div>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="tab2">
+                    <div class="grid grid2"></div>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="tab3">
+                    <div class="grid grid3"></div>
+                </div>
+            </div>
+        </div>
+
+        <div style="clear: both;"></div>
+    </div>
+
+</div>
+
+<script>
+    function jsonDateStrH(date) {
+        if (String(date).indexOf('Date') > -1) {
+            return moment(date).format('DD MMM YYYY');
+        }
+
+        return date;
+    }
+
+    function formatNumber(number) {
+        var div = 1000000.0;
+
+        if (parseInt(number, 10) <= 0) {
+            return parseFloat(number).toFixed(1);
+        }
+        else if (parseInt(number, 10) > div) {
+            return (number / div).toFixed(1);
+        }
+        else  {
+            return (number / div).toFixed(4);
+    }
+
+    return div;
+    }
+
+    model.FilterVisibility.Date(true);
+    model.FilterVisibility.WellNames(true);
+    model.FilterVisibility.Regions(false);
+    model.FilterVisibility.OperatingUnits(false);
+    model.FilterVisibility.RigTypes(false);
+    model.FilterVisibility.RigNames(false);
+    model.FilterVisibility.ProjectNames(false);
+    model.FilterVisibility.DateStart(true);
+    model.InvalidDate1Message("Date range cannot be empty");
+    model.FilterVisibility.EDMWellNames(true);
+
+    model.LoadDataGrid = function (gridClass, title, param, url) {
+        var buildGrid1 = function (data) {
+            $('.grid1').replaceWith($('<div />').addClass('grid grid1'));
+            $('.grid1').kendoGrid({
+                toolbar: ["pdf", "excel"],
+                pdf: { fileName: title + ".pdf" },
+                excel: { fileName: title + ".xlsx", allPages: true, filterable: true },
+                dataSource: { data: data, type: "json", pageSize: 10 },
+                pageable: true,
+                sortable: true,
+                resizable: true,
+                columns: [
+                    { field: "WellName", title: "Well" },
+                    { field: "SequenceId", title: "Sequence ID" },
+                    { field: "Activity", title: "Event" },
+                    { field: "UpdateVersion", title: "Update Version", width: 90, format: "{0:dd-MMM-yyyy}",
+                    template: "#: jsonDateStr(UpdateVersion) #", attributes: { style: "text-align: center;" }
+                    },
+                    {
+                        title: "Actual", columns: [
+                          { field: "Actual.Days", title: "Duration<br />(Days)", format: "{0:N0}", width: 90, attributes: { style: "text-align: right" } },
+                          { field: "Actual.Cost", title: "Cost<br />(US$ m)", format: "{0:N1}", width: 90, attributes: { style: "text-align: right" } },
+                        ]
+                    },
+                    {
+                        title: "AFE", columns: [
+                          { field: "Current.Days", title: "Duration<br />(Days)", format: "{0:N0}", width: 90, attributes: { style: "text-align: right" } },
+                          { field: "Current.Cost", title: "Cost<br />(US$ m)", format: "{0:N1}", width: 90, attributes: { style: "text-align: right" } },
+                        ]
+                    }
+                ]
+            });
+        };
+
+        var buildGrid2 = function (data) {
+            $('.grid2').replaceWith($('<div />').addClass('grid grid2'));
+            $('.grid2').kendoGrid({
+                toolbar: ["pdf", "excel"],
+                pdf: { fileName: title + ".pdf" },
+                excel: { fileName: title + ".xlsx", allPages: true, filterable: true },
+                dataSource: { data: data, type: "json", pageSize: 10 },
+                pageable: true,
+                sortable: true,
+                resizable: true,
+                columns: [
+                    { field: "WELLNAME", title: "Well Name" },
+                    { field: "DATEOPS", title: "Ops Date", width: 90, template: "#: jsonDateStrH(DATEOPS) #" },
+                    { field: "REPORTDATE", title: "Report Date", width: 90, template: "#: jsonDateStrH(REPORTDATE) #" },
+                    { field: "EVENTCODE", title: "Event Code" },
+                    { field: "EVENTID", title: "Event ID" },
+                    {
+                        title: "Actual", columns: [
+                          { field: "ACTUALCOST", title: "Cost<br />(US$ m)", width: 90, attributes: { style: "text-align: right" }, template: "#: formatNumber(ACTUALCOST) #" },
+                          { field: "DAYSONLOCATION", title: "Days on Location<br />(Days)", format: "{0:N0}", width: 90, attributes: { style: "text-align: right" } },
+                        ]
+                    },
+                    {
+                        title: "AFE", columns: [
+                          { field: "AFEDAYS", title: "Duration<br />(Days)", format: "{0:N0}", width: 90, attributes: { style: "text-align: right" } },
+                          { field: "AFECOST", title: "Cost<br />(US$ m)", width: 90, attributes: { style: "text-align: right" }, template: "#: formatNumber(AFECOST) #" },
+                        ]
+                    }
+                ]
+            });
+        };
+
+
+        model.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "NOK") {
+                if (res.Message.indexOf("OracleConnection.ConnectionString") > -1) {
+                    model.OnProduction(false);
+                    model.IsProcessing(false);
+                    return;
+                }
+
+                alert('Error :' + res.Message);
+                model.IsProcessing(false);
+                return;
+            }
+
+            if (gridClass == 'grid1') {
+                buildGrid1(res.Data);
+            } else {
+                console.log('==== Last Data Actual :  =====')
+                console.log(res.LastData);
+                console.log('==== Convert Success :  =====')
+                console.log(res.SucessData);
+                console.log('==== Failed Convert :  =====')
+                console.log(res.FailedData);
+
+                buildGrid2(res.Data);
+                //buildGrid3(res.FailedData);
+            }
+            model.IsProcessing(false);
+        }, function (a, b, c) {
+            console.log(a);
+            console.log(b);
+            console.log(c);
+            alert('Error occured when fetching data from server');
+            model.IsProcessing(false);
+        });
+    }
+
+    ExecuteLoadData = function () {
+
+        // check datetiem
+
+        var start = $('#parmDateFrom').data('kendoDatePicker').value();
+        var end = $('#parmDateTo').data('kendoDatePicker').value();
+
+        var vstart = kendo.parseDate(start, "dd-MMM-yyyy");
+        console.log(vstart);
+        var vend = kendo.parseDate(end, "dd-MMM-yyyy");
+        console.log(vend);
+
+
+var buildGrid3 = function (data) {
+            $('.grid3').replaceWith($('<div />').addClass('grid grid3'));
+            $('.grid3').kendoGrid({
+                //toolbar: ["pdf", "excel"],
+                //pdf: { fileName: title + ".pdf" },
+                //excel: { fileName: title + ".xlsx", allPages: true, filterable: true },
+                dataSource: { data: data, type: "json", pageSize: 10 },
+                pageable: true,
+                sortable: true,
+                resizable: true,
+                columns: [
+                    { field: "WELLNAME", title: "Well Name" },
+                    { field: "DATEOPS", title: "Ops Date", width: 90, template: "#: jsonDateStrH(DATEOPS) #" },
+                    { field: "REPORTDATE", title: "Report Date", width: 90, template: "#: jsonDateStrH(REPORTDATE) #" },
+                    { field: "EVENTCODE", title: "Event Code" },
+                    { field: "EVENTID", title: "Event ID" },
+                    {
+                        title: "Actual", columns: [
+                          { field: "ACTUALCOST", title: "Cost<br />(US$ m)", width: 90, attributes: { style: "text-align: right" }, template: "#: formatNumber(ACTUALCOST) #" },
+                          { field: "DAYSONLOCATION", title: "Days on Location<br />(Days)", format: "{0:N0}", width: 90, attributes: { style: "text-align: right" } },
+                        ]
+                    },
+                    {
+                        title: "AFE", columns: [
+                          { field: "AFEDAYS", title: "Duration<br />(Days)", format: "{0:N0}", width: 90, attributes: { style: "text-align: right" } },
+                          { field: "AFECOST", title: "Cost<br />(US$ m)", width: 90, attributes: { style: "text-align: right" }, template: "#: formatNumber(AFECOST) #" },
+                        ]
+                    }
+                ]
+            });
+        };
+
+        if (vstart == null || vend == null) {
+            alert('incorrect Date format, (dd-MMM-yyyy) \nPlease check your value')
+        }
+        else {
+
+            var select = $("#cbMethod").data("kendoDropDownList").value();
+            var url = '@Url.Action("ExecuteLoadData", "Actual")';
+            var param = {
+                start: $("#parmDateFrom").data("kendoDatePicker").value(),
+                end: $("#parmDateTo").data("kendoDatePicker").value(),
+                select: $("#cbMethod").data("kendoDropDownList").value()
+            };
+
+            model.IsProcessing(true);
+
+            ajaxPost(url, param, function (res) {
+                if (res.Result == "NOK") {
+                    alert("Load Data Failed \n" + res.Message);
+                } else {
+                    alert("Load Data Success");
+                }
+
+                model.reloadData();
+                model.IsProcessing(false);
+buildGrid3(res.DataFailedConvert);
+console.log(res);
+                $("#myModal").modal('hide');
+            }, function (a, b, c) {
+                alert('Error occured when loading data');
+            });
+        }
+    }
+
+    model.OnProduction = ko.observable(true);
+
+    model.reloadData = function () {
+        model.LoadDataGrid('grid1', 'Actual Data', model.getFilterValues(), "@Url.Action("GetData")");
+        if (!model.OnProduction()) return;
+        var param = {
+            dateStart: model.getFilterValues().dateStart,
+            dateFinish: model.getFilterValues().dateFinish
+        };
+        //alert(model.getFilterValues().dateStart);
+        //alert(model.getFilterValues().dateFinish);
+
+        var datest = moment(model.getFilterValues().dateStart, "YYYY-MM-dd").toDate();
+        var dateEn = moment(model.getFilterValues().dateFinish, "YYYY-MM-dd").toDate();
+        var days = (dateEn - datest) / 1000 / 60 / 60 / 24;
+
+
+        var now = new Date();
+        if (days > 60 || days < 0) {
+            // pick 1 month
+            var d = Date.now();
+            var c = moment(d);
+            var m = moment(d);
+            m.add("days", -60).toString();
+            c.add("days", 0).toString();
+            console.log(m.format("YYYY-MM-DD"));
+            console.log(c.format("YYYY-MM-DD"));
+
+
+            var edmwellnamesparam = model.getFilterValues().edmwellnames;
+            var param = {
+                dateStart: m.format("YYYY-MM-DD"),
+                dateFinish: c.format("YYYY-MM-DD"),
+                edmwellnames: edmwellnamesparam
+            };
+
+            model.LoadDataGrid('grid2', 'From Oracle', param, "@Url.Action("LoadFromOracle")");
+        }
+        else {
+            console.log(param.dateStart);
+            console.log(param.dateFinish);
+            model.LoadDataGrid('grid2', 'From Oracle', param, "@Url.Action("LoadFromOracle")");
+        }
+    }
+
+    $(function () {
+        //var dropdownlist = $("#cbMethod").data("kendoDropDownList");
+        //dropdownlist.wrapper.hide();
+        //$("#cbMethod").hide();
+
+
+        $("#parmDateFrom").kendoDatePicker({
+            format: jsonDateFormat,
+            start: "month",
+            depth: "month",
+            parseFormats: ["dd-MMM-yyyy"],
+            max: new Date(3001, 1, 1),
+            change: function () {
+                var $datePickerFrom = $("#parmDateFrom").data('kendoDatePicker');
+                var $datePickerTo = $("#parmDateTo").data('kendoDatePicker');
+                if (typeof $datePickerTo.value() == "undefined" || $datePickerTo.value() == "" || $datePickerTo.value() == null) {
+                    $datePickerTo.value($datePickerFrom.value());
+                }
+            }
+        });
+
+        $("#parmDateTo").kendoDatePicker({
+            format: jsonDateFormat,
+            start: "month",
+            depth: "month",
+            parseFormats: ["dd-MMM-yyyy"],
+            max: model.maxDate
+        });
+
+        $("#btnLoad").click(function () {
+
+            var dateNow = Date();
+            console.log(dateNow);
+            var s = moment(dateNow).format('DD-MMM-YYYY');
+            console.log(s);
+
+            $('#parmDateFrom').data('kendoDatePicker').value(s);
+            $('#parmDateTo').data('kendoDatePicker').value(s);
+
+            $("#myModal").modal('show');
+        });
+
+        $("#cbMethod").kendoDropDownList({
+            dataTextField: "text",
+            dataValueField: "value",
+            dataSource: [
+                { text: "Copy to Image", value: "1" },
+                { text: "Copy Actual", value: "2" },
+            ],
+            //filter: "contains",
+            //suggest: true
+            //value  : "2"
+        });
+
+        $('[data-model=dateRelation]').closest('.col-md-4').hide();
+        $('[data-model=date]').closest('.col-md-8').prev().find('label').html('Update Version:');
+        $('[data-model=dateStart]').closest('.col-md-8').prev().find('label').html('Range:');
+        $('.do-filter').parent().removeClass('col-md-12').addClass('col-md-4');
+        $('#DivLoad').removeClass('col-md-4').addClass('col-md-14');
+
+        $('[data-model=date]').data('kendoDropDownList').value('Custom');
+        $('[data-model=dateStart]').data('kendoDatePicker').value(model.defaultDateStart);
+        $('[data-model=dateFinish]').data('kendoDatePicker').value(model.defaultDateFinish);
+
+        model.reloadData();
+
+
+     
+    });
+</script>
+
+<div class="modal fade myModal" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                    <h4 class="modal-title">Choose date range</h4>
+                </div>
+                <div class="modal-body">
+                    <form id="form_new_phase">
+                        <div class="form-group">
+                            <div class="col-md-5">
+                                <label>Date From:</label>
+                            </div>
+                            <div class="col-md-7">
+                                <input type="text" class="entry-date" style="width: 136px" id="parmDateFrom" />
+                            </div>
+                        </div>
+                        <div class="clearfix">&nbsp;</div>
+                        <div class="form-group">
+                            <div class="col-md-5">
+                                <label>Date To:</label>
+                            </div>
+                            <div class="col-md-7">
+                                <input type="text" class="entry-date" style="width: 136px" id="parmDateTo" />
+                            </div>
+                        </div>
+                        <div class="clearfix">&nbsp;</div>
+                        <div class="form-group" style="display:none;">
+                            <div class="col-md-5">
+                                <label>Load Method:</label>
+                            </div>
+                            <div class="col-md-7">
+                                <input id="cbMethod" />
+                            </div>
+                        </div>
+                        <div class="clearfix">&nbsp;</div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-custom btn-warning" data-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-primary" onclick="ExecuteLoadData()">
+                        <span class="glyphicon glyphicon-refresh"></span> Load
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

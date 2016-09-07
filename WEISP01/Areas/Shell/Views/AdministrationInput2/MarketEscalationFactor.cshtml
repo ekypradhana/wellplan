@@ -1,0 +1,297 @@
+﻿@{
+    ViewBag.Title = "Market Escalation Factor";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<script>
+    model.Yo = {}; var y = model.Yo;
+
+    y.GME = ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new GlobalMarketEscalation())));
+    y.DetailVisibility = ko.observable(false);
+    y.IsAfterSave = ko.observable(false);
+    y.Refresh = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        model.Processing(true);
+        y.DetailVisibility(false);
+
+        var url = "@Url.Action("GetMarketEscalationFactorData")";
+        var param = y.GetParam();
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            model.Processing(false);
+            y.DetailVisibility(true);
+            ko.mapping.fromJS(res.Data.GlobalMarketEscalation, y.GME);
+            y.GenerateGrid(res.Data);
+
+            if ($("#m1.active").size() == 0) {
+                y.IsAfterSave(true);
+            }
+        });
+    };
+    y.GenerateGrid = function (data) {
+        var width = $(".the-container:visible").width();
+
+        var config = {
+            width: width,
+            dataSource: {
+                schema: {
+                    model: {
+                        fields: data.Fields
+                    }
+                },
+                data: data.MarketEscalation,
+                pageSize: 15
+            },
+            columns: data.Columns,
+            filterable: false,
+            pageable: true,
+            resizable: false,
+            editable: true,
+            sortable: true
+        };
+
+        $('.grid').replaceWith('<div class="grid"></div>');
+        $('.grid').kendoGrid(config);
+    };
+    y.RedrawGrid = function () {
+        $('.grid').data("kendoGrid").setDataSource(new kendo.data.DataSource({
+            data: JSON.parse(kendo.stringify($('.grid').data("kendoGrid").dataSource.data()))
+        }));
+    };
+    y.GetChanges = function () {
+        var data = $(".grid").data("kendoGrid").dataSource.data();
+        var filteredData = JSON.parse(kendo.stringify(_.filter(data, { dirty: true })));
+
+        return filteredData;
+    };
+    y.GetLatestYear = function () {
+        try {
+            var years = [];
+            var data = $(".grid").data("kendoGrid").dataSource.data()[0];
+
+            for (var i in data) {
+                if (data.hasOwnProperty(i) && i.indexOf('Year') > -1) {
+                    years.push(parseInt(i.replace(/Year_/g, ''), 10));
+                }
+            }
+
+            return _.max(years);
+        } catch (err) {
+            return moment(new Date()).year();
+        }
+    };
+    y.AddYear = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        var newFY = "FY" + String(y.GetLatestYear() + 1).substring(2);
+        if (!confirm("This will add new column " + newFY + ". Are you sure?")) {
+            return;
+        }
+
+        var url = "@Url.Action("AddYearOnMarketEscalationFactor")";
+        var param = y.GetParam();
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+    y.RemoveYear = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        var newFY = "FY" + String(y.GetLatestYear()).substring(2);
+        if (!confirm("This will remove column " + newFY + ". Are you sure?")) {
+            return;
+        }
+
+        var url = "@Url.Action("RemoveYearOnMarketEscalationFactor")";
+        var param = y.GetParam();
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+    y.SaveUpdate = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        model.Processing(true);
+
+        var url = "@Url.Action("SaveMarketEscalationFactorData")";
+        var param = y.GetParam({
+            Changes: y.GetChanges()[0],
+            GME: ko.mapping.toJS(y.GME)
+        });
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+
+    //y.Country.subscribe(function (val) {
+    //    if (val == '') {
+    //        y.DetailVisibility(false);
+    //    }
+    //});
+
+    $(function () {
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            if ($(e.target).attr("href") == "#m1" && y.IsAfterSave()) {
+                y.IsAfterSave(false);
+                y.RedrawGrid();
+            }
+        });
+    });
+</script>
+
+<div class="col-md-12" data-bind="with: model.Yo">
+    <div class="controls">
+        @Html.Partial("_Filter")
+        <script>y.RigName.subscribe(function (val) { y.GME.RigName(val); });</script>
+
+        <div class="filter">
+            <div class="form-group">
+                <div class="col-md-1"></div>
+                <div class="col-md-11">
+                    <button class="btn btn-sm btn-custom btn-primary" data-bind="click: Refresh">
+                        <span class="glyphicon glyphicon-refresh"></span> Refresh
+                    </button>
+                    <button class="btn btn-sm btn-custom btn-success" data-bind="click: SaveUpdate, visible: DetailVisibility()">
+                        <span class="glyphicon glyphicon-save"></span> Save Changes
+                    </button>
+                    &nbsp;
+                    <button class="btn btn-sm btn-custom btn-warning" data-bind="click: AddYear, visible: DetailVisibility()">
+                        <span class="glyphicon glyphicon-plus"></span> Add Year
+                    </button>
+                    <button class="btn btn-sm btn-custom btn-warning" data-bind="click: RemoveYear, visible: DetailVisibility()">
+                        <span class="glyphicon glyphicon-remove"></span> Remove Year
+                    </button>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form col-md-12" data-bind="visible: DetailVisibility()">
+        <ul class="nav nav-tabs">
+            <li class="active">
+                <a href="#m1" data-toggle="tab">Market Escalation</a>
+            </li>
+            <li>
+                <a href="#m2" data-toggle="tab">General Market Escalation</a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane active" id="m1">
+                <div class="grid"></div>
+            </div>
+            <div class="tab-pane" id="m2">
+                <div class="input-form" data-bind="with: GME">
+                    <div class="form-group">
+                        <div class="col-md-4">
+                            <span>Select Rig :</span>
+                        </div>
+                        <div class="col-md-8">
+                            <select data-bind="kendoDropDownList: { data: y.RigNames, value: RigName, enable: !y.IsRigName }" style="width: 200px;"></select>
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+
+                    <div class="form-group" @*data-bind="visible: (RigName() != '')"*@>
+                        <div class="col-md-4">
+                            <span>Rig :</span>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" data-bind="kendoNumericTextBox: { format: '# \\%', value: RigCostWeight }" style="width: 200px;" />
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="form-group" @*data-bind="visible: (RigName() != '')"*@>
+                        <div class="col-md-4">
+                            <span>Material :</span>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" data-bind="kendoNumericTextBox: { format: '# \\%', value: MaterialCostWeight }" style="width: 200px;" />
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="form-group" @*data-bind="visible: (RigName() != '')"*@>
+                        <div class="col-md-4">
+                            <span>Escalation Factor :</span>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" data-bind="value: EscalationFactor" style="width: 200px;" />
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form {
+        margin-top: 10px;
+    }
+
+    .input-form {
+        width: 400px;
+    }
+
+    .input-form .form-group {
+        margin-bottom: 4px;
+    }
+
+    .input-form .col-md-4 {
+        padding-top: 6px;
+        padding-bottom: 6px;
+    }
+    
+    .tab-pane {
+        padding-top: 10px;
+    } 
+    
+    .no-padding {
+        padding: 0px;
+    }
+</style>

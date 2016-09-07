@@ -1,0 +1,195 @@
+﻿@using ECIS.Core
+@using ECIS.Client.WEIS
+@{
+    ViewBag.Title = "Role";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<style>
+    #grid .cbx.true { opacity: 0.4; pointer-events: none; }
+    #modal-add .form-control { font-size: 12px; padding: 1px 6px; height: auto; }
+</style>
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.ParamSearch = ko.observable("");
+    model.RoleName = ko.observable("");
+    model.RoleID = ko.observable("");
+    model.IsEditMode = ko.observable(false);
+
+    model.Reload = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+        
+        var url = "@Url.Action("GetRole")";
+        var param = { search: model.ParamSearch() };
+        ajaxPost(url, param, function (res) {
+            var $grid = $('#grid');
+
+            if ($('#grid').data('kendoGrid') == undefined) {
+                $grid.kendoGrid({
+                    dataSource: {},
+                    columns: [
+                        { title: "", width: 30, template: "<input type='checkbox' class='cbx #: HasPersons #' value='#: RoleID #''>" },
+                        { field: "RoleID", title: "ID", width: 200, template: "<a style=\"cursor:pointer\" onclick=\"model.Edit('#: RoleID #')\">#: RoleID #</a>" },
+                        { field: "RoleName", title: "Role Name" }
+                    ],
+                    scrollable: true,
+                    sortable: true,
+                    resizable: true,
+                });
+            }
+
+            $grid.data('kendoGrid').setDataSource(new kendo.data.DataSource({ data: res.Data }));
+            model.IsProcessing(false);
+        }, function (a, b, c) {
+            model.IsProcessing(false);
+        });
+    };
+
+    model.Add = function () {
+        model.IsEditMode(false);
+        model.RoleName("");
+        model.RoleID("");
+        $("#modal-add").modal('show');
+    };
+
+    model.Edit = function (RoleID) {
+        var o = _.where($('#grid').data('kendoGrid').dataSource.data(), { RoleID: RoleID });
+
+        if (!!!o.length) return; else o = o[0];
+
+        model.IsEditMode(true);
+        model.RoleName(o.RoleName);
+        model.RoleID(o.RoleID);
+        $("#modal-add").modal('show');
+    };
+
+    model.Delete = function () {
+        var rolesChecked = $('.cbx:checked');
+        var roleIDs = [];
+
+        if (!!!rolesChecked.length) {
+            alert("No roles checked");
+            return;
+        }
+
+        rolesChecked.each(function (i, e) { roleIDs.push($(e).val()); });
+
+        if (!confirm('Are you sure want to delete checked roles ?'))
+            return;
+
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        var url = "@Url.Action("DeleteRole")";
+        var param = { roleIDs: roleIDs };
+
+        ajaxPost(url, param, function (res) {
+            model.IsProcessing(false);
+
+            if (res.Data.Success) { model.Reload(); return; }
+            alert(res.Data.Message);
+        }, function (a, b, c) {
+            model.IsProcessing(false);
+
+            alert("error occured when saving role" + model.RoleName());
+            $("#modal-add").modal('hide');
+        });
+    };
+
+    model.Save = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        var url = "@Url.Action("SaveRole")";
+        var param = { roleName: model.RoleName(), roleID: model.RoleID(), isEdit: model.IsEditMode() };
+
+        ajaxPost(url, param, function (res) {
+            model.IsProcessing(false);
+
+            if (res.Data.Success) { model.Reload(); $("#modal-add").modal('hide'); return; }
+            alert(res.Data.Message);
+        }, function (a, b, c) {
+            model.IsProcessing(false);
+
+            alert("error occured when saving role" + model.RoleName());
+            $("#modal-add").modal('hide');
+        });
+    };
+
+
+    $(model.Reload);
+</script>
+
+<div data-bind="with: model" style="width: 800px; margin: 20px auto;">
+
+    <div class="ec-panel form-horizontal">
+        <div class="form-group form-group-sm" style="margin-bottom: 20px;">
+
+            <label class="col-md-1" style="padding-top: 7px;">Search :</label>
+
+            <div class="col-md-4">
+                <div class="input-group">
+                    <input type="text" class="input-sm form-control" data-bind="value: ParamSearch" />
+                    <div class="input-group-btn">
+                        <button class="btn btn-primary btn-custom btn-sm" data-bind="click: Reload">
+                            <span class="glyphicon glyphicon-search"></span> Search
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <button class="btn btn-primary btn-custom btn-sm" data-bind="click: Add">
+                    <span class="glyphicon glyphicon-plus"></span> Add
+                </button>
+                <button class="btn btn-danger btn-custom btn-sm" data-bind="click: Delete">
+                    <span class="glyphicon glyphicon-remove-circle"></span> Delete
+                </button>
+            </div>
+        </div>
+
+        <div data-bind="visible: model.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div data-bind="visible: !model.IsProcessing()">
+            <div id="grid"></div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modal-add" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" style="width: 400px;">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <h6 class="modal-title" style="font-size: 16px; font-weight: bold;">Add New Role</h6>
+                </div>
+
+                <div class="modal-body">
+                    <form>
+                        <div class="form-group">
+                            <label>Role ID :</label>
+                            <input type="text" class="form-control" placeholder="Type role ID" required data-bind="value: RoleID, disable: IsEditMode()" />
+                        </div>
+                        <div class="form-group">
+                            <label>Role Name :</label>
+                            <input type="text" class="form-control" placeholder="Type role name" required data-bind="value: RoleName" />
+                        </div>
+                    </form>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" data-bind="click: Save">Save changes</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>

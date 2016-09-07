@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns:dm0="http://schemas.microsoft.com/VisualStudio/2008/DslTools/Core" xmlns:dm1="http://schemas.microsoft.com/dsltools/Kernel" xmlns:dm2="http://schemas.microsoft.com/dsltools/Component" xmlns:dm3="http://schemas.microsoft.com/dsltools/UseCase" xmlns:dm4="http://schemas.microsoft.com/dsltools/Activity" xmlns:dm5="http://schemas.microsoft.com/dsltools/Interaction" xmlns:dm6="http://schemas.microsoft.com/dsltools/UmlModelLibrary" xmlns:dm7="http://schemas.microsoft.com/dsltools/UmlDiagrams" xmlns:dm8="http://schemas.microsoft.com/dsltools/LogicalClassDesigner"
+  dslVersion="1.0.0.0"
+  Id="818320fe-35dd-4bd0-b22c-303cd104db91"
+  name="Common"
+  visibility="Private" xmlns="http://schemas.microsoft.com/dsltools/ModelStore">
+  <referencesInternal>
+    <reference
+      Id="dc997077-8200-4d75-8016-678e9444e8fa"
+      handle="viewcode://./CodeSchema_Namespace?Namespace%3DECIS.Biz.Common"
+      tag="ViewCode" />
+  </referencesInternal>
+  <packagedElements>
+    <packageHasNamedElement>
+      <class
+        Id="1d32edc4-6700-46e4-8bbf-b5e3bf3cfbcf"
+        name="Person"
+        isAbstract="false"
+        isLeaf="false"
+        isActiveClass="false">
+        <referencesInternal>
+          <reference
+            Id="c11dc1c7-cfaa-417b-aed4-796d0470ceb6"
+            handle="viewcode://./CodeSchema_Class?Assembly%3Dfile:%2F%2F%2FC:%2FUsers%2Fariefdarmawan%2FDocuments%2FSVNRepo%2FSemeru%2FWeb%2FWEIS%2FWebApp%2Fbin%2FECIS.Biz.Common.dll Namespace%3DECIS.Biz.Common Type%3DPerson"
+            tag="ViewCode" />
+        </referencesInternal>
+        <appliedStereotypesInternal>
+          <stereotypeInstance
+            Id="317e4cc4-ee3f-46f0-b497-69c21fac710e"
+            name="class"
+            profile="CSharpProfile">
+            <propertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="ab2def87-7f79-466c-9a85-ab99abb18c13">
+                <propertyInstance
+                  Id="f4ab9a3e-bdf2-4814-9e6a-7c05c0b36523"
+                  name="ClrAttributes" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="50a08864-77b1-44bf-8915-ea21ef9f7fda">
+                <propertyInstance
+                  Id="fc852b1f-455c-411d-86a9-db738787b0f3"
+                  name="IsPartial"
+                  value="false" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="d434b15e-30bf-4673-a751-536b05af82b9">
+                <propertyInstance
+                  Id="b1570693-b7f1-4255-818f-645d6c80d340"
+                  name="IsStatic"
+                  value="False" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="2aaa4b4b-2fc1-4d7b-b6d1-ee4d55903aed">
+                <propertyInstance
+                  Id="e1d7b25e-c13f-466f-9d65-9c148253f10e"
+                  name="IsUnsafe"
+                  value="false" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="bf1b1072-9880-49a7-8e61-a4be8b7cd1af">
+                <propertyInstance
+                  Id="da782c10-4fae-4299-ab8f-6415f65be550"
+                  name="PackageVisibility"
+                  value="internal" />
+              </stereotypeInstanceHasPropertyInstances>
+            </propertyInstances>
+          </stereotypeInstance>
+        </appliedStereotypesInternal>
+        <generalsInternal>
+          <generalization
+            Id="3b051a68-6803-4efe-8a13-892ccc66170c"
+            isSubstitutable="false">
+            <classMoniker
+              Id="c0d107c7-07b9-491d-9232-8e0d25a8b799"
+              LastKnownName="ECISModel"
+              LastKnownLocation="Package7_1651.uml" />
+          </generalization>
+        </generalsInternal>
+      </class>
+    </packageHasNamedElement>
+  </packagedElements>
+</package>

@@ -1,0 +1,268 @@
+﻿@{
+    ViewBag.Title = "Business Plan vs LE Variance";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core
+@using ECIS.Client.WEIS
+
+@Html.Partial("FilterForWaterfall")
+
+<script>
+    model.PageId("Performance Improvement Plan");
+
+    model.FilterVisibility.ExType(true);
+    model.FilterVisibility.Activities(true);
+    model.FilterVisibility.PerformanceUnits(true);
+    model.FilterVisibility.Date(true);
+    model.FilterVisibility.Date2(true); 
+    model.FilterVisibility.PeriodBase(false);
+    model.FilterVisibility.PeriodView(true);
+    model.FilterVisibility.PeriodRelation(false);
+
+    model.YearOptions = ko.observableArray(['All Years', moment(new Date()).year()]);
+    
+    model.WaterfallFilter = {
+        GroupBy: ko.observable("GroupBy"),
+        Layout: ko.observable("AFE2TQ2LE"),
+        IncludeZero: ko.observable(false),
+        IncludeGaps: ko.observable(true),
+        IncludeCR: ko.observable(true),
+        DayOrCost: ko.observable("Cost"),
+        Scaled: ko.observable(false),
+        CumulativeDataType: ko.observable("Total"),
+        AllocationYear: ko.observable(model.YearOptions()[1]),
+        BaseOP: ko.observable("OP14")
+    };
+
+    model.IsProcessing = ko.observable(false);
+
+    model.ParseParam = function () {
+        return $.extend(model.getFilterValues(), ko.mapping.toJS(model.WaterfallFilter));
+    };
+
+    model.ProcessingWaterfall = ko.observable(false);
+    model.ProcessingCumulative = ko.observable(false);
+
+    model.RefreshData = function (which) {
+        var url = "@Url.Action("GetData")";
+        var param = model.ParseParam();
+        param.which = which;
+
+        model["Processing" + which](true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model["Processing" + which](false);
+                return;
+            }
+
+            model["Processing" + which](false);
+
+            if (which == "Waterfall") {
+                model.GenerateWaterfall(res.Data.Waterfall);
+                model.GenerateWaterfallByRealized(res.Data.WaterfallRealized);
+                model.GenerateWaterfallGrid(res.Data.WaterfallGrid);
+            } else {
+                model.GenerateCumulative("cost", res.Data.CumulativeGrid.Data, res.Data.CumulativeGrid.Columns.Cost);
+                model.GenerateCumulative("le-cost", res.Data.CumulativeGrid.Data, res.Data.CumulativeGrid.Columns.LECost);
+                model.GenerateCumulative("days", res.Data.CumulativeGrid.Data, res.Data.CumulativeGrid.Columns.Days);
+                model.GenerateCumulative("le-days", res.Data.CumulativeGrid.Data, res.Data.CumulativeGrid.Columns.LEDays);
+                model.ReconfigureCumulativeYearSelection(res.Data.CumulativeChart.AllocationYears);
+                model.GenerateCumulativeChart("Cost", res.Data.CumulativeChart.Data);
+                model.GenerateCumulativeChart("Days", res.Data.CumulativeChart.Data);
+            }
+        });
+    };
+
+    function TrimIfGreaterThan(string, length) {
+        var code = "";
+        var addNbsp = function (howMany) {
+            var res = "";
+            for (var i = 0; i < howMany; i++) res += "&nbsp;";
+            return res;
+        };
+
+        if (string.indexOf("(P)") > -1) {
+            code = "(P)";
+        } else if (string.indexOf("(E)") > -1) {
+            code = "(E)";
+        }
+
+        if (string.length > length) {
+            string = string.replace(code, "").substring(0, length - 4) + code + "...";
+        }
+
+        return string;
+    }
+
+    model.MultiString = function (raw, data) {
+        var parsedString = raw.toString().
+            replace(/^[^\/]+\/\*!?/, '').
+            replace(/\*\/[^\/]+$/, '');
+
+        for (var each in data) {
+            if (data.hasOwnProperty(each)) {
+                parsedString = parsedString.replace(new RegExp("{" + each + "}", "g"), each[data]);
+            }
+        }
+
+        return parsedString;
+    }
+
+    model.reloadData = function () {
+        model.RefreshData("Waterfall");
+        model.RefreshData("Cumulative");
+    }
+
+    $(function () {
+        model.reloadData();
+
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            var id = $(e.target).attr("href");
+
+            $(id).find(".k-grid:not(.refreshed)").each(function (i, e) {
+                $(e).data("kendoGrid").dataSource.fetch();
+                $(e).addClass("refreshed");
+            });
+        });
+    });
+</script>
+
+<div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden'), height: (!model.IsProcessing() ? '' : '0px'), overflow: (!model.IsProcessing() ? '' : 'hidden') }">
+
+    <ul class="nav nav-tabs" style="margin-top:10px;">
+        <li class="active"><a href="#tab1" data-toggle="tab">Waterfall (By Opportunity & Risk)</a></li>
+        <li><a href="#tab2" data-toggle="tab">Waterfall (By Realised & Unrealised)</a></li>
+        <li><a href="#tab3" data-toggle="tab">Waterfall Data</a></li>
+        <li><a href="#tab4" data-toggle="tab">Cumulative</a></li>
+        <li><a href="#tab5" data-toggle="tab">Cumulative Data Cost</a></li>
+        <li><a href="#tab6" data-toggle="tab">Cumulative Data Days</a></li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane active" id="tab1">
+            <div data-bind="visible: !model.ProcessingWaterfall()">
+                @Html.Partial("Tab1WaterfallNew")
+            </div>
+            <div data-bind="visible: model.ProcessingWaterfall()">
+                @Html.Partial("_processing")
+            </div>
+        </div>
+        <div class="tab-pane" id="tab2">
+            <div data-bind="visible: !model.ProcessingWaterfall()">
+                @Html.Partial("Tab2WaterfallByRealized")
+            </div>
+            <div data-bind="visible: model.ProcessingWaterfall()">
+                @Html.Partial("_processing")
+            </div>
+        </div>
+        <div class="tab-pane" id="tab3">
+            <div data-bind="visible: !model.ProcessingWaterfall()">
+                @Html.Partial("Tab3WaterfallData")
+            </div>
+            <div data-bind="visible: model.ProcessingWaterfall()">
+                @Html.Partial("_processing")
+            </div>
+        </div>
+        <div class="tab-pane" id="tab4">
+            <div data-bind="visible: !model.ProcessingCumulative()">
+                @Html.Partial("Tab4Cumulative")
+            </div>
+            <div data-bind="visible: model.ProcessingCumulative()">
+                @Html.Partial("_processing")
+            </div>
+        </div>
+        <div class="tab-pane" id="tab5">
+            <div data-bind="visible: !model.ProcessingCumulative()">
+                @Html.Partial("Tab5CumulativeCost")
+            </div>
+            <div data-bind="visible: model.ProcessingCumulative()">
+                @Html.Partial("_processing")
+            </div>
+        </div>
+        <div class="tab-pane" id="tab6">
+            <div data-bind="visible: !model.ProcessingCumulative()">
+                @Html.Partial("Tab6CumulativeDays")
+            </div>
+            <div data-bind="visible: model.ProcessingCumulative()">
+                @Html.Partial("_processing")
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bordered-mini-nav {
+        padding: 10px 0px 6px;
+        border-bottom: 1px solid rgb(224, 224, 224);
+        margin-bottom: 10px !important;
+    }
+
+    .bordered-mini-nav .each-nav {
+        float: left;
+        border-right: 1px solid rgb(236, 236, 236);
+        padding-right: 3px;
+        margin-right: 5px;
+    }
+
+    .bordered-mini-nav .each-nav.checkbox-nav {
+        padding-right: 5px;
+    }
+
+    .bordered-mini-nav .each-nav.checkbox-nav div {
+        float: left;
+    }
+
+    .bordered-mini-nav .each-nav.checkbox-nav input {
+        margin: 1px 3px 1px 2px;
+    }
+
+    .bordered-mini-nav .each-nav.no-border-nav {
+        border-right: none !important;
+        margin-right: 0px !important;
+        padding-right: 0px !important;
+    }
+
+    .nav-filter-space {
+        margin-right: 3px;
+        border-left: 1px solid rgb(236, 236, 236);
+    }
+
+    .grid h6 {
+        text-align: center;
+        font-weight: bold;
+        font-size: 14px;
+    }
+
+    .grid .grid-cost, .grid .grid-day {
+        margin-bottom: 30px;
+    }
+
+    .grid .k-header.k-grid-toolbar {
+        background-color: #F9F9FB;
+    }
+
+    .grid .k-header.k-grid-toolbar .k-button {
+        background-color: #f4b350;
+        border-color: #E2A952;
+    }
+
+    .grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+    .grid .k-header[role=columnheader][data-colspan] {
+        text-align: center;
+        font-weight: bold;
+        color: #a8a8a8;
+    }
+
+    .grid .k-header[role=columnheader]:nth-child(n+2) {
+        text-align: center;
+    }
+
+    .tab-content h4 {
+        display: none;
+    }
+</style>

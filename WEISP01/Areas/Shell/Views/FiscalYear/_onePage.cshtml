@@ -1,0 +1,477 @@
+﻿<style>
+    .form-group .row {
+        margin-bottom: 4px;
+    }
+
+    .form-group .text {
+        width: 100%;
+        padding: 3px 8px 2px !important;
+        height: auto;
+        border: 1px solid rgb(211, 211, 211);
+    }
+
+    .form-group .col-md-3 {
+        padding-top: 5px;
+        padding-right: 0px !important;
+    }
+    
+    .tab-content .form-group{
+        font-size:10px;
+    }
+
+    .tab-content .form-group .col-md-5 {
+        padding-left: 6px !important;
+    }
+
+    .tab-content .form-group .col-md-4 {
+        /*padding-top: 5px;*/
+        padding-right: 0px !important;
+    }
+
+    .tab-content .form-group .col-md-8 {
+        padding-left: 6px !important;
+    }
+
+    .form-control {
+        font-size: 9pt;
+    }
+
+    input[type='text'] {
+        line-height: 20px;
+    }
+
+    .title{
+        font-weight:bold;
+        text-transform:capitalize;
+        text-align:center;
+    }
+
+    hr.spacer {
+        margin-top: 5px;
+        margin-bottom: 5px;
+        border:0;
+        border-top:1px solid #999;
+    }
+    .col-md-8 > .col-md-3{
+        padding-top:0px !important;
+    }
+    .summary label{
+        text-align:left !important;
+        font-size:14px;
+        padding-top:0 !important;
+    }
+</style>
+
+<div class="col-md-12">
+    <button class="btn btn-custom btn-warning btn-sm" onclick="changeMode('edit', model.selectedWellId());">
+        <span class="glyphicon glyphicon-arrow-left"></span> Back to Phase List
+    </button>
+    &nbsp;
+    <button class="btn btn-custom btn-primary btn-sm" onclick="model.savePlan()" data-bind="">
+        <span class="glyphicon glyphicon-ok"></span> Save
+    </button>
+</div>
+
+<div data-bind="visible: model.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+
+<div class="col-md-12" style="margin-top:10px;" data-bind="style: { visibility: model.IsProcessing() ? 'hidden' : 'visible' }">
+    <div class="form-group col-md-6">
+        <div class="row">
+            <label class="col-md-3">Project Summary</label>
+            <div class="col-md-6">
+                    <label class="col-md-6">Start</label>
+                    <label>...</label>
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3"></label>
+            <div class="col-md-6">
+                <label class="col-md-6">End</label>
+                <label>...</label>
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3"></label>
+            <div class="col-md-6">
+                <label class="col-md-6">Duration</label>
+                <label>...</label>
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3"></label>
+            <div class="col-md-6">
+                <label class="col-md-6">Mean Cost EDM</label>
+                <label>...</label>
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3"></label>
+            <div class="col-md-6">
+                <label class="col-md-6">Mean Cost MOD</label>
+                <label>...</label>
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3"></label>
+            <div class="col-md-6">
+                <label class="col-md-6">Shell Share</label>
+                <label>...</label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function changeTab(est) {
+        return function () {
+            var interval3 = setInterval(function () {
+                changeUseTAApproved(est)();
+                clearInterval(interval3);
+            }, 300);
+
+            return true;
+        }
+    }
+
+    function changeCurrency() {
+        var currency = $("#currency").val();
+        switch (currency) {
+            case "USD":
+                model.BusPlan().conversionToUSD(1);
+                break;
+            case "GBP":
+                model.BusPlan().conversionToUSD(3);
+                break;
+            case "Euro":
+                model.BusPlan().conversionToUSD(2);
+                break;
+            default:
+                model.BusPlan().conversionToUSD(1);
+                break;
+        }
+    }
+
+    function changeEventDate(Estimate) {
+        return function () {
+            var intervalchangeEventDate = setInterval(function () {
+                //console.log(Estimate);
+                var ActivePhaseNo = getActivePhaseNo();
+                var eventDate = $("#event_start_date_" + ActivePhaseNo).val();
+                $("#project_start_date_" + ActivePhaseNo).val(eventDate);
+                Estimate.EventStartDate(eventDate);
+                clearInterval(intervalchangeEventDate);
+            }, 300);
+            calcSpreadRate(Estimate)();
+            calcTime(Estimate)();
+            return true;
+        }
+    }
+
+    function calcSpreadRate(Estimate) {
+        return function () {
+            var intervalSpreadRate = setInterval(function () {
+                var ActivePhaseNo = getActivePhaseNo();
+                var getYearStart = moment($("#event_start_date_" + ActivePhaseNo).val(), "DD-MMM-YYYY").get('year');
+                var filter = { Year: getYearStart, RigName: Estimate.RigName() };
+                var getRigRates = _.where(model.BusPlan().rigRates(), filter);
+                console.log(filter);
+                var rigRate = 0;
+                if (getRigRates.length > 0) {
+                    rigRate = getRigRates[0].Value;
+                }
+                Estimate.RigRate(rigRate);
+
+                var countSpreadRate = Estimate.RigRate() + Estimate.SpreadRate();
+                Estimate.SpreadRateTotal(countSpreadRate);
+
+                clearInterval(intervalSpreadRate);
+            }, 300);
+            return true;
+        }
+
+    }
+
+    function changeMaturityLevel() {
+        var ActivePhaseNo = getActivePhaseNo();
+        var ml = $("#maturity_level_"+ActivePhaseNo).val();
+        if ((ml == 'TYPE 3') || (ml == 'TYPE 4')) {
+            $("#project_value_driver_wrapper_"+ActivePhaseNo).show();
+        } else {
+            $("#project_value_driver_wrapper_" + ActivePhaseNo).hide();
+        }
+    }
+    function changeUseTAApproved(est) {
+        return function () {
+            var ActivePhaseNo = getActivePhaseNo();
+            if (est.UsingTAApproved()) {
+                est.NewNPTTime.PercentDays(20);
+                est.NewTECOPTime.PercentDays(20);
+                est.NewNPTTime.PercentCost(20);
+                est.NewTECOPTime.PercentCost(20);
+                $("#npt_time_perc_" + ActivePhaseNo).data("kendoNumericTextBox").enable(false);
+                $("#tecop_time_perc_" + ActivePhaseNo).data("kendoNumericTextBox").enable(false);
+                $("#npt_cost_perc_" + ActivePhaseNo).data("kendoNumericTextBox").enable(false);
+                $("#tecop_cost_perc_" + ActivePhaseNo).data("kendoNumericTextBox").enable(false);
+            } else {
+                est.NewNPTTime.PercentDays(0);
+                est.NewTECOPTime.PercentDays(0);
+                est.NewNPTTime.PercentCost(0);
+                est.NewTECOPTime.PercentCost(0);
+                $("#npt_time_perc_" + ActivePhaseNo).data("kendoNumericTextBox").enable(true);
+                $("#tecop_time_perc_" + ActivePhaseNo).data("kendoNumericTextBox").enable(true);
+                $("#npt_cost_perc_" + ActivePhaseNo).data("kendoNumericTextBox").enable(true);
+                $("#tecop_cost_perc_" + ActivePhaseNo).data("kendoNumericTextBox").enable(true);
+            }
+            calcTime(est)();
+            calcCost(est)();
+            return true;
+        }
+    }
+
+
+    function calcTime(Estimate) {
+        return function () {
+            var intervalCalcTime = setInterval(function () {
+
+                //console.log(Estimate);
+                var New_npt_days = Estimate.NewTroubleFree.Days() * ((Estimate.NewNPTTime.PercentDays() / 100) / (1 - (Estimate.NewNPTTime.PercentDays() / 100)));
+                //console.log(Estimate.NewTroubleFree.Days() + " + ((" + Estimate.NewNPTTime.PercentDays() + " / 100) / (1 - ("+ Estimate.NewNPTTime.PercentDays()+" / 100))")
+                var New_tecop_days = Estimate.NewTroubleFree.Days() * ((Estimate.NewTECOPTime.PercentDays() / 100) / (1 - (Estimate.NewTECOPTime.PercentDays() / 100)));
+                var mean_days = Estimate.NewTroubleFree.Days() + New_npt_days + New_tecop_days;
+                Estimate.NewNPTTime.Days(parseFloat(New_npt_days.toFixed(2)));
+                Estimate.NewTECOPTime.Days(parseFloat(New_tecop_days.toFixed(2)));
+                Estimate.NewMean.Days(parseFloat(mean_days.toFixed(2)));
+                generateChart();
+
+                //count duration
+                var ActivePhaseNo = getActivePhaseNo();
+                var startDate = $("#event_start_date_" + ActivePhaseNo).val();
+                $("#summary_start_" + ActivePhaseNo).html(startDate);
+                if (startDate != "") {
+                    var endDate = moment(startDate, "DD-MMM-YYYY").add(Math.round(mean_days),'days');
+                    console.log(endDate);
+                    $("#project_end_date_" + ActivePhaseNo).val(endDate.format("DD-MMM-YYYY"));
+                    $("#summary_end_" + ActivePhaseNo).html(endDate.format("DD-MMM-YYYY"));
+                }
+
+                $("#summary_duration_" + ActivePhaseNo).html(Math.round(mean_days));
+
+                clearInterval(intervalCalcTime);
+            }, 300);
+
+            return true;
+        }
+    }
+
+    function calcCost(Estimate) {
+        return function () {
+            var intervalCalcCost = setInterval(function () {
+                var New_npt_Cost = Estimate.NewTroubleFree.Cost() * ((Estimate.NewNPTTime.PercentCost() / 100) / (1 - (Estimate.NewNPTTime.PercentCost() / 100)));
+                var New_tecop_Cost = Estimate.NewTroubleFree.Cost() * ((Estimate.NewTECOPTime.PercentCost() / 100) / (1 - (Estimate.NewTECOPTime.PercentCost() / 100)));
+                var mean_cost = Estimate.NewTroubleFree.Cost() + New_npt_Cost + New_tecop_Cost;
+                Estimate.NewNPTTime.Cost(parseFloat(New_npt_Cost.toFixed(2)));
+                Estimate.NewTECOPTime.Cost(parseFloat(New_tecop_Cost.toFixed(2)));
+                Estimate.NewMean.Cost(parseFloat(mean_cost.toFixed(2)));
+                generateChart();
+                clearInterval(intervalCalcCost);
+            }, 300);
+            return true;
+        }
+    }
+
+    function getActivePhaseNo() {
+        return $("li[data-model=tab_phase].active").find("a").attr("data-model");
+    }
+
+    function RearrangeRecord() {
+        var ActivePhaseNo = getActivePhaseNo();
+        var record = ko.mapping.toJS(model.BusPlan().record());
+        var newPhase = _.where(record.Phases, { PhaseNo: parseInt(ActivePhaseNo) })[0];
+        newPhase.Estimate.NewNPTTime.PercentDays = parseFloat($("#npt_time_perc_" + ActivePhaseNo).val());
+        newPhase.Estimate.NewNPTTime.PercentCost = parseFloat($("#npt_cost_perc_" + ActivePhaseNo).val());
+        newPhase.Estimate.NewTECOPTime.PercentCost = parseFloat($("#tecop_cost_perc_" + ActivePhaseNo).val());
+        newPhase.Estimate.NewTECOPTime.PercentDays = parseFloat($("#tecop_time_perc_" + ActivePhaseNo).val());
+        var phases = [];
+        for (var i = 0; i < record.Phases.length; i++) {
+            if (record.Phases[i].PhaseNo == ActivePhaseNo) {
+                phases.push(newPhase);
+            } else {
+                phases.push(record.Phases[i]);
+            }
+        }
+
+        record.Phases = phases;
+
+        //console.log(record);
+        model.BusPlan().record(ko.mapping.fromJS(record));
+        changeMode("detail", ActivePhaseNo);
+        //calc();
+    }
+
+    function changeEstimateRange() {
+        var ActivePhaseNo = getActivePhaseNo();
+        var estType = $("#estimating_range_type_" + ActivePhaseNo).val();
+        if (estType == "Deterministic") {
+            $("#estimating_range_note_" + ActivePhaseNo).html("% Value");
+            $("#estimating_range_start_title_" + ActivePhaseNo).html("Low");
+            $("#estimating_range_end_title_" + ActivePhaseNo).html("High");
+        } else {
+            $("#estimating_range_note_" + ActivePhaseNo).html("Simulated Value $MM");
+            $("#estimating_range_start_title_" + ActivePhaseNo).html("P10");
+            $("#estimating_range_end_title_" + ActivePhaseNo).html("P90");
+        }
+    }
+
+    function calc() {
+        //console.log("calc");
+        var interval = setInterval(function () {
+            var ActivePhaseNo = getActivePhaseNo();
+            var record = ko.mapping.toJS(model.BusPlan().record());
+            var dataActivePhase = _.where(record.Phases, { PhaseNo: parseInt(ActivePhaseNo) })[0];
+            var Estimate = dataActivePhase.Estimate;
+            var New_npt_days = Estimate.NewTroubleFree.Days * ((Estimate.NewNPTTime.PercentDays / 100) / (1 - (Estimate.NewNPTTime.PercentDays/100)));
+            $("#New_npt_days_" + ActivePhaseNo).val(New_npt_days.toFixed(2));
+            var New_tecop_days = Estimate.NewTroubleFree.Days * ((Estimate.NewTECOPTime.PercentDays / 100) / (1 - (Estimate.NewTECOPTime.PercentDays/100)));
+            $("#New_tecop_days_" + ActivePhaseNo).val(New_tecop_days.toFixed(2));
+
+            //cost
+            var New_npt_cost = Estimate.NewTroubleFree.Cost * ((Estimate.NewNPTTime.PercentCost/100) / (1 - (Estimate.NewNPTTime.PercentCost/100)));
+            $("#New_npt_cost_" + ActivePhaseNo).val(New_npt_cost.toFixed(2));
+            var New_tecop_cost = Estimate.NewTroubleFree.Cost * ((Estimate.NewTECOPTime.PercentCost/100) / (1 - (Estimate.NewTECOPTime.PercentCost/100)));
+            $("#New_tecop_cost_" + ActivePhaseNo).val(New_tecop_cost.toFixed(2));
+
+            //mean
+            var mean_time = parseFloat(Estimate.NewTroubleFree.Days) + parseFloat(New_npt_days) + parseFloat(New_tecop_days);
+            $("#New_mean_time_days_" + ActivePhaseNo).val(mean_time.toFixed(2));
+            var mean_cost = parseFloat(Estimate.NewTroubleFree.Cost) + parseFloat(New_npt_cost) + parseFloat(New_tecop_cost);
+            $("#New_mean_time_cost_" + ActivePhaseNo).val(mean_cost.toFixed(2));
+
+            generateChart();
+            changeEstimateRange();
+            clearInterval(interval);
+        }, 300);
+    }
+
+    function generateChart() {
+        var ActivePhaseNo = getActivePhaseNo();
+        var dataDays = [{
+            "TECOP": parseFloat($("#New_tecop_days_" + ActivePhaseNo).val()),
+            "NPT": parseFloat($("#New_npt_days_" + ActivePhaseNo).val()),
+            "TroubleFree": parseFloat($("#New_trouble_free_days_" + ActivePhaseNo).val()),
+            "Category": "New OP"
+        }, {
+            "TECOP": parseFloat($("#Current_tecop_days_" + ActivePhaseNo).val()),
+            "NPT": parseFloat($("#Current_npt_days_" + ActivePhaseNo).val()),
+            "TroubleFree": parseFloat($("#Current_trouble_free_days_" + ActivePhaseNo).val()),
+            "Category": "Current OP"
+        }];
+
+        var dataCost = [{
+            "TECOP": parseFloat($("#New_tecop_cost_" + ActivePhaseNo).val()),
+            "NPT": parseFloat($("#New_npt_cost_" + ActivePhaseNo).val()),
+            "TroubleFree": parseFloat($("#New_trouble_free_cost_" + ActivePhaseNo).val()),
+            "Category": "New OP"
+        }, {
+            "TECOP": parseFloat($("#Current_tecop_cost_" + ActivePhaseNo).val()),
+            "NPT": parseFloat($("#Current_npt_cost_" + ActivePhaseNo).val()),
+            "TroubleFree": parseFloat($("#Current_trouble_free_cost_" + ActivePhaseNo).val()),
+            "Category": "Current OP"
+        }];
+
+        //var sampleDatas = [{
+        //    "TECOP": 110,
+        //    "NPT": 40,
+        //    "TroubleFree": 40,
+        //    "Category": "New OP"
+        //}, {
+        //    "TECOP": 90,
+        //    "NPT": 56,
+        //    "TroubleFree": 40,
+        //    "Category": "Current OP"
+        //}]
+
+        var wrapper_cost = $("#chart_cost_" + ActivePhaseNo);
+        var wrapper_days = $("#chart_days_" + ActivePhaseNo);
+        renderChart(wrapper_cost, dataCost,"Chart by Cost");
+        renderChart(wrapper_days, dataDays, "Chart by Days");
+    }
+
+    function renderChart(wrapper, datas, title) {
+        //console.log(datas);
+        //var $width = $(".wd").width();
+        var wd = wrapper.width();
+        //console.log(wd);
+        var hg = 230;
+        wrapper.find($(".chart")).replaceWith($('<div />').addClass('chart'));
+        var fontLabel = "9px sans-serif";
+        wrapper.find($(".chart")).kendoChart({
+            title: title,
+            dataSource: {
+                data: datas
+            },
+            legend: {
+                visible: true,
+                labels: {
+                    font: "10px sans-serif"
+                },
+                position: "top"
+            },
+            seriesDefaults: {
+                type: "column",
+                labels: {
+                    visible: true,
+                    background: "transparent",
+                    font: fontLabel
+                }
+            },
+            seriesDefaults: {
+                type: "column"
+            },
+            series:
+            [{
+                field: "NPT",
+                name: "NPT"
+            }, {
+                field: "TECOP",
+                name: "TECOP"
+            }, {
+                field: "TroubleFree",
+                name: "Trouble Free"
+            }],
+            categoryAxis: {
+                field: "Category",
+                labels: {
+                    rotation: -45,
+                    font: fontLabel
+                },
+                majorGridLines: {
+                    visible: false
+                }
+            },
+            valueAxis: {
+                labels: {
+                    format: "N0",
+                    font: fontLabel
+                },
+                line: {
+                    visible: false
+                }
+            },
+            chartArea: {
+                width: wd,
+                height: 230
+            },
+            tooltip: {
+                visible: true,
+                template: "#= series.name # -- #= category  #: #= kendo.toString(value, 'n0') #",
+                font: fontLabel
+            }
+        });
+    }
+
+    $(function () {
+        
+    });
+</script>

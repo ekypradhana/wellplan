@@ -1,0 +1,567 @@
+﻿@{
+    ViewBag.Title = "Business Plan Simulation";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+<script>
+    model.SelectedActivityTemplate = {
+        "_id": null, "Region": null, "RigType": null, "RigName": null, "OperatingUnit": null, "ProjectName": null, "AssetName": null, "WellName": null, "NonOP": false, "WorkingInterest": 0, "FirmOrOption": null, "UARigSequenceId": null, "UARigDescription": null, "Targets": { "M0": { "Identifier": null, "Days": 0, "Cost": 0 }, "M1": { "Identifier": null, "Days": 0, "Cost": 0 }, "M2": { "Identifier": null, "Days": 0, "Cost": 0 }, "M3": { "Identifier": null, "Days": 0, "Cost": 0 }, "M4": { "Identifier": null, "Days": 0, "Cost": 0 } }, "OpsDuration": 0, "OpsSchedule": { "Start": null, "Finish": null }, "PsSchedule": { "Start": null, "Finish": null },
+        "PerformanceUnit": null, "EXType": null, "Activity": null, "VirtualPhase": null, "ShiftFutureEventDate": null
+    };
+    //model.PageId("Sequence Chart");
+    model.ShowBrowser = ko.observable(true);
+    model.ShowEditForm = ko.observable(false);
+    model.ShowInsertActivityForm = ko.observable(false);
+    model.selectedWellId = ko.observable();
+    model.IsProcessing = ko.observable(false);
+    model.SelectedActivity = ko.mapping.fromJS(model.SelectedActivityTemplate);
+    model.IsEditMode = ko.observable(false);
+
+
+    model.SetActivity = function (activityUnparsed) {
+        var template = ko.mapping.toJS(model.SelectedActivityTemplate),
+            activity = {};
+        for (var i in template) if (template.hasOwnProperty(i)) activity[i] = activityUnparsed[i];
+        ko.mapping.fromJS(activity, model.SelectedActivity);
+    };
+
+    model.bpmodel = ko.observable({
+        mode: ko.observable(""),
+        changeMode: function (mode, pageTitle) {
+            if (mode == '') pageTitle = "Activity Manager";
+            model.bpmodel().mode(mode);
+            setPageTitle(pageTitle);
+
+        },
+        id:ko.observable(""),
+        wellname: ko.observable(""),
+        region: ko.observable(""),
+        operatingunit: ko.observable(),
+        performanceunit:ko.observable(),
+        AdditionalData: ko.observableArray([]),
+        parmRig: ko.observable(),
+        parmWaterDept:ko.observable(),
+        parmWellDept:ko.observable(),
+        parmProjectStartDate: ko.observable(),
+        parmRigDate: ko.observable(),
+        parmTangibelTotal: ko.observable(),
+        parmSpreadRate: ko.observable(),
+        parmSpreadRateTotal:ko.observable(),
+        parmBurnRate: ko.observable(),
+        parmValueDriver: ko.observable(),
+        parmTQThreshold: ko.observable(),
+        parmTQGap:ko.observable(),
+        parmBIC: ko.observable(),
+        parmPerformanceScore:ko.observable(),
+        parmTroubleFreeTime: ko.observable(),
+        parmNptTime: ko.observable(),
+        parmTecopTime:ko.observable(),
+        parmDrilling: ko.observable(),
+        parmMri: ko.observable(),
+        parmZone: ko.observable(),
+        parmBrine: ko.observable(),
+        parmTroubleFreeCost: ko.observable(),
+        parmNpt: ko.observable(),
+        parmTeco: ko.observable(),
+        parmTroubleCost2:ko.observable(),
+        projectExpense: function () {
+            //alert("OK");
+            mode = "projectExpense";
+            var x = model.bpmodel();
+            var AddData = x.AdditionalData();
+            var cbaddphases = $("#grid").find("input.cb-addphase:checked");
+            var ids = [];
+            $.each(cbaddphases, function (idx, obj) {
+                var cbobj = $(obj);
+                ids.push(parseInt(cbobj.val()));
+
+            });
+ 
+            if (ids.length< 1) {
+                alert("select at least one rows");
+                return false;
+            }
+           var url = "@Url.Action("ShowActivitySummary")";
+            ajaxPost(url,
+                {
+                    WellActivityIds: ids
+                },
+                function (data) {
+                    model.IsProcessing(false);
+                    //refresh();
+                    //model.bpmodel().mode("");
+                    //console.log(data.Data);
+                    renderGridUsingDataWell(data.Data);
+                    model.bpmodel().SaveSummary(ids);
+                    model.bpmodel().expenseProfile(data.Data);
+                    model.bpmodel().FY_Expense(data.Data);
+                    model.bpmodel().changeMode("projectExpense", "Business Plan Simulation");
+                    
+                });
+            //model.bpmodel().changeMode("projectExpense", "Business Plan Simulation");
+        },
+        SaveSummary: function (data) {
+            //console.log("data leng:" + data.length);
+
+            var url = "@Url.Action("SaveSummary")";
+            for (var i = 0; i < data.length; i++) {
+                //console.log(data[i]);
+                ajaxPost(url, { WellActivityIds: data[i] }, function () {
+                    //console.log("Save:"+data);
+                });
+            }
+            model.bpmodel().changeMode("projectExpense", "Business Plan Simulation");
+        },
+   
+        expenseProfile: function (data) {
+            model.bpmodel().FY = data;
+            console.log(data);
+            model.bpmodel().changeMode("expenseProfile", "Business Plan Simulation");
+        },
+        Activities: function (id) {
+            var url = "@Url.Action("ShowActivitySummary")"
+            ajaxPost(url, {
+                WellActivityIds: id
+            }, function (data) {
+                //console.log(data.Data[0]);
+                
+                //model.bpmodel().wellname =  data.Data[0].WellName;
+                model.bpmodel().region(data.Data[0].Region);
+                model.bpmodel().wellname(data.Data[0].WellName);
+                model.bpmodel().operatingunit(data.Data[0].OperatingUnit);
+                model.bpmodel().performanceunit(data.Data[0].PerformanceUnit);
+                model.bpmodel().id(data.Data[0]._id);
+                $("#parmRig").kendoDropDownList({ dataSource: model.RigNames() });
+                $("#parmProjectStartDate").kendoDatePicker();
+                $("#parmRigDate").kendoDatePicker();
+            })
+            model.bpmodel().changeMode("ActivitiesEstimates", "Business Plan Simulation");
+        },
+        SaveDraft_Estimate: function () {
+            //if (model.bpmodel().id.length<1) {
+            //    return false;
+            //}
+             
+                var url = "@Url.Action("SaveEstimate")"
+                ajaxPost(url,
+                    {
+                        Id: model.bpmodel().id,
+                        parmprojectStartDate: model.bpmodel().parmProjectStartDate,
+                        waterdepth: model.bpmodel().parmWaterDept,
+                        welldepth: model.bpmodel().parmWellDept,
+                        tangibletotal: model.bpmodel().parmTangibelTotal,
+                        spreadrate: model.bpmodel().parmSpreadRate,
+                        spreadratetotal: model.bpmodel().parmSpreadRateTotal,
+                        valuedriven: model.bpmodel().parmValueDriver,
+                        performancescore: model.bpmodel().parmPerformanceScore,
+                        troublefreetime: model.bpmodel().parmTroubleFreeTime,
+                        npttime: model.bpmodel().parmNptTime,
+                        tecoptime: model.bpmodel().parmTecopTime,
+                        TQThreshold: model.bpmodel().parmTQThreshold,
+                        TQGap : model.bpmodel().parmTQGap,
+                        parmStatus: "Draft",
+                    },
+                    function (response) {
+                        console.log(response);
+                    });
+            
+                model.bpmodel().changeMode("", "Business Plan Simulation");
+            
+             
+        },
+        Save_Estimate: function () {
+            var url = "@Url.Action("SaveEstimate")"
+            ajaxPost(url,
+                {
+                    Id: model.bpmodel().id,
+                    parmprojectStartDate: model.bpmodel().parmProjectStartDate,
+                    waterdepth: model.bpmodel().parmWaterDept,
+                    welldepth: model.bpmodel().parmWellDept,
+                    tangibletotal: model.bpmodel().parmTangibelTotal,
+                    spreadrate: model.bpmodel().parmSpreadRate,
+                    spreadratetotal:model.bpmodel().parmSpreadRateTotal,
+                    parmStatus: "Save",
+                },
+                function (response) {
+                    console.log(response);
+                });
+            
+            model.bpmodel().changeMode("", "Business Plan Simulation");
+        },
+        FY_Expense: function () {
+            alert(model.bpmodel().wellname());
+        }
+
+    });
+    model.RigNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+       DataHelper.Populate("WEISRigNames").Select(d=>d.GetString("_id")).OrderBy(d=>d)
+   )));
+</script>
+<style>
+    #grid .k-header.k-grid-toolbar {
+        background-color: #F9F9FB;
+    }
+
+    #grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+        #grid .k-header[role=columnheader][data-field=_id] {
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-field=OpsDuration],
+        #grid .k-header[role=columnheader][data-field=PlanDuration],
+        #grid .k-header[role=columnheader][data-field=PhRiskDuration] {
+            vertical-align: bottom;
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-colspan] {
+            text-align: center;
+            font-weight: bold;
+            color: #a8a8a8;
+        }
+
+    #grid [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #grid .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+</style>
+@Html.Partial("_menuBusPlan")
+
+<script>
+    model.MenuBP().ActiveMenu("Activity Manager");
+</script>
+
+<div style="padding: 0px 15px 15px;">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div class="ec-panel" data-bind="visible: model.bpmodel().mode() == ''">
+        @Html.Partial("Filter")
+        <div class="col-md-12" style="overflow-x: auto; overflow-y: auto;">
+            @Html.Partial("_ActivityManager_Well")
+        </div>
+    </div>
+    <div class="ec-panel" data-bind="visible:model.bpmodel().mode() == 'projectExpense'">
+        @Html.Partial("_ActivityManager_Summary")
+          
+    </div>
+    <div class="ec-panel" data-bind="visible:model.bpmodel().mode()=='expenseProfile'">
+        <div class="col-md-12">
+            @Html.Partial("_ActivityManager_FYExpenseProfile")   
+        </div>       
+    </div>
+    <div class="ec-panel" data-bind="visible:model.bpmodel().mode()=='ActivitiesEstimates'">
+        <div class="col-md-12">
+            @Html.Partial("_ActivityManager_ActivitiesEstimates")
+        </div>
+    </div>
+    
+    </div>
+    <script>
+    model.FilterVisibility.Date(true);
+    model.FilterVisibility.Date2(true);
+    model.FilterVisibility.ExType(true);
+
+    function pushData(data) {
+
+        //for (var x = 0; x < data.length; x++) {
+        //    var oneDay = 24 * 60 * 60 * 1000
+        //    var firstDate = moment(data[x].PhStart);
+        //    var secondDate = moment(data[x].PhFinish);
+        //    var diffDays = Math.round( Math.abs( (secondDate - firstDate) / oneDay));
+        //    data[x]["PlanDuration"] = diffDays;
+        //}
+
+        return data;
+    }
+
+    function showHideColumn(){
+        var grid = $("#grid").data("kendoGrid");
+        var checker = $("#column_toggle");
+        if (checker.is(":checked")) {
+            for(var i = 10; i <= 18; i++){
+                grid.showColumn(i);
+            }
+        } else {
+            for(var i = 10; i <= 18; i++){
+                grid.hideColumn(i);
+            }
+        }
+
+    }
+
+    var generateEditor = function (dr) {
+        var colx = "<span class='k-dirty'></span>"
+        var checked = $(dr).is(':checked');
+        var grid = $("#grid").data("kendoGrid");
+        var dataItem = grid.dataItem($(dr).closest('tr'));
+        dataItem.VirtualPhase = checked;
+        $(dr).parent().prepend(colx);
+        dataItem.dirty = true;
+    }
+
+        // generate the grid
+    function renderGridUsingDataWell(data) {
+        data = jsonObjsConvDate(pushData(data));
+        var gridColumns = [];
+        gridColumns.push(
+                { field: "_id", title: "ID", width: 50, attributes: { style: 'text-align: center;' }, editor: false, hidden: true},
+                { field: "WellName", title: "Well", width: 150, template: "<a style='cursor:pointer' onclick='model.bpmodel().Activities(#: _id #)'>#: WellName #</a>" },
+                { field: "OpsStart", title: "Start",
+                    format: "{0:dd-MMM-yyyy}",
+                    width: 90, attributes: { style: 'text-align: center;' } },
+                { field: "OpsFinish", title: "Finish", template:"#: jsonDateStr(OpsFinish) #", width: 90, attributes: { style: 'text-align: center;' } },
+                { field:"Duration",title:"Duration"},
+                { field:"EDM",title:"Mean Cost EDM"},
+                { field: "MOD", title: "Mean Cost MOD" }
+
+        );
+        for (var i = 0; i < data.length; i++) {
+            var PsStart = data[i].PsStart;
+            var PsFinish = data[i].PsFinish;
+
+            var OpsStart = data[i].OpsStart;
+            var OpsFinish = data[i].OpsFinish;
+            var LEStart = data[i].LEStart;
+            var LEFinish = data[i].LEFinish;
+            data[i].PsStart = jsonDateStr(PsStart);
+            data[i].PsFinish = jsonDateStr(PsFinish);
+            data[i].OpsStart = jsonDateStr(OpsStart);
+            data[i].OpsFinish = jsonDateStr(OpsFinish);
+            data[i].LEStart = jsonDateStr(LEStart);
+            data[i].LEFinish = jsonDateStr(LEFinish);
+
+            var Period = jsonDateStr(LEStart) + " -- " + jsonDateStr(LEFinish);
+            data[i].Period = Period;
+        }
+        //$('#gridactivitymanager').replaceWith($('<div />').attr('id', 'grid'));
+        $('#gridactivitymanager').kendoGrid({
+            
+            dataSource: {
+                schema: {
+                    model: {
+                        PhStart: 'date',
+                        PhFinish: 'date',
+                        OpsStart: 'date',
+                        OpsFinish: 'date',
+                        fields: {
+                            "VirtualPhase": { type: "boolean", editable: false },
+                        }
+                    }
+                },
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: gridColumns    
+        });
+    }
+
+    function renderGridUsingData(data) {
+        data = jsonObjsConvDate(pushData(data));
+        var gridColumns = [];
+       
+
+        gridColumns.push(
+                 {
+                     width: 30,
+                     field: "", title: "", locked: true,
+                     template: "<input value='#: _id #'  type='checkbox' class='checkbox cb-addphase' ></input>",
+                     headerTemplate: "<input value='#: _id #'  type='checkbox' class='checkall' id='cb-addphase'  onchange='toggleCheckbox(\"cb-addphase\")' ></input>",
+                 },
+                { field: "_id", title: "ID", width: 50, attributes: { style: 'text-align: center;' }, locked: true, lockable: true, editor: false },
+                { field: "RigName", title: "Rig Name", width: 100, template: "<a style='cursor:pointer' onclick='editWellInfo(#: _id #)'>#: RigName #</a>", locked: true, lockable: true },
+                { field: "WellName", title: "Well", width: 150, locked: true, lockable: true },
+                { field: "UARigSequenceId", title: "Rig Sequence ID", width: 60, locked: true, lockable: true },
+                { field: "NonOP", title: "Non OP", width: 80, locked: true, lockable: true,
+                    template:"#: NonOP==true ? 'Yes' : '' #"
+                },
+                { title: "OP-14", columns: [
+                    { field: "PsStart", template:"#: jsonDateStr(PsStart) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "PsFinish", template:"#: jsonDateStr(PsFinish) #", title: "Finish", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "PlanDuration", title: "Days", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+                    { field: "PlanCost", title: "Cost<br/>($mm)", width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } }
+                ] },
+                { title: "Latest Sequence", columns: [
+                    { field: "OpsStart", title: "Start",
+                        format: "{0:dd-MMM-yyyy}",
+                        width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "OpsFinish", title: "Finish", template:"#: jsonDateStr(OpsFinish) #", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "OpsDuration", title: "Duration<br />(Days)", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+                    { field: "OpsCost", title: "Cost<br/>($mm)", width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } }
+                ] },
+                // { field: "PhRiskDuration", title: "PL Risk<br/>Duration<br />(Days)", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+                { field: "LE", columns: [
+                    { field: "LEStart", title: "Start", template:"#: jsonDateStr(LEStart) #", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "LEFinish", title: "Finish", template:"#: jsonDateStr(LEFinish) #", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "LEDuration", title: "Duration<br />(Days)", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+                    { field: "LECost", title: "Cost<br />(US$ m)", width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } }
+                ] },
+                { field: "AFE", columns: [
+                    { field: "AFEDuration", title: "Duration<br />(Days)", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+                    { field: "AFECost", title: "Cost<br />(US$ m)", width: 60, format: "{0:N1}", attributes: { style: 'text-align:right;' } },
+                ] },
+                { field: "Region", title: "Region", width: 80 },
+                { field: "OperatingUnit", title: "Operating Unit", width: 80 },
+                { field: "RigType", title: "Rig Type", width: 80 },
+                { field: "ProjectName", title: "Project Name", width: 120 },
+                { field: "AssetName", title: "Asset Name", width: 120 },
+                { field: "WorkingInterest", title: "Working Interest", width: 80, format: "{0:N5}", attributes: { style: 'text-align:right;' } },
+                { field: "FirmOrOption", title: "Firm/Option", width: 80 },
+                { field: "UARigDescription", title: "UA Rig Description", width: 150 },
+                {
+                    title: "No Well Schedule", field: 'VirtualPhase', width: 100, locked: true, lockable: false, editable: true,
+                    template: '<input disabled="disabled" onclick="generateEditor(this)" type="checkbox" #= VirtualPhase ? checked="checked" : "" # ></input>'
+                }
+        );
+
+
+        for (var i = 0; i < data.length; i++) {
+            var PsStart = data[i].PsStart;
+            var PsFinish = data[i].PsFinish;
+
+            var OpsStart = data[i].OpsStart;
+            var OpsFinish = data[i].OpsFinish;
+            var LEStart = data[i].LEStart;
+            var LEFinish = data[i].LEFinish;
+            data[i].PsStart = jsonDateStr(PsStart);
+            data[i].PsFinish = jsonDateStr(PsFinish);
+            data[i].OpsStart = jsonDateStr(OpsStart);
+            data[i].OpsFinish = jsonDateStr(OpsFinish);
+            data[i].LEStart = jsonDateStr(LEStart);
+            data[i].LEFinish = jsonDateStr(LEFinish);
+
+            var Period = jsonDateStr(LEStart) + " -- " + jsonDateStr(LEFinish);
+            data[i].Period = Period;
+        }
+
+        $('#grid').replaceWith($('<div />').attr('id', 'grid'));
+        $('#grid').kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "Data Browser.pdf" },
+            excel: { fileName: "Data Browser.xlsx", allPages: true, filterable: true },
+            dataSource: {
+                schema: {
+                    model: {
+                        PhStart: 'date',
+                        PhFinish: 'date',
+                        OpsStart: 'date',
+                        OpsFinish: 'date',
+                        fields: {
+                            "VirtualPhase": { type: "boolean", editable: false },
+                        }
+                    }
+                },
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: gridColumns,
+            excelExport: function (e) {
+                var sheet = e.workbook.sheets[0];
+                var row = sheet.rows[1];
+                for (var i = 0; i < row.cells.length; i++) {
+                    console.log("Before : " + row.cells[i].value);
+                    row.cells[i].value = row.cells[i].value.replace("<br />", " ");
+                    row.cells[i].value = row.cells[i].value.replace("<br/>", " ");
+                    row.cells[i].value = row.cells[i].value.replace("<b>", "");;
+                    row.cells[i].value = row.cells[i].value.replace("</b>", "");;
+                    console.log("After : " + row.cells[i].value);
+                }
+            },
+        });
+
+    }
+    
+    model.delete = function (id) {
+        if (!confirm('Are you sure want to delete this activity?'))
+            return;
+
+        model.IsProcessing(true);
+
+        ajaxPost("@Url.Action("DeleteActivity")", { id: parseInt(id, 10) }, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadData();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+        // load data within filter supported
+    
+    model.reloadData = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        ajaxPost("@Url.Action("GetWellSequenceInfo")", model.getFilterValues(), function (res) {
+            renderGridUsingData(res.Data);
+            //renderGridUsingDataWell(res.Data);
+            model.IsProcessing(false);
+            //model.edit(res.Data[0]._id);
+            var checker = $("#column_toggle");
+            checker.prop("checked",true);
+        }, function () {
+            model.IsProcessing(false);
+        });
+    }
+
+    // prepare everything
+    $(document).ready(function () {
+        var isRO = "@ViewBag.isRO";
+        //alert(isRO);
+        if(isRO != '1')
+        {
+            $('<button />')
+            .addClass('btn btn-custom btn-sm btn-success do-add')
+            .css('margin-right', '5px')
+            .html('<span class="glyphicon glyphicon-plus"></span> Add Well Plan')
+            .insertBefore($('.do-filter'))
+
+            .on('click', function () {
+                model.ShowBrowser(false);
+                model.ShowInsertActivityForm(true);
+                model.IsEditMode(false);
+                ko.mapping.fromJS(model.SelectedActivityTemplate, model.SelectedActivity);
+            });
+        }
+
+        model.reloadData();
+
+    });
+
+    function editWellInfo(id) {
+        model.ShowBrowser(false);
+        model.ShowEditForm(true);
+        model.selectedWellId(id);
+        select();
+    }
+
+    </script>

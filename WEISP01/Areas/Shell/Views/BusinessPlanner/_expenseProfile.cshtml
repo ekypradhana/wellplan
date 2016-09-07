@@ -1,0 +1,36 @@
+﻿<script>
+ 
+</script>
+
+<div class="ec-panel">
+    <div class="ec-toolbar">
+        <button class="btn btn-warning btn-sm" onclick="model.bpmodel().changeMode('')"><span class="glyphicon glyphicon-arrow-left"></span> Back To Browser</button>
+    </div>
+</div>
+
+<div style="padding: 0px 15px 15px;">
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing() && model.bpmodel().mode() == 'expense'">
+        <div class="clearfix"></div>
+            <h5 class="text-left">Project Expense Profile</h5>
+        
+        <div class="clearfix"></div>
+                <div class="col-md-12" style="padding: 0px 0px 15px;">
+                    <div class="grid" id="gridProject" data-bind="kendoGrid: { data: model.bpmodel().sampleDataSimulationProjectExpense, columns: model.bpmodel().simulationColumnsProjectExpense, pageable: false, sortable: false, filterable: false, editable: false, scrollable: false}"></div>
+                </div>            
+        
+        <div class="clearfix"></div>
+            <h5 class="text-left">Total Fiscal Year Expense Profile</h5>
+        
+        <div class="clearfix"></div>
+        <div class="col-md-12 no-padding">
+            <div class="grid" id="gridFiscal" data-bind="kendoGrid: { data: model.bpmodel().sampleDataSimulationFYExpense, columns: model.bpmodel().simulationColumnsFYExpense, pageable: false, sortable: false, filterable: false, editable: false, scrollable: false}"></div>
+        </div>
+        <div class="row">
+            <div class="col-md-12" style="text-align:right;margin-top:10px;">
+                <button class="btn btn-primary btn-sm btn-custom" onclick="model.bpmodel().comparisonTable()">Comparison</button>
+            </div>
+        </div>   
+    </div>
+</div>
+
+

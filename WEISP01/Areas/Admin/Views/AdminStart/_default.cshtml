@@ -1,0 +1,42 @@
+﻿@{
+    Layout = null;
+}
+<style>
+    .entry_box {
+        border: solid 1px #aaa;
+        padding: 10px;
+        text-align: center;
+        vertical-align: middle;
+        min-height: 50px;
+        cursor: pointer;
+    }
+
+        .entry_box:hover {
+            background-color: rgb(43,71,129);
+            color: #fff;
+        }
+</style>
+
+<div id="wfmentry_container">
+    <div class="row" style="margin-bottom:20px;">
+        <div class="col-md-2">
+            <div class="entry_box" onclick="loadApp('adminusers','@Url.Action("index","adminusers")',{})">
+                Add / Edit User
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <div class="entry_box" onclick="loadApp('adminusers','@Url.Action("index","adminusers")',{})">
+                Application Config
+            </div>
+        </div>
+    </div>
+
+    <div class="row" style="margin-bottom:20px;">
+        <div class="col-md-2">
+            <div class="entry_box" onclick="loadApp('adminusers','@Url.Action("index","adminusers")',{})">
+                License Manager
+            </div>
+        </div>
+    </div>
+</div>

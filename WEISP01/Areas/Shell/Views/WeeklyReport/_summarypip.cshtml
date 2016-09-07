@@ -1,0 +1,15 @@
+﻿<div class="block-summary">
+    <div class="col-md-12">
+        <div class="col-md-4">Well/ Project PIP</div>
+        <div class="col-md-8" data-bind="text: model.wrmodel().record().Elements().length"></div>
+    </div>
+    <div class="col-md-12">
+        <div class="col-md-4">Rig/ General SCM</div>
+        <div class="col-md-8" data-bind="text: model.wrmodel().record().CRElements().length"></div>
+    </div>
+    <div class="col-md-12">
+        <div class="col-md-4">Grand Total</div>
+        <div class="col-md-8" data-bind="text: (model.wrmodel().record().Elements().length + model.wrmodel().record().CRElements().length)"></div>
+    </div>
+    <div class="clearfix"></div>
+</div>

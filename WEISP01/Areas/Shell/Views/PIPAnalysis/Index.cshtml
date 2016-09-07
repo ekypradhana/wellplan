@@ -1,0 +1,262 @@
+﻿@{
+    ViewBag.Title = "PIP Analysis";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using MongoDB.Bson;
+@using Newtonsoft.Json;
+
+<style>
+    .main-tab .tab-pane{
+        padding-top:10px;
+    }
+    
+    .k-grid-header .k-unit {
+        /*position: absolute;*/
+        top: 9px;
+        right: 7px;
+    }
+    .cell-date {
+        text-align: center;
+    }
+
+    .cell-number {
+        text-align: right;
+    }
+</style>
+<script>
+    model.PageId("Performance Improvement Plan");
+    model.IsProcessing = ko.observable(false);
+    model.IsProcessingScatter = ko.observable(false);
+    model.ShowNum = ko.observable(20);
+    model.DataTopBottom = ko.observable({
+        TopRealized: ko.observableArray([]),
+        TopUnRealized: ko.observableArray([]),
+        BottomRealized: ko.observableArray([]),
+        BottomUnRealized: ko.observableArray([]),
+        ValueAxisMaxRealized: ko.observable(),
+        ValueAxisMinRealized: ko.observable(),
+        ValueAxisMaxUnRealized: ko.observable(),
+        ValueAxisMinUnRealized: ko.observable(),
+        TotalRealized: ko.observable(0),
+        TotalUnRealized: ko.observable(0),
+    });
+    model.DataScatterPlot = ko.observable({
+        yAxisLabel: ko.observable(""),
+        Data: ko.observableArray([]),
+        minX: ko.observable(),
+        maxX: ko.observable(),
+        minY: ko.observable(),
+        maxY: ko.observable(),
+        IncludeRealized: ko.observable(true),
+        IncludeUnRealized: ko.observable(true),
+    });
+    model.setButton = function (isEnabled) {
+        $(".do-filter").prop('disabled', isEnabled);
+    }
+</script>
+<div data-bind="">
+
+    <div data-bind="visible:Processing()==true">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible:Processing()==false">
+        <div class="ec-panel" data-bind="">
+            <div>
+                @Html.Partial("_filterPIPAnalysis")
+            </div>
+
+            <div class="clearfix"></div>
+            <div class="col-md-12" data-bind="">
+                <ul class="nav nav-tabs">
+                    <li class="active"><a href="#topbottom" id="" data-toggle="tab" onclick="refreshContent('1')">Performer Analysis</a></li>
+                    <li><a href="#unrealized_distribution" data-toggle="tab" id="" onclick="refreshContent('2')">Distribution Analysis</a></li>
+                    <li><a href="#data" data-toggle="tab" id="" onclick="refreshContent('3')">Data</a></li>
+                </ul>
+
+                <div class="tab-content main-tab">
+                    <div class="tab-pane active" id="topbottom">
+                        <div data-bind="visible:IsProcessing()==true">
+                            @Html.Partial("_processing")
+                        </div>
+                        <div data-bind="visible:IsProcessing()==false">
+                            @Html.Partial("_topbottom")
+                        </div>
+                    </div>
+                    <div class="tab-pane" id="unrealized_distribution">
+                        <div data-bind="visible:IsProcessingScatter()==true">
+                            @Html.Partial("_processing")
+                        </div>
+                        <div data-bind="visible:IsProcessingScatter()==false">
+                            @Html.Partial("_unrealized_distribution")
+                        </div>
+                    </div>
+                    <div class="tab-pane" id="data">
+                        <div data-bind="visible:IsProcessing()==true">
+                            @Html.Partial("_processing")
+                        </div>
+                        <div data-bind="visible:IsProcessing()==false">
+                            @Html.Partial("_data")
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="col-md-6" id="wd">&nbsp;</div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4" id="wd2">&nbsp;</div>
+    </div>
+</div>
+
+<script>
+
+    function refreshContent(type) {
+        setTimeout(function () {
+            switch (type) {
+                case '1':
+                    if (!model.IsProcessing()) {
+                        $("#top10realized").find($(".chart")).data("kendoChart").refresh();
+                        //$("#bottom10realized").find($(".chart")).data("kendoChart").refresh();
+                        $("#top10unrealized").find($(".chart")).data("kendoChart").refresh();
+                        //$("#bottom10unrealized").find($(".chart")).data("kendoChart").refresh();
+                    }
+                    break;
+                case '2':
+                    if (!model.IsProcessingScatter()) {
+                        $("#scatterRealized").find($(".chart")).data("kendoChart").refresh();
+                        $("#scatterUnRealizedCompleted").find($(".chart")).data("kendoChart").refresh();
+                        $("#scatterUnRealizedInProgress").find($(".chart")).data("kendoChart").refresh();
+                        $("#movingChartRealized").find($(".chart")).data("kendoChart").refresh();
+                        $("#movingChartUnRealizedCompleted").find($(".chart")).data("kendoChart").refresh();
+                        $("#movingChartUnRealizedInProgress").find($(".chart")).data("kendoChart").refresh();
+                    }
+                    break;
+                case '3':
+                    break;
+            }
+        }, 200);
+    }
+
+    model.reloadData = function () {
+        if (model.IsProcessing() || model.IsProcessingScatter()) {
+            return;
+        }
+        var getFilter = model.getFilterValues();
+
+        var param = {
+            Regions: getFilter.regions,
+            RigNames: getFilter.rigNames,
+            WellNames: getFilter.wellNames,
+            ActivitiesCategories: getFilter.activitiesCategory,
+            Activities: getFilter.activities,
+            Classifications: getFilter.classifications,
+            PeriodStart: getFilter.dateFrom == null ? new Date(2000, 1, 1) : getFilter.dateFrom,
+            PeriodFinish: getFilter.dateTo == null ? new Date(3000, 1, 1) : getFilter.dateTo,
+            GroupBy: model.GroupBy(),
+            DataPoint: model.DataPoint(),
+            OPs: getFilter.OPs,
+            OPRelation: getFilter.opRelation,
+            ExType: getFilter.exType,
+            PIPType: getFilter.PIPType,
+            TakeDataFor: getFilter.TakeDataFor,
+            ProjectNames: getFilter.projectNames
+        };
+        //$(".btn-shownum").removeClass("active");
+        //$("#defaultShowNum").addClass("active");
+
+        model.IsProcessing(true); model.setButton(true);
+        ajaxPost("@Url.Action("GetData","PIPAnalysis")", param, function (data) {
+
+            model.IsProcessing(false); model.setButton(false);
+            model.DataTopBottom().TopRealized(data.Data.TopRealized);
+            model.DataTopBottom().TopUnRealized(data.Data.TopUnRealized);
+            model.DataTopBottom().BottomRealized(data.Data.BottomRealized);
+            model.DataTopBottom().BottomUnRealized(data.Data.BottomUnRealized);
+            model.DataTopBottom().ValueAxisMaxRealized(parseFloat(data.Data.ValueMaxTopBottomRealized.toFixed(2)));
+            model.DataTopBottom().ValueAxisMinRealized(parseFloat(data.Data.ValueMinTopBottomRealized.toFixed(2)));
+            model.DataTopBottom().ValueAxisMaxUnRealized(parseFloat(data.Data.ValueMaxTopBottomUnRealized.toFixed(2)));
+            model.DataTopBottom().ValueAxisMinUnRealized(parseFloat(data.Data.ValueMinTopBottomUnRealized.toFixed(2)));
+            model.DataTopBottom().TotalRealized(data.Data.TotalRealized);
+            model.DataTopBottom().TotalUnRealized(data.Data.TotalUnRealized);
+            //model.LastLoadedDataDate(moment(data.Data.lsDate).toDate());
+            generateChartTopBottom("top10realized");
+            generateChartTopBottom("top10unrealized");
+            //generateChartTopBottom("bottom10realized");
+            //generateChartTopBottom("bottom10unrealized");
+
+            generateGridPIP(data.Data.Grid);
+            
+        },
+        function (err) {
+            alert(err.responseText);
+            model.IsProcessing(false);
+        });
+
+
+        model.IsProcessingScatter(true);
+        ajaxPost("@Url.Action("GetDataScatter","PIPAnalysis")", param, function (data) {
+
+            model.IsProcessingScatter(false);
+            
+            switch(model.DataPoint()){
+                case "costperdays":
+                    model.DataScatterPlot().yAxisLabel("Cost Per Day");
+                    break;
+                default:
+                    model.DataScatterPlot().yAxisLabel(model.DataPoint());
+                    break;
+            }
+
+            model.DataScatterPlot().Data(data.Data.Scatters);
+            model.DataScatterPlot().minX(data.Data.MinXScatter);
+            model.DataScatterPlot().minY(data.Data.MinYScatter);
+            model.DataScatterPlot().maxX(data.Data.MaxXScatter);
+            model.DataScatterPlot().maxY(data.Data.MaxYScatter);
+
+            generateDistributionChart(data.Data.ScatterDataRealized, "scatterRealized", "Realized Event Distributions");
+            generateDistributionChart(data.Data.ScatterDataUnRealizedCompleted, "scatterUnRealizedCompleted", "UnRealized-Completed Event Distributions");
+            generateDistributionChart(data.Data.ScatterDataUnRealizedInProgress, "scatterUnRealizedInProgress", "UnRealized-InProgress Event Distributions");
+
+            generateMovingChart('movingChartRealized', data.Data.DataMovingChartRealized, "Realized Event Moving Chart", data.Data.MovingChartMin, data.Data.MovingChartMax)
+            generateMovingChart('movingChartUnRealizedCompleted', data.Data.DataMovingChartUnRealizedCompleted, "UnRealized - Completed Event Moving Chart", data.Data.MovingChartMin, data.Data.MovingChartMax);
+            generateMovingChart('movingChartUnRealizedInProgress', data.Data.DataMovingChartUnRealizedInProgress, "UnRealized - InProgress Event Moving Chart", data.Data.MovingChartMin, data.Data.MovingChartMax);
+
+
+        },
+        function (err) {
+            alert(err.responseText);
+            model.IsProcessingScatter(false);
+        })
+
+        //console.log(param);
+    }
+
+
+    $(document).ready(function () {
+        model.reloadData();
+        input2datePicker($("#ActivityStart"));
+        input2datePicker($("#ActivityEnd"));
+        $("#GridPIP").kendoGrid({
+            toolbar: ["excel"],
+            pdf: {
+                fileName: "PIP_Analysis_Data-" + moment(new Date()).format("YYYY-MM-DD-HHmmss") + ".pdf"
+            },
+            excel: {
+                fileName: "PIP_Analysis_Data-" + moment(new Date()).format("YYYY-MM-DD-HHmmss") + ".xlsx",
+                allPages: true,
+                filterable: true
+            },
+            dataSource: datasourcePIP, data: [], columns: gridColumnsPIP, pageable: true, sortable: true, filterable: true, editable: false
+        });
+    });
+</script>

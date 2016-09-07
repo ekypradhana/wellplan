@@ -1,0 +1,76 @@
+﻿<script>
+    model.GenerateCumulative = function (key, data, columns) {
+        var className = 'grid-cumulative-' + key;
+        var title = key.replace(/le-/g, "Last Estimate ").replace(/\b\w+/g, function (s) {
+            return s.charAt(0).toUpperCase() + s.substr(1).toLowerCase();
+        });
+
+        $('.' + className).replaceWith($('<div />').addClass(className));
+        $('.' + className).kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: {
+                fileName: "Cumulative " + title + " of Improvement and risk.pdf"
+            },
+            excel: {
+                fileName: "Cumulative " + title + " of Improvement and risk.xlsx",
+                allPages: true,
+                filterable: true
+            },
+            excelExport: function (e) {
+                e.workbook.sheets[0].rows.forEach(function (row, i) {
+                    if (i == 0) return;
+
+                    for (var j = 4; j < row.cells.length; j++) {
+                        if (i == 2) {
+                            console.log(row.cells[j].value);
+                        }
+                        try { row.cells[j].value = row.cells[j].value.replace("<div style='text-align: right;'>", ""); } catch (err) { }
+                        try { row.cells[j].value = row.cells[j].value.replace("</div>", ""); } catch (err) { }
+                        try { row.cells[j].value = parseFloat($.trim(row.cells[j].value)); } catch (err) { }
+                    }
+                });
+            },
+            dataSource: {
+                data: data,
+                type: "json"
+            },
+            //aggregate: aggregates,
+            height: 205,
+            scrollable: true,
+            sortable: true,
+            resizable: true,
+            columns: columns
+        });
+
+        $(".cumulative-title").each(function (i, e) {
+            $(e).html(model.WaterfallFilter.CumulativeDataType().replace(/Total/g, "Improvement + Risk"));
+        });
+    };
+</script>
+
+<div>
+    <div id="chart-cumulative-panel" style="width:1020px; margin: 0px auto; ">
+        <div class="mini-nav bordered-mini-nav" style="width: 365px; margin: 0px;">
+            <div class="each-nav">
+                Select Data Type:
+                <select data-bind="value:model.WaterfallFilter.CumulativeDataType">
+                    <option value="Total">Improvement + Risk</option>
+                    <option value="Improvement">Improvement</option>
+                    <option value="Risk">Risk</option>
+                </select>
+            </div>
+            <div class="each-nav no-border-nav">
+                View:
+                <select data-bind="options: model.YearOptions, value: model.WaterfallFilter.AllocationYear"></select>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+</div>
+
+<div style="padding: 0px 30px 20px;" class="grid">
+    <h6>Cumulative Cost of <span class="cumulative-title"></span></h6>
+    <div class="grid-cumulative-cost"></div>
+    <h6>Cumulative Last Estimate Cost</h6>
+    <div class="grid-cumulative-le-cost"></div>
+</div>

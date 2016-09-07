@@ -1,0 +1,1290 @@
+﻿<style>
+    .form-group .row {
+        margin-bottom: 4px;
+    }
+
+    .form-group .text {
+        width: 100%;
+        padding: 3px 8px 2px !important;
+        height: auto;
+        border: 1px solid rgb(211, 211, 211);
+    }
+
+    .form-group .col-md-3 {
+        padding-top: 5px;
+        padding-right: 0px !important;
+    }
+    
+    .tab-content .form-group{
+        font-size:10px;
+    }
+
+    .tab-content .form-group .col-md-5 {
+        padding-left: 6px !important;
+    }
+
+    .tab-content .form-group .col-md-4 {
+        /*padding-top: 5px;*/
+        padding-right: 0px !important;
+    }
+
+    .tab-content .form-group .col-md-8 {
+        padding-left: 6px !important;
+    }
+
+    .form-control {
+        font-size: 9pt;
+    }
+
+    input[type='text'] {
+        line-height: 20px;
+    }
+
+    .title{
+        font-weight:bold;
+        text-transform:capitalize;
+        text-align:center;
+    }
+
+    hr.spacer {
+        margin-top: 5px;
+        margin-bottom: 5px;
+        border:0;
+        border-top:1px solid #999;
+    }
+    .col-md-8 > .col-md-3{
+        padding-top:0px !important;
+    }
+    .summary label{
+        text-align:left !important;
+        font-size:14px;
+        padding-top:0 !important;
+    }
+</style>
+
+<div class="col-md-12">
+    <button class="btn btn-custom btn-warning btn-sm" onclick="changeMode('edit', model.selectedWellId());">
+        <span class="glyphicon glyphicon-arrow-left"></span> Back to Phase List
+    </button>
+    &nbsp;
+    <button class="btn btn-custom btn-primary btn-sm" onclick="model.savePlan()" data-bind="">
+        <span class="glyphicon glyphicon-ok"></span> Save
+    </button>
+</div>
+
+<div data-bind="visible: model.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+
+<div class="col-md-12" style="margin-top:10px;" data-bind="style: { visibility: model.IsProcessing() ? 'hidden' : 'visible' }, with:model.BusPlanNewWell">
+
+    <div class="form-group col-md-6">
+        <div class="row">
+            <label class="col-md-3">Line of Business:</label>
+            <div class="col-md-5">
+                <input data-bind="enable:!model.isRO()=='1',kendoDropDownList: {value:LineOfBusiness, data: ['ARCTIC','DEEPWATER','INTEGRATED GAS','OPERATED','JV/NOV','UNCONVENTIONALS'], optionLabel: 'Select Line of Business' }" style="width: 100%;" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Region:</label>
+            <div class="col-md-5">
+                <input data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.regions, optionLabel: 'Select Region', value:Region }" style="width: 100%;" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Country:</label>
+            <div class="col-md-5">
+                <input data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.BusPlan().countries, optionLabel: 'Select Country', value:Country }" style="width: 100%;" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Operating Unit:</label>
+            <div class="col-md-5">
+                <input data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.operatingUnits, optionLabel: 'Select Operating Unit', value:OperatingUnit }" style="width: 100%;" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Performance Unit:</label>
+            <div class="col-md-5">
+                <input data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.performanceUnits, optionLabel: 'Select Performance Unit', value:PerformanceUnit }" style="width: 100%;" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Asset:</label>
+            <div class="col-md-5">
+                <input data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.assetNames, optionLabel: 'Select Asset', value:AssetName }" style="width: 100%;" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Project:</label>
+            <div class="col-md-5">
+                <input id="projectName" data-bind="enable:!model.isRO()=='1',kendoDropDownList: { data: model.options.projectNames, optionLabel: 'Select Project', value:ProjectName, change: changeProject() }" style="width: 100%;" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">WellName:</label>
+            <div class="col-md-5">
+                <input data-bind="value:WellName" style="width: 100%;" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Currency:</label>
+            <div class="col-md-9">
+                <input data-bind="kendoDropDownList:{data:model.BusPlan().currencyMasters(),value:Currency}" id="currency" onchange="changeCurrency()" style="width: 20%;" />
+                &nbsp;&nbsp;&nbsp;
+                <label>% Shell Share:</label>
+                <input data-bind="kendoNumericTextBox: {value:ShellShare,min:0,max:100}" />
+            </div>
+        </div>
+    </div>
+    <div class="form-group col-md-6">
+
+        <div class="row">
+            <label class="col-md-3">Data Input by:</label>
+            <div class="col-md-5">
+                <input style="width: 100%;" data-bind="value:DataInputBy" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Status:</label>
+            <div class="col-md-5">
+                <input data-bind="kendoDropDownList:{data:['','Draft','Complete','Modified'],value:Status}" style="width: 100%;" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Date Last Submitted:</label>
+            <div class="col-md-5">
+                <input data-bind="value:jsonDateStr(LastUpdate)" disabled style="width: 100%;" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Is In Plan?</label>
+            <div class="col-md-5">
+                <input data-bind="checked:isInPlan" type="checkbox" style="width: 100%;" />
+            </div>
+        </div>
+        <div class="row">
+            <label class="col-md-3">Reference Factor Model:</label>
+            <div class="col-md-5">
+                <input data-bind="kendoDropDownList:{data:model.BusPlan().referenceFactorModels,value:ReferenceFactorModel},attr:{'id':'reference_factor_model'}" style="width: 100%;" />
+            </div>
+        </div>
+
+        @*<div class="row">
+                    <label class="col-md-3">Well Engineer:</label>
+                    <div class="col-md-5">
+                        <input data-bind="value:WellEngineer" style="width: 100%;" />
+                    </div>
+                </div>
+            <div class="row">
+                <label class="col-md-3">CWI Engineer:</label>
+                <div class="col-md-5">
+                    <input data-bind="value:CWIEngineer" style="width: 100%;" />
+                </div>
+            </div>*@
+
+
+
+    </div>
+
+    <br />
+    <div class="clearfix"></div>
+    <ul class="nav nav-tabs" id="nav-tabs-detail" role="tablist" data-bind="foreach: Phases">
+        <li role="presentation" data-model="tab_phase" class="nav-detail-tab">
+            <a data-bind="attr:{'href':'#Phase'+PhaseNo(),'data-model':PhaseNo},text:ActivityType,click:changeTab(Estimate,ActivityType)" role="tab" data-toggle="tab" onclick=""></a>
+        </li>
+    </ul>
+
+    <div class="tab-content" style="padding-top: 10px;" id="tab_detail">
+
+        <!-- ko foreach: Phases -->
+        <!-- Tab Content Start -->
+        <div role="tabpanel" class="tab-pane" data-bind="attr:{'id':'Phase'+PhaseNo()}">
+            <div class="form-group col-md-6">
+                @*<div class="row">
+                        <label class="col-md-4">Activity Type:</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" data-bind="kendoDropDownList: { data: model.Activities(), optionLabel: 'Select Activity Type', value:ActivityType }" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">Activity Category:</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" data-bind="value:ActivityCategory" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">Funding Type:</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" data-bind="kendoDropDownList: { data: ['ABEX','C2E','CAPEX','EXPEX','EXPEX SUCCESS','OPEX'], optionLabel: 'Select Funding Type', value:FundingType }" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">&nbsp;</label>
+                        <div class="col-md-8">&nbsp;</div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">Estimating Range Type</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" data-bind="kendoDropDownList: { data: ['Deterministic','Probabilistic'], value:Estimate.EstimatingRange.Type,change:changeEstimateRange},attr:{'id':'estimating_range_type_'+PhaseNo()}" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">Estimate Range <span data-bind="attr:{'id':'estimating_range_note_'+PhaseNo()}"></span></label>
+                        <div class="col-md-8">
+                            <div style="">
+                                <div class="col-md-4" style="font-weight:bold;" data-bind="attr:{'id':'estimating_range_start_title_'+PhaseNo()}"></div>
+                                <div class="col-md-8">
+                                    <input style="width: 100%; margin-bottom: 5px;" data-bind="value:Estimate.EstimatingRange.RangeStartValue" />
+                                </div>
+                            </div>
+                            <div>
+                                <div class="col-md-4" style="font-weight:bold;" data-bind="attr:{'id':'estimating_range_end_title_'+PhaseNo()}"></div>
+                                <div class="col-md-8">
+                                    <input style="width: 100%;" data-bind="value:Estimate.EstimatingRange.RangeEndValue" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>*@
+                <div class="row">
+                    <div class="col-md-4"></div>
+                    <div class="col-md-8">
+                        <div class="col-md-3 title">Units</div>
+                        <div class="col-md-9 title">Value</div>
+                    </div>
+                </div>
+                <hr class="spacer" />
+                <div class="row">
+                    <label class="col-md-4">Rig Name</label>
+                    <div class="col-md-8">
+                        <div class="col-md-3">&nbsp;</div>
+                        <div class="col-md-9">
+                            <input style="width: 100%;" data-bind="kendoDropDownList: { data: model.options.rigNames, optionLabel: 'Select RigName', value:Estimate.RigName, change:calcSpreadRate(Estimate) }" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-4">Activities Start Date</label>
+                    <div class="col-md-8">
+                        <div class="col-md-3">
+                            &nbsp;
+                        </div>
+                        <div class="col-md-9">
+                            <input style="width: 100%;" class="" onblur="" data-bind="kendoDatePicker:{value:jsonDateStr(Estimate.EventStartDate()),format:'dd-MMM-yyyy',change:changeEventDate(Estimate,ActivityType)},attr:{'id':'event_start_date_'+PhaseNo()}" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">Rig Rate</label>
+                    <div class="col-md-8">
+                        <div class="col-md-3">
+                            <input class="units" data-bind="value:$parent.Currency" style="width:100%" disabled />
+                        </div>
+                        <div class="col-md-9">
+                            <input style="width: 100%; text-align: right;" disabled data-bind="value:kendo.toString(Estimate.RigRate(),'n2')" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">Services</label>
+                    <div class="col-md-8">
+                        <div class="col-md-3">
+                            <input class="units" data-bind="value:$parent.Currency" style="width:100%" disabled />
+                        </div>
+                        <div class="col-md-9">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: {value:Estimate.Services,change:calcTime(Estimate)}" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">Materials</label>
+                    <div class="col-md-8">
+                        <div class="col-md-3">
+                            <input class="units" data-bind="value:$parent.Currency" style="width:100%" disabled />
+                        </div>
+                        <div class="col-md-9">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: {value:Estimate.Materials,change:calcTime(Estimate)}" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">% of Material Long Lead</label>
+                    <div class="col-md-8">
+                        <div class="col-md-3">
+                            &nbsp;
+                        </div>
+                        <div class="col-md-9">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: {value:Estimate.PercOfMaterialsLongLead,min:0,max:100}" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">Long Lead Item Cost</label>
+                    <div class="col-md-8">
+                        <div class="col-md-3">
+                            <input class="units" data-bind="value:$parent.Currency" style="width:100%" disabled />
+                        </div>
+                        <div class="col-md-9">
+                            <input style="width: 100%; text-align: right;" data-bind="value:kendo.toString(Estimate.LongLeadCalc(),'n2')" disabled="disabled" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">Spread Rate w/o Rig</label>
+                    <div class="col-md-8">
+                        <div class="col-md-3">
+                            <input class="units" data-bind="value:$parent.Currency" style="width:100%" disabled />
+                        </div>
+                        <div class="col-md-9">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: {value:Estimate.SpreadRate, change:calcSpreadRate(Estimate)}" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">Burn Rate</label>
+                    <div class="col-md-8">
+                        <div class="col-md-3">
+                            <input class="units" data-bind="value:$parent.Currency" style="width:100%" disabled />
+                        </div>
+                        <div class="col-md-9">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: {value:Estimate.BurnRate,change:calcTime(Estimate)}" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">Spread Rate Total</label>
+                    <div class="col-md-8">
+                        <div class="col-md-3">
+                            <input class="units" data-bind="value:$parent.Currency" style="width:100%" disabled />
+                        </div>
+                        <div class="col-md-9">
+                            <input style="width: 100%; text-align: right;" data-bind="value:kendo.toString(parseFloat(Estimate.SpreadRateTotal()),'n2'),attr:{'id':'spread_rate_total_'+PhaseNo()}" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-4">&nbsp;</label>
+                    <div class="col-md-8">&nbsp;</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 title">TIME ESTIMATE</div>
+                    <div class="col-md-8">
+                        <div class="col-md-6 title">Current OP</div>
+                        <div class="col-md-6 title">New OP</div>
+                    </div>
+                </div>
+                <hr class="spacer" />
+                <div class="row">
+                    <label class="col-md-4">Use TA approved %'s?</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">&nbsp;</div>
+                        <div class="col-md-6">
+                            <input type="checkbox" data-bind="checked:Estimate.UsingTAApproved,click:changeUseTAApproved(Estimate)" onchange="" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">Trouble Free Time (Days)</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right; " data-bind="attr:{'id':'Current_trouble_free_days_'+PhaseNo()},value:kendo.toString(Estimate.CurrentTroubleFree.Days(), 'n2')" readonly="readonly" disabled class="Current_trouble_free_days" />
+                        </div>
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" class="New_trouble_free_days" data-bind="kendoNumericTextBox: {value:Estimate.NewTroubleFree.Days,change:changeUseTAApproved(Estimate)},attr:{'id':'New_trouble_free_days_'+PhaseNo()}" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">NPT Time %</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">
+                            @*<input style="width: 100%;" readonly="readonly" />*@
+                        </div>
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: { value:Estimate.NewNPTTime.PercentDays,change:calcTime(Estimate),max:100,min:0},attr:{'id':'npt_time_perc_'+PhaseNo()}" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">TECOP Time %</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">
+                            @*<input style="width: 100%;" />*@
+                        </div>
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: {value:Estimate.NewTECOPTime.PercentDays,change:calcTime(Estimate),max:100,min:0},attr:{'id':'tecop_time_perc_'+PhaseNo()}" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">NPT Time (Days)</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" readonly="readonly" disabled class="Current_npt_days" data-bind="attr:{'id':'Current_npt_days_'+PhaseNo()},value:kendo.toString(Estimate.CurrentNPTTime.Days(),'n2')" />
+                        </div>
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" readonly="readonly" disabled class="New_npt_days" data-bind="attr:{'id':'New_npt_days_'+PhaseNo()},value:kendo.toString(Estimate.NewNPTTime.Days(),'n2')" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">TECOP Time (Days)</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" readonly="readonly" disabled class="Current_tecop_days" data-bind="attr:{'id':'Current_tecop_days_'+PhaseNo()},value:kendo.toString(Estimate.CurrentTECOPTime.Days(),'n2')" />
+                        </div>
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" readonly="readonly" disabled class="New_tecop_days" data-bind="attr:{'id':'New_tecop_days_'+PhaseNo()},value:kendo.toString(Estimate.NewTECOPTime.Days(),'n2')" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">Mean Time (Days)</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" readonly="readonly" disabled class="Current_mean_time_days" data-bind="attr:{'id':'Current_mean_time_days_'+PhaseNo()},value:kendo.toString(Estimate.CurrentMean.Days(),'n2')" />
+                        </div>
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" readonly="readonly" disabled class="New_mean_time_days" data-bind="attr:{'id':'New_mean_time_days_'+PhaseNo()},value:kendo.toString(Estimate.NewMean.Days(),'n2')" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-4">&nbsp;</label>
+                    <div class="col-md-8">&nbsp;</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 title">COST ESTIMATE</div>
+                    <div class="col-md-8">
+                        <div class="col-md-6 title">Current OP</div>
+                        <div class="col-md-6 title">New OP</div>
+                    </div>
+                </div>
+                <hr class="spacer" />
+                <div class="row">
+                    <label class="col-md-4">Trouble Free Cost</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" readonly="readonly" disabled data-bind="attr:{'id':'Current_trouble_free_cost_'+PhaseNo()},value:kendo.toString(Estimate.CurrentTroubleFree.Cost(), 'n2')" />
+                        </div>
+                        <div class="col-md-6">
+                            @*<input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: {value:Estimate.NewTroubleFree.Cost,change:calcCost(Estimate),enable:false},attr:{'id':'New_trouble_free_cost_'+PhaseNo()}" />*@
+                            <input style="width: 100%; text-align: right;" readonly="readonly" disabled data-bind="attr:{'id':'New_trouble_free_cost_'+PhaseNo()},value:kendo.toString(Estimate.NewTroubleFree.Cost(), 'n2')" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">NPT Cost %</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">
+                            @*<input style="width: 100%;" />*@
+                        </div>
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: {value:Estimate.NewNPTTime.PercentCost,change:calcCost(Estimate),max:100,min:0},attr:{'id':'npt_cost_perc_'+PhaseNo()}" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">TECOP Cost %</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">
+                            @*<input style="width: 100%;" />*@
+                        </div>
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: {value:Estimate.NewTECOPTime.PercentCost,change:calcCost(Estimate),max:100,min:0},attr:{'id':'tecop_cost_perc_'+PhaseNo()}" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">NPT Cost</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" disabled data-bind="attr:{'id':'Current_npt_cost_'+PhaseNo()},value:kendo.toString(Estimate.CurrentNPTTime.Cost(),'n2')" />
+                        </div>
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" disabled data-bind="attr:{'id':'New_npt_cost_'+PhaseNo()},value:kendo.toString(Estimate.NewNPTTime.Cost(),'n2')" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">TECOP Cost</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" disabled data-bind="attr:{'id':'Current_tecop_cost_'+PhaseNo()},value:kendo.toString(Estimate.CurrentTECOPTime.Cost(),'n2')" />
+                        </div>
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" disabled data-bind="attr:{'id':'New_tecop_cost_'+PhaseNo()},value:kendo.toString(Estimate.NewTECOPTime.Cost(),'n2')" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">Mean Cost EDM</label>
+                    <div class="col-md-8">
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" disabled data-bind="attr:{'id':'Current_mean_time_cost_'+PhaseNo()},value:kendo.toString(Estimate.CurrentMean.Cost(),'n2')" />
+                        </div>
+                        <div class="col-md-6">
+                            <input style="width: 100%; text-align: right;" disabled data-bind="attr:{'id':'New_mean_time_cost_'+PhaseNo()},value:kendo.toString(Estimate.NewMean.Cost(),'n2')" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-4">&nbsp;</label>
+                    <div class="col-md-8">&nbsp;</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 title">CONVERSION TO USD</div>
+                    <div class="col-md-8" style="text-align:right;">
+                        <label>As of Project Start Date:</label>
+                        <input style="width:100px;" disabled data-bind="attr:{'id':'project_start_date_'+PhaseNo()},value:jsonDateStr(Estimate.EventStartDate())" />
+                    </div>
+                </div>
+                <hr class="spacer" />
+
+                <div class="row">
+                    <label class="col-md-4">Trouble Free Cost</label>
+                    <div class="col-md-8">
+                        <input style="width: 100%; text-align: right;" class="" data-bind="value:kendo.toString(Estimate.NewTroubleFreeUSD(), 'n2'),enable:false" disabled />
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">
+                        NPT Cost USD MM
+                    </label>
+                    <div class="col-md-8">
+                        <input style="width: 100%; text-align: right; " disabled data-bind="value:kendo.toString(Estimate.NPTCostUSD(), 'n2'),enable:false" />
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">
+                        TECOP Cost USD MM
+                    </label>
+                    <div class="col-md-8">
+                        <input style="width: 100%; text-align: right;" disabled data-bind="value:kendo.toString(Estimate.TECOPCostUSD(), 'n2'),enable:false" />
+                    </div>
+                </div>
+                <div class="row">
+                    <label class="col-md-4">
+                        Mean Cost EDM USD MM
+                    </label>
+                    <div class="col-md-8">
+                        <input style="width: 100%; text-align: right;" disabled data-bind="value:kendo.toString(Estimate.MeanUSD(), 'n2'),enable:false" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 title">&nbsp;</div>
+                    <div class="col-md-8" style="text-align:right;">
+                        <label>Project End Date:</label>
+                        <input style="width:100px;" disabled data-bind="attr:{'id':'project_end_date_'+PhaseNo()},value:Estimate.EventEndDate" />
+                    </div>
+                </div>
+
+
+            </div>
+
+            <div class="form-group col-md-6">
+                <div class="row">
+                    <label class="col-md-4">Maturity Level:</label>
+                    <div class="col-md-8">
+                        <input data-bind="kendoDropDownList:{data:model.BusPlan().maturityRisksTitleOnly,value:Estimate.MaturityLevel,change:changeUseTAApproved(Estimate)},attr:{'id':'maturity_level_'+PhaseNo()}" style="width: 100%;" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-4">Water Depth MD (ft):</label>
+                    <div class="col-md-8">
+                        <input data-bind="kendoNumericTextBox: {value:Estimate.WaterDepth}" style="width: 100%; text-align: right;" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <label class="col-md-4">Total Well Depth MD (ft):</label>
+                    <div class="col-md-8">
+                        <input data-bind="kendoNumericTextBox: {value:Estimate.WellDepth}" style="width: 100%; text-align: right;" />
+                    </div>
+                </div>
+                <div class="project_value_driver_wrapper" data-bind="attr:{'id':'project_value_driver_wrapper_'+PhaseNo()},visible:Estimate.MaturityLevel() == 'Type3' || Estimate.MaturityLevel() == 'Type4'">
+
+                    <div class="row">
+                        <label class="col-md-4">Project Value Driver</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoDropDownList: { data: ['Cost','Days','Cost (Manual Input)','Days (Manual Input)','Total Well Cost','Total Well Days','Production Attinment','Unit Development Cost','Value Driver Unknown','Not Applicable'], optionLabel: 'Select Project Value Driver', value:Estimate.ProjectValueDriver }" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">Value Driver Relate Estimate</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: {value:Estimate.ValueDriver}" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">TQ Threshold</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: {value:Estimate.TQ.Threshold,change:calcCost(Estimate)}" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">BIC Threshold</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%; text-align: right;" data-bind="kendoNumericTextBox: {value:Estimate.BIC.Threshold,change:calcCost(Estimate)}" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">TQ GAP</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%; text-align: right;" disabled data-bind="value:kendo.toString(Estimate.TQ.Gap(),'n2')" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">BIC GAP</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%; text-align: right;" disabled data-bind="value:kendo.toString(Estimate.BIC.Gap(),'n2')" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">Performance Score</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" data-bind="kendoDropDownList: { data: ['N/A','BIC','Q1','Q2','Q3','Q4'], optionLabel: 'Select Performance Score', value:Estimate.PerformanceScore }" />
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <label class="col-md-4">&nbsp;</label>
+                        <div class="col-md-8">&nbsp;</div>
+                    </div>
+                </div>
+
+                @*<div class="row">
+                        <label class="col-md-4 title">Scope Description</label>
+                        <div class="col-md-8">&nbsp;</div>
+                    </div>
+                    <hr class="spacer" />
+
+                    <div class="row">
+                        <label class="col-md-4">Drilling (# of Casings)</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" data-bind="value:Estimate.DrillingOfCasings" />
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <label class="col-md-4">MRI</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" data-bind="value:Estimate.MRI" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">Completion Type</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" data-bind="kendoDropDownList: { data: ['CL','SAS','OHGP','HRWP','FP'], optionLabel: 'Select Completion Type', value:Estimate.CompletionType }" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4"># of Completion Zones</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" data-bind="value:Estimate.ofCompletionZones" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4">Brine Density (ppg)</label>
+                        <div class="col-md-8">
+                            <input style="width: 100%; text-align: right;" data-bind="value:Estimate.BrineDensity" />
+                        </div>
+                    </div>*@
+
+                <div class="col-md-12 chart-wrapper">
+                    <div class="wd"></div>
+                    <div data-bind="attr:{'id':'chart_days_'+PhaseNo()}">
+                        <div class="chart"></div>
+                    </div>
+                    <div data-bind="attr:{'id':'chart_cost_'+PhaseNo()}">
+                        <div class="chart"></div>
+                    </div>
+                </div>
+
+                <div class="clearfix"></div>
+                <div>
+                    <h3>Activities Summary</h3>
+                </div>
+                <div class="summary">
+                    <div class="row">
+                        <label class="col-md-4 col-md-offset-2">Start</label>
+                        <label class="col-md-6" data-bind="text:jsonDateStr(Estimate.EventStartDate),attr:{'id':'summary_start_'+PhaseNo()}"></label>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4 col-md-offset-2">End</label>
+                        <label class="col-md-6" data-bind="attr:{'id':'summary_end_'+PhaseNo()}"></label>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4 col-md-offset-2">Duration</label>
+                        <label class="col-md-6" data-bind="attr:{'id':'summary_duration_'+PhaseNo()}"></label>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4 col-md-offset-2">Mean Cost EDM</label>
+                        <label class="col-md-6" data-bind="text:kendo.toString(Estimate.NewMean.Cost(),'n2')"></label>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4 col-md-offset-2">Mean Cost Real Term</label>
+                        <label class="col-md-6" data-bind="attr:{'id':'mean_cost_real_term_'+PhaseNo()}"></label>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4 col-md-offset-2">Mean Cost MOD</label>
+                        <label class="col-md-6" data-bind="attr:{'id':'mean_cost_mod_'+PhaseNo()}"></label>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-4 col-md-offset-2">Shell Share</label>
+                        <label class="col-md-6" data-bind="attr:{'id':'shell_share_mod_'+PhaseNo()}"></label>
+                    </div>
+                </div>
+                <div class="contenthover" style="display:none;">
+                    <div style="text-align:center;margin-top:50px;">
+                        <span style="font-size:20px;color:white;">The calculation may not correct. Please click Re-Calc!</span>
+                        <br /><br />
+                        <button class="btn btn-success">Re-Calc</button>
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+                <div>
+                    <h3>Fiscal Year Grid</h3>
+                </div>
+                <div class="col-md-12">
+                    <div data-bind="visible: model.FYProcessing()">
+                        @Html.Partial("_processing")
+                    </div>
+                    <div data-bind="visible: !model.FYProcessing()">
+                        <button class="btn btn-xs btn-primary" onclick="RenderFiscalYear()" style="margin-bottom:10px;"><span class="glyphicon glyphicon-refresh"></span> Reload Grid</button>
+                        <div data-bind="attr:{id:'Grid_FY_'+PhaseNo()}"></div>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+        <!-- Tab Content End -->
+        <!-- /ko -->
+
+    </div>
+
+    <div style="clear:both;"></div>
+
+</div>
+
+<script>
+    function isCalcNotValid() {
+        $('.summary').contenthover({
+            overlay_background: '#333',
+            overlay_opacity: 0.9
+        });
+    }
+    function changeTab(est,activityType) {
+        return function () {
+            setTimeout(function () {
+                changeUseTAApproved(est)();
+                changeLongLead(est, activityType)();
+                calcCost(est)();
+
+                changeProject()();
+
+                setTimeout(function () {
+                    RenderFiscalYear();
+                }, 100);
+            }, 100);
+
+            return true;
+        }
+    }
+
+    function changeProject() {
+        return function () {
+            setTimeout(function () {
+                var project = $("#projectName").data("kendoDropDownList").value();
+                console.log(project);
+                var filterProject = _.where(model.BusPlan().projectReferences, { "ProjectName": project });
+                if (filterProject.length > 0) {
+
+                    console.log(filterProject[0].ReferenceFactorModels);
+                    model.BusPlan().referenceFactorModels(filterProject[0].ReferenceFactorModels);
+                } else {
+                    model.BusPlan().referenceFactorModels([]);
+                }
+            }, 100);
+            return true;
+        }
+    }
+
+    function changeLongLead(est, activityType) {
+        return function () {
+            var interval4 = setInterval(function () {
+                //console.log(typeof (activityType));
+                if (typeof activityType === "function") activityType = activityType();
+                //console.log("change long lead : "+activityType);
+                var ActivePhaseNo = getActivePhaseNo();
+                var getYearStart = moment($("#event_start_date_" + ActivePhaseNo).val(), "DD-MMM-YYYY").get('year');
+                var act = "";
+                if (est.PercOfMaterialsLongLead() == 0 || est.PercOfMaterialsLongLead() == "") {
+                    if (activityType.indexOf("COMPLETION") != -1) {
+                        act = "COMPLETION";
+                    }
+                    if (activityType.indexOf("ABANDONMENT") != -1) {
+                        act = "ABANDONMENT";
+                    }
+                    if (activityType.indexOf("DRILLING") != -1) {
+                        act = "DRILLING";
+                    }
+                }
+                if (act != "") {
+                    var getLongLead = _.where(model.BusPlan().longLeads(), { "Title": act, "Year": getYearStart });
+                    //console.log(getLongLead);
+                    if (getLongLead.length > 0) {
+                        var longLead = getLongLead[0].Value;
+                        var monthLead = getLongLead[0].MonthLead;
+                        est.PercOfMaterialsLongLead(longLead);
+                        est.LongLeadMonthRequired(monthLead);
+                        var startDate = $("#event_start_date_" + ActivePhaseNo).val();
+                        var escMaterialDate = moment(startDate, "DD-MMM-YYYY").add(-1 * Math.round(monthLead), 'months');
+                        est.StartEscDateMaterial(escMaterialDate.format("DD-MMM-YYYY"));
+                    }
+                }
+
+                var longLeadCalc = Division(est.PercOfMaterialsLongLead(),100) * est.Materials();
+                est.LongLeadCalc(longLeadCalc);
+                clearInterval(interval4);
+            },100);
+        }
+    }
+
+    function Division(a,b) {
+        if (a != 0 && b != 0) {
+            return a / b;
+        } else {
+            return 0;
+        }
+    }
+
+    function changeCurrency() {
+        var currency = $("#currency").val();
+        var ActivePhaseNo = getActivePhaseNo();
+        var getYearStart = moment($("#event_start_date_" + ActivePhaseNo).val(), "DD-MMM-YYYY").get('year');
+        var filter = _.where(model.BusPlan().currencies(), { Year: getYearStart, Currency: currency });
+        if (filter.length > 0) {
+            var ex = filter[0].Value;
+            model.BusPlan().conversionToUSD(ex);
+        }
+
+
+        $("a[data-model=" + ActivePhaseNo + "]").trigger("click");
+    }
+
+    function changeEventDate(Estimate,ActivityType) {
+        return function () {
+            var intervalchangeEventDate = setInterval(function () {
+                var ActivePhaseNo = getActivePhaseNo();
+                var eventDate = $("#event_start_date_" + ActivePhaseNo).val();
+                console.log(eventDate);
+                $("#project_start_date_" + ActivePhaseNo).val(eventDate);
+                Estimate.EventStartDate(eventDate);
+                changeLongLead(Estimate, ActivityType);
+
+                calcSpreadRate(Estimate)();
+                calcTime(Estimate)();
+
+                clearInterval(intervalchangeEventDate);
+            }, 100);
+            return true;
+        }
+    }
+
+    function calcSpreadRate(Estimate) {
+        return function () {
+            var intervalSpreadRate = setInterval(function () {
+                var ActivePhaseNo = getActivePhaseNo();
+                //var getYearStart = moment($("#event_start_date_" + ActivePhaseNo).val(), "DD-MMM-YYYY").get('year');
+                //var filter = { Year: getYearStart, RigName: Estimate.RigName() };
+                //var getRigRates = _.where(model.BusPlan().rigRates(), filter);
+                //console.log(filter);
+
+                var param = getParamToCalc();
+                ajaxPost("@Url.Action("CalcRigRates")", param, function (res) {
+                    var duration = parseFloat($("#summary_duration_" + ActivePhaseNo).html());
+                    Estimate.RigRate(res.Data.RigRate);
+                    //Estimate.NewTroubleFree.Cost(res.Data.TroubleFreeCost);
+                    var countSpreadRate = (Estimate.RigRate() * duration) + Estimate.SpreadRate();
+                    Estimate.SpreadRateTotal(countSpreadRate);
+                    $("#spread_rate_total_" + ActivePhaseNo).val(kendo.toString(countSpreadRate.toFixed(2)));
+                    console.log(kendo.toString(countSpreadRate,'n2'));
+                    calcCost(Estimate)();
+                    var ActivityType = getActivityType();
+                    changeLongLead(Estimate, ActivityType)();
+                }, function () {
+                    //model.FYProcessing(false);
+                });
+                clearInterval(intervalSpreadRate);
+            }, 100);
+            return true;
+        }
+
+    }
+
+    function getActivityType() {
+        var ActivePhaseNo = getActivePhaseNo();
+        var record = ko.mapping.toJS(model.BusPlan().record);
+        var phases = record.Phases;
+        if (phases.length > 0) {
+            var filter = _.where(phases, { PhaseNo: parseInt(ActivePhaseNo) })[0];
+            return filter.ActivityType;
+        } else {
+            return "";
+        }
+    }
+
+    function changeUseTAApproved(est) {
+        return function () {
+
+            var Interval9 = setInterval(function () {
+                var ActivePhaseNo = getActivePhaseNo();
+                var MaturityLevel = est.MaturityLevel();
+                console.log(MaturityLevel);
+                getPerc = _.where(model.BusPlan().maturityRisks, { "Title": MaturityLevel });
+                console.log(getPerc);
+                if (getPerc.length > 0) {
+                    est.NewNPTTime.PercentDays(getPerc[0].NPTTime);
+                    est.NewTECOPTime.PercentDays(getPerc[0].TECOPTime);
+                    est.NewNPTTime.PercentCost(getPerc[0].NPTCost);
+                    est.NewTECOPTime.PercentCost(getPerc[0].TECOPCost);
+                } else {
+                    est.NewNPTTime.PercentDays(0);
+                    est.NewTECOPTime.PercentDays(0);
+                    est.NewNPTTime.PercentCost(0);
+                    est.NewTECOPTime.PercentCost(0);
+                }
+                $("#npt_time_perc_" + ActivePhaseNo).data("kendoNumericTextBox").enable(!est.UsingTAApproved());
+                $("#tecop_time_perc_" + ActivePhaseNo).data("kendoNumericTextBox").enable(!est.UsingTAApproved());
+                $("#npt_cost_perc_" + ActivePhaseNo).data("kendoNumericTextBox").enable(!est.UsingTAApproved());
+                $("#tecop_cost_perc_" + ActivePhaseNo).data("kendoNumericTextBox").enable(!est.UsingTAApproved());
+
+
+                calcTime(est)();
+                calcCost(est)();
+                clearInterval(Interval9);
+            }, 100);
+            return true;
+        }
+    }
+
+
+    function calcTime(Estimate) {
+        return function () {
+            var intervalCalcTime = setInterval(function () {
+
+                //console.log(Estimate);
+                var New_npt_days = Estimate.NewTroubleFree.Days() * ( Division(Division(Estimate.NewNPTTime.PercentDays(),100), (1 - Division(Estimate.NewNPTTime.PercentDays(),100))) );
+
+                Estimate.NewNPTTime.Days(parseFloat(New_npt_days.toFixed(2)));
+                generateChart();
+
+
+                var spread = Division(Estimate.Services() , (Estimate.NewTroubleFree.Days() + Estimate.NewNPTTime.Days()));
+                Estimate.SpreadRate(spread);
+                calcSpreadRate(Estimate)();
+
+                var burnRate = (Estimate.Services() + Estimate.Materials()) + 
+                                // Spread Rate Total
+                                (Estimate.SpreadRateTotal() * (Estimate.NewTroubleFree.Days() + Estimate.NewNPTTime.Days()));
+                Estimate.BurnRate(burnRate);
+
+
+                var New_tecop_days = 0;
+                    if (Estimate.SpreadRateTotal() + Estimate.BurnRate() != 0) {
+                        New_tecop_days = Division(Estimate.NewTECOPTime.PercentDays(),100) * ((Estimate.NewTroubleFree.Days() + Estimate.NewNPTTime.Days()) * ( Division(Estimate.SpreadRateTotal() , Estimate.BurnRate())) );
+                    } else {
+                        New_tecop_days = 0;
+                    }
+
+                Estimate.NewTECOPTime.Days(parseFloat(New_tecop_days.toFixed(2)));
+                var mean_days = Estimate.NewTroubleFree.Days() + New_npt_days + New_tecop_days;
+                Estimate.NewMean.Days(parseFloat(mean_days.toFixed(2)));
+
+                //count duration
+                var ActivePhaseNo = getActivePhaseNo();
+                var startDate = $("#event_start_date_" + ActivePhaseNo).val();
+                $("#summary_start_" + ActivePhaseNo).html(startDate);
+                if (startDate != "") {
+                    var endDate = moment(startDate, "DD-MMM-YYYY").add(Math.round(mean_days), 'days');
+                    console.log(endDate);
+                    $("#project_end_date_" + ActivePhaseNo).val(endDate.format("DD-MMM-YYYY"));
+                    Estimate.EventEndDate(endDate.format("DD-MMM-YYYY"));
+                    $("#summary_end_" + ActivePhaseNo).html(endDate.format("DD-MMM-YYYY"));
+                }
+                Estimate.EstimatePeriod.Start(Estimate.EventStartDate());
+                Estimate.EstimatePeriod.Finish(Estimate.EventEndDate());
+
+                $("#summary_duration_" + ActivePhaseNo).html(Math.round(mean_days));
+                calcCost(Estimate)();
+
+                clearInterval(intervalCalcTime);
+            }, 100);
+
+            return true;
+        }
+    }
+
+    function calcCost(Estimate) {
+        return function () {
+            var intervalCalcCost = setInterval(function () {
+                var ActivePhaseNo = getActivePhaseNo();
+                var duration = parseFloat($("#summary_duration_" + ActivePhaseNo).html());
+                var TroubleFreeCost = (Estimate.RigRate() * Estimate.NewTroubleFree.Days()) + Estimate.Services() + Estimate.Materials();
+                console.log("TroubleFreeCost = "+Estimate.RigRate() + "*" + Estimate.NewTroubleFree.Days() + "+" + Estimate.Services() + "+" + Estimate.Materials());
+                Estimate.NewTroubleFree.Cost(TroubleFreeCost);
+
+                var New_npt_Cost = (Estimate.NewTroubleFree.Cost() - Estimate.Materials()) * ( Division( Division(Estimate.NewNPTTime.PercentCost(),100) , (1 - Division(Estimate.NewNPTTime.PercentCost(),100))) );
+                //console.log("NPT Cost = " + Estimate.NewTroubleFree.Cost() + "-" + Estimate.Materials() + "*" + Estimate.NewTroubleFree.Days() + "+" + Estimate.Services() + "+" + Estimate.Materials());
+                Estimate.NewNPTTime.Cost(parseFloat(New_npt_Cost.toFixed(2)));
+
+                var New_tecop_Cost = 0;
+                    New_tecop_Cost = Division(Estimate.NewTECOPTime.PercentCost(),100) * (Estimate.NewTroubleFree.Cost() + Estimate.NewNPTTime.Cost());
+                Estimate.NewTECOPTime.Cost(parseFloat(New_tecop_Cost.toFixed(2)));
+
+                var mean_cost = Estimate.NewTroubleFree.Cost() + New_npt_Cost + New_tecop_Cost;
+                Estimate.NewMean.Cost(parseFloat(mean_cost.toFixed(2)));
+                //count TQ gap and BIC gap
+
+                var tq_threshold = Estimate.TQ.Threshold();
+                var bic_threshold = Estimate.BIC.Threshold();
+
+                var tq_gap = mean_cost - tq_threshold;
+                var bic_gap = bic_threshold - mean_cost;
+                Estimate.TQ.Gap(parseFloat(tq_gap.toFixed(2)));
+                Estimate.BIC.Gap(parseFloat(bic_gap.toFixed(2)));
+                Estimate.NewTroubleFreeUSD(Estimate.NewTroubleFree.Cost() * model.BusPlan().conversionToUSD());
+                Estimate.NPTCostUSD(Estimate.NewNPTTime.Cost() * model.BusPlan().conversionToUSD());
+                Estimate.TECOPCostUSD(Estimate.NewTECOPTime.Cost() * model.BusPlan().conversionToUSD());
+                Estimate.MeanUSD(Estimate.NewMean.Cost() * model.BusPlan().conversionToUSD());
+
+                generateChart();
+                clearInterval(intervalCalcCost);
+            }, 100);
+            return true;
+        }
+    }
+
+    function getActivePhaseNo() {
+        return $("li[data-model=tab_phase].active").find("a").attr("data-model");
+    }
+
+
+    function changeEstimateRange() {
+        var ActivePhaseNo = getActivePhaseNo();
+        var estType = $("#estimating_range_type_" + ActivePhaseNo).val();
+        if (estType == "Deterministic") {
+            $("#estimating_range_note_" + ActivePhaseNo).html("% Value");
+            $("#estimating_range_start_title_" + ActivePhaseNo).html("Low");
+            $("#estimating_range_end_title_" + ActivePhaseNo).html("High");
+        } else {
+            $("#estimating_range_note_" + ActivePhaseNo).html("Simulated Value $MM");
+            $("#estimating_range_start_title_" + ActivePhaseNo).html("P10");
+            $("#estimating_range_end_title_" + ActivePhaseNo).html("P90");
+        }
+    }
+
+    function generateChart() {
+        var ActivePhaseNo = getActivePhaseNo();
+        var dataDays = [{
+            "TECOP": parseFloat($("#New_tecop_days_" + ActivePhaseNo).val()),
+            "NPT": parseFloat($("#New_npt_days_" + ActivePhaseNo).val()),
+            "TroubleFree": parseFloat($("#New_trouble_free_days_" + ActivePhaseNo).val()),
+            "Category": "New OP"
+        }, {
+            "TECOP": parseFloat($("#Current_tecop_days_" + ActivePhaseNo).val()),
+            "NPT": parseFloat($("#Current_npt_days_" + ActivePhaseNo).val()),
+            "TroubleFree": parseFloat($("#Current_trouble_free_days_" + ActivePhaseNo).val()),
+            "Category": "Current OP"
+        }];
+
+        var dataCost = [{
+            "TECOP": parseFloat($("#New_tecop_cost_" + ActivePhaseNo).val()),
+            "NPT": parseFloat($("#New_npt_cost_" + ActivePhaseNo).val()),
+            "TroubleFree": parseFloat($("#New_trouble_free_cost_" + ActivePhaseNo).val()),
+            "Category": "New OP"
+        }, {
+            "TECOP": parseFloat($("#Current_tecop_cost_" + ActivePhaseNo).val()),
+            "NPT": parseFloat($("#Current_npt_cost_" + ActivePhaseNo).val()),
+            "TroubleFree": parseFloat($("#Current_trouble_free_cost_" + ActivePhaseNo).val()),
+            "Category": "Current OP"
+        }];
+
+        var wrapper_cost = $("#chart_cost_" + ActivePhaseNo);
+        var wrapper_days = $("#chart_days_" + ActivePhaseNo);
+        renderChart(wrapper_cost, dataCost,"Chart by Cost");
+        renderChart(wrapper_days, dataDays, "Chart by Days");
+    }
+
+    function renderChart(wrapper, datas, title) {
+        var wd = wrapper.width();
+        var hg = 230;
+        wrapper.find($(".chart")).replaceWith($('<div />').addClass('chart'));
+        var fontLabel = "9px sans-serif";
+        wrapper.find($(".chart")).kendoChart({
+            title: title,
+            dataSource: {
+                data: datas
+            },
+            legend: {
+                visible: true,
+                labels: {
+                    font: "10px sans-serif"
+                },
+                position: "top"
+            },
+            seriesDefaults: {
+                type: "column",
+                labels: {
+                    visible: true,
+                    background: "transparent",
+                    font: fontLabel
+                }
+            },
+            seriesDefaults: {
+                type: "column"
+            },
+            series:
+            [{
+                field: "NPT",
+                name: "NPT"
+            }, {
+                field: "TECOP",
+                name: "TECOP"
+            }, {
+                field: "TroubleFree",
+                name: "Trouble Free"
+            }],
+            categoryAxis: {
+                field: "Category",
+                labels: {
+                    rotation: -45,
+                    font: fontLabel
+                },
+                majorGridLines: {
+                    visible: false
+                }
+            },
+            valueAxis: {
+                labels: {
+                    format: "N0",
+                    font: fontLabel
+                },
+                line: {
+                    visible: false
+                }
+            },
+            chartArea: {
+                width: wd,
+                height: 230
+            },
+            tooltip: {
+                visible: true,
+                template: "#= series.name # -- #= category  #: #= kendo.toString(value, 'n0') #",
+                font: fontLabel
+            }
+        });
+    }
+
+    function RenderFiscalYear() {
+        model.FYProcessing(true);
+        var intervalFY = setInterval(function () {
+            var ActivePhaseNo = getActivePhaseNo();
+            var cekRFM = $("#reference_factor_model").data("kendoDropDownList").value();
+            if (cekRFM == "") {
+                clearInterval(intervalFY);
+                alert("Unable to do calculation. Please choose reference factor model first!");
+                model.FYProcessing(false);
+                return;
+            }
+            var record = ko.mapping.toJS(model.BusPlan().record());
+            var getEst = _.where(record.Phases, { "PhaseNo": parseInt(ActivePhaseNo) });
+            var param = {};
+            param.Phase = getEst[0];
+            param.RFM = record.ReferenceFactorModel;
+            param.Country = record.Country;
+            param.Currency = record.Currency;
+            param.ShellShare = parseFloat(record.ShellShare);
+            param.WellName = record.WellName;
+            ajaxPost("@Url.Action("GetDataFiscalYearOnBizPlanEntry2")", param, function (res) {
+                model.FYProcessing(false);
+                GenerateGridFiscalYear(res.Data.Data, res.Data.YearStart, res.Data.YearEnd, ActivePhaseNo);
+                $("#mean_cost_mod_" + ActivePhaseNo).html(kendo.toString(res.Data.MeanCostMOD,"n2"));
+                $("#shell_share_mod_" + ActivePhaseNo).html(kendo.toString(res.Data.ShellShareMOD,"n2"));
+                $("#mean_cost_real_term_" + ActivePhaseNo).html(kendo.toString(res.Data.MeanCostRealTerm,"n2"));
+            }, function () {
+                model.FYProcessing(false);
+            });
+            clearInterval(intervalFY);
+        }, 500);
+    }
+
+    function CalcBizPlan() {
+        //model.FYProcessing(true);
+        return function () {
+            var intervalFY = setInterval(function () {
+                var param = getParamToCalc();
+                ajaxPost("@Url.Action("CalcBizPlan")", param, function (res) {
+                    //model.FYProcessing(false);
+                    console.log(res);
+                }, function () {
+                    //model.FYProcessing(false);
+                });
+                clearInterval(intervalFY);
+            }, 100);
+            return true;
+        }
+    }
+
+    function GenerateGridFiscalYear(data, start, finish,PhaseNo) {
+        var self = this;
+        $("#Grid_FY_" + PhaseNo).replaceWith($('<div />').attr('id', 'Grid_FY_' + PhaseNo));
+        var $grid = $("#Grid_FY_" + PhaseNo);
+        var column = [
+            { title: "Title", field: "TitleBagus", width: 200 },
+        ];
+        for (var i = start; i <= finish; i++) {
+            var fieldName = "FY" + String(i);
+            column.push({ title: fieldName, field: fieldName, width: 100, attributes: { "style": "text-align:right" }, format: "{0:N2}" });
+        }
+        var dataSource = new kendo.data.DataSource({
+            data: data,
+            pageSize: 20,
+            selectable: true
+        });
+
+        $grid.kendoGrid({
+            columns: column,
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            scrollable: true,
+            dataSource: dataSource,
+        });
+    }
+
+    function getParamToCalc() {
+        var ActivePhaseNo = getActivePhaseNo();
+        var record = ko.mapping.toJS(model.BusPlan().record());
+        var getEst = _.where(record.Phases, { "PhaseNo": parseInt(ActivePhaseNo) });
+        var param = {};
+        param.Phase = getEst[0];
+        param.RFM = record.ReferenceFactorModel;
+        param.Country = record.Country;
+        param.Currency = record.Currency;
+        param.ShellShare = parseFloat(record.ShellShare);
+        param.WellName = record.WellName;
+        return param;
+    }
+</script>

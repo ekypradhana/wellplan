@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<License>
+  <Data>
+    <LicensedTo>EACIIT Pte Ltd</LicensedTo>
+    <LicenseType>Developer OEM</LicenseType>
+    <LicenseNote>Limited to 1 developer.</LicenseNote>
+    <OrderID>140411015559</OrderID>
+    <OEM>This is a redistributable license</OEM>
+    <Products>
+      <Product>Aspose.Total for .NET</Product>
+    </Products>
+    <EditionType>Enterprise</EditionType>
+    <SerialNumber>8538f689-fb2e-4c99-850b-7a2ff567f974</SerialNumber>
+    <SubscriptionExpiry>20150411</SubscriptionExpiry>
+    <LicenseVersion>2.2</LicenseVersion>
+  </Data>
+  <Signature>RsIZ90M/hFn3nZb8pVbHRpyNmPIyR1T0IHLm2lRHqELZYDiradIkKZ5lfib9pdAz9eVgaLKNz9B/Svy4FD4pJQLXH6julqdjZM50wrqEyLy1eqbUFm92VM85rd2VOLQtRqUUv218WfVNjzSeTgxlm7Eh9T9wXXPuDXQYQ2RfyOY=</Signature>
+</License>

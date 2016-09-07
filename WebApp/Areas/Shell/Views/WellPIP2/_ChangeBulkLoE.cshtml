@@ -1,0 +1,80 @@
+﻿<script>
+    model.uimodel().LoEProcessing = ko.observable(false);
+    model.uimodel().ListLoE = ko.observable(6);
+    function ModalBulkChangeLoE() {
+        var idValues = getCheckedElementId();
+        //console.log(idValues);
+        if (idValues.length == 0) {
+            alert("You should check at least 1 Element")
+        } else {
+            $("#modalLoE").modal("show");
+        }
+    }
+    function saveBulkLoE() {
+        var x = model.uimodel();
+        x.LoEProcessing(true);
+        var ElementIds = getCheckedElementId();
+        var PIPId = x.selectedPIPId();
+        var LoE = $("#ListLoE").val();
+        var datas = {PIPId:PIPId, ElementIds : ElementIds, LoE:LoE};
+        ajaxPost("@Url.Action("BulkSaveLevelOfEstimate")", datas, function (data) {
+            //console.log(data);
+            if (data.Data == "OK") {
+                //alert("Level of Estimate Updated!");
+                x.LoEProcessing(false);
+                $("#modalLoE").modal("hide");
+                x.select(x.selectedPIPId(), x.WellName(), x.ActivityType(), x.SelectedPIPType());
+            } else {
+                model.uimodel().processingActionParty(false);
+                alert(data.Message);
+            }
+        })
+    }
+    function getCheckedElementId() {
+
+        var ids = $("#GridPIP").find("input.checkme:checked");
+        var idValues = $.map(ids, function (obj, idx) {
+            var $obj = $(obj);
+            return $obj.val();
+        });
+        return idValues;
+    }
+</script>
+
+<!-- Modal LoE -->
+<div class="modal fade myModal" id="modalLoE" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                <h4 class="modal-title" id="myModalLabel" data-bind="">Change Level of Estimate</h4>
+            </div>
+            <div class="modal-body" style="margin-bottom:25px;">
+                <div data-bind="visible:model.uimodel().LoEProcessing()==false">
+                    <div class="col-md-5">
+                        <label>
+                            Change The Level of Estimate to :
+                        </label>
+                    </div>
+                    <div class="col-md-7">
+                        <select id="ListLoE" data-bind="foreach:new Array(ListLoE())">
+                            <option data-bind='attr: {"value":$index()+1},text:$index()+1'></option>
+                        </select>
+                    </div>
+
+                </div>
+
+                <div data-bind="visible:model.uimodel().LoEProcessing()==true">
+                    @Html.Partial("_processing")
+                </div>
+
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="saveBulkLoE()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Modal LoE -->

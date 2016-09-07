@@ -1,0 +1,746 @@
+﻿@{
+    ViewBag.Title = "Release Note";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@using ECIS.AppServer.Areas.WebMenu.Models;
+
+@{
+    var allMenu = new string[] { "*" }.ToList();
+    foreach (Menu menu in DataHelper.Populate<Menu>("Main_Menu"))
+    {
+        if (menu.Submenus.Count == 0)
+        {
+            allMenu.Add(menu.Title);
+        }
+        else
+        {
+            foreach (Menu childMenu in menu.Submenus)
+            {
+                allMenu.Add(menu.Title + " - " + childMenu.Title);
+            }
+        }
+    }
+    allMenu.Add("Other");
+}
+
+<style>
+    .text {
+        height: auto !important;
+        padding: 0px 4px !important;
+        margin: 0px 12px 0px 3px;
+    }
+
+    #form {
+        margin-top: 20px;
+        width: 670px;
+    }
+
+    #form .row {
+        margin-bottom: 10px;
+    }
+
+    #form .row .col-md-9 > input {
+        height: auto !important;
+        padding: 1px 6px;
+    }
+
+    #form .row .col-md-3 {
+        padding-right: 0px;
+        padding-top: 5px;
+        text-align: right;
+    }
+
+    #form .row .col-md-9 {
+        padding-left: 8px;
+    }
+
+    .data {
+        position: relative;
+    }
+
+    .data h3 {
+        border: none;
+        text-align: left;
+        font-size: 28px;
+    }
+
+    .data h5 {
+        border: none;
+        text-align: left;
+        margin-bottom: 2px;
+        position: relative;
+    }
+
+    .data:after {
+        position: absolute;
+        z-index: 1;
+        content: " ";
+        right: 0px;
+        top: 0px;
+        bottom: 0px;
+        background-color: rgb(232, 232, 232);
+        width: 2px;
+    }
+
+    .data.no-border:after {
+        display: none;
+    }
+
+    .data h5 span {
+        display: block;
+        position: absolute;
+        z-index: 1;
+        background-color: #DBDBDB;
+        height: 1px;
+        left: 60px;
+        width: 400px;
+        top: 14px;
+    }
+
+    .data .col-md-12.detail {
+        width: 400px;
+        margin-bottom: 10px;
+    }
+
+    .data .col-md-12.detail .row {
+        min-height: 27px;
+        margin-bottom: 4px;
+    }
+
+    .data .col-md-12.detail .col-md-4 {
+        text-align: right;
+        font-weight: bold;
+        padding-top: 5px;
+    }
+
+    .data .col-md-12.detail .col-md-8 {
+        padding-left: 10px !important;
+    }
+
+    .data .col-md-12.detail .col-md-8 input {
+        padding: 1px 8px;
+        height: auto !important;
+    }
+
+    .add-update {
+        margin-bottom: 20px;
+    }
+
+    .add-update label {
+        font-size: 14px;
+    }
+
+    .no-padding {
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+    }
+
+    .comments label {
+        font-weight: normal !important;
+    }
+
+    .comments section {
+        border-bottom: 1px solid #F2F2F2;
+        margin-right: 15px;
+        margin-bottom: 15px;
+    }
+
+    .comments div label {
+        font-size: 15px;
+    }
+
+    .filter .col-md-4 .col-md-4 {
+        padding-right: 0px !important;
+        text-align: right;
+    }
+
+    .filter .col-md-4 .col-md-8 {
+        padding-left: 4px !important;
+    }
+
+    .filter .col-md-6 {
+        margin-bottom: 5px;
+    }
+
+    .filter .search {
+        min-height: 24px;
+    }
+
+    .each-log {
+        margin-bottom: 20px;
+        padding: 15px;
+        font-size: 12px;
+    }
+
+    .each-log table tr td {
+        padding: 1px;
+    }
+
+    .each-log table tr td:first-child {
+        font-weight: bold;
+        width: 100px;
+    }
+
+    .each-log table tr:not(:first-child) td:last-child:before {
+        content: ":";
+        z-index: 1;
+        padding-right: 5px;
+    }
+
+    .each-log table tr td[colspan="2"] {
+        font-size: 40px;
+    }
+
+    .each-log table tr:first-child td {
+        font-weight: bold;
+    }
+
+    .tab-content .tab-pane {
+        margin-top: 10px;
+    }
+
+    .tab-content .tab-pane:first-child {
+        margin-top: 20px;
+    }
+</style>
+
+<script>
+    model.PageId("App Info");
+    model.IsProcessing = ko.observable(false);
+    model.MiniIsProcessing = ko.observable(false);
+
+    model.Master = {
+        Id: ko.observable(""),
+        Title: ko.observable(""),
+        Type: ko.observable(""),
+        Module: ko.observable(""),
+        IsSendEmail: ko.observable(false),
+        Email: ko.observable(""),
+        Description: ko.observable(""),
+        Note: ko.observable(""),
+        Dependon: ko.observable(""),
+
+        Data: ko.observableArray([]),
+        Detail: ko.observable(true),
+
+        VersionString: ko.observable("1.0.0"),
+        IsIncreaseVersion: ko.observable(false),
+        IsIncreaseSubversion: ko.observable(false),
+
+        Types: ko.observableArray(["New Functionality", "Enhancement", "Fixes"]),
+        Modules: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(allMenu))),
+
+        PopupMode: ko.observable(""),
+
+        Filter: {
+            Keyword: ko.observable(""),
+            Module: ko.observableArray([]),
+            Type: ko.observableArray([])
+        },
+        Add: function () {
+            this.GetLatestVersion();
+
+            this.IsIncreaseVersion(false);
+            this.IsIncreaseSubversion(false);
+            this.Id("");
+            this.Title("");
+            this.Type("");
+            this.Module([]);
+            this.IsSendEmail(false);
+            this.Email("");
+            this.Description("");
+            this.Note("");
+            this.Dependon("");
+
+            this.PopupMode("");
+
+            $("[name='type']").data("kendoDropDownList").enable(true);
+            $("[name='module']").data("kendoMultiSelect").enable(true);
+
+            $(".select2-email").select2("enable", true);
+            $(".select2-email").select2("val", "");
+
+            model.Master.Detail(false);
+        },
+        ResendMail: function (id) {
+            var self = this;
+            var url = "@Url.Action("SendMail")";
+            var param = { id: id };
+
+            ajaxPost(url, param, function (data) {
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                alert("Email sent");
+
+                self.PopupMode("");
+            }, function () { });
+        },
+        ShowDetail: function (id) {
+            this.GetLatestVersion();
+
+            var self = this;
+            var url = "@Url.Action("Get")";
+            var param = { id: id };
+
+            ajaxPost(url, param, function (data) {
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                var info = data.Data;
+
+                self.Id(info._id);
+                self.Title(info.Title);
+                self.Type(info.Type);
+                self.Module(info.Module.split(","));
+                self.Email(info.EmailReceivers);
+                self.Description(info.Description);
+                self.Note(info.Notes);
+                self.Dependon(info.DependsOn);
+
+                self.PopupMode("detail");
+
+                $("[name='type']").data("kendoDropDownList").enable(false);
+                $("[name='module']").data("kendoMultiSelect").enable(false);
+
+                $(".select2-email").select2("enable", false);
+                $(".select2-email").select2("val", info.EmailReceivers);
+
+                model.Master.Detail(false);
+            }, function () { });
+        },
+        Edit: function (id) {
+            this.GetLatestVersion();
+
+            var self = this;
+            var url = "@Url.Action("Get")";
+            var param = { id: id };
+
+            ajaxPost(url, param, function (data) {
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                var info = data.Data;
+
+                self.Id(info._id);
+                self.Title(info.Title);
+                self.Type(info.Type);
+                self.Module(info.Module.split(","));
+                self.Email(info.EmailReceivers);
+                self.Description(info.Description);
+                self.Note(info.Notes);
+                self.Dependon(info.DependsOn);
+
+                self.PopupMode("edit");
+
+                $(".select2-email").select2("val", info.EmailReceivers);
+
+                model.Master.Detail(false);
+            }, function () { });
+        },
+        Save: function () {
+            var form = $("#form").kendoValidator().data("kendoValidator");
+
+            if (!form.validate())
+                return;
+
+            model.MiniIsProcessing(true);
+
+            var url = "@Url.Action("Save")";
+            var param = {
+                Id: this.Id(),
+                Title: this.Title(),
+                Type: this.Type(),
+                Module: this.Module(),
+                IsSendEmail: this.IsSendEmail(),
+                Email: (function (f) { return (f == null || f == undefined) ? [] : f }($(".select2-email").val())).join(","),
+                Description: this.Description(),
+                Note: this.Note(),
+                Dependon: this.Dependon(),
+                isIncreaseVersion: this.IsIncreaseVersion(),
+                isIncreaseSubversion: this.IsIncreaseSubversion(),
+            };
+
+            ajaxPost(url, param, function (data) {
+                model.MiniIsProcessing(false);
+
+                if (data.Result == "OK") {
+                    model.Master.Detail(true);
+                    model.Master.Refresh();
+                } else {
+                    alert(data.Message);
+                }
+            }, function () {
+                model.MiniIsProcessing(false);
+            });
+        },
+        Refresh: function () {
+            model.IsProcessing(true);
+
+            var url = "@Url.Action("Populate")";
+            var param = (function () {
+                var r = {};
+
+                for (var i in model.Master.Filter) {
+                    if (model.Master.Filter.hasOwnProperty(i)) {
+                        r[i] = model.Master.Filter[i]();
+                    }
+                }
+
+                return r;
+            }());
+
+            ajaxPost(url, param, function (data) {
+                model.IsProcessing(false);
+
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                model.Master.Data(data.Data);
+                model.Master.PrepareLog();
+            }, function () {
+                model.IsProcessing(false);
+            });
+        },
+        
+        Download: function () {
+            model.IsProcessing(true);
+
+            var url = "@Url.Action("Export")";
+            var param = (function () {
+                var r = {};
+
+                for (var i in model.Master.Filter) {
+                    if (model.Master.Filter.hasOwnProperty(i)) {
+                        r[i] = model.Master.Filter[i]();
+                    }
+                }
+
+                return r;
+            }());
+
+            ajaxPost(url, param, function (data) {
+                model.IsProcessing(false);
+
+                if (!data.Success) {
+                    alert("Failed!");
+                    return;
+                }
+                model.IsProcessing(false);
+                var url = "@Url.Action("DownloadFile", "ReleaseNote")"+"?stringName="+data.Path;
+                location.href = url;
+            }, function () {
+                model.IsProcessing(false);
+            });
+        },
+        GetLatestVersion: function () {
+            var self = this;
+            var url = "@Url.Action("GetLatestVersion")";
+
+            ajaxPost(url, {}, function (data) {
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                self.VersionString(data.Data);
+            }, function () { });
+        },
+        Column: function () {
+            return [
+                { field: "VersionStr", title: "Version" },
+                { field: "Title", title: "Title", },
+                { field: "Module", title: "Module" },
+                { field: "Description", title: "Description", width: 300 },
+                { field: "Type", title: "Type" },
+                { field: "LastUpdate", title: "Create Date", template: "#: DateTimeParse(LastUpdate) #", },
+                { title: "", width: 140, attributes: { style: "text-align: center" }, template: "<button class='btn btn-custom btn-xs btn-success' onclick='model.Master.ShowDetail(\"#: _id #\")'><i class='fa fa-eye'></i> Details</button><!--&nbsp;<button class='btn btn-custom btn-xs btn-primary' onclick='model.Master.Edit(\"#: _id #\")'><i class='fa fa-edit'></i> Edit</button>--><br /><button style='margin-top: 4px;' class='btn btn-custom btn-xs btn-danger' onclick='model.Master.ResendMail(\"#: _id #\")'><i class='fa fa-envelope-o'></i> Resend Email</button>" },
+            ];
+        },
+        PrepareLog: function () {
+            var $template = $("#log-template");
+            var $target = $("#log").html("");
+
+            _.chain(this.Data()).sortBy(function (each) {
+                return moment(each.LastUpdate).toDate();
+            }).each(function (each) {
+                var $item = $($template.html());
+                $item.find('[data-td="version"]').html("v" + each.VersionStr);
+                $item.find('[data-td="title"]').html(each.Title);
+                $item.find('[data-td="date"]').html(DateTimeParse(each.LastUpdate));
+                $item.find('[data-td="module"]').html((each.Module instanceof Array) ? each.Module.join(", ") : each.Module);
+                $item.find('[data-td="type"]').html(each.Type);
+                $item.find('[data-td="description"]').html(each.Description);
+                $item.find('[data-td="note"]').html(each.Notes);
+                $item.prependTo($target);
+            });
+        },
+        GeneratedVersion: function (i) {
+            return ko.computed(function () {
+                try {
+                    var target = parseInt(model.Master.VersionString().split('.')[i], 10);
+
+                    if (model.Master.PopupMode() != '') {
+                        return target;
+                    }
+
+                    if (model.Master.IsIncreaseVersion()) {
+                        return (i == 0) ? (target + 1) : 0;
+                    } else if (model.Master.IsIncreaseSubversion()) {
+                        if (i == 0)
+                            return target;
+                        else if (i == 1)
+                            return (target + 1);
+                        else
+                            return 0;
+                    } else {
+                        return (i == 2) ? (target + 1) : target;
+                    }
+                } catch (err) {
+                    return (i == 0) ? 1 : 0;
+                }
+            }, model.Master);
+        },
+        Initialize: function () {
+            $(".select2-email").select2({
+                data: ["Eaciit Account Team"],
+                tags: true,
+                tokenSeparators: [',', ' '],
+                placeholder: "Type emails here ... (separate by comma)",
+                hideSelectionInSingle: true,
+            })
+        }
+    };
+
+    model.Master.IsIncreaseVersion.subscribe(function (t) {
+        if (t == true) {
+            model.Master.IsIncreaseSubversion(false);
+        }
+    });
+
+    model.Master.IsIncreaseSubversion.subscribe(function (t) {
+        if (t == true) {
+            model.Master.IsIncreaseVersion(false);
+        }
+    });
+
+    function DateTimeParse(date) {
+        return moment(date).format("DD-MMM-YY hh:mm:ss");
+    }
+
+    $(function () {
+        model.Master.Initialize();
+        model.Master.Refresh();
+    });
+</script>
+
+<script type="text/template" id="log-template">
+    <div class="each-log">
+        <table>
+            <tr>
+                <td colspan="2" data-td="version"></td>
+            </tr>
+            <tr>
+                <td>Title</td>
+                <td data-td="title"></td>
+            </tr>
+            <tr>
+                <td>Date</td>
+                <td data-td="date"></td>
+            </tr>
+            <tr>
+                <td>Module</td>
+                <td data-td="module"></td>
+            </tr>
+            <tr>
+                <td>Type</td>
+                <td data-td="type"></td>
+            </tr>
+            <tr>
+                <td>Description</td>
+                <td data-td="description"></td>
+            </tr>
+            <tr>
+                <td>Note</td>
+                <td data-td="note"></td>
+            </tr>
+        </table>
+    </div>
+</script>
+
+<div style="padding: 0px 15px 15px;" data-bind="with: Master">
+    <div data-bind="visible: Detail()">
+        <div data-bind="visible: $root.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div class="ec-toolbar filter" style="margin-left:15px; padding-top: 10px;" data-bind="with: Filter">
+            <div class="col-md-6">
+                <div class="col-md-4">
+                    <label>Search :</label>
+                </div>
+                <div class="col-md-8">
+                    <input type="text" class="text" placeholder="Type keyword here ..." data-bind="value: Keyword" />
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-6">
+                <div class="col-md-4">
+                    <label>Type :</label>
+                </div>
+                <div class="col-md-8">
+                    <select class="search" data-bind="kendoMultiSelect: { dataSource: $root.Master.Types, value: Type, optionLabels: 'Select one' }"></select>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-6">&nbsp;</div>
+            <div class="col-md-6">
+                <div class="col-md-4">
+                    <label>Module :</label>
+                </div>
+                <div class="col-md-8">
+                    <select data-bind="kendoMultiSelect: { dataSource: $root.Master.Modules, value: Module, optionLabels: 'Select one' }"></select>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="clearfix"></div>
+            <div class="col-md-12 row" style="text-align: right;">
+                <button class="btn btn-success btn-sm btn-custom" onclick="model.Master.Add()">
+                    <span class="glyphicon glyphicon-plus"></span> Add Note
+                </button>
+                <button class="btn btn-warning btn-sm btn-custom" onclick="model.Master.Download()">
+                    <span class="glyphicon glyphicon-download"></span> Download
+                </button>
+                <button class="btn btn-primary btn-sm btn-custom" data-bind="click: $root.Master.Refresh">
+                    <span class="glyphicon glyphicon-refresh"></span> Refresh
+                </button>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+
+        <ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
+            <li class="active"><a href="#grid" data-toggle="tab">Grid View</a></li>
+            <li><a href="#log" data-toggle="tab">List View</a></li>
+        </ul>
+        <div id="my-tab-content" class="tab-content">
+            <div class="tab-pane active" id="grid">
+                <div class="ec-panel" data-bind="visible: !$root.IsProcessing()">
+                    <div class="col-md-12 no-padding">
+                        <div class="grid" id="grid" data-bind="kendoGrid: { data: Data, dataSource: { pageSize: 5 }, columns: Column(), pageable: true, sortable: true, filterable: false }"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane" id="log"></div>
+        </div>
+    </div>
+
+    <div data-bind="visible: !Detail()">
+        <div data-bind="visible: model.MiniIsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+        <div data-bind="visible: !model.MiniIsProcessing()">
+            <div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-custom btn-warning" onclick="model.Master.Detail(true);">
+                        <span class="glyphicon glyphicon-chevron-left"></span> Back
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-primary" onclick="model.Master.Save()" data-bind="visible: (PopupMode() != 'detail')">
+                        <span class="glyphicon glyphicon-ok"></span> Save
+                    </button>
+                    <span style="font-size: 18px; margin-left: 10px;" data-bind="text: (PopupMode() == '') ? 'Add New Release Note' : ('Detail Release Note v' + VersionString())"></span>
+                </div>
+                <div id="form">
+                    <div class="row">
+                        <label class="col-md-3">Title:</label>
+                        <div class="col-md-9">
+                            <input type="text" style="width: 340px;" name="name" required data-required-msg="Name cannot be empty"
+                                   placeholder="Type issue name here ..." data-bind="value: Title, enable: (PopupMode() == '')" />
+                            <span class="k-invalid-msg" data-for="name"></span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-3"><span data-bind="text: ((PopupMode() == '') ? 'Generated ' : '')"></span> Version:</label>
+                        <div class="col-md-9" data-bind="visible: (PopupMode() != '')">
+                            <div style="float: left; margin-right: 30px; margin-top: 5px; font-weight: bold;">
+                                <span data-bind="text: VersionString"></span>
+                            </div>
+                            <div class="clearfix"></div>
+                        </div>
+                        <div class="col-md-9" data-bind="visible: (PopupMode() == '')">
+                            <div style="float: left; margin-right: 30px; margin-top: 5px; font-weight: bold;">
+                                <span data-bind="text: GeneratedVersion(0)"></span>.<span data-bind="text: GeneratedVersion(1)"></span>.<span data-bind="text: GeneratedVersion(2)"></span>
+                            </div>
+                            <div style="float: left; margin-right: 20px;">
+                                <input type="checkbox" data-bind="checked: IsIncreaseVersion" /> Increase Version
+                            </div>
+                            <div style="float: left;">
+                                <input type="checkbox" data-bind="checked: IsIncreaseSubversion" /> Increase Subversion
+                            </div>
+                            <div class="clearfix"></div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-3">Type:</label>
+                        <div class="col-md-9">
+                            <select style="width: 340px;" required data-required-msg="Type cannot be empty&nbsp;" name="type"
+                                    data-bind="kendoDropDownList: { dataSource: Types, value: Type, optionLabel: 'Select one' }"></select>
+                            <span class="k-invalid-msg" data-for="type"></span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-3">Module:</label>
+                        <div class="col-md-9">
+                            <select style="width: 340px;" required data-required-msg="Module cannot be empty" name="module"
+                                    data-bind="kendoMultiSelect: { dataSource: Modules, value: Module, optionLabel: 'Select one' }"></select>
+                            <span class="k-invalid-msg" data-for="module"></span>
+                        </div>
+                    </div>
+                    @*<div class="row" data-bind="visible: (PopupMode() == '')">
+                        <label class="col-md-3">Send Email ?</label>
+                        <div class="col-md-9">
+                            <input type="checkbox" data-bind="checked: IsSendEmail, enable: (PopupMode() == '')" />
+                        </div>
+                    </div>
+                    <div class="row" data-bind="visible: IsSendEmail() || (PopupMode() != '')">*@
+                    <div class="row">
+                        <label class="col-md-3">Email Receiver:</label>
+                        <div class="col-md-9" data-bind="visible: PopupMode() == 'detail'">
+                            <input type="text" style="width: 340px;" data-bind="value: Email(), enable: false" />
+                        </div>
+                        <div class="col-md-9" data-bind="visible: PopupMode() != 'detail'">
+                            <select style="width: 340px;" class="select2-email" multiple="multiple"></select>
+                            <span class="k-invalid-msg" data-for="email"></span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-3">Description:</label>
+                        <div class="col-md-9">
+                            <textarea style="width: 340px; height: 100px;" required data-required-msg="Description cannot be empty" name="description"
+                                      data-bind="value: Description, enable: (PopupMode() != 'detail')"></textarea>
+                            <span class="k-invalid-msg" data-for="description"></span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label class="col-md-3">Note:</label>
+                        <div class="col-md-9">
+                            <textarea style="width: 340px; height: 100px;" data-bind="value: Note, enable: (PopupMode() != 'detail')"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+        </div>
+    </div>
+</div>

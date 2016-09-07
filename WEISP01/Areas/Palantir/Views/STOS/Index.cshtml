@@ -1,0 +1,606 @@
+﻿@{
+    ViewBag.Title = "Report STOS";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+}
+
+<script>
+    model.IsProcessing = ko.observable(false);
+</script>
+
+<style>
+    .grids .grid {
+        height: 100%;
+        width: 100%;
+    }
+
+    .grids {
+        margin-top: 15px;
+    }
+
+    .grids {
+        padding: 0px 15px 0px 0px !important;
+    }
+
+        .grids .cell-number {
+            text-align: right;
+        }
+
+        .grids .cell-date {
+            text-align: center;
+        }
+
+        .grids .k-grid .k-grid-content {
+            min-height: 100px;
+            /*max-height: 600px;*/
+        }
+
+
+
+        .grids .k-header.k-grid-toolbar {
+            /*background-color: #F9F9FB;*/
+        }
+
+        .grids .k-header[role=columnheader] {
+            vertical-align: middle;
+        }
+
+            .grids .k-header[role=columnheader][data-colspan] {
+                text-align: center;
+                font-weight: bold;
+                color: #a8a8a8;
+            }
+
+        .grids [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+            text-align: center;
+            vertical-align: top;
+        }
+
+    .k-grid .k-grid-content-locked {
+        height: auto !important;
+    }
+</style>
+
+
+
+<div class="col-md-12" style="margin-bottom: 10px;">
+    <!-- filters -->
+    @Html.Partial("FilterForPalantir")
+
+    <script>
+        model.FilterVisibilityPalantir.WellNames(false);
+        model.FilterVisibilityPalantir.ProjectNames(false);
+
+        model.FilterVisibilityPalantir.Currency(true);
+        model.FilterVisibilityPalantir.SSTG(true);
+        //model.FilterVisibilityPalantir.PlanClass(true);
+        model.FilterVisibilityPalantir.InPlan(true);
+        model.FilterVisibilityPalantir.BtnGenerateSPOS(true);
+
+        model.FilterVisibilityPalantir.MapFilestos(true);
+    </script>
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden'), height: (!model.IsProcessing() ? '' : '0px'), overflow: (!model.IsProcessing() ? '' : 'hidden') }">
+
+        <div class="col-md-12 grids by-stos">
+            <div class="row">
+                <div class="col-md-12" id="button_group_mapping" style="margin-left: 125px; margin-bottom: 20px; display:none;">
+                    <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: GenerateMap">
+                        <span class="glyphicon glyphicon-play"></span> Generate Report
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: EditMappingReport">
+                        <span class="glyphicon glyphicon-pencil"></span> Edit Mapping
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-danger" data-bind="click: DeleteMappingReport">
+                        <span class="glyphicon glyphicon-trash"></span> Delete Mapping
+                    </button>
+                </div>
+                <div class="col-md-12">
+                    <div id="grid_stos" class="grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <div style="clear: both;"></div>
+    </div>
+
+</div>
+
+<div class="modal fade" id="modal-action-map">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title">STOS Mapping Action</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <div class="col-md-12" style="text-align:right">
+                            <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: GenerateMap">
+                                <span class="glyphicon glyphicon-play"></span> Generate Report
+                            </button>
+                            <button type="button" class="btn btn-sm btn-custom btn-success" data-bind="click: EditMappingReport">
+                                <span class="glyphicon glyphicon-pencil"></span> Edit Mapping
+                            </button>
+                            <button type="button" class="btn btn-sm btn-custom btn-danger" data-bind="click: DeleteMappingReport">
+                                <span class="glyphicon glyphicon-trash"></span> Delete Mapping
+                            </button>
+                        </div>
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    model.PageId("Administration");
+    $(document).ready(function () {
+        //model.reloadData();
+    });
+
+    model.selectedMapFile = function (dataItem) {
+        if (typeof dataItem !== 'undefined') {
+            //GetListMapping(dataItem);
+            //if (dataItem != "Select Map File") {
+            //    //$("#modal-action-map").modal("show");
+            //    $("#button_group_mapping").show();
+            //} else {
+            //    $("#button_group_mapping").hide();
+            //}
+
+            if (dataItem != "Select Map File") {
+                GetListMapping(dataItem);
+                $("#button_group_mapping").show();
+            } else {
+                model.IsProcessing(true);
+                alert("Please select map file!");
+                $('#grid_stos').replaceWith($('<div />').attr('id', 'grid_stos'));
+                $("#button_group_mapping").hide();
+                model.IsProcessing(false);
+            }
+        }
+    }
+
+    model.reloadData = function () {
+        @*if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+        model.GetDataReport("@Url.Action("GetListSTOSMapping")");*@
+        model.GetDataReport();
+    }
+
+    model.GetDataReport = function () {
+        var parampq = model.getFilterValuesPalantir();
+        var param = parampq.MapFilestos;
+        model.selectedMapFile(param);
+    }
+
+    //model.GetDataReport = function (url) {
+    //    var parampq = model.getFilterValuesPalantir();
+    //    var param = parampq.MapFilestos;
+    //    ajaxPost(url, { pq: parampq, mapname: param }, function (res) {
+    //        model.IsProcessing(false);
+    //        if (res.Result != "OK") {
+    //            alert(res.Message);
+    //            return;
+    //        }
+
+    //        if (res.Data.length > 0) {
+    //            renderGridUsingData(res.Data);
+    //        }
+
+    //    }, function (res) {
+    //        model.IsProcessing(false);
+    //        alert(res);
+    //    });
+    //}
+
+    var uniqueArray = function (a) {
+        return a.reduce(function (p, c) {
+            if (p.indexOf(c) < 0) p.push(c);
+            return p;
+        }, []);
+    };
+
+    function toggleCheckSTOS(sender) {
+        var s = $(sender);
+        var cbxs = s.closest("#grid_stos.k-grid").find("input[type='checkbox'].checkme");
+        cbxs.prop("checked", s.prop("checked"));
+    }
+
+    model.renderGridColumnsSTOS = function (data) {
+        var gridColumns = [];
+        gridColumns.push(
+        {
+            field: "ActivityName",
+            title: "Activity Name",
+            width: 150
+        }, {
+            field: "ProjectName",
+            title: "Project",
+            width: 80
+        }, {
+            field: "SpendType",
+            title: "Spend Type",
+            width: 80
+        }, {
+            field: "ActivityDescription",
+            title: "Activity<br>Description",
+            width: 100
+        }, {
+            field: "RegretConsequences",
+            title: "Regret<br>Consequences",
+            width: 100
+        }, {
+            field: "Rank",
+            title: "Rank",
+            width: 100
+        }, {
+            field: "PMaster",
+            title: "PMaster",
+            width: 150
+        }, {
+            field: "PMasterCategory",
+            title: "PMaster Category",
+            width: 150
+        }, {
+            field: "SponsorFunction",
+            title: "Sponsor<br>Function",
+            width: 80
+        }, {
+            field: "Revenue",
+            title: "Revenue",
+            width: 150
+        }, {
+            field: "CostEstimator",
+            title: "Cost<br>Estimator",
+            width: 90
+        }, {
+            field: "AssuranceLevel",
+            title: "Assurance<br>Level",
+            width: 80
+        }, {
+            field: "EstimateType",
+            title: "Estimate Type",
+            width: 90,
+            attributes: { style: 'text-align:right;' }
+        }, {
+            field: "Regrets",
+            title: "Regrets",
+            width: 80,
+            attributes: { style: 'text-align:right;' }
+        }, {
+            field: "Currency",
+            title: "Currency",
+            width: 90
+        }, {
+            field: "POE",
+            title: "POE %",
+            width: 80,
+            attributes: { style: 'text-align:right;' },
+            format: "{0} %"
+        }, {
+            field: "Contingency",
+            title: "Contingency %",
+            width: 90,
+            attributes: { style: 'text-align:right;' },
+            format: "{0} %"
+        }, {
+            field: "ReferenceFactorModel",
+            title: "Reference Factor Model",
+            width: 150
+        }, {
+            field: "RigName",
+            title: "Rig Name",
+            width: 90
+        }, {
+            field: "UARigSequenceId",
+            title: "Sequence Id",
+            width: 90
+        });
+
+        return gridColumns;
+    }
+
+    function getChangedData($grid, type) {
+        var updatedRecords = [];
+
+        $grid.data("kendoGrid").dataSource._data.forEach(function (f) {
+            if (type == "dirty") {
+                if (f.dirty) updatedRecords.push(f);
+            } else {
+                updatedRecords.push(f);
+            }
+        });
+
+        var updated = updatedRecords;
+
+        //for (var a = 0; a < updated.length; a++) {
+        //    var b = updated[a];
+        //    for (i in b) if (b.hasOwnProperty(i)) {
+        //        if (i.indexOf(".") > -1) {
+        //            delete updated[a][i];
+        //        }
+        //    }
+        //}
+
+        return updated;
+    }
+
+    function updateDataFromGrid() {
+        var dataDirty = getChangedData($("#grid_stos"), "dirty");
+        console.log(dataDirty);
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("UpdateSTOSFromGrid")", dataDirty, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadData();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    function renderGridUsingData(data) {
+        $('#grid_stos').replaceWith($('<div />').attr('id', 'grid_stos'));
+        $('#grid_stos').kendoGrid({
+            toolbar: ["excel"],
+            excel: { fileName: "DataSTOS.xlsx", allPages: true, filterable: true },
+            dataSource: {
+                data: data,
+                type: "json",
+                pageSize: 10,
+                schema: {
+                    model: {
+                        fields: {
+                            //"ActivityName": { editable: false },
+                            //"Project": { editable: false },
+                            //"SpendType": { editable: false },
+                            //"CostEstimator": { editable: false },
+                            //"POE": { editable: false },
+                            //"Contingency": { editable: false },
+                            //"Escalation": { editable: false },
+                            //"OwnersCost": { editable: false },
+                            //"Details": { editable: false },
+                            //"Currency": { editable: false },
+                            //"EstimateType": { editable: false },
+
+
+                            //"ActivityDesc": { type: "string", editable: true },
+                            //"RegretConsequences": { type: "string", editable: true },
+                            //"Rank": { type: "string", editable: true },
+                            //"PMaster": { type: "string", editable: true },
+                            //"PMasterCategory": { type: "string", editable: true },
+                            //"SponsorFunction": { type: "string", editable: true },
+                            //"Revenue": { type: "string", editable: true },
+                            //"Regrets": { type: "string", editable: true },
+                            //"POE": { type: "number", editable: true },
+                        }
+                    },
+                },
+            },
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: model.renderGridColumnsSTOS(data),
+            excelExport: function (e) {
+                //var sheet = e.workbook.sheets[0];
+                //for (var rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
+                //    var row = sheet.rows[rowIndex];
+                //    for (var cellIndex = 0; cellIndex < row.cells.length; cellIndex++) {
+                //        if (rowIndex == 0) {
+                //            row.cells[cellIndex].value = row.cells[cellIndex].value.replace("<br/>", "");
+                //        }
+                //    }
+                //}
+            }
+        });
+
+    }
+
+    @*model.deletemapmpmaster = function () {
+        var conf = confirm("Are you sure want to delete?");
+        if (conf) {
+            model.deletemap("pmasterMonthly");
+        }
+    }
+
+    model.deletemap = function (report) {
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("DeleteMap")", { caseName: casename, report: report }, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadData();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }*@
+
+    @*function GenerateMap() {
+        var grid = $("#grid_stos").data("kendoGrid");
+        var data = grid.dataSource.data();
+        var param = model.getFilterValuesPalantir();
+        var mapname = param.MapFilestos;
+        ajaxPost("@Url.Action("GenerateResultTransform")", { pq: param, list: data, mapname: mapname }, function (res) {
+            console.log(res)
+            if (res.Data.Success == false) {
+                alert("No data found!, based on filter.");
+                return;
+            }
+
+            alert("Map PMaster Generated Success. Process Export to excel");
+            $("#modal-action-map").modal("hide");
+            ExportToExcelDetails(res.Data.listPmaster);
+        }, function () {
+
+        });
+    }*@
+
+    function ExportToExcelDetails(listaggr) {
+        model.IsProcessing(true);
+        var parampq = model.getFilterValuesPalantir();
+        //var mapname = $('[data-model="MapFileSelect"]').data('kendoDropDownList').value();
+        var mapName = parampq.MapFilestos;
+        var param = {
+            isDetails: true,
+            pq: parampq,
+            mapname: mapName
+        };
+        var url = "@Url.Action("ExportSTOS")";
+        ajaxPost(url, param, function (data) {
+            url = "@Url.Action("DownloadSTOSFile", "STOS")" + "?stringName=" + data.Path + "&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss") + "&isDetails=" + true;
+            location.href = url;
+            model.IsProcessing(false);
+        }, function (err) { alert(err); model.IsProcessing(false); })
+
+    }
+
+    function GenerateMap() {
+        model.IsProcessing(true);
+        //var grid = $("#grid_stos").data("kendoGrid");
+        //var data = grid.dataSource.data();
+        var param = model.getFilterValuesPalantir();
+        var mapname = param.MapFilestos;
+        ajaxPost("@Url.Action("GenerateResultTransform")", { pq: param, mapname: mapname }, function (res) {
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                model.IsProcessing(false);
+                return;
+            }
+
+            alert("Map STOS Generated Success. Process Export to excel");
+            if (res.Data.listSTOSres.length > 0) {
+                ExportToExcelDetails(res.Data.listSTOSres);
+                //console.log(res.Data.listSTOSres);
+                model.IsProcessing(false);
+            } else {
+                //alert("Cannot find data with InPlan: " + param.InPlan);
+                model.IsProcessing(false);
+            }
+
+        }, function () {
+            model.IsProcessing(false);
+        });
+    }
+
+    model.EditMappingReport = function () {
+        $("#myForm").remove();
+        var mapNameAr = model.getFilterValuesPalantir().MapFilestos;
+        if (mapNameAr != "Select Map File") {
+            var f = document.createElement("form");
+            f.setAttribute("id", "myForm");
+            f.setAttribute('method', "post");
+            f.setAttribute('action', "@Url.Action("STOSMapping", "STOS")");
+
+            var selectList = document.createElement("select");
+            selectList.setAttribute("name", "mapname");
+            selectList.setAttribute("style", "width:200px");
+            f.appendChild(selectList);
+
+            var option = document.createElement("option");
+            option.setAttribute("value", mapNameAr);
+            option.text = mapNameAr;
+            option.setAttribute("selected", "selected");
+            selectList.appendChild(option);
+
+            var s = document.createElement("input");
+            s.setAttribute('type', "submit");
+            s.setAttribute('value', "Submit");
+            f.appendChild(s);
+            document.body.appendChild(f);
+
+            $("#myForm").hide();
+            $('#myForm input[type="submit"]').trigger('click');
+        } else {
+            alert("Please Input Map File");
+        }
+    }
+
+    function GetListMapping(param) {
+        model.IsProcessing(true);
+        var parampq = model.getFilterValuesPalantir();
+        var url = "@Url.Action("GetListSTOSMapping", "STOS")";
+        ajaxPost(url, { pq: parampq, mapname: param }, function (data) {
+            model.IsProcessing(false);
+            if (data.Data.Status == "NOK") {
+                alert(data.Data.Message);
+                return;
+            }
+            renderGridUsingData(data.Data);
+
+        }, function (err) {
+            model.IsProcessing(false);
+            alert(err)
+        });
+    }
+
+    model.DeleteMappingReport = function () {
+        var conf = confirm("Are you sure want to delete mapping?");
+        if (conf) {
+            model.deletemapreport();
+        }
+    }
+
+    model.deletemapreport = function (report) {
+        //var mapnamesss = $('[data-model="MapFileSelect"]').data('kendoDropDownList').value();
+        var mapnamesss = model.getFilterValuesPalantir().MapFilestos;
+
+        if (mapnamesss != "Select Map File") {
+            model.IsProcessing(true);
+            ajaxPost("@Url.Action("DeleteSTOS")", { mapname: mapnamesss }, function (res) {
+                if (res.Success) {
+                    model.IsProcessing(false);
+                    location.reload();
+
+                    //var ddlMapdell = $('[data-model="ActivityEntityIdnsell"]').data("kendoDropDownList");
+                    //var newListMap = []
+                    //newListMap.push("Select Activity Entity Id");
+                    //for (i = 0; i < res.mapList.length; i++) {
+                    //    newListMap.push(res.mapList[i]);
+                    //}
+                    //ddlMapdell.setDataSource(newListMap);
+                    //ddlMapdell.refresh();
+
+                } else {
+                    alert(res.Message);
+                    model.IsProcessing(false);
+                }
+            }, function () {
+                alert(res.Message);
+                model.IsProcessing(false);
+            });
+            //$("#modal-action-map").modal("hide");
+        } else {
+            alert("Please Input Map File");
+        }
+    }
+
+
+
+</script>
+
+
+

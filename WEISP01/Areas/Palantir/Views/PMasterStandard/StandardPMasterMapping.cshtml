@@ -1,0 +1,556 @@
+﻿@{
+    ViewBag.Title = "PMaster Standard Mapping";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.AppServer.Areas.Shell.Controllers
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using MongoDB.Bson;
+@using Newtonsoft.Json;
+@{
+    //var m = Query.In("ActivityEntityID", new BsonArray(ViewBag.ListActivityEntityID));
+    //var activityentityiddel = PMasterStandard.Populate<PMasterStandard>(m).Select(x => x.ActivityEntityID).Distinct().ToList();
+    //var pmastersta = PMasterStandard.Populate<PMasterStandard>().Where(x => activityentityiddel.Contains(x.ActivityEntityID)).ToList();
+    //var reportingentitys = pmastersta.GroupBy(x => x.ReportEntity).Select(x => x.Key).ToList();
+    //var updateby = pmastersta.GroupBy(x => x.UpdateBy).Select(x => x.Key).ToList();
+
+    var m = Query.In("MapName", new BsonArray(ViewBag.ListMapName));
+    var mapnamesdel = PMasterStandard.Populate<PMasterStandard>(m).Select(x => x.MapName).Distinct().ToList();
+    var pmasterm = PMasterStandard.Populate<PMasterStandard>().Where(x => mapnamesdel.Contains(x.MapName)).ToList();
+    var reportingentitys = pmasterm.GroupBy(x => x.ReportEntity).Select(x => x.Key).ToList();
+    var updateby = pmasterm.GroupBy(x => x.UpdateBy).Select(x => x.Key).ToList();
+}
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+
+    model.ReportingEntity = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(reportingentitys)));
+
+    model.UpdateBy = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(updateby)));
+    model.backpalantir = function () {
+        var url = "@Url.Action("Index", "PMasterStandard")";
+        location.href = url;
+    }
+
+    @*model.ActivityEntityIDs = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(activityentityiddel)));*@
+    model.MapNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(mapnamesdel)));
+    model.LSInfo = ko.observable("@ViewBag.LatestLS");
+    model.isUpload = ko.observable(false);
+
+</script>
+
+<style>
+    .k-dropzone {
+        padding-left: 15px;
+    }
+
+    .k-upload-selected {
+        margin-left: 15px;
+    }
+    #grid .k-toolbar {
+        min-height: 27px;
+    }
+
+    .category-label {
+        color: #000000;
+        vertical-align: middle;
+        padding-right: .5em;
+    }
+
+    #category {
+        vertical-align: middle;
+    }
+
+    .toolbar {
+        /*background-color:aliceblue;*/
+        float: right;
+        margin-right: .8em;
+    }
+
+    .toolbar2121 {
+        /*background-color:aliceblue;*/
+        float: right;
+        margin-right: .8em;
+        margin-top: 8px;
+        padding-right: 220px;
+    }
+
+    #grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+        #grid .k-header[role=columnheader][data-field=_id] {
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-field=OpsDuration], #grid .k-header[role=columnheader][data-field=PhRiskDuration] {
+            vertical-align: bottom;
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-colspan] {
+            text-align: center;
+            font-weight: bold;
+            color: #a8a8a8;
+        }
+
+    #grid [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #grid [data-field=PhStart], #grid [data-field=PhFinish], #grid [data-field=OpsStart], #grid [data-field=OpsFinish] {
+        pointer-events: none;
+    }
+
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+
+    .customClass {
+        background-color: red;
+    }
+
+    .k-grid .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .deletemp {
+        margin-top: 5px;
+        margin-bottom: 10px;
+    }
+
+        .deletemp .col-md-3, .deletemp .col-md-4 {
+            padding: 0px;
+            margin: 0px;
+        }
+
+        .deletemp .col-md-4 {
+            text-align: right;
+            min-height: 28px;
+        }
+
+            .deletemp .col-md-4 label {
+                padding-top: 4px;
+            }
+
+        .deletemp .col-md-8 {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+    .filter {
+        margin-bottom: 10px;
+    }
+</style>
+
+<div style="padding: 0px 15px 15px;">
+    <div class="ec-toolbar">
+        <button onclick="model.backpalantir()" class="btn btn-sm btn-warning"><span class="glyphicon glyphicon-arrow-left"></span> Back</button>
+    </div>
+    <div class="col-md-12 row filter">
+        <div class="row" style="margin-bottom:10px">
+            <div class="col-md-12">
+                @*<div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Activity Entity ID: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <select id="ActivityEntityIDMaping" data-placeholder="Select activity entity id ..."></select>
+                    </div>
+                </div>*@
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Map File: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <select id="MapNamesMaping" data-placeholder="Select map files ..."></select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Reporting Entity: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <select id="ReportingEntity" data-placeholder="Select reporting entity ..."></select>
+                    </div>
+                </div>
+                <div class="col-md-3" data-bind="">
+                    <div class="col-md-4">
+                        <label>Update By: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <select id="UpdateBy" data-placeholder=" select update by ..."></select>
+                    </div>
+                </div>
+                @*<div class="col-md-5" data-bind="">
+                        <div class="col-md-3">
+                            <label>Period: </label>
+                        </div>
+                        <div class="col-md-9">
+                            <input type="text" id="PeriodStart" />
+                            &nbsp;-&nbsp;
+                            <input type="text" id="PeriodFinish" />
+                        </div>
+                    </div>*@
+            </div>
+        </div>
+
+        <div class="clearfix"></div>
+
+        <div class="col-md-12">
+            <button style="float: right; margin-right: 47px;" class="btn btn-custom btn-sm btn-primary" onclick="model.reloadData()">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible: !model.IsProcessing()">
+        <div class="col-md-12 no-padding">
+            <div class="demo-section k-header" hidden="hidden"><input name="UploadedFile" id="files" type="file" hidden="hidden" /></div>
+            <div id="grid" class="grid"></div>
+            <script type="text/x-kendo-template" id="template">
+                <div class="toolbar">
+                    <label class="category-label">Update With Latest LS: <input data-model="inlastuploadls" type="checkbox" id="inlastuploadls" /></label>
+                    <button class="k-button k-button-icontext k-grid-i-columns" onclick="model.updateWithLatesLS()">
+                        <span class="glyphicon glyphicon-refresh"></span> Update LS
+                    </button>
+                </div>
+                <div class="toolbar2121">
+                    <span class="btn-sm btn-success" style="padding:10px;cursor:help;"></span>
+                </div>
+            </script>
+        </div>
+
+        <div style="clear: both;"></div>
+    </div>
+
+</div>
+
+<script>
+    //model.PalantirActivityTypes = [{ ActivityText: "DRILLING", ActivityValue: "DRILLING" }, { ActivityText: "COMPLETION", ActivityValue: "COMPLETION" }, { ActivityText: "ABANDONMENT", ActivityValue: "ABANDONMENT" }, { ActivityText: "RIG", ActivityValue: "RIG" }];
+    model.RenderGrid = function (data) {
+        var excelName = "DataStandardMap_" + moment(new Date()).format("DD-MMM-YYYY_HH:mm:ss") + ".xlsx";
+        $('#grid').replaceWith($('<div />').attr('id', 'grid'));
+        $('#grid').kendoGrid(
+            {
+                toolbar: ["excel", {
+                    template: ' <button class="k-button k-button-icontext k-grid-i-columns" onclick="return model.savemapstandard()" > ' +
+                    '<span class="glyphicon glyphicon-play"></span> Save Map</button>'
+                }, { template: $("#template").html() }],
+                excel: { fileName: excelName, allPages: true, filterable: true },
+                dataSource: { data: data, type: "json", pageSize: 10 },
+                editable: true,
+                pageable: true,
+                sortable: true,
+                resizable: true,
+                columns: [{
+                    field: "ReportEntity",
+                    title: "Reporting Entity",
+                    width: 110
+                }, {
+                    field: "PlanningEntity",
+                    title: "Planning Entity",
+                    width: 110
+                }, {
+                    field: "PlanningEntityID",
+                    title: "Planning<br/> Entity ID",
+                    width: 90,
+                    format: "{0:N0}",
+                    attributes: { "style": "text-align:right" }
+                }, {
+                    field: "ActivityEntity",
+                    title: "Activity Entity",
+                    width: 110
+                }, {
+                    field: "ActivityEntityID",
+                    title: "Activity<br/> Entity ID",
+                    width: 90,
+                    format: "{0:N0}",
+                    attributes: { "style": "text-align:right" }
+                }, {
+                    field: "Prob",
+                    title: "Probability<br/> Of Success",
+                    width: 90,
+                    format: "{0} %",
+                    attributes: { "style": "text-align:right" }
+                }, {
+                    field: "ActivityCategory",
+                    title: "Activity Category",
+                    width: 90
+                }, {
+                    field: "ActivityType",
+                    title: "Activity Type",
+                    width: 90
+                }, {
+                    field: "BaseOP",
+                    title: "Base OP",
+                    width: 90
+                }, {
+                    field: "FirmOption",
+                    title: "Planning Classification",
+                    width: 90
+                }, {
+                    field: "FundingType",
+                    title: "Funding Type",
+                    width: 90
+                }, {
+                    field: "RigName",
+                    title: "Rig Name",
+                    width: 90
+                }, {
+                    field: "WellName",
+                    title: "Well Name",
+                    width: 90
+                }, {
+                    field: "UARigSequenceId",
+                    title: "Sequence Id",
+                    width: 90
+                }],
+                excelExport: function (e) {
+                    var sheet = e.workbook.sheets[0];
+                    for (var rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
+                        var row = sheet.rows[rowIndex];
+                        for (var cellIndex = 0; cellIndex < row.cells.length; cellIndex++) {
+                            if (rowIndex == 0) {
+                                row.cells[cellIndex].value = row.cells[cellIndex].value.replace("<br/>", "");
+                            } else {
+                                if (cellIndex == 2 || cellIndex == 4) {
+                                    row.cells[cellIndex].format = '0';
+                                    row.cells[cellIndex].value = row.cells[cellIndex].value / 1;
+                                }
+                                if (cellIndex == 5) {
+                                    row.cells[cellIndex].format = '0%';
+                                    row.cells[cellIndex].value = row.cells[cellIndex].value / 100;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+        setTimeout(function () {
+            $("#grid").data("kendoGrid").refresh();
+        }, 200);
+
+        $("#grid").find('.k-header.k-grid-toolbar').find('.toolbar2121').find('span').text(model.LSInfo());
+    }
+
+    function onComplete(e) {
+        // model.LoadDataGrid();
+    }
+
+    function onRemove(e) {
+        //console.log("Remove :: " + getFileInfo(e));
+        model.reloadData();
+    }
+
+    function onSelect(e) {
+        $(".k-upload-files.k-reset").remove();
+        $.each(e.files, function (index, value) {
+            //alert(value.extension);
+            var ok = value.extension == ".xlsx"
+                     || value.extension == ".xls"
+
+            if (!ok) {
+                e.preventDefault();
+                alert("Please upload only Excel (xls, xlsx) files");
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        $("#ReportingEntity").kendoMultiSelect({
+            placeholder: "Select reporting entity ...",
+            dataSource: model.ReportingEntity(),
+            filter: "contains"
+        });
+        $("#UpdateBy").kendoMultiSelect({
+            placeholder: "Select Update By ...",
+            dataSource: model.UpdateBy(),
+            filter: "contains"
+        });
+        //input2datePicker($("#PeriodStart"));
+        //input2datePicker($("#PeriodFinish"));
+
+        //$("#ActivityEntityIDMaping").kendoDropDownList({
+        //    dataSource: model.ActivityEntityIDs()
+        //});
+        $("#MapNamesMaping").kendoDropDownList({
+            dataSource: model.MapNames()
+        });
+
+        model.reloadData();
+
+        $("#files").kendoUpload({
+            async: {
+                saveUrl: '@Url.Action("UploadMap", "PMasterStandard")',
+                //removeUrl: "remove",
+                autoUpload: false
+            },
+            localization: {
+                select: 'Import Map File',
+                remove: '',
+                cancel: ''
+            },
+            remove: onRemove,
+            complete: onComplete,
+            select: onSelect,
+            success: function (e) {
+                var res = e.response;
+                //console.log(res);
+                if (!res.Success) {
+                    alert(res.Message);
+                    return;
+                }
+
+                alert("Upload Success!");
+                model.isUpload(true);
+                model.RenderGrid(res.listMap);
+            }
+        });
+    });
+
+    function DateTimeParse(date) {
+        return moment(jsonDateStr(date), 'DD-MMM-YYYY').format("DD-MMM-YY");
+    }
+
+    model.reloadData = function () {
+        var mapnamesss = $('#MapNamesMaping').data('kendoDropDownList').value();
+        var mapnm = [];
+        mapnm.push(mapnamesss);
+
+        var url = "@Url.Action("GetDataSPMasterMapping", "PMasterStandard")";
+        var param = {
+            lMapNames: mapnm,
+            ReportingEntity: $("#ReportingEntity").data("kendoMultiSelect").value(),
+            UpdateBy: $("#UpdateBy").data("kendoMultiSelect").value(),
+            //DateStart: $("#PeriodStart").val(),
+            //DateFinish: $("#PeriodFinish").val(),
+        }
+        model.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.isUpload(false);
+            model.RenderGrid(res.Data);
+            model.IsProcessing(false);
+        }, function () {
+            model.IsProcessing(false);
+        });
+    }
+
+    model.updateWithLatesLS = function () {
+        var paramCheck = $('[data-model="inlastuploadls"]').is(':checked');
+        if (paramCheck) {
+            var mapnamesss = $('#MapNamesMaping').data('kendoDropDownList').value();
+            var mapnm = [];
+            mapnm.push(mapnamesss);
+            var url = "@Url.Action("GetDataSPMasterMappingUpdateWithLatestLS", "PMasterStandard")";
+            var param = {
+                lMapNames: mapnm,
+                ReportingEntity: $("#ReportingEntity").data("kendoMultiSelect").value(),
+                UpdateBy: $("#UpdateBy").data("kendoMultiSelect").value(),
+                //DateStart: $("#PeriodStart").val(),
+                //DateFinish: $("#PeriodFinish").val(),
+            }
+            model.IsProcessing(true);
+
+            ajaxPost(url, param, function (res) {
+                model.isUpload(false);
+                model.RenderGrid(res.Data);
+                model.IsProcessing(false);
+            }, function () {
+                model.IsProcessing(false);
+            });
+        } else {
+            alert("Sorry, cannot update LS checkbox is unchecked");
+        }
+    }
+
+
+    model.savemapstandard = function () {
+
+        SaveMap();
+    }
+
+    function CounterSaveMap(TotalLoop, Counter) {
+        if (Counter >= TotalLoop) {
+            model.IsProcessing(false);
+            alert("Planning Report Map for PMaster Standard has been Saved!");
+            model.reloadData();
+        }
+    }
+
+    function SaveMap() {
+            model.IsProcessing(true);
+
+            var mapnamess = $('#MapNamesMaping').data('kendoDropDownList').value();
+
+            var ivl = setTimeout(function () {
+
+                var grid = $("#grid").data("kendoGrid");
+                var data = grid.dataSource.data();
+
+                var totalLoop = Math.ceil(data.length / 50);
+                var counter = 0;
+                var take = 50;
+                var skip = 0;
+                for (var i = 0; i < totalLoop; i++) {
+                    var dataToThrow = Enumerable.From(data).Skip(skip).Take(take).ToArray();
+                    ajaxPost("@Url.Action("SavePlanPmasterStandard")", { list: dataToThrow, mapnames: mapnamess, isUpload: model.isUpload(), fromEdit: true }, function (res) {
+                        counter++;
+                        CounterSaveMap(totalLoop,counter);
+                    }, function() {
+                        counter++;
+                        CounterSaveMap(totalLoop, counter);
+                    });
+                    skip = skip + take;
+                }
+            }, 300);
+    }
+
+    model.updatelatestS = function () {
+        var param = $('[data-model="inlastuploadls"]').is(':checked');
+        var grid = $("#grid").data("kendoGrid");
+        var data = grid.dataSource.data();
+
+        console.log(param);
+        if (param) {
+            model.IsProcessing(true);
+            ajaxPost("@Url.Action("UpdateLS")", { listMap: data, inlastuploadls: param }, function (res) {
+                if (res.Result == "NOK") {
+                    model.IsProcessing(false);
+                    alert(res.Message);
+                    return;
+                }
+
+                if (res.Data.Status == "NOK") {
+                    model.IsProcessing(false);
+                    alert(res.Data.Message);
+                    return;
+                }
+                model.IsProcessing(false);
+                alert("Update Latest Sequence Success");
+
+                model.RenderGrid(res.Data.listSeq);
+            }, function() {
+                model.IsProcessing(false);
+            });
+        } else {
+            alert("Sorry, cannot update LS checkbox is unchecked");
+        }
+        
+    }
+</script>

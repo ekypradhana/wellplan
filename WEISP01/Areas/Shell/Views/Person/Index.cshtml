@@ -1,0 +1,271 @@
+﻿@{
+    ViewBag.Title = "Person Management";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.personModel = ko.observable({
+        refresh: function () {
+            refresh();
+        },
+        //record: ko.observable(ko.mapping.fromJS(@MvcTools.Obj2HtmlStr(new WEISPerson()))),
+        PIC: ko.observableArray([]),
+        modeManagePerson: ko.observable(false),
+        PhaseNo: ko.observable(),
+        WellName: ko.observable(""),
+        SequenceId: ko.observable(""),
+        ActivityType: ko.observable(""),
+        select: function (PhaseNo, WellName, SequenceId, ActivityType) {
+            //alert("ok");
+            var x = model.personModel();
+            x.modeManagePerson(true);
+            x.PhaseNo(PhaseNo);
+            x.WellName(WellName);
+            x.SequenceId(SequenceId);
+            x.ActivityType(ActivityType);
+            //while (x.PIC().length > 0) {
+            //    x.PIC().pop();
+            //}
+            x.PIC([]);
+            var x = model.personModel();
+            ajaxPost("@Url.Action("GetPersons")", { WellName: WellName, PhaseNo: PhaseNo },
+                function (data) {
+                    console.log(data.Data);
+                    
+                    if (data.Data != null) {
+                        if(data.Data.PersonInfos != null){
+                            for (var i = 0; i < data.Data.PersonInfos.length; i++) {
+                                x.PIC.push(data.Data.PersonInfos[i]);
+                            }
+                        }
+                    }
+                    //var r = ko.mapping.fromJS(data.Data);
+                    //x.record(r);
+                    console.log(x.PIC());
+                });
+
+        },
+        cancel: function () {
+            var x = model.personModel();
+            x.modeManagePerson(false);
+            x.PhaseNo();
+            x.WellName("");
+            x.SequenceId("");
+            x.ActivityType("");
+        },
+        save: function () {
+            //alert("Under Construction");
+            var x = model.personModel();
+            var PIC = ko.mapping.toJS(x.PIC());
+            var data = {
+                WellName: x.WellName,
+                PhaseNo: x.PhaseNo,
+                SequenceId: x.SequenceId,
+                ActivityType: x.ActivityType,
+                PersonInfos: PIC
+            };
+            ajaxPost("@Url.Action("SavePersonInfo")", data,
+                function (data) {
+                    //console.log(data);
+                    if (data.Success == true) {
+                        alert("Data successfully saved!");
+                        x.cancel();
+                    } else {
+                        alert(data.Message);
+                    }
+                });
+        },
+        addPerson: function () {
+            alert("Under Construction");
+        },
+
+    });
+
+    model.WellNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+        DataHelper.Populate("WEISWellNames", Query.NE("IsVirtualWell", true)).Select(d => d.GetString("_id")).OrderBy(d => d)
+    )));
+
+    model.Activities = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+        DataHelper.Populate("WEISActivities").Select(d=>d.GetString("_id")).OrderBy(d=>d)
+    )));
+
+   //model.selectedRoleId = ko.observable();
+
+    @*model.Roles = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+        DataHelper.Populate("WEISRoles").Select(d => d.GetString("_id")).OrderBy(d => d)
+    )));*@
+
+
+   model.Roles = function () {
+       this.RoleData = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+                       DataHelper.Populate("WEISRoles").Select(d => d.GetString("_id")).OrderBy(d => d)
+                   )));
+       this.selectedRoleId = ko.observable();
+   };
+
+
+    $(document).ready(function () {
+        $("#parmActivity").kendoMultiSelect({ dataSource: model.Activities() });
+        $("#parmWell").kendoMultiSelect({ dataSource: model.WellNames() });
+        $(".person_role").kendoMultiSelect({ dataSource: model.Roles(), maxSelectedItems: 1 });
+        refresh();
+
+        //init();
+    });
+
+    function refresh() {
+        if (model.IsProcessing()) return;
+
+        model.IsProcessing(true);
+        var WellNames = $("#parmWell").data("kendoMultiSelect").value();
+        var Activities = $("#parmActivity").data("kendoMultiSelect").value();
+        ajaxPost("@Url.Action("GetWellActivities")", { WellNames:WellNames, Activities:Activities },
+        function (data) {
+            model.IsProcessing(false);
+            var ds = new kendo.data.DataSource({
+                data: data.Data,
+                pageSize: 10
+            });
+            $("#grid").data("kendoGrid").setDataSource(ds);
+        });
+    }
+
+    var gridColumnsWell = [
+        { field: "WellName", title: "Well Name", filterable: false },
+        { field: "ActivityType", title: "Activity Type", filterable: false },
+        { field: "UARigSequenceId", title: "Sequence ID", filterable: false },
+        { field: "PhaseNo", title: "Manage Person", filterable: false, width: 120, template: "<button class='btn btn-custom btn-warning btn-xs' onclick='model.personModel().select(#=PhaseNo#,\"#=WellName#\",\"#=UARigSequenceId#\",\"#=ActivityType#\")'>Manage Person</button>" }
+    ];
+    
+</script>
+<div>
+
+    <div data-bind="with:personModel">
+        <div data-bind="visible:!modeManagePerson()">
+
+            <div class="col-md-12 row filter">
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Well Name: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <input id="parmWell" placeholder="Type well name ..." style="width: 100%" />
+                    </div>
+                </div>
+
+                <div class="clearfix"></div>
+
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Activity: </label>
+                    </div>
+                    <div class="col-md-8">
+                        <input id="parmActivity" placeholder="Type well name ..." style="width: 100%" />
+                    </div>
+                </div>
+
+                <div class="clearfix"></div>
+
+                <div class="col-md-4" style="text-align: right; padding-right: 20px;">
+                    <button class="btn btn-custom btn-primary btn-sm" onclick="refresh();">
+                        <span class="glyphicon glyphicon-refresh"></span> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div class="clearfix"></div>
+            <div data-bind="visible: model.IsProcessing()" style="margin-top:20px;">
+                @Html.Partial("_processing")
+            </div>
+            <div class="ec-panel" style="margin-top:20px;" data-bind="visible: !model.IsProcessing()">
+                <div id="grid" data-bind="kendoGrid:{data:[],columns:gridColumnsWell,pageable:true,sortable:true,filterable:true}"></div>
+            </div>
+        </div>
+
+        <div data-bind="visible:modeManagePerson()">
+            <div class="ec-panel">
+            
+                <div class="ec-toolbar">
+                    <button class="btn btn-custom btn-warning btn-sm" data-bind="click:cancel">
+                        <span class="glyphicon glyphicon-arrow-left"></span> Back to List
+                    </button>
+                    <button class="btn btn-custom btn-primary btn-sm" data-bind="click:save">
+                        <span class="glyphicon glyphicon-ok" style="margin-right: 3px"></span> Save
+                    </button>
+                </div>
+                <div class="ec-form form-horizontal" style="margin-bottom:20px;">
+                    <div class="form-group">
+                        <label class="col-sm-2">Well Name</label>
+                        <div class="col-sm-4">
+                            <input type="text" data-bind="value:WellName" class="full" disabled />
+                        </div>
+                        <label class="col-sm-2">Activity</label>
+                        <div class="col-sm-4">
+                            <input type="text" data-bind="value:ActivityType" class="full" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Person In Charges</h3>
+                <script>
+                    model.personModel().addPICs = function () {
+                        model.personModel().PIC.push(ko.observable(@MvcTools.Obj2HtmlStr(new WEISPersonInfo())));
+                    }
+                    model.personModel().removePICs = function (d) {
+                        //console.log(d);
+                        model.personModel().PIC.remove(d);
+                    }
+                </script>
+                <div class="ec-toolbar">
+                    <button class="btn btn-primary btn-custom btn-sm" data-bind="click:addPICs">
+                        <span class="glyphicon glyphicon-plus"></span> Add Person
+                    </button>
+                </div>
+                <div data-bind="">
+                    <div class="row" id="pic_wrapper" data-bind="foreach:PIC">
+                        <div class="ec-form form-horizontal" style="margin-bottom:20px;">
+                            <div class="form-group">
+                                <div class="col-sm-3">
+                                    <label class="col-sm-4">Full Name</label>
+                                    <div class="col-sm-8">
+                                        <input type="text" data-bind="value:FullName" style="width:100%;" />
+                                    </div>
+                                </div>
+                                <div class="col-sm-3">
+                                    <label class="col-sm-4">Email</label>
+                                    <div class="col-sm-8">
+                                        <input type="email" data-bind="value:Email" style="width:100%;" />
+                                    </div>
+                                </div>
+                                <div class="col-sm-3">
+                                    <label class="col-sm-4">Role</label>
+                                    <div class="col-sm-8">
+                                        @*<input type="text" style="width:100%;" data-bind="kendoMultiSelect: { data:model.RoleData, value:RoleId, maxSelectedItems:1 }" />*@
+                                        <select style="width:100%;" data-bind="options: model.RoleData, value: RoleId"></select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-3">
+                                    <button type="button" class="btn btn-custom btn-danger btn-xs" data-bind="click:model.personModel().removePICs">
+                                        <span class="glyphicon glyphicon-remove-circle"></span> Delete
+                                    </button> 
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        </div>
+
+
+        </div>
+
+
+    </div>
+</div>

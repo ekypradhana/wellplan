@@ -1,0 +1,773 @@
+﻿@{
+    ViewBag.Title = "Browser";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+    var PerformanceUnits = new List<string>();
+    var elements = DataHelper.Populate("WEISPerformanceUnits").Select(x => BsonHelper.GetString(x, "_id"));
+    PerformanceUnits = elements.ToList();
+}
+
+<script>
+    model.DefaultOP = ko.observable("@ViewBag.DefaultOP");
+    model.NextOP = ko.observable("");
+    model.SelectedActivityTemplate = { "_id": null, "Region": null, "RigType": null, "RigName": null, "OperatingUnit": null, "ProjectName": null, "AssetName": null, "WellName": null, "NonOP":false, "WorkingInterest": 0, "FirmOrOption": null, "UARigSequenceId": null, "UARigDescription": null, "Targets": { "M0": { "Identifier": null, "Days": 0, "Cost": 0 }, "M1": { "Identifier": null, "Days": 0, "Cost": 0 }, "M2": { "Identifier": null, "Days": 0, "Cost": 0 }, "M3": { "Identifier": null, "Days": 0, "Cost": 0 }, "M4": { "Identifier": null, "Days": 0, "Cost": 0 } }, "OpsDuration": 0, "OpsSchedule": { "Start": null, "Finish": null }, "PsSchedule": { "Start": null, "Finish": null }, 
+        "LESchedule": { "Start": null, "Finish": null },"PerformanceUnit": null, "EXType":null, "Activity" : null, "VirtualPhase" : null, "ShiftFutureEventDate" : null,"AssignTOOPs" :null,"FundingType":null,"LineOfBusiness":null,"IsInPlan":null}; 
+    model.PageId("Sequence Chart");
+    model.ShowBrowser = ko.observable(true);
+    model.ShowEditForm = ko.observable(false);
+    model.ShowPhaseInfo = ko.observable(false);
+    model.ShowInsertActivityForm = ko.observable(false);
+    model.selectedWellId = ko.observable();
+    model.selectedWellName = ko.observable();
+    model.selectedRigName = ko.observable();
+    model.IsProcessing = ko.observable(false);
+    model.SelectedActivity = ko.mapping.fromJS(model.SelectedActivityTemplate);
+    model.IsEditMode = ko.observable(false);
+    model.DataCompareOP = ko.observable(false);
+    model.PhaseData = ko.observableArray([])
+    model.SetActivity = function (activityUnparsed) {
+        var template = ko.mapping.toJS(model.SelectedActivityTemplate),
+            activity = {};
+        console.log(template);
+        for (var i in template) if (template.hasOwnProperty(i)) activity[i] = activityUnparsed[i];
+        ko.mapping.fromJS(activity, model.SelectedActivity);
+    };
+    model.DetailOP = ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellActivityPhaseInfo()))));
+    model.isNewWell = ko.observable(false);
+</script>
+
+<style>
+    #grid .k-header.k-grid-toolbar {
+        background-color: #F9F9FB;
+    }
+
+    #grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+        #grid .k-header[role=columnheader][data-field=_id] {
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-field=OpsDuration],
+        #grid .k-header[role=columnheader][data-field=PlanDuration],
+        #grid .k-header[role=columnheader][data-field=PhRiskDuration] {
+            vertical-align: bottom;
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-colspan] {
+            text-align: center;
+            font-weight: bold;
+            color: #a8a8a8;
+        }
+
+    #grid [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #grid .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+
+    tr.k-footer-template td {
+        text-align:right;
+    }
+</style>
+
+<div class="col-md-12" style="margin-bottom: 10px;" data-bind="visible:ShowBrowser">
+    <!-- filters -->
+    @*@Html.Partial("Filter")*@
+    @Html.Partial("FilterForDataBrowser")
+
+    <script>
+        model.FilterVisibility.ExType(true);
+        model.FilterVisibility.Activities(true);
+        model.FilterVisibility.PerformanceUnits(false);
+        model.FilterVisibility.Date(true);
+        model.FilterVisibility.Date2(true);
+        model.FilterVisibility.PeriodBase(false);
+        model.FilterVisibility.PeriodView(true);
+        model.FilterVisibility.PeriodRelation(true);
+        model.FilterVisibility.OPs(true);
+        model.FilterVisibility.OpRelation(true);
+        model.FilterVisibility.firmoption(false);
+        model.FilterVisibility.lsresource(false);
+        model.FilterVisibility.isInPlan(true);
+        //model.FilterVisibility.inlastuploadls(true);
+        //model.FilterVisibility.Status(true);
+        model.options = {
+            regions: model.regions(),
+            operatingUnits: model.operatingUnits(),
+            rigTypes: model.rigTypes(),
+            rigNames: model.rigNames(),
+            projectNames: model.projectNames(),
+            wellNames: model.wellNames(),
+            assetNames: @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISAssetNames").Select(d=>d.GetString("_id")).OrderBy(d=>d))),
+            performanceUnits: @MvcHtmlString.Create(JsonConvert.SerializeObject(PerformanceUnits)),
+            firmOrOptions: ["Firm", "Option"],
+            EXType: @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISFundingTypes").Select(d => d.GetString("_id")).OrderBy(d => d))),
+            AlreadyAssignTo :model.AlreadyAssignTo(),
+            lsresource:model.lsresource(),
+            IsInPlan:([
+                       { value: null, name: "Both" },
+                       { value: true, name: "Yes" },
+                       { value: false, name: "No" },
+            ])
+        };
+        model.sement = ko.observableArray([]);
+        model.workbook = ko.observable();
+        model.ShowNoticeProrate = ko.observable("");
+        
+    </script>
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden') }">
+        <div class="clearfix"></div>
+        <div class="col-md-2">
+            <input type="checkbox" checked="checked" id="column_toggle" onchange="showHideColumn();" /> Show Extra Columns
+        </div>
+        <div class="col-md-5 col-md-offset-3">
+            <div style="font-style:italic;" data-bind="text:model.ShowNoticeProrate()"></div>
+        </div>
+        <div class="clearfix"></div>
+        <div class="col-md-12 no-padding">
+            <div id="grid"></div>
+        </div>
+
+        <div style="clear: both;"></div>
+    </div>
+
+</div>
+
+<div class="col-md-12" data-bind="visible:ShowEditForm"> 
+    @Html.Partial("_Edit")
+</div>
+
+<div class="col-md-12" data-bind="visible:ShowPhaseInfo">
+    @Html.Partial("_PhaseInfo")
+</div>
+
+<div class="col-md-12" data-bind="visible:ShowInsertActivityForm">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible: !model.IsProcessing()">
+        @Html.Partial("_InsertActivity")
+    </div>
+</div>
+
+<script>
+
+    model.setButton = function(isEnabled){
+        $(".btn.btn-custom.btn-sm.btn-primary.do-filter").prop('disabled', isEnabled);
+        $(".btn.btn-custom.btn-sm.btn-success.do-add").prop('disabled', isEnabled);
+    }
+
+    function pushData(data) {
+
+        //for (var x = 0; x < data.length; x++) {
+        //    var oneDay = 24 * 60 * 60 * 1000
+        //    var firstDate = moment(data[x].PhStart);
+        //    var secondDate = moment(data[x].PhFinish);
+        //    var diffDays = Math.round( Math.abs( (secondDate - firstDate) / oneDay));
+        //    data[x]["PlanDuration"] = diffDays;
+        //}
+
+        return data;
+    }
+
+    function showHideColumn(){
+        var grid = $("#grid").data("kendoGrid");
+        var checker = $("#column_toggle");
+        if (checker.is(":checked")) {
+            for(var i = 13; i <= 18; i++){
+                grid.showColumn(i);
+            }
+        } else {
+            for(var i = 13; i <= 18; i++){
+                grid.hideColumn(i);
+            }
+        }
+
+    }
+
+    var generateEditor = function (dr) {
+        var colx = "<span class='k-dirty'></span>"
+        var checked = $(dr).is(':checked');
+        var grid = $("#grid").data("kendoGrid");
+        var dataItem = grid.dataItem($(dr).closest('tr'));
+        dataItem.VirtualPhase = checked;
+        $(dr).parent().prepend(colx);
+        dataItem.dirty = true;
+    }
+
+    function devideperthousand(value){
+        return value/1000000;
+    }
+
+    function clearText(value){
+        return value.replace(/\\/g,"");
+    }
+
+    function ExportToExcel(){
+        return function(){
+            alert()
+            model.IsProcessing(true);
+            $("#grid").data("kendoGrid").hideColumn(0);
+            $("#grid").data("kendoGrid").saveAsExcel();
+            model.IsProcessing(false);
+        }
+    }
+
+    function ExportToExcel2(){
+        model.IsProcessing(true);
+        model.setButton(true);
+        IDs = Array()
+
+        if(model.sement() != null){
+            $.each(model.sement(),function(index,data){
+                IDs.push(parseInt(data._id));
+            })
+        }
+        //var param = { ID: IDs, OPs: model.getFilterValues().OPs, opRelation: model.getFilterValues().opRelation, wbs: model.getFilterValues() }
+        var param = model.getFilterValues();
+        //delete param.BaseOP;
+        var url ="@Url.Action("Export")";
+        ajaxPost(url,param,function(data){
+            url = "@Url.Action("DownloadBrowserFile")"+"?stringName="+data.Path+"&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss");
+            location.href = url;
+            model.IsProcessing(false);
+            model.setButton(false);
+        },function(err){alert(err)})
+
+    }
+
+    // generate the grid
+    function renderGridUsingData(data) {
+        //data = jsonObjsConvDate(pushData(data));
+        model.sement(data);
+        var gridColumns = [];
+        var isRO = "@ViewBag.isRO";
+        //alert(isRO);
+        if (isRO != "1") {
+            gridColumns.push(
+                { field: "_id", title: "Action", width: 90, template: "<div style='text-align: center'><button onclick='model.delete(\"#= _id #\")' class='btn btn-custom btn-danger btn-xs'><span class='glyphicon glyphicon-remove-circle'></span> Delete</button></div>", locked: true, lockable: true }
+                );
+        }
+
+        gridColumns.push(
+                { field: "_id", title: "ID", width: 50, attributes: { style: 'text-align: center;' }, locked: true, lockable: true, editor: false },
+                { field: "RigName", title: "Rig Name", width: 100, template: "<a style='cursor:pointer' onclick='editWellInfo(#: _id #,\"#= WellName #\",\"#= clearText(escape(RigName)) #\")'>#: RigName #</a>", locked: true, lockable: true },
+                { field: "WellName", title: "Well", width: 150, locked: true, lockable: true },
+                { field: "UARigSequenceId", title: "Rig Sequence ID", width: 60, locked: true, lockable: true },
+                { field: "NonOP", title: "Non OP", width: 80, locked: true, lockable: true,
+                    template:"#: NonOP==true ? 'Yes' : '' #"
+                }
+                @*{ title: "@ViewBag.PreviousOP", columns: [
+                    { field: "PreviousPsStart", template:"#: jsonDateStr(PreviousPsStart) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "PreviousPsFinish", template:"#: jsonDateStr(PreviousPsFinish) #", title: "Finish", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "PreviousPlanDuration", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' }, footerTemplate: "#: kendo.toString(sum,'n1') #" },//n0
+                    { field: "PreviousPlanCost", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' }, footerTemplate: "#: kendo.toString(sum,'n') #" }//n1
+                ] },
+                { title: "@ViewBag.DefaultOP", columns: [
+                    { field: "PsStart", template:"#: jsonDateStr(PsStart) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "PsFinish", template:"#: jsonDateStr(PsFinish) #", title: "Finish", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "PlanDuration", title: "Days", width: 90, format: "{0:N0}", attributes: { style: 'text-align:right;' }, footerTemplate: "#: kendo.toString(sum,'n1') #" },//n0
+                    { field: "PlanCost", title: "Cost<br/>($mm)", width: 90, format: "{0:N1}", attributes: { style: 'text-align:right;' }, footerTemplate: "#: kendo.toString(sum,'n') #" }//n1
+                ] }*@
+
+        );
+        var aggs = [
+                            { field: "PlanDuration", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "PlanCost", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "PreviousPlanDuration", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "PreviousPlanCost", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "OpsDuration", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "OpsCost", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "LEDuration", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "LECost", aggregate: "sum", format: "{0:0.00}" }
+        ];
+
+        for(var i=0;i<model.OPs().length;i++){
+            aggs.push({ field: "OPList["+i+"].OP.Days", aggregate: "sum", format: "{0:0.00}" });
+            aggs.push({ field: "OPList["+i+"].OP.Cost", aggregate: "sum", format: "{0:0.00}" });
+            gridColumns.push({ title: model.OPs()[i], columns: [
+                    { field: "OPList["+i+"].OPSchedule.Start", template:"#: jsonDateStr(OPList["+i+"].OPSchedule.Start) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "OPList["+i+"].OPSchedule.Finish", template:"#: jsonDateStr(OPList["+i+"].OPSchedule.Finish) #", title: "Finish", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "OPList["+i+"].OP.Days", title: "Days", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' }},//n0
+                    { field: "OPList["+i+"].OP.Cost", title: "Cost<br/>($mm)", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' }}//n1
+            ] })
+        }
+
+        gridColumns.push(
+                { title: "Latest Sequence", columns: [
+                        { field: "OpsStart", title: "Start",
+                            format: "{0:dd-MMM-yyyy}",
+                            width: 90, attributes: { style: 'text-align: center;' } },
+                        { field: "OpsFinish", title: "Finish", template:"#: jsonDateStr(OpsFinish) #", width: 90, attributes: { style: 'text-align: center;' } },
+                        { field: "OpsDuration", title: "Duration<br />(Days)", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' }, footerTemplate: "#: kendo.toString(sum,'n1') #" },//n0
+                        { field: "OpsCost", title: "Cost<br/>($mm)", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' }, footerTemplate: "#: kendo.toString(sum,'n') #" }//n1
+                ] ,visible:false},
+                // { field: "PhRiskDuration", title: "PL Risk<br/>Duration<br />(Days)", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+                { field: "LE", columns: [
+                    { field: "LEStart", title: "Start", template:"#: jsonDateStr(LEStart) #", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "LEFinish", title: "Finish", template:"#: jsonDateStr(LEFinish) #", width: 90, attributes: { style: 'text-align: center;' } },
+                    { field: "LEDuration", title: "Duration<br />(Days)", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' }, footerTemplate: "#: kendo.toString(sum,'n1') #" },
+                    { field: "LECost", title: "Cost<br />(US$ m)", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' }, footerTemplate: "#: kendo.toString(sum,'n') #" }
+                ] ,visible:false},
+                { field: "AFE", columns: [
+                    { field: "AFEDuration", title: "Duration<br />(Days)", width: 60, format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                    { field: "AFECost", title: "Cost<br />(US$ m)", width: 60, format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                ] },
+                { field: "Region", title: "Region", width: 80 },
+                { field: "OperatingUnit", title: "Operating Unit", width: 80 },
+                { field: "RigType", title: "Rig Type", width: 80 },
+                { field: "ProjectName", title: "Project Name", width: 120 },
+                { field: "AssetName", title: "Asset Name", width: 120 },
+                { field: "WorkingInterest", template:"#= WorkingInterest.toFixed(2)#", title: "Working Interest", width: 80, format: "{0:N5}", attributes: { style: 'text-align:right;' } },
+                //{ field: "FirmOrOption", title: "Firm/Option", width: 80 },
+                //{ field: "IsInPlan", title:"In Plan" , width: 80, template:  "#: IsInPlan.join(', ')  #", },
+                { field: "UARigDescription", title: "UA Rig Description", width: 150 },
+                { field : "AlreadyAssignTo", title:"OP"},
+                {
+                    title: "No Well Schedule", field: 'VirtualPhase', width: 100, locked: true, lockable: false, editable: true,
+                    template: '<input disabled="disabled" onclick="generateEditor(this)" type="checkbox" #= VirtualPhase ? checked="checked" : "" # ></input>'
+                }
+                );
+
+
+        //for (var i = 0; i < data.length; i++) {
+        //    var PsStart = data[i].PsStart;
+        //    var PsFinish = data[i].PsFinish;
+
+        //    var OpsStart = data[i].OpsStart;
+        //    var OpsFinish = data[i].OpsFinish;
+        //    var LEStart = data[i].LEStart;
+        //    var LEFinish = data[i].LEFinish;
+        //    data[i].PsStart = jsonDateStr(PsStart);
+        //    data[i].PsFinish = jsonDateStr(PsFinish);
+        //    data[i].OpsStart = jsonDateStr(OpsStart);
+        //    data[i].OpsFinish = jsonDateStr(OpsFinish);
+        //    data[i].LEStart = jsonDateStr(LEStart);
+        //    data[i].LEFinish = jsonDateStr(LEFinish);
+
+        //    var Period = jsonDateStr(LEStart) + " -- " + jsonDateStr(LEFinish);
+        //    data[i].Period = Period;
+        //}
+
+        $('#grid').replaceWith($('<div />').attr('id', 'grid'));
+        $('#grid').kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "Data Browser.pdf" },
+            //excel: { fileName: "Data Browser.xlsx", allPages: true, filterable: true },
+            dataSource: {
+                schema: {
+                    model: {
+                        PhStart: 'date',
+                        PhFinish: 'date',
+                        OpsStart: 'date',
+                        OpsFinish: 'date',
+                        fields: {
+                            "VirtualPhase": { type: "boolean", editable: false },
+                        }
+                    }
+                },
+                aggregate: aggs,
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: gridColumns,
+            excelExport: function (e) {
+                var sheet = e.workbook.sheets[0];
+                if (!exportFlag) {
+                    e.sender.hideColumn(0);
+                    e.preventDefault();
+                    exportFlag = true;
+                    setTimeout(function () {
+                        e.sender.saveAsExcel();
+                    });
+                } else {
+                    e.sender.hideColumn(0)
+                    exportFlag = false;
+                }
+                var a = e.workbook.sheets;
+                a.forEach(function(c) {
+                    c.rows.forEach(function(d) {
+                        if(d.type == "header") {
+                            d.cells.forEach(function(i, j) {
+                                i.value = i.value.replace("<br/>", " ");
+                                i.value = i.value.replace("<br />", " ");
+                                i.value = i.value.replace("<br>", " ");
+                                i.value = i.value.replace("<b>", " ");
+                                i.value = i.value.replace("</b>", " ");
+                            });
+                        }
+                        if (d.type == "data") {
+                            d.cells.forEach(function(x,y) {
+                                if(x.value != null){
+                                    //if (typeof x.value == "string") {
+                                    //    if (x.value.substring(0, 6) == "/Date(") {
+                                    //        x.NumberFormat  = "Short Date";
+                                    //        x.value = jsonDate(x.value);
+                                    //    }
+                                    //}
+                                    //if(y == 29){
+                                    //    x.value = x.value.toFixed(2)+ " %";
+                                    //    x.hAlign = "right";
+                                    //}
+                                }
+
+                            });
+                        }
+                    });
+                });
+            }
+        });
+        setInterval(function(){$("#grid").data("kendoGrid").hideColumn(10);$("#grid").data("kendoGrid").hideColumn(11);},200);
+    }
+
+    model.delete = function (id) {
+        if (!confirm('Are you sure want to delete this activity?'))
+            return;
+
+        model.IsProcessing(true);
+
+        ajaxPost("@Url.Action("DeleteActivity")", { id: parseInt(id, 10) }, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadData();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    //define grid ---------------------------
+    var gridColumns = [];
+    var isRO = "@ViewBag.isRO";
+    //alert(isRO);
+    if (isRO != "1") {
+        gridColumns.push(
+            { field: "_id", title: "Action", width: 90, template: "<div style='text-align: center'><button onclick='model.delete(\"#= _id #\")' class='btn btn-custom btn-danger btn-xs'><span class='glyphicon glyphicon-remove-circle'></span> Delete</button></div>", locked: true, lockable: true }
+            );
+    }
+
+    gridColumns.push(
+            { field: "_id", title: "ID", width: 50, attributes: { style: 'text-align: center;' }, locked: true, lockable: true, editor: false },
+            { field: "RigName", title: "Rig Name", width: 100, template: "<a style='cursor:pointer' onclick='editWellInfo(#: _id #,\"#= WellName #\",\"#= clearText(escape(RigName)) #\")'>#: RigName #</a>", locked: true, lockable: true },
+            { field: "WellName", title: "Well", width: 150, locked: true, lockable: true },
+            { field: "UARigSequenceId", title: "Rig Sequence ID", width: 60, locked: true, lockable: true },
+            { field: "NonOP", title: "Non OP", width: 80, locked: true, lockable: true,
+                template:"#: NonOP==true ? 'Yes' : '' #"
+            }
+    );
+
+    /*var aggs = [
+            { field: "PlanDuration", aggregate: "sum", format: "{0:0.00}" },
+            { field: "PlanCost", aggregate: "sum", format: "{0:0.00}" },
+            { field: "PreviousPlanDuration", aggregate: "sum", format: "{0:0.00}" },
+            { field: "PreviousPlanCost", aggregate: "sum", format: "{0:0.00}" },
+            { field: "OpsDuration", aggregate: "sum", format: "{0:0.00}" },
+            { field: "OpsCost", aggregate: "sum", format: "{0:0.00}" },
+            { field: "LEDuration", aggregate: "sum", format: "{0:0.00}" },
+            { field: "LECost", aggregate: "sum", format: "{0:0.00}" }
+    ];*/
+
+    for(var i=0;i<model.OPs().length;i++){
+        //aggs.push({ field: "OPList["+i+"].OP.Days", aggregate: "sum", format: "{0:0.00}" });
+        //aggs.push({ field: "OPList["+i+"].OP.Cost", aggregate: "sum", format: "{0:0.00}" });
+        gridColumns.push({ title: model.OPs()[i], columns: [
+                { field: "OPList["+i+"].OPSchedule.Start", template:"#: jsonDateStr(OPList["+i+"].OPSchedule.Start) #", title: "Start", width: 90, attributes: { style: 'text-align: center;' } },
+                { field: "OPList["+i+"].OPSchedule.Finish", template:"#: jsonDateStr(OPList["+i+"].OPSchedule.Finish) #", title: "Finish", width: 90, attributes: { style: 'text-align: center;' } },
+                { field: "OPList["+i+"].OP.Days", title: "Days", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' }},//n0
+                { field: "OPList["+i+"].OP.Cost", title: "Cost<br/>($mm)", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' }}//n1
+        ] })
+    }
+
+    gridColumns.push(
+        { title: "Latest Sequence", columns: [
+                { field: "OpsStart", title: "Start",
+                    format: "{0:dd-MMM-yyyy}",
+                    width: 90, attributes: { style: 'text-align: center;' } },
+                { field: "OpsFinish", title: "Finish", template:"#: jsonDateStr(OpsFinish) #", width: 90, attributes: { style: 'text-align: center;' } },
+                { field: "OpsDuration", title: "Duration<br />(Days)", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' } },//n0
+                { field: "OpsCost", title: "Cost<br/>($mm)", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' }}//n1
+        ] ,visible:false},
+        // { field: "PhRiskDuration", title: "PL Risk<br/>Duration<br />(Days)", width: 60, format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+        { field: "LE", columns: [
+            { field: "LEStart", title: "Start", template:"#: jsonDateStr(LEStart) #", width: 90, attributes: { style: 'text-align: center;' } },
+            { field: "LEFinish", title: "Finish", template:"#: jsonDateStr(LEFinish) #", width: 90, attributes: { style: 'text-align: center;' } },
+            { field: "LEDuration", title: "Duration<br />(Days)", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' }},
+            { field: "LECost", title: "Cost<br />(US$ m)", width: 90, format: "{0:N2}", attributes: { style: 'text-align:right;' }}
+        ] ,visible:false},
+        { field: "AFE", columns: [
+            { field: "AFEDuration", title: "Duration<br />(Days)", width: 60, format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+            { field: "AFECost", title: "Cost<br />(US$ m)", width: 60, format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+        ] },
+        { field: "Region", title: "Region", width: 80 },
+        { field: "OperatingUnit", title: "Operating Unit", width: 80 },
+        { field: "RigType", title: "Rig Type", width: 80 },
+        { field: "ProjectName", title: "Project Name", width: 120 },
+        { field: "AssetName", title: "Asset Name", width: 120 },
+        { field: "WorkingInterest", template:"#= WorkingInterest.toFixed(2)#", title: "Working Interest", width: 80, format: "{0:N5}", attributes: { style: 'text-align:right;' } },
+        //{ field: "FirmOrOption", title: "Firm/Option", width: 80 },
+        //{ field: "IsInPlan", title:"In Plan" , width: 80, template:  "#: IsInPlan.join(', ')  #", },
+        { field: "UARigDescription", title: "UA Rig Description", width: 150 },
+        { field : "AlreadyAssignTo", title:"OP"},
+        {
+            title: "No Well Schedule", field: 'VirtualPhase', width: 100, locked: true, lockable: false, editable: true,
+            template: '<input disabled="disabled" onclick="generateEditor(this)" type="checkbox" #= VirtualPhase ? checked="checked" : "" # ></input>'
+        }
+    );
+
+
+    //for (var i = 0; i < data.length; i++) {
+    //    var PsStart = data[i].PsStart;
+    //    var PsFinish = data[i].PsFinish;
+
+    //    var OpsStart = data[i].OpsStart;
+    //    var OpsFinish = data[i].OpsFinish;
+    //    var LEStart = data[i].LEStart;
+    //    var LEFinish = data[i].LEFinish;
+    //    data[i].PsStart = jsonDateStr(PsStart);
+    //    data[i].PsFinish = jsonDateStr(PsFinish);
+    //    data[i].OpsStart = jsonDateStr(OpsStart);
+    //    data[i].OpsFinish = jsonDateStr(OpsFinish);
+    //    data[i].LEStart = jsonDateStr(LEStart);
+    //    data[i].LEFinish = jsonDateStr(LEFinish);
+
+    //    var Period = jsonDateStr(LEStart) + " -- " + jsonDateStr(LEFinish);
+    //    data[i].Period = Period;
+    //}
+
+    function GenerateGrid() {
+        //var x = model.uimodel();
+        var self = this;
+        //model.ShowFilter(true);
+        //if (model.IsProcessing()) return;
+        //model.IsProcessing(true);
+        model.setButton(true);
+        var filter = model.getFilterValues();
+        delete filter.BaseOP;
+        if(filter.periodview == "Fiscal View"){
+            var start = jsonDateStr($("[data-model=dateStart]:eq(1)").data("kendoDatePicker").value());
+            var finish = jsonDateStr($("[data-model=dateFinish]:eq(1)").data("kendoDatePicker").value());
+            model.ShowNoticeProrate("Value is prorated by "+start+" to "+finish);
+        }else{
+            model.ShowNoticeProrate("");
+        }
+        filter.inlastuploadls = false;
+
+        $("#grid").replaceWith($('<div />').attr('id', 'grid'));
+        var $grid = $("#grid");
+        var column = gridColumns;
+        var ps = filter;
+        var exportFlag = false;
+        self.GridConfig = {
+            toolbar: ["pdf", "excel"],
+            //excel: { fileName: "DataBrowser-"+ moment(new Date()).format("DD-MMM-YYYY-HHmmss") +".xlsx", allPages: true, filterable: true },
+            dataSource: {
+                transport: {
+                    read: function(options){
+                        var param = ps;
+                        param.take = options.data.take;
+                        param.skip = options.data.skip;
+                        param.sorts = options.data.sort;
+                        //model.IsProcessing(true);
+                        ajaxPost("@Url.Action("GetWellSequenceInfoSp")", param, function (result) {
+                            options.success(result);
+                            //model.IsProcessing(false);
+                            var checker = $("#column_toggle");
+                            checker.prop("checked",true);
+                            model.setButton(false);
+                        }, function (data) {
+                            options.error(result);
+                        });
+                    },
+                },
+                schema: {
+                    data: "Data.Data",
+                    total: "Data.Total",
+                    model: {
+                        PhStart: 'date',
+                        PhFinish: 'date',
+                        OpsStart: 'date',
+                        OpsFinish: 'date',
+                        fields: {
+                            "VirtualPhase": { type: "boolean", editable: false },
+                        }
+                    },
+                },
+                pageSize: 10,
+                serverPaging: false,
+                serverSorting: false,
+            },
+            resizable: true,
+            scrollable: true,
+            sortable: true,
+            pageable: {
+                refresh: false,
+                pageSizes: 10,
+                buttonCount: 5
+            },
+            columns:gridColumns,
+            excelExport: function (e) {
+                e.preventDefault()
+                ExportToExcel2();
+                return false;
+            },
+        };
+
+        self.Prepare = function () {
+            $grid.kendoGrid(self.GridConfig);
+            var grid = $('#grid').data('kendoGrid');
+            var pager = grid.pager;
+            setInterval(function(){$("#grid").data("kendoGrid").hideColumn(10);$("#grid").data("kendoGrid").hideColumn(11);},200);
+            //pager.bind('change', setFooterTemplate);
+        }
+    }
+
+    //$(".k-grid-excel")[0].onmousedown = function (e){
+    //    model.IsProcessing(true);
+    //}
+    // load data within filter supported
+    model.reloadData = function(){
+        new GenerateGrid().Prepare();
+    }
+
+    model.reloadData2 = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+        model.setButton(true);
+        var param = model.getFilterValues();
+        //var param = ko.mapping.toJS(a);
+        //if(param.OPs.length == 0){
+        //    _.each(model.OPs(),function(data,index){param.OPs.push(data)});
+        //}
+        delete param.BaseOP;
+        //delete param.periodview;
+        //delete param.FiscalYearFinish;
+        //delete param.FiscalYearStart;
+        if(param.periodview == "Fiscal View"){
+            var start = jsonDateStr($("[data-model=dateStart]:eq(1)").data("kendoDatePicker").value());
+            var finish = jsonDateStr($("[data-model=dateFinish]:eq(1)").data("kendoDatePicker").value());
+            model.ShowNoticeProrate("Value is prorated by "+start+" to "+finish);
+        }else{
+            model.ShowNoticeProrate("");
+        }
+
+        // disabled in last uploadls for a while
+        param.inlastuploadls = false;
+
+        ajaxPost("@Url.Action("GetWellSequenceInfoSp")",param , function (res) {
+            model.IsProcessing(false);
+            if(res.Result != "OK"){
+                alert(res.Message);
+                return;
+            }
+            renderGridUsingData(res.Data);
+            //model.edit(res.Data[0]._id);
+            var checker = $("#column_toggle");
+            checker.prop("checked",true);
+            model.setButton(false);
+        }, function (res) {
+            model.IsProcessing(false);
+            alert(res);
+        });
+    }
+
+    // prepare everything
+    $(document).ready(function () {
+
+        var isRO = "@ViewBag.isRO";
+        var isAdmin = "@ViewBag.isAdmin";
+        //alert(isRO);
+        if( (isRO != '1') && (isAdmin == '1'))
+        {
+            $('<button />')
+            .addClass('btn btn-custom btn-sm btn-success do-add')
+            .css('margin-right', '5px')
+            .html('<span class="glyphicon glyphicon-plus"></span> Add Well Plan')
+            .insertBefore($('.do-filter'))
+
+            .on('click', function () {
+                model.ShowBrowser(false);
+                model.ShowInsertActivityForm(true);
+                model.IsEditMode(false);
+                ko.mapping.fromJS(model.SelectedActivityTemplate, model.SelectedActivity);
+            });
+        }
+
+
+        $('[data-model="OPs"]').data("kendoMultiSelect").value(["OP15"]);
+        model.reloadData();
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            var target = $(e.target).attr("href") // activated tab
+            if(target=="#tab2"){
+                $("#grid_CompareInfo").data("kendoGrid").refresh();
+            }
+        });
+    });
+
+    function ShowPhase(){
+        model.ShowPhaseInfo(true);
+        model.ShowEditForm(false);
+    }
+
+    function HidePhase(){
+        model.ShowPhaseInfo(false);
+        model.ShowEditForm(true);
+    }
+
+    function editWellInfo(id,wellname,rigname) {
+        model.EXTypetemp = ko.observable();
+        model.EXTypetemp(model.exType()),model.exType(null);
+
+        setTimeout(function(){
+            model.options.EXType.push(""),_.sortBy(model.options.EXType);
+            var FundingType = _.sortBy(model.EXTypetemp());var Funtext = [];
+            FundingType.forEach(function(e){ Funtext.push(e)});
+            var filtered = _.contains(FundingType,"");
+            if(filtered==false){
+                Funtext.push("");
+            }
+            model.exType(Funtext);
+            $("#FundingType").data('kendoDropDownList').setDataSource(new kendo.data.DataSource({ data: _.sortBy(model.exType())}));
+        },200);
+        model.ShowBrowser(false);
+        model.ShowEditForm(true);
+        model.selectedWellId(id);
+        model.selectedWellName(wellname);
+        model.selectedRigName(rigname);
+        select();
+        //selectPhase();
+        //selectPhaseInfo();
+
+        //model.DataCompareOP(true);
+    }
+
+</script>

@@ -1,0 +1,39 @@
+﻿<div class="col-md-12 no-padding">
+    <div class="col-md-12" style="text-align:center">
+        
+        <ul class="nav nav-stacked" style="margin-bottom:10px">
+            <li class="stacked" style="background-color: #23be23; border: none; padding: 10px; color: #ffffff">Capitalized Staff Overhead (CSO)</li>
+        </ul>
+    </div>
+    <div class="col-md-12">
+        <br />
+        <table>
+            <tr>
+                <td><span>Country</span></td>
+                <td><input data-bind="kendoDropDownList:{data:['Australia','Indonesia','India','Singapure']}" data-placeholder="Select Country ..." style="width: 200px; margin-left: 5px" /></td>
+                <td><button class="btn btn-sm btn-primary">Submit</button></td>
+            </tr>
+        </table>
+        <div class="ec-panel">
+            <div class="ec-panel" style="margin-left:40%;margin-top:20px">
+                <ul class="menu nav nav-pills">
+                    <li class="active"><a href="#view_cso" id="" data-toggle="pill">View Current CSO</a></li>
+                    <li><a href="#edit_cso" data-toggle="pill" id="">Edit Current CSO</a></li>
+                </ul>
+            </div>
+            
+            <div class="tab-content" style="margin-top:10px">
+                <div class="tab-pane active" id="view_cso" style="overflow-y:auto;">
+                    <div class="grid" id="vgridCapital" data-bind="kendoGrid: { data: model.bpmodel().capitalData, columns: model.bpmodel().capitalColumns, pageable: true, sortable: false, filterable: false, editable: false }"></div>
+                </div>
+                <div class="tab-pane" id="edit_cso" style="overflow-y:auto;">
+                    <div class="grid" id="egridCapital" data-bind="kendoGrid: { data: model.bpmodel().capitalData, columns: model.bpmodel().capitalColumns, pageable: true, sortable: false, filterable: false, editable: false }"></div>
+                    <div style="text-align:right;margin-top:10px">
+                        <button class="btn btn-sm btn-primary">Submit</button>
+                    </div>
+                    
+                </div> 
+            </div>
+        </div>
+    </div>      
+</div>

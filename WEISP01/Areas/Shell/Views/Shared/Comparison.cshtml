@@ -1,0 +1,694 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using Newtonsoft.Json;
+
+<script>
+    var DataRegion = @MvcHtmlString.Create(JsonConvert.SerializeObject(WellActivity.Populate<WellActivity>().GroupBy(d => d.Region).Select(d => new { Id = d.Key, Name = d.Key }).Where(d => d.Id != null).OrderBy(d => d.Name)));
+    var DataRig =@MvcHtmlString.Create(JsonConvert.SerializeObject(WellActivity.Populate<WellActivity>().GroupBy(d => d.RigName).Select(d => new { Id = d.Key, Name = d.Key }).Where(d => d.Id != null).OrderBy(d => d.Name)));
+
+    model.Comparison = {
+        IsProcessing: ko.observable(false),
+        PrepareEvent: function () {
+            var $container = $(".c-container");
+            var $window = $(window);
+
+            $container.find(".nav button").on("click", function () {
+                $container.find(".nav button").removeClass("disabled");
+                $(this).addClass("disabled");
+
+                $container.find(".content section").hide();
+                $container.find(".content section:eq(" + $(this).index() + ")").show();
+
+                $container.find(".sidebar section").hide();
+                $container.find(".sidebar section:eq(" + $(this).index() + ")").show();
+
+                model.Comparison.ResizeSidebarAndContent();
+                //model.Comparison.GetData();
+            });
+
+            $container.find(".btn-multiselect").on("click", ".btn", function () {
+                if ($(this).hasClass("btn-success")) {
+                    $(this).removeClass("btn-success");
+                    $(this).addClass("btn-info");
+                } else {
+                    $(this).removeClass("btn-info");
+                    $(this).addClass("btn-success");
+                }
+
+                //if ($(this).parent().parent().parent().hasClass("bottom-nav")) {
+                //    if ($(this).is("[title='Days']")) {
+                //        model.Comparison.O.Rightbar.UnitValue("1");
+                //    }
+                //}
+
+                model.Comparison.GetData();
+            });
+
+            $container.find(".btn-check").on("click", function () {
+                var isDeselect = $(this).find(".pull-left").html().indexOf("Deselect") > -1;
+                var isSelect = $(this).find(".pull-left").html().indexOf("Select") > -1;
+                
+                $(this).closest(".each-sidebar").find(".btn-multiselect .btn").each(function () {
+                    if (isSelect)
+                        $(this).removeClass("btn-info").addClass("btn-success");
+                    if (isDeselect)
+                        $(this).removeClass("btn-success").addClass("btn-info");
+                });
+
+                model.Comparison.GetData();
+            });
+
+            model.Comparison.O.Rig.RegionValue.subscribe(function () {
+                model.Comparison.O.Rig.RigInRegion([]);
+            });
+
+            model.Comparison.O.Well.RegionValue.subscribe(function () {
+                model.Comparison.O.Well.RigInRegion([{ Id: "", Name: "Select one ..." }]);
+                model.Comparison.O.Well.WellsInRig([]);
+                model.Comparison.O.Well.RigValue("");
+            });
+
+            model.Comparison.O.Well.RigValue.subscribe(function () {
+                model.Comparison.O.Well.WellsInRig([]);
+            });
+
+            $window.on("resize", self.PrepareSize);
+        },
+        PrepareSize: function () {
+            var $container = $(".c-container");
+            var $body = $('body');
+            var $document = $(document);
+
+            var height = $document.height();
+
+            var containerHeight = height - $body.find(".container-fluid:eq(0)").height() - 80;
+            $container.height(containerHeight);
+
+            var contentHeight = ($body.find(".container-fluid:eq(1)").outerHeight()
+                - $body.find("#pageTitle").outerHeight()
+                - $container.find(".nav").outerHeight()
+                - $container.find(".bottom-nav").outerHeight());
+            $container.find(".content").height(contentHeight);
+
+            model.Comparison.ResizeSidebarAndContent();
+        },
+        Init: function () {
+            var $container = $(".c-container");
+
+            $container.find(".nav button:eq(0)").trigger("click");
+            model.Comparison.ResizeSidebarAndContent();
+
+            $(".bottom-nav .btn-multiselect").find("button:lt(5)").each(function (i, e) {
+                $(e).removeClass("btn-info").addClass("btn-success");
+            });
+        },
+        Data: {
+            Regions: ko.observableArray(DataRegion),
+            Rigs: ko.observableArray(DataRig),
+        },
+        Run: function () {
+            model.Comparison.PrepareEvent();
+            model.Comparison.PrepareSize();
+            model.Comparison.Init();
+        },
+        Visibility: {
+            Header: ko.observable(false)
+        },
+        CreateDomLoaderForSidebar: function () {
+            return $("<div />").addClass("loader").height(60);
+        },
+        Timeout: setTimeout(function () { }, 0),
+        GetData: function () {
+            var doGetData = function () {
+                clearTimeout(model.Comparison.Timeout);
+                
+                var $container = $(".c-container");
+                var tabSelected = $container.find(".nav .disabled").html();
+                var sidebarPicked = [];
+                var dataPointPicked = [];
+
+                $container.find(".bottom-nav .btn-multiselect").find(".btn-success").each(function (i, e) {
+                    dataPointPicked.push($(e).find(".text").html());
+                });
+
+                if (tabSelected === 'Regional') {
+                    $container.find(".sidebar-region .btn-multiselect").find(".btn-success").each(function (i, e) {
+                        sidebarPicked.push($(e).find(".text").html());
+                    });
+                } else if (tabSelected === 'Rig') {
+                    $container.find(".sidebar-rig .btn-multiselect").find(".btn-success").each(function (i, e) {
+                        sidebarPicked.push($(e).find(".text").html());
+                    });
+                } else if (tabSelected === 'Well') {
+                    $container.find(".sidebar-well .btn-multiselect").find(".btn-success").each(function (i, e) {
+                        sidebarPicked.push($(e).find(".text").html());
+                    });
+                }
+
+                var url = "@Url.Action("GetChartData", "Comparison")";
+                var param = { 
+                    TabSelected: tabSelected, 
+                    SidebarPicked: sidebarPicked, 
+                    DataPointPicked: dataPointPicked, 
+                    Divider: parseInt(model.Comparison.O.Rightbar.UnitValue(), 10) 
+                };
+
+                model.Comparison.IsProcessing(true);
+
+                ajaxPost(url, param, function (res) {
+                    if (!res.Success) {
+                        model.Comparison.IsProcessing(false);
+                        alert("Error occured when fetching data");
+                        return;
+                    }
+
+                    model.Comparison.BuildChart(res.Data);
+                    model.Comparison.IsProcessing(false);
+                }, function () {
+                    model.Comparison.IsProcessing(false);
+                    alert("Error occured when fetching data");
+                });
+            };
+
+            clearTimeout(model.Comparison.Timeout);
+            model.Comparison.Timeout = setTimeout(doGetData, 800);
+        },
+        BuildChart: function (result) {
+            var $content = $(".content");
+            var $contentActive = $content.find(".each-content:visible");
+
+            $contentActive.find(".chart-content").remove();
+            $("<div />").addClass("chart-content").appendTo($contentActive);
+
+            var $currentChartContent = $contentActive.find(".chart-content")
+            var colors = {
+                CostPerDays: ["84B6EE", "EC938E", "C8E194", "B6A1D1"],
+                Cost: ["6B9CD4", "DE7872", "B7D37C", "A48CC2"],
+                Days: ["5688C1", "DC665F", "A3C65A", "9472BE"]
+            };
+            var series = [];
+            var pickedDataPoints = (function () { 
+                var r = []; 
+                $(".bottom-nav .btn-group:eq(0) .btn-success").each(function (i, e) { 
+                    r.push($.trim($(e).text())); 
+                }); 
+                return r.join(", "); 
+            }());
+            var title = $(".nav .disabled").html() + " Comparison (" + pickedDataPoints + ")";
+            var rotation = (result.Data.length > 15 ? 45 : (result.Data.length > 8 ? 30 : 0));
+            var createSeriesOf = function (what) {
+                _.each(result.Series, function (e, i) {
+
+                    if (what.split("").reverse().join("").substring(0, 4).split("").reverse().join("") === what) return;
+                    var unit = _.find(model.Comparison.O.Rightbar.UnitData, function (e) { return e.Id === model.Comparison.O.Rightbar.UnitValue(); }).Name;
+                    var useUnit = (unit === "Actual" ? "" : " (in " + unit + ")");
+                    var name = (function () { var w = e.split("_");  return (w[0] + " (" + w[1] + ")").replace("Per", " / "); }());
+                    var code = e.split("_")[1];
+                    var color = ("#" + colors[code][i % colors[code].length]);
+                    var decimalPlace = (code == "Days" ? 0 : 1);
+
+                    series.push({
+                        type: "column",
+                        field: e,
+                        name: name,
+                        color: color,
+                        axis: code,
+                        labels: {
+                            visible: true,
+                            font: "9px verdana",
+                            position: "outsideEnd",
+                            template: code.replace("Per", " / ")  + "\n#: kendo.toString(value, 'n" + decimalPlace + "') #"
+                        },
+                        tooltip: {
+                            visible: true,
+                            template: "#: category # ~ " + name + " : #: kendo.format('{0:N" + decimalPlace + "}', value) #" + (code == "Days" ? '' : useUnit)
+                        }
+                    });
+                });
+            };
+
+            createSeriesOf("Cost");
+            createSeriesOf("Days");
+            createSeriesOf("CostPerDays");
+
+            var config = {
+                title: title,
+                chartArea: {
+                    height: ($contentActive.innerHeight() - 40)
+                },
+                dataSource: new kendo.data.DataSource({
+                    data: result.Data
+                }),
+                legend: {
+                    visible: true,
+                    position: "bottom"
+                },
+                categoryAxis: {
+                    field: "DataPoint",
+                    axisCrossingValues: [0, 0, 10],
+                    labels: {
+                        rotation: rotation
+                    }
+                },
+                valueAxes: [{
+                    name: "Cost",
+                    title: { text: "Cost" },
+                    labels: { format: "{0:N1}" },
+                }, {
+                    name: "CostPerDays",
+                    title: { text: "Cost / Days" },
+                    labels: { format: "{0:N1}" },
+                }, {
+                    name: "Days",
+                    title: { text: "Days" },
+                    labels: { format: "{0:N0}" },
+                }],
+                series: series
+            };
+
+            window.test = config;
+
+            $currentChartContent.kendoChart(config);
+        },
+        ResizeSidebarAndContent: function () {
+            var $sidebar = $(".sidebar");
+            var $currentSidebar = $sidebar.find(".each-sidebar:visible");
+            var $content = $(".content");
+            var $currentContent = $content.find(".each-content:visible");
+            var widths = (function ($e) { var r = []; $e.each(function (i, e) { r.push($(e).outerWidth()); }); return r; }($currentSidebar.find(".btn-multiselect .btn")));
+            var width = _.max(widths, function (e) { return e; }) + 40;
+
+            $sidebar.width(width);
+            $content.css("margin-left", width);
+            $content.css("margin-right", width);
+
+            $currentContent.height($content.innerHeight() - 40);
+        },
+        ReEnableDropDown: function (selector, bool) {
+            var $rigSelect = $(selector);
+            if ($rigSelect.size() == 0)
+                return;
+
+            var $rigSelectDropDown = $rigSelect.data("kendoDropDownList");
+            if (typeof $rigSelectDropDown !== "undefined")
+                $rigSelectDropDown.enable(bool);
+        },
+        O: {
+            Rightbar: {
+                UnitData: [{ Id: "1", Name: "Actual" }, { Id: "1000", Name: "Thousands" }, { Id: "1000000", Name: "Millions" }, { Id: "1000000000", Name: "Billions" }],
+                UnitValue: ko.observable("1000000"),
+                UnitSelect: function () {
+                    return function (e) {
+                        model.Comparison.O.Rightbar.UnitValue(this.value());
+                        model.Comparison.GetData();
+                    };
+                }
+            },
+            CascadeSelect: function (url, paramKey, what, callback, fallback, preback) {
+                return function (e) {
+                    var param = {};
+                    param[paramKey] = this.dataItem(e.item.index()).Name;
+
+                    if (typeof preback !== "undefined")
+                        preback();
+
+                    ajaxPost(url, param, function (res) {
+                        if (!res.Success) {
+                            alert("Error when getting " + what + " data");
+                            return;
+                        }
+
+                        callback(res);
+
+                        model.Comparison.ResizeSidebarAndContent();
+                    }, function () {
+                        if (typeof fallback !== "undefined")
+                            fallback();
+                        alert("Error when getting " + what + " data");
+                    });
+                };
+            },
+            Rig: {
+                RegionData: ko.observableArray((function () {
+                    var d = DataRegion.slice(0);
+                    d.unshift({ Id: "", Name: "Select one ..." });
+                    return d;
+                }())),
+                RegionValue: ko.observable(""),
+                RegionSelect: function () {
+                    return model.Comparison.O.CascadeSelect("@Url.Action("GetRigsInRegion")", "region", "rig", function (res) {
+                        model.Comparison.O.Rig.RigInRegion(res.Data);
+                        $(".sidebar-rig .loader").remove();
+                    }, function () {
+                        $(".sidebar-rig .loader").remove();
+                    }, function () {
+                        model.Comparison.CreateDomLoaderForSidebar().insertAfter($(".sidebar-rig .before-loader").parent());
+                    });
+                },
+                RigInRegion: ko.observableArray([])
+            },
+            Well: {
+                RegionValue: ko.observable(""),
+                RegionSelect: function () {
+                    return model.Comparison.O.CascadeSelect("@Url.Action("GetRigsInRegion")", "region", "rig", function (res) {
+                        var d = _.map(res.Data, function (e) { return { Id: e, Name: e }; });
+                        d.unshift({ Id: "", Name: "Select one ..." });
+                        model.Comparison.O.Well.RigInRegion(d);
+
+                        $(".sidebar-well .before-loader").parent().show();
+                        $(".sidebar-well .loader").remove();
+                    }, function () {
+                        $(".sidebar-well .before-loader").parent().show();
+                        $(".sidebar-well .loader").remove();
+                    }, function () {
+                        $(".sidebar-well .before-loader").parent().hide();
+                        model.Comparison.CreateDomLoaderForSidebar().insertAfter($(".sidebar-well .before-loader").parent());
+                    });
+                },
+                RigEnable: ko.observable(true),
+                RigInRegion: ko.observableArray([{ Id: "", Name: "Select one ..." }]),
+                RigValue: ko.observable(""),
+                RigSelect: function () {
+                    return model.Comparison.O.CascadeSelect("@Url.Action("GetWellsInRig")", "rigname", "well", function (res) {
+                        model.Comparison.O.Well.WellsInRig(res.Data);
+                        $(".sidebar-well .loader").remove();
+                    }, function () {
+                        $(".sidebar-well .loader").remove();
+                    }, function () {
+                        model.Comparison.CreateDomLoaderForSidebar().insertAfter($(".sidebar-well .before-loader").parent());
+                    });
+                },
+                WellsInRig: ko.observableArray([])
+            }
+        }
+    };
+</script>
+
+<div class="container c-container" data-bind="with: model.Comparison">
+    <header data-bind="visible: Visibility.Header()">
+        <h1>Cross Comparison</h1>
+    </header>
+
+    <section class="nav">
+        <div class="btn-group">
+            <button class="btn btn-sm btn-custom btn-primary">Regional</button>
+            <button class="btn btn-sm btn-custom btn-primary">Rig</button>
+            <button class="btn btn-sm btn-custom btn-primary">Well</button>
+        </div>
+    </section>
+
+    <section class="sidebar">
+        <section class="each-sidebar sidebar-region">
+            <div class="button-header">
+                <button class="btn btn-sm btn-custom btn-success btn-check">
+                    <span class="pull-left">Select all Region</span>
+                    <span class="pull-right glyphicon glyphicon-ok"></span>
+                </button>
+
+                <button class="btn btn-sm btn-custom btn-danger btn-check">
+                    <span class="pull-left">Deselect all Region</span>
+                    <span class="pull-right glyphicon glyphicon-remove"></span>
+                </button>
+                <div class="sidebar-spacer"></div>
+            </div>
+
+            <div class="button-header">Pick Regions:</div>
+
+            <div data-bind="foreach: Data.Regions" class="btn-multiselect">
+                <button class="btn btn-sm btn-custom btn-info" data-bind="attr: { 'data-id': Name }">
+                    <span class="text" data-bind="text: Name"></span>
+                    <span class="glyphicon glyphicon-ok"></span>
+                </button>
+            </div>
+        </section>
+
+        <section class="each-sidebar sidebar-rig">
+            <div>
+                <div class="button-header">Select Region:</div>
+                <input style="width: 160px;" data-bind="kendoDropDownList: { data: O.Rig.RegionData, value: O.Rig.RegionValue, dataTextField: 'Name', dataValueField: 'Id', select: O.Rig.RegionSelect() }" />
+
+                <div class="sidebar-spacer before-loader"></div>
+            </div>
+
+            <div data-bind="visible: (O.Rig.RigInRegion().length > 0)">
+                <div class="button-header">
+                    <button class="btn btn-sm btn-custom btn-success btn-check">
+                        <span class="pull-left">Select all Rig</span>
+                        <span class="pull-right glyphicon glyphicon-ok"></span>
+                    </button>
+
+                    <button class="btn btn-sm btn-custom btn-danger btn-check">
+                        <span class="pull-left">Deselect all Rig</span>
+                        <span class="pull-right glyphicon glyphicon-remove"></span>
+                    </button>
+                </div>
+                <div class="sidebar-spacer"></div>
+            </div>
+
+            <div data-bind="visible: (O.Rig.RigInRegion().length > 0)">
+                <div class="button-header">Pick Rigs:</div>
+
+                <div data-bind="foreach: O.Rig.RigInRegion" class="btn-multiselect">
+                    <button class="btn btn-sm btn-custom btn-info" data-bind="attr: { 'data-id': $data }">
+                        <span class="text" data-bind="text: $data"></span>
+                        <span class="glyphicon glyphicon-ok"></span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="each-sidebar sidebar-well">
+            <div>
+                <div class="button-header">Select Region:</div>
+                <input style="width: 160px;" data-bind="kendoDropDownList: { data: O.Rig.RegionData, value: O.Well.RegionValue, dataTextField: 'Name', dataValueField: 'Id', select: O.Well.RegionSelect() }" />
+
+                <div class="sidebar-spacer"></div>
+            </div>
+
+            <div>
+                <div class="button-header">Select Rig:</div>
+                <input style="width: 160px;" data-bind="kendoDropDownList: { data: O.Well.RigInRegion, value: O.Well.RigValue, dataTextField: 'Name', dataValueField: 'Id', select: O.Well.RigSelect() }" />
+
+                <div class="sidebar-spacer before-loader"></div>
+            </div>
+
+            <div data-bind="visible: (O.Well.WellsInRig().length > 0)">
+                <div class="button-header">
+                    <button class="btn btn-sm btn-custom btn-success btn-check">
+                        <span class="pull-left">Select all Well</span>
+                        <span class="pull-right glyphicon glyphicon-ok"></span>
+                    </button>
+
+                    <button class="btn btn-sm btn-custom btn-danger btn-check">
+                        <span class="pull-left">Deselect all Well</span>
+                        <span class="pull-right glyphicon glyphicon-remove"></span>
+                    </button>
+                </div>
+                <div class="sidebar-spacer"></div>
+            </div>
+
+            <div data-bind="visible: (O.Well.WellsInRig().length > 0)">
+                <div class="button-header">Pick Wells:</div>
+
+                <div data-bind="foreach: O.Well.WellsInRig" class="btn-multiselect">
+                    <button class="btn btn-sm btn-custom btn-info" data-bind="attr: { 'data-id': $data }">
+                        <span class="text" data-bind="text: $data"></span>
+                        <span class="glyphicon glyphicon-ok"></span>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </section>
+
+    <section class="content">
+        <section class="each-content content-region">
+            <div class="chart-content"></div>
+        </section>
+        <section class="each-content content-rig">
+            <div class="chart-content"></div>
+        </section>
+        <section class="each-content content-well">
+            <div class="chart-content"></div>
+        </section>
+
+        <section class="loader" data-bind="visible: model.Comparison.IsProcessing()"></section>
+    </section>
+
+    <div class="righbar">
+        <div>
+            <div class="button-header">Pick Units (Cost & Cost/Days):</div>
+
+            <input style="width: 160px;" data-bind="kendoDropDownList: { data: O.Rightbar.UnitData, value: O.Rightbar.UnitValue, dataTextField: 'Name', dataValueField: 'Id', select: O.Rightbar.UnitSelect() }" />
+        </div>
+    </div>
+
+    <section class="bottom-nav">
+        <div class="button-header">Pick Data Points:</div>
+        <div class="btn-multiselect">
+            <div class="btn-group">
+                <button class="btn btn-sm btn-custom btn-info" title="Operation Plan" style="background-color: #6B9CD4 !important; border-color: #6B9CD4 !important;">
+                    <span class="text">OP</span>
+                    <span class="glyphicon glyphicon-ok"></span>
+                </button>
+                <button class="btn btn-sm btn-custom btn-info" title="Authorization For Expenditure" style="background-color: #DE7872 !important; border-color: #DE7872 !important; ">
+                    <span class="text">AFE</span>
+                    <span class="glyphicon glyphicon-ok"></span>
+                </button>
+                <button class="btn btn-sm btn-custom btn-info" title="Latest Sequence" style="background-color: #B7D37C !important; border-color: #B7D37C !important; ">
+                    <span class="text">LS</span>
+                    <span class="glyphicon glyphicon-ok"></span>
+                </button>
+                <button class="btn btn-sm btn-custom btn-info" title="Last Estimate" style="background-color: #A48CC2 !important; border-color: #A48CC2 !important; ">
+                    <span class="text">LE</span>
+                    <span class="glyphicon glyphicon-ok"></span>
+                </button>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-custom btn-info" title="Cost">
+                    <span class="text">Cost</span>
+                    <span class="glyphicon glyphicon-ok"></span>
+                </button>
+                <button class="btn btn-sm btn-custom btn-info" title="Days">
+                    <span class="text">Days</span>
+                    <span class="glyphicon glyphicon-ok"></span>
+                </button>
+                <button class="btn btn-sm btn-custom btn-info" title="Cost / Days">
+                    <span class="text">Cost / Days</span>
+                    <span class="glyphicon glyphicon-ok"></span>
+                </button>
+            </div>
+        </div>
+    </section>
+</div>
+
+<style>
+    .c-container .loader {
+        background-color: white;
+        background-repeat: no-repeat;
+        background-position: center center;
+        background-image: url(@Url.Content("~/Content/images/CircularProgressAnimation.gif"));
+        z-index: 2;
+    }
+</style>
+
+<style>
+    .c-container {
+        position: relative;
+        margin: 0px 10px;
+        padding: 0px;
+        box-sizing: border-box;
+        width: auto;
+    }
+
+    .c-container header {
+        margin: 0px;
+        background-color: rgb(246, 246, 246);
+        padding: 15px 10px;
+        text-align: center;
+    }
+
+    .c-container header h1 {
+        margin: 0px;
+        font-size: 28px;
+    }
+
+    .c-container .nav {
+        text-align: center;
+    }
+
+    .c-container .nav button {
+        width: 140px;
+        font-size: 18px;
+    }
+
+    .c-container .sidebar {
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        min-width: 100px;
+        padding-right: 10px;
+        z-index: 3;
+    }
+
+    .c-container .sidebar .loader {
+        background-size: 60px;
+    }
+
+    .c-container .sidebar .btn-check {
+        width: 142px;
+    }
+
+    .c-container .sidebar .btn-multiselect {
+        max-height: 350px;
+        overflow-y: auto;
+    }
+
+    .c-container .sidebar .sidebar-spacer {
+        height: 10px;
+    }
+
+    .c-container .sidebar .btn {
+        display: block;
+        margin-bottom: 3px;
+    }
+
+    .c-container .righbar {
+        position: absolute;
+        top: 0px;
+        right: 0px;
+        min-width: 100px;
+        z-index: 3;
+    }
+
+    .c-container .content {
+        overflow: hidden;
+        position: relative;
+        margin-left: 100px;
+    }
+
+    .c-container .content .loader {
+        position: absolute;
+        left: 0px;
+        right: 0px;
+        top: 0px;
+        bottom: 0px;
+        background-size: 140px;
+    }
+
+    .c-container .content .loader h4 {
+        display: none;
+    }
+
+    .c-container .bottom-nav {
+        position: absolute;
+        bottom: 0px;
+        left: 0px;
+        right: 0px;
+        text-align: center;
+    }
+
+    .c-container .bottom-nav .btn-cost-days {
+        width: 100px;
+    }
+
+    .c-container .content .each-content {
+        padding: 15px 40px 20px;
+    }
+
+    .c-container .button-header {
+        margin-bottom: 4px;
+        font-size: 12px;
+    }
+
+    .c-container .btn-multiselect .btn {
+        min-width: 65px;
+    }
+
+    .c-container .btn-multiselect .btn .glyphicon {
+        display: none;
+    }
+
+    .c-container .btn-multiselect .btn.btn-success .glyphicon {
+        display: inline !important;
+    }
+</style>

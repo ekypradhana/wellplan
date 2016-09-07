@@ -1,0 +1,194 @@
+﻿<table class="table pip-data ecTableCommentary">
+    <thead>
+        <tr>
+            <td colspan="18">Performance Improvement Plan (WELL)</td>
+        </tr>
+        <tr class="title">
+            <td style="width: 200px;">Idea</td>
+            <td>Realized</td>
+
+            <td data-unit="(days)">Plan<br />Days<br />Improvement</td>
+            <td data-unit="(days)">Prev. LE<br />Days<br />Improvement</td>
+            <td data-unit="(days)">Actual<br />Days<br />Improvement</td>
+            <td data-unit="(days)">LE<br />Days<br />Improvement</td>
+            <td data-unit="(days)">Prev. LE<br />Days<br />Risk</td>
+            <td data-unit="(days)">Actual<br />Days<br />Risk</td>
+            <td data-unit="(days)">LE<br />Days<br />Risk</td>
+
+            <td data-unit="($ mln)">Plan<br />Cost<br />Improvement</td>
+            <td data-unit="($ mln)">Prev. LE<br />Cost<br />Improvement</td>
+            <td data-unit="($ mln)">Actual<br />Cost<br />Improvement</td>
+            <td data-unit="($ mln)">LE<br />Cost<br />Improvement</td>
+            <td data-unit="($ mln)">Prev. LE<br />Cost<br />Risk</td>
+            <td data-unit="($ mln)">Actual<br />Cost<br />Risk</td>
+            <td data-unit="($ mln)">LE<br />Cost<br />Risk</td>
+
+            <td>Cost<br />Avoidance</td>
+            <td>Allocate</td>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- ko foreach:Elements -->
+        <tr>
+            <td data-bind="text: Title"></td>
+            <td data-bind="css: { 'bg-td-green': (Completion() == 'Realized'), 'bg-td-red': (Completion() != 'Realized') }">
+                <input type="checkbox" onclick="ApplyChecked(this)" data-bind="enable:model.wrmodel().record().Status() == 'In-Progress', attr: {value: 'Realized', GI: 'Cb-'+$index()},checked: (Completion() == 'Realized' || Completion() == 1 || Completion() == '1')">
+            </td>
+            @*<td style="border-right: solid 1px #CCC;" data-bind="visible:false">
+                    <input style="vertical-align: sub;" type="checkbox" name="isPositiveTable" data-bind="checked: isPositive, attr: {'uniqueId': ElementId}" />
+                    <label data-bind="text: isPositive() ? '( + )' : '( - )'"></label>
+                </td>*@
+            <td data-bind="text:(DaysPlanImprovement() + DaysPlanRisk()).toFixed(2),attr:{ class:DaysPlanImprovement() + DaysPlanRisk() == 0 ? 'ec-right font-transparent' : 'ec-right font-black' }"></td>
+            <td data-bind="text:DaysLastWeekImprovement().toFixed(2),attr:{ class:DaysLastWeekImprovement() == 0 ? 'ec-right font-transparent' : 'ec-right font-black' }"></td>
+            <td>
+                <input style="width: 70px;" onkeyup="count_total()" onchange="count_total()" type="number" class="cg DaysActualImprovement" name="botbot" data-bind="kendoNumericTextBox: { value:DaysActualImprovement },enable:model.wrmodel().record().Status() == 'In-Progress', attr: {ip: isPositive()}" />
+            </td>
+            <td>
+                <input style="width: 70px;" onkeyup="count_total()" onchange="count_total()" type="number" class="cg DaysCurrentWeekImprovement" name="botbot" data-bind="kendoNumericTextBox: { value:DaysCurrentWeekImprovement },enable:model.wrmodel().record().Status() == 'In-Progress', attr: {ip: isPositive()}" />
+            </td>
+            <td data-bind="text:DaysLastWeekRisk().toFixed(2),attr:{ class:DaysLastWeekRisk() == 0 ? 'ec-right font-transparent' : 'ec-right font-black' }"></td>
+            <td>
+                <input style="width: 70px;" onkeyup="count_total()" onchange="count_total()" type="number" class="DaysActualRisk" name="topbot" data-bind="kendoNumericTextBox: { value:DaysActualRisk },enable:model.wrmodel().record().Status() == 'In-Progress'" />
+            </td>
+            <td>
+                <input style="width: 70px;" onkeyup="count_total()" onchange="count_total()" type="number" class="DaysCurrentWeekRisk" name="topbot" data-bind="kendoNumericTextBox: { value:DaysCurrentWeekRisk },enable:model.wrmodel().record().Status() == 'In-Progress'" />
+            </td>
+            <td data-bind="text:(CostPlanImprovement() + CostPlanRisk()).toFixed(2),attr:{ class:CostPlanImprovement() + CostPlanRisk() == 0 ? 'ec-right font-transparent' : 'ec-right font-black' }"></td>
+            <td data-bind="text:CostLastWeekImprovement().toFixed(2),attr:{ class:CostLastWeekImprovement() == 0 ? 'ec-right font-transparent' : 'ec-right font-black' }"></td>
+            <td>
+                <input style="width: 70px;" onkeyup="count_total()" onchange="count_total()" type="number" class="cg CostActualImprovement" name="botbot" data-bind="kendoNumericTextBox: { value:CostActualImprovement },enable:model.wrmodel().record().Status() == 'In-Progress', attr: {ip: isPositive()}" />
+            </td>
+            <td>
+                <input style="width: 70px;" onkeyup="count_total()" onchange="count_total()" type="number" class="cg CostCurrentWeekImprovement" name="botbot" data-bind="kendoNumericTextBox: { value:CostCurrentWeekImprovement },enable:model.wrmodel().record().Status() == 'In-Progress', attr: {ip: isPositive()}" />
+            </td>
+            <td data-bind="text:CostLastWeekRisk().toFixed(2),attr:{ class:CostLastWeekRisk() == 0 ? 'ec-right font-transparent' : 'ec-right font-black' }"></td>
+            <td>
+                <input style="width: 70px;" onkeyup="count_total()" onchange="count_total()" name="topbot" type="number" class="CostActualRisk" data-bind="kendoNumericTextBox: { value:CostActualRisk },enable:model.wrmodel().record().Status() == 'In-Progress'" />
+            </td>
+            <td>
+                <input style="width: 70px;" onkeyup="count_total()" onchange="count_total()" name="topbot" type="number" class="CostCurrentWeekRisk" data-bind="kendoNumericTextBox: { value:CostCurrentWeekRisk },enable:model.wrmodel().record().Status() == 'In-Progress'" />
+            </td>
+            <td>
+                <input type="checkbox" data-bind="enable:model.wrmodel().record().Status() == 'In-Progress', checked: CostAvoidance">
+            </td>
+            <td>
+                <span style="cursor:pointer;" class="glyphicon glyphicon-time" title="Click To Allocate" data-bind="click:model.wrmodel().openAllocationModal"></span>
+                &nbsp;
+                <span style="cursor:pointer" class="glyphicon glyphicon-trash" title="Click To Delete" data-bind="click: model.wrmodel().DeleteElement($parent._id(), ElementId()),visible:model.wrmodel().DetailStatus() == 'In-Progress'"></span>
+                &nbsp;
+                <span style="cursor:pointer;" class="glyphicon glyphicon-comment" title="Click to Add Comments"
+                      data-bind="click: model.wrmodel().Comments($parent._id(), ElementId()), attr: { 'data-auid': $parent._id(), 'data-eid': ElementId() }">
+                    <b class="comment-counter">0</b>
+                </span>
+            </td>
+        </tr>
+        <!-- /ko -->
+
+        <tr class="total">
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td data-bind="text:model.wrmodel().DaysPlanImprovementTotal()"></td>
+            <td data-bind="text:model.wrmodel().DaysLastWeekImprovementTotal()"></td>
+            <td data-bind="text:model.wrmodel().DaysActualImprovementTotal()"></td>
+            <td data-bind="text:model.wrmodel().DaysCurrentWeekImprovementTotal()"></td>
+            <td data-bind="text:model.wrmodel().DaysLastWeekRiskTotal()"></td>
+            <td data-bind="text:model.wrmodel().DaysActualRiskTotal()"></td>
+            <td data-bind="text:model.wrmodel().DaysCurrentWeekRiskTotal()"></td>
+            <td data-bind="text:model.wrmodel().CostPlanImprovementTotal()"></td>
+            <td data-bind="text:model.wrmodel().CostLastWeekImprovementTotal()"></td>
+            <td data-bind="text:model.wrmodel().CostActualImprovementTotal()"></td>
+            <td data-bind="text:model.wrmodel().CostCurrentWeekImprovementTotal()"></td>
+            <td data-bind="text:model.wrmodel().CostLastWeekRiskTotal()"></td>
+            <td data-bind="text:model.wrmodel().CostActualRiskTotal()"></td>
+            <td data-bind="text:model.wrmodel().CostCurrentWeekRiskTotal()"></td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+        </tr>
+    </tbody>
+</table>
+
+<style>
+    table.pip-data {
+        width: 1600px;
+        margin: 4px;
+    }
+
+        table.pip-data tr td:first-child {
+            border-left: 1px solid #E5E5E5;
+        }
+
+        table.pip-data tr td {
+            border-top: 1px solid;
+            border-right: 1px solid;
+            border-color: #E5E5E5;
+            color: #444;
+        }
+
+        table.pip-data tr:last-child td {
+            border-right: 1px solid #E5E5E5;
+        }
+
+        table.pip-data thead tr:first-child td:first-child {
+            border: 0px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        table.pip-data thead tr.title td {
+            background-color: #f9f9f9;
+            box-sizing: border-box;
+            vertical-align: bottom;
+            text-align: left;
+            color: #a8a8a8;
+            border-bottom: 2px solid #E5E5E5;
+            height: 90px;
+        }
+
+        table.pip-data thead tr td[data-unit] {
+            position: relative;
+            width: 80px;
+        }
+
+        table.pip-data thead tr.title td:last-child {
+            width: 75px;
+        }
+
+        table.pip-data thead tr td[data-unit]:after {
+            content: attr(data-unit);
+            position: absolute;
+            top: 8px;
+            right: 6px;
+            color: #444;
+        }
+
+        table.pip-data tbody tr td:first-child {
+            line-height: 1.6em;
+        }
+
+        table.pip-data tbody td {
+            vertical-align: middle;
+        }
+
+        table.pip-data tbody tr td:nth-child(2),
+        table.pip-data tbody tr td:nth-child(17) {
+            text-align: center;
+        }
+
+        table.pip-data tbody tr.total td {
+            text-align: right;
+        }
+
+        table.pip-data tbody tr.total td {
+            background-color: #f9f9f9;
+            box-sizing: border-box;
+            color: #333;
+            font-weight: bold;
+            border-top: 2px solid #E5E5E5;
+            border-bottom: 2px solid #E5E5E5;
+        }
+
+        table.pip-data tbody tr td:last-child {
+            text-align: center;
+        }
+</style>

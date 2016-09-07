@@ -1,0 +1,42 @@
+﻿<style></style>
+
+<div style="padding: 0px 15px 15px;">
+    <div class="ec-panel">
+        <div class="col-md-12" style="text-align:center">
+
+            <ul class="nav nav-stacked" style="margin-bottom:10px">
+                <li class="stacked" style="background-color: #23be23; border: none; padding: 10px; color: #ffffff">Maturity Risk Matrix</li>
+            </ul>
+        </div>
+        <div class="clearfix"></div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="ec-panel">
+        <div class="col-md-12 no-padding" style="margin-top:20px;">
+            <ul class="nav nav-tabs">
+                <li class="active"><a href="#currentmatrix" id="" data-toggle="tab">View Current Matrix</a></li>
+                <li><a href="#editaddmatrix" data-toggle="tab" id="">Edit/Add Matrix</a></li>
+            </ul>
+            <div class="tab-content" style="padding-top:10px;">
+                <div class="tab-pane active" id="currentmatrix" style="overflow-y:auto;">
+                    <div class="col-md-12">
+                        <div class="grid" id="gridcurrentmatrix" style="margin-top:10px;" data-bind="kendoGrid: { data: model.bpmodel().sampleDataSimulationMaturityMatrix, columns: model.bpmodel().simulationColumnsMaturityMatrix, pageable: false, sortable: false, filterable: false, editable: false, scrollabel:false} ">
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane" id="editaddmatrix" style="overflow-y:auto;">
+                    <div class="col-md-12">
+                        <div class="grid" id="grideditmatrix" style="margin-top:10px;" data-bind="kendoGrid: { data: model.bpmodel().sampleDataSimulationMaturityMatrix, columns: model.bpmodel().simulationColumnsMaturityMatrix, pageable: false, sortable: false, filterable: false, editable: true, scrollabel:false} "></div>
+                    </div>
+                    <div class="clearfix"></div>
+                    <div class="col-md-12" style="text-align: right;margin-top:20px;">
+                        <button class="btn btn-primary btn-sm btn-custom" style="width:100px;">Submit</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+

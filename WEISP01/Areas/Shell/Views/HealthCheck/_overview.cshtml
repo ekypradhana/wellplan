@@ -1,0 +1,397 @@
+﻿@using ECIS.Client.WEIS
+@using ECIS.Core
+<script src="@Url.Content("~/Scripts/jquery.circliful.min.js")"></script>
+<link rel="stylesheet" href="@Url.Content("~/Content/jquery.circliful.css")" />
+
+
+<style>
+    .panel > .panel-heading {
+        font-size: 15px;
+        padding: 15px 20px 10px 20px;
+        border-radius: 0;
+        background-image: none;
+        background: #E6E7E8;
+        position: relative;
+        border-bottom: 1px solid #d0d0d0;
+        text-transform: uppercase;
+    }
+    .panel {
+        margin: 10px;
+        background: whitesmoke;
+        
+    }
+    .right-line {
+        border-right: solid 1px lightblue;
+    }
+
+    .header-pos {
+        font-family: 'Open Sans';
+        font-size: 20px;
+    }
+
+    .info-list {
+        margin: 20px 0 0 0;
+        padding: 0;
+    }
+
+        .info-list li {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            border-bottom: 1px dotted #e0e0e0;
+            margin-bottom: 15px;
+            padding: 5px 0;
+        }
+
+    .c-icon li {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .c-icon .c-db .c-icon-container {
+        background: #00A1FF;
+    }
+
+    .c-icon .c-db .c-icon-title {
+        background: #0065FF;
+    }
+
+    .c-icon .c-smtp .c-icon-container {
+        background: #9FF400;
+    }
+
+    .c-icon .c-smtp .c-icon-title {
+        background: #78B802;
+    }
+
+    .c-icon .c-proxy .c-icon-container {
+        background: #F28100;
+    }
+
+    .c-icon .c-proxy .c-icon-title {
+        background: #BF6702;
+    }
+
+    .c-icon .c-edm .c-icon-container {
+        background: #E900FF;
+    }
+
+    .c-icon .c-edm .c-icon-title {
+        background: #8E009C;
+    }
+
+    .c-icon .c-icon-container {
+        border: 0px solid #c0c0c0;
+        border-radius: 5px;
+        margin: 5px;
+        padding: 0px;
+        height: 140px;
+        background: #FFA500;
+    }
+
+    .c-icon .c-icon-content {
+        height: 100px;
+    }
+
+    .c-icon .c-icon-content-left {
+        height: 100%;
+        border-top-left-radius: 5px;
+        /* background: rgba(255,255,255,0.1); */
+        text-align: center;
+    }
+    .c-icon .c-icon-content-right {
+        font-size: 28px;
+        font-weight: bold;
+        color: #fff;
+        padding: 30px 0;
+        background: rgba(0,0,0,0.1);
+        text-align: center;
+    }
+
+    .c-icon .c-icon-title {
+        background: #FF8800;
+        padding-top: 12px;
+        color: #fff;
+        height: 40px;
+        border-bottom-left-radius: 5px;
+        border-bottom-right-radius: 5px;
+        margin-bottom: 0px;
+    }
+
+        .c-icon .c-icon-title h6 {
+            font-weight: bold;
+            font-size: 13px;
+            text-transform: uppercase;
+            margin: 0 0 3px 0;
+            padding: 0;
+            text-align: center;
+        }
+    .c-icon i {
+        color: #fff;
+        font-size: 60px;
+        margin-top: 20px;
+    }
+</style>
+
+<script>
+    
+    function MinimalizeStorage(size) {
+        var ret = "";
+        if (size < 1000)
+            ret = size.toFixed(2) + "";
+        else if (size < 1000000)
+            ret = (size / 1000).toFixed(2) + "KB";
+        else if (size < 1000000000)
+            ret = (size / 1000000).toFixed(2) + "MB";
+        else if (size < 1000000000000)
+            ret = (size / 1000000000).toFixed(2) + "GB";
+        else if (size < 1000000000000000)
+            ret = (size / 1000000000000).toFixed(2) + "TB";
+        return ret;
+    }
+
+    var ServerLog = ko.observable({
+        IsDatabaseUp: ko.observable(true)
+    });
+    model.hc = ko.observable(ko.mapping.fromJS(@MvcTools.Obj2HtmlStr(new OverviewHealthCheck())));
+</script>
+
+<div class="row" data-bind="with: model.hc">
+    <div class="panel">
+        <div class="panel-heading">
+            <span>
+                WEIS ENVIRONMENT OVERVIEW
+            </span>
+            @*<span style="text-align: right;">
+                <button class="btn btn-success"> <span class="glyphicon glyphicon-list"></span> Custom Check</button>
+            </span>*@
+        </div>
+        <div class="panel-body">
+            <div class="row">
+                <div class="col-md-12">
+                    <ul class="c-icon">
+                        <li class="col-md-3 col-xs-3 c-db">
+                            <div class="c-icon-container">
+                                <div class="c-icon-content">
+                                    <div class="col-md-6 col-xs-6 c-icon-content-left">
+                                        <i class="fa fa-arrow-up" data-bind="visible: isDBUp()"></i>
+                                        <i class="fa fa-arrow-down" data-bind="visible: !isDBUp()" style="display: none;"></i>
+                                    </div>
+                                    <div class="col-md-6 col-xs-6 c-icon-content-right">
+                                        <span data-bind="visible: isDBUp()">Up</span>
+                                        <span data-bind="visible: !isDBUp()">Down</span>
+                                    </div>
+                                </div>
+                                <div class="c-icon-title">
+                                    <h6>Database</h6>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="col-md-3 col-xs-3 c-smtp">
+                            <div class="c-icon-container">
+                                <div class="c-icon-content">
+                                    <div class="col-md-6 col-xs-6 c-icon-content-left">
+                                        <i class="fa fa-check-square-o" data-bind="visible: isSMTPUp()"></i>
+                                        <i class="fa fa-warning" data-bind="visible: !isSMTPUp()" style="display: none;"></i>
+                                    </div>
+                                    <div class="col-md-6 col-xs-6 c-icon-content-right">
+                                        <span data-bind="visible: isSMTPUp()">Yes</span>
+                                        <span data-bind="visible: !isSMTPUp()">No</span>
+                                    </div>
+                                </div>
+                                <div class="c-icon-title">
+                                    <h6>SMTP</h6>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="col-md-3 col-xs-3 c-proxy">
+                            <div class="c-icon-container">
+                                <div class="c-icon-content">
+                                    <div class="col-md-6 col-xs-6 c-icon-content-left">
+                                        <i class="fa fa-check-square-o" data-bind="visible: isPROXYUp()"></i>
+                                        <i class="fa fa-warning" data-bind="visible: !isPROXYUp()" style="display: none;"></i>
+                                    </div>
+                                    <div class="col-md-6 col-xs-6 c-icon-content-right">
+                                        <span data-bind="visible: isPROXYUp()">Yes</span>
+                                        <span data-bind="visible: !isPROXYUp()">No</span>
+                                    </div>
+                                </div>
+                                <div class="c-icon-title">
+                                    <h6>PROXY</h6>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="col-md-3 col-xs-3 c-edm">
+                            <div class="c-icon-container">
+                                <div class="c-icon-content">
+                                    <div class="col-md-6 col-xs-6 c-icon-content-left">
+                                        <i class="fa fa-check-square-o" data-bind="visible: isEDMUp()"></i>
+                                        <i class="fa fa-warning" data-bind="visible: !isEDMUp()" style="display: none;"></i>
+                                    </div>
+                                    <div class="col-md-6 col-xs-6 c-icon-content-right">
+                                        <span data-bind="visible: isEDMUp()">Yes</span>
+                                        <span data-bind="visible: !isEDMUp()">No</span>
+                                    </div>
+                                </div>
+                                <div class="c-icon-title">
+                                    <h6>EDM</h6>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="row">
+                @*<div class="col-md-4 right-line">
+                    <ul class="info-list">
+                        <li>
+                            <div class="row">
+                                <label class="col-md-6 col-xs-5">WebApp Size</label>
+                                <span class="col-md-6 col-xs-7" data-bind="text: DBSize"></span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="row">
+                                <label class="col-md-6 col-xs-5">DataBase Size</label>
+                                <span class="col-md-6 col-xs-7" data-bind="text: DBSize"></span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="row">
+                                <label class="col-md-6 col-xs-5">Total Physical Memory</label>
+                                <span class="col-md-6 col-xs-7" data-bind="text: TotalWebAppDriveStorage"></span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>*@
+                <div class="col-md-12">
+                    @*<span class="header-pos"> Disk Drive </span>*@
+                    <ul class="info-list">
+                        <li class="col-md-4" data-bind="with: WebAppDrive">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="WebAppDrive"></div>
+                                </div>
+                                <div class="col-md-9">
+                                    <div class="col-md-12 header-pos">
+                                        WebApp Drive
+                                    </div>
+                                    <div class="col-md-6">WebApp Folder Size</div>
+                                    <div class="col-md-6" data-bind="text: MinimalizeStorage($parent.WebAppSize())">0</div>
+                                    <div class="col-md-6">Available</div>
+                                    <div class="col-md-6" data-bind="text: MinimalizeStorage(Available())">0</div>
+                                    <div class="col-md-6">Used</div>
+                                    <div class="col-md-6" data-bind="text: MinimalizeStorage(Total() - Available())">0</div>
+                                    <div class="col-md-6">Total</div>
+                                    <div class="col-md-6" data-bind="text: MinimalizeStorage(Total())">0</div>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="col-md-4" data-bind="with: DBDrive">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="DBDrive"></div>
+                                </div>
+                                <div class="col-md-9">
+                                    <div class="col-md-12 header-pos">
+                                        Database Drive
+                                    </div>
+                                    <div class="col-md-6">Database Size</div>
+                                    <div class="col-md-6" data-bind="text: MinimalizeStorage($parent.DBSize())">0</div>
+                                    <div class="col-md-6">Available</div>
+                                    <div class="col-md-6" data-bind="text: MinimalizeStorage(Available())">0</div>
+                                    <div class="col-md-6">Used</div>
+                                    <div class="col-md-6" data-bind="text: MinimalizeStorage(Total() - Available())">0</div>
+                                    <div class="col-md-6">Total</div>
+                                    <div class="col-md-6" data-bind="text: MinimalizeStorage(Total())">0</div>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="col-md-4" data-bind="with: RAM">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="RAM"></div>
+                                </div>
+                                <div class="col-md-9">
+                                    <div class="col-md-12 header-pos">
+                                        Physical Memory
+                                    </div>
+                                    <div class="col-md-6">Available</div>
+                                    <div class="col-md-6" data-bind="text: MinimalizeStorage(Available())">0</div>
+                                    <div class="col-md-6">Used</div>
+                                    <div class="col-md-6" data-bind="text: MinimalizeStorage(Total() - Available())">0</div>
+                                    <div class="col-md-6">Total</div>
+                                    <div class="col-md-6" data-bind="text: MinimalizeStorage(Total())">0</div>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        Get();
+        //$(".ccl").each(function () {
+        //    $(this).html("");
+        //    $(this).circliful({
+        //        animationStep: 5,
+        //        foregroundBorderWidth: 30,
+        //        backgroundBorderWidth: 30,
+        //        percent: 75
+        //    });
+        //});
+    });
+
+    function Get() {
+        ajaxPost("@Url.Action("GetLatestConfig")", {},
+            function(ret) {
+                model.hc(ko.mapping.fromJS(ret.Data));
+                setTimeout(function () {
+                    var wd = model.hc().WebAppDrive;
+                    var pm = model.hc().PhisicalMemory;
+                    var db = model.hc().DBDrive;
+                    //wd.Total(wd.Total() + " Gb");
+                    //wd.Available(wd.Available() + " Gb");
+                    //pm.Total(pm.Total() + " Gb");
+                    //pm.Available(pm.Available() + " Gb");
+
+                    $(".WebAppDrive").each(function () {
+                        $(this).html("");
+                        $(this).circliful({
+                            animationStep: 5,
+                            foregroundBorderWidth: 30,
+                            backgroundBorderWidth: 30,
+                            percent: wd.Percentage()
+                        });
+                    });
+
+                    $(".DBDrive").each(function () {
+                        $(this).html("");
+                        $(this).circliful({
+                            animationStep: 5,
+                            foregroundBorderWidth: 30,
+                            backgroundBorderWidth: 30,
+                            percent: db.Percentage()
+                        });
+                    });
+
+                    $(".RAM").each(function () {
+                        $(this).html("");
+                        $(this).circliful({
+                            animationStep: 5,
+                            foregroundBorderWidth: 30,
+                            backgroundBorderWidth: 30,
+                            percent: wd.Percentage()
+                        });
+                    });
+                }, 100);
+            }
+        );
+    };
+</script>

@@ -1,0 +1,319 @@
+﻿<script>
+    model.bpmodel().simulationByWellColumns = [
+                            { field: "", title: "Delete", template: "<button class='btn-xs btn btn-danger btn-del-well' onclick='DeleteWell(\"#: SimulationId #\",\"#: WellName #\",\"#: RigName #\")' style=#: model.Locked()==false ? '' : 'display:none;' #>Delete</button>", width: 70, attributes: { style: 'text-align:center;' } },
+                            { field: "IsNew", title: "New", width: 60 },
+                            { field: "UARigSequenceId", title: "Rig Sequence ID", width: 150 },
+                            { field: "RigName", title: "RigName" ,width:150},
+                            { field: "WellName", title: "WellName", width: 200, template: "<a style='cursor:pointer' onclick='model.bpmodel().detailByWell(\"#=WellName#\",\"#=RigName#\",\"#=UARigSequenceId#\",\"#=SimulationId#\")'>#=WellName#</a>" },
+                            { field: "ExType", title: "Expense Type" },
+                            {
+                                title: "Simulation",
+                                columns: [
+                                    { field: "Simulation.Start", title: "Start", template: "#=moment(Simulation.Start).format('DD-MMM-YYYY') #", width: 100 },
+                                    { field: "Simulation.Finish", title: "Finish", template: "#=moment(Simulation.Finish).format('DD-MMM-YYYY') #", width: 100 },
+                                    { field: "Simulation.Days", title: "Days", format: "{0:N0}", attributes: { style: 'text-align:right;' }, width: 100 },
+                                    { field: "Simulation.Cost", title: "Cost", format: "{0:N2}", attributes: { style: 'text-align:right;' }, width: 100 }
+                                ]
+                            },
+                            {
+                                title: "Current OP",
+                                columns: [
+                                    { field: "OP.Days", title: "Days", format: "{0:N0}", attributes: { style: 'text-align:right;' }, width: 100 },
+                                    { field: "OP.Cost", title: "Cost", format: "{0:N2}", attributes: { style: 'text-align:right;' }, width: 100 }
+                                ]
+                            },
+                            {
+                                title: "Current LS",
+                                columns: [
+                                    { field: "LS.Days", title: "Days", format: "{0:N0}", attributes: { style: 'text-align:right;' }, width: 100 },
+                                    { field: "LS.Cost", title: "Cost", format: "{0:N2}", attributes: { style: 'text-align:right;' }, width: 100 }
+                                ]
+                            },
+                            {
+                                title: "LE",
+                                columns: [
+                                    { field: "LE.Days", title: "Days", format: "{0:N0}", attributes: { style: 'text-align:right;' }, width: 100 },
+                                    { field: "LE.Cost", title: "Cost", format: "{0:N2}", attributes: { style: 'text-align:right;' }, width: 100 }
+                                ]
+                            }
+    ];
+    model.bpmodel().sampleDataByWellSimulation = [
+            { isNew: "", RigName: "Brutus", WellName: "Brutus All ST12", ExpenseType: "OPEX", Simulation: { Start: "2-Apr-2016", Days: "65", Cost: "123" }, CurrentLS: { Days: 123, Cost: 43.2 }, LE: { Days: 43, Cost: 42 }, CurrentOP: { Days: 123, Cost: 43.2 } },
+            { isNew: "", RigName: "Brutus", WellName: "Brutus All ST34", ExpenseType: "CAPEX", Simulation: { Start: "2-May-2016", Days: "65", Cost: "123" }, CurrentLS: { Days: 123, Cost: 43.2 }, LE: { Days: 43, Cost: 42 }, CurrentOP: { Days: 123, Cost: 43.2 } },
+            { isNew: "Yes", RigName: "Auger", WellName: "Auger A15", ExpenseType: "OPEX", Simulation: { Start: "2-June-2016", Days: "65", Cost: "123" }, CurrentLS: { Days: 123, Cost: 43.2 }, LE: { Days: 43, Cost: 42 }, CurrentOP: { Days: 123, Cost: 43.2 } },
+    ];
+    function SelectData(id) {
+        var param = model.filterdetail();
+        var url = "@Url.Action("GetWellActivity")";
+        model.IsProcessing(true);
+        ajaxPost(url, {id:id,param:param},
+            function (data) {
+                
+                model.IsProcessing(false);
+                RenderGrid(data.Data);
+                if (data.Data.length > 0) {
+                    //model.SimulationWellName(data.Data[0].WellName);
+                   
+                }
+            },
+            function (err) {
+                alert(err.responseText)
+            }
+        );
+    }
+
+    function DeleteWell(SimulationId, WellName, RigName) {
+        //console.log(id);
+        var conf = confirm("Are you sure you want to delete this well?");
+        if (conf) {
+            var param = { SimulationId: SimulationId, WellName: WellName, RigName: RigName };
+            var url = "@Url.Action("DeleteWellActivity")";
+            model.IsProcessing(true);
+            ajaxPost(url, param,
+                function (data) {
+                    if (data.Result == "OK") {
+                        alert("Data successfully deleted!");
+                        SelectData(model.SimulationId());
+                    } else {
+                        alert(data.Message);
+                    }
+                    model.IsProcessing(false);
+                },
+                function (err) {
+                    alert(err.responseText)
+                }
+            );
+        }
+    }
+
+    function RenderGrid(data) {
+        var $grid = $("#gridByWell");
+        for (var i = 0; i < data.length; i++) {
+            SimulationStart = jsonDateStr(data[i].Simulation.Start);
+            //console.log("simulation start:",SimulationStart);
+        }
+        var source = new kendo.data.DataSource({
+            pageSize: 10,
+            data: data 
+        });
+
+        $grid.kendoGrid({
+            dataSource: source,
+            pageable: {
+                //pageSizes: true,
+                buttonCount: 10
+            },
+            navigatable: true,
+            editable: false,
+            //toolbar: ["create", "cancel"],
+            sortable: true,
+            filterable: false,
+            columns: model.bpmodel().simulationByWellColumns
+        });
+    }
+
+    function enable(id) {
+        if (id.checked == 1) {
+            $("#rigText").removeClass("hidden");
+            $("#rigDdrop").hide();
+            $("#rigText").show();
+        } else {
+            $("#rigText").hide();
+            $("#rigDdrop").show();
+        }
+    }
+    //if (model.Locked) {
+    //    document.getElementById("addwell").disabled = true;
+    //} else {
+    //    document.getElementById("addwell").disabled = false;
+    //}
+   
+</script>
+
+<div class="ec-toolbar">
+    <div class="col-md-3">
+        <div class="col-md-4 row">
+            <label>Well Name :</label>
+        </div>
+        <div class="col-md-8 row">
+            <input type="text" class="text search" style="width:200px;" data-bind="kendoMultiSelect:{data:model.bpmodel().WellName,value:filterdetail}" />
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <button class="btn btn-primary btn-sm btn-custom" data-bind="" onclick="SelectData(model.SimulationId())">
+            <span class="glyphicon glyphicon-refresh"></span> Refresh
+        </button>
+        <button class="btn btn-success btn-sm btn-custom" onclick="add()" id="addwell">
+            <span class="glyphicon glyphicon-plus"></span> Add Well
+        </button>
+    </div>
+
+    <div class="clearfix"></div>
+</div>
+
+<div class="modal fade" id="modal-add-well" tabindex="-1" role="dialog" aria-hidden="true">
+    <div data-bind="with:bpmodel" class="col-md-12" style="margin-top:10px;">
+        <div class="modal-dialog" style="width: 800px;">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <h3 class="modal-title" style="font-size: 16px; font-weight: bold;">Add Well</h3>
+                </div>
+
+                <div id="formAddWell" class="modal-body">
+                    <div class="row" style="margin-top:15px;">
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>New:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input id="isnew" name="isnew" type="checkbox" onchange="enable(this)" data-bind="checked:isNew" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>Rig Name:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="text" name="RigName" data-bind="kendoDropDownList:{data:RigName,value:RigNameVal,optionLabel: 'Select Rig Name'}" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row" style="margin-top:10px;">
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>Well Name:</label>
+                            </div>
+                            <div class="col-md-8" id="rigDdrop">
+                                <input type="text" data-bind="kendoDropDownList:{data:WellName,value:WellNameVal,optionLabel: 'Select WellName'}" style="width:230px" />
+                            </div>
+                            <div class="col-md-8 hidden" id="rigText">
+                                <input type="text" data-bind="value:WellNameVal" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>Expense Type:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="text" data-bind="kendoDropDownList:{data:['EXPEX','APEX','CAPEX', 'OPEX'],value:ExType,optionLabel: 'Select Expense Type'}" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row" style="margin-top:10px;">
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>Activity Type:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="text" data-bind="kendoDropDownList:{data:model.bpmodel().ActivityType(),value:ActivityTypeVal,optionLabel: 'Select Activity Type'}" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>Simulation Start:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="number" data-bind="kendoDatePicker:{value:SimulationStart,format:'dd-MMM-yyyy'}" />
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="row" style="margin-top:10px;">
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>Simulation Days:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="number" data-bind="kendoNumericTextBox:{value:SimulationDays,format: 'N0'}" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>Simulation Cost:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="number" data-bind="kendoNumericTextBox:{value:SimulationCost,format: 'N0'}" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row" style="margin-top:10px;">
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>Current OP Days:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="number" data-bind="kendoNumericTextBox:{value:OPDays, format:'N0'}" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>Current OP Cost:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="number" data-bind="kendoNumericTextBox:{value:OPCost, format:'N0'}" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row" style="margin-top:10px;">
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>Current LS Days:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="number" data-bind="kendoNumericTextBox:{value:LSDays, format:'N0'}" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>Current LS Cost:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="number" data-bind="kendoNumericTextBox:{value:LSCost, format:'N0'}" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row" style="margin-top:10px;">
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>LE Days:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="number" data-bind="kendoNumericTextBox:{value:LEDays, format:'N0'}" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="col-md-4 text-right">
+                                <label>LE Cost:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="number" data-bind="kendoNumericTextBox:{value:LECost, format:'N0'}" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    @*<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>*@
+                    <button type="button" class="btn btn-primary" onclick="SaveWell()">Save changes</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+        
+    </div>
+
+<div class="col-md-12 no-padding" style="margin-top:10px;">
+    <div class="grid" id="gridByWell"></div>
+</div>

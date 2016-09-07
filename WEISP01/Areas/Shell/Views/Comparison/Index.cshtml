@@ -1,0 +1,17 @@
+﻿@{
+    ViewBag.Title = "Cross Comparison";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@Html.Partial("Comparison")
+
+<script>
+    model.PageId("Cross Comparison");
+
+    $(function () {
+        setTimeout(function () {
+            model.Comparison.Run();
+            model.Comparison.Visibility.Header(false);
+        }, 1000);
+    });
+</script>

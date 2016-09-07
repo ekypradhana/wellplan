@@ -1,0 +1,579 @@
+﻿@using ECIS.Core
+@using Newtonsoft.Json;
+@using System.Collections.Generic;
+
+<style>
+    .form { width: 500px; }
+    .block form { margin-left: 100px; }
+    .block { float: left; }
+    .block .col-md-12 { margin-bottom: 4px; }
+    .form .col-md-4 { text-align: right; padding-top: 4px; padding-right: 0px; }
+    .block .col-md-8 { padding-left: 5px; }
+    .block .col-md-8 input[type=text] { height: auto; padding: 5px 7px; line-height: inherit; }
+
+    .moveable.from:before { content: "Click / drag item from here"; }
+    .moveable.to:before { content: "Click / drop item in here"; }
+    .moveable:before { text-align: center; font-size: 16px; color: #DFDFDF; height: 22px; position: absolute; top: 50%; left: 0px; right: 0px; margin-top: -11px; z-index: -1; }
+    .moveable { position: relative; float: left; width: 227px; border: 1px solid rgb(221, 221, 221); }
+    .moveable.from { margin-right: 53px !important; width: 190px; text-align: right; min-height: 300px; }
+    .moveable.to ul { max-height: 195px !important; }
+    .moveable ul { list-style: none; margin: 0px; padding: 4px 8px; min-height: 100px; z-index: 1; padding-bottom: 10px; overflow-y: auto; max-height: 300px; }
+    .moveable ul li { cursor: pointer;  }
+    .moveable ul li:hover { font-weight: bold; }
+    .moveable.from:after { content: "Available Fields:"; text-align: left; margin-left: 0px; position: absolute; z-index: 1; top: -18px; font-size: 12px; color: black; left: 0px; }
+    .query-raw-container { position: relative; float: left; width: 227px; }
+    .query-raw-container label { position: absolute; left: -38px; top: 8px; font-weight: normal; }
+    .query-raw-container textarea { width: 100%; min-height: 100px; margin-top: 4px; border: 1px solid rgb(221, 221, 221); }
+</style>
+
+<script>
+    model.IsMiniProcessing = ko.observable(false);
+    model.Tables = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("TablesAndFields").Select(d => d.GetString("_id")).OrderBy(d => d))));
+    model.FieldVisibility = ko.observable(false);
+    model.DetailTemplate = { _id: -1, Name: "", CollectioName: "", OutputPath: "", Query: "", Fields: [] };
+    model.Detail = ko.mapping.fromJS(model.DetailTemplate);
+    model.FieldsTemplate = ko.observableArray([]);
+    model.isRO = ko.observable('@ViewBag.isRO');
+
+
+    model.Insert = function () {
+        ko.mapping.fromJS(model.DetailTemplate, model.Detail);
+        model.FieldVisibility(false);
+        model.Mode("Insert");
+        model.FieldsTemplate([]);
+        $(".qcontainer").find(".qcontent:eq(0)").html("");
+    };
+
+    model.ChangeFields = function (e) {
+        model.Detail.Fields([]);
+        model.Detail.Query("");
+        model.SelectField(this.value());
+        $(".qcontainer").find(".qcontent:eq(0)").html("");
+    };
+
+    model.SelectField = function (tableName, callback) {
+        var url = "@Url.Action("GetFields", "Export")";
+        var param = { TableName: tableName };
+
+        if (param.TableName == "") return;
+
+        model.FieldVisibility(false);
+
+        ajaxPost(url, param, function (res) {
+            model.FieldsTemplate(res.Data);
+            $(".moveable").each(function (i, e) { $(e).find("ul").text(""); });
+
+            var $container = $(".moveable.from").find("ul");
+            for (var i in res.Data) {
+                if (res.Data.hasOwnProperty(i)) {
+                    $("<li></li>", { text: res.Data[i], "data-id": res.Data[i] }).appendTo($container);
+                }
+            }
+
+            if (typeof callback !== "undefined") callback();
+
+            model.FieldVisibility(true);
+        }, function (res) {
+            model.FieldVisibility(true);
+            alert("Error occured when fetching fields");
+        });
+
+    };
+
+    model.ValidateRawData = function (raw) {
+        var data = {};
+
+        for (var i in raw) {
+            if (model.DetailTemplate.hasOwnProperty(i)) {
+                data[i] = raw[i];
+            }
+        }
+
+        return data;
+    }
+
+    model.Edit = function (id) {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        var url = "@Url.Action("Detail", "Export")";
+        var param = { id: id };
+        
+        ajaxPost(url, param, function (res) {
+            var data = model.ValidateRawData(res);
+
+            model.SelectField(data.CollectioName, function () {
+                var $from = $(".moveable.from ul");
+                var $to = $(".moveable.to ul");
+
+                for (var i in data.Fields) {
+                    $from.find("[data-id='" + data.Fields[i] + "']")
+                        .remove()
+                        .appendTo($to);
+                }
+            });
+            setTimeout(function () {
+                try {
+                    var raw = JSON.parse(data.Query);
+                    model.RevParseQuery(raw);
+                } catch (err) {
+
+                }
+
+                ko.mapping.fromJS(data, model.Detail);
+
+                model.Mode("Insert");
+                model.IsProcessing(false);
+            }, 500);
+        }, function () {
+            model.IsProcessing(false);
+            alert("Error occured when try to edit data");
+        });
+    };
+
+    model.Preview = function (e) {
+        var $form = $(".form form");
+        $form.kendoValidator();
+
+        if (!$form.data("kendoValidator").validate()) {
+            return;
+        }
+
+        if (model.Detail._id() <= 0) {
+            alert("You need to save first to preview");
+            return;
+        }
+        if (model.IsMiniProcessing()) return;
+        model.IsMiniProcessing(true);
+
+        $("#modal-preview").modal("show");
+
+        var url = "@Url.Action("Save", "Export")";
+        var param = ko.mapping.toJS(model.Detail);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result === "NOK") {
+                model.IsProcessing(true);
+                alert("Error occured when saving data");
+                return;
+            }
+
+            ko.mapping.fromJS(model.ValidateRawData(res.Data), model.Detail);
+
+            url = "@Url.Action("Preview", "Export")";
+            param = { id: model.Detail._id() };
+
+            ajaxPost(url, param, function (res) {
+                var $grid = $("<div />");
+
+                $grid.appendTo($(".grid-preview-container").html(""));
+                console.log(res.Data);
+                try { $grid.kendoGrid({ title: model.Detail.Name(), columns: res.Columns, dataSource: { data: res.Data } }); } catch (err) { }
+                model.IsMiniProcessing(false);
+            }, function () {
+                alert("Error occured when previewing data");
+                model.IsMiniProcessing(false);
+            });
+        }, function () {
+            alert("Error occured when previewing data");
+            model.IsMiniProcessing(false);
+        });
+    };
+
+    model.Back = function () {
+        ko.mapping.fromJS(model.DetailTemplate, model.Detail);
+        model.Mode('');
+        model.RefreshGrid();
+    }
+
+    model.Save = function (e) {
+        var $form = $(".form form");
+        $form.kendoValidator();
+
+        if (!$form.data("kendoValidator").validate()) {
+            return;
+        }
+
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+
+        var url = "@Url.Action("Save", "Export")";
+        var param = ko.mapping.toJS(model.Detail);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result === "NOK") {
+                model.IsProcessing(true);
+                alert("Error occured when saving data");
+                return;
+            }
+
+            ko.mapping.fromJS(model.ValidateRawData(res.Data), model.Detail);
+            model.IsProcessing(false);
+            alert("Saved!");
+        }, function () {
+            alert("Error occured when saving data");
+            model.IsProcessing(false);
+        });
+    };
+
+    model.parseQuery = function () {
+        var parse = function ($qwindow) {
+            var parent = {};
+
+            if (typeof $qwindow === "undefined")
+                $qwindow = $(".qcontainer").find(".qwindow:first");
+
+            var gate = $qwindow.find("select.label-title:first").data("kendoDropDownList").value();
+            var values = [];
+
+            var $qcontents = $qwindow.find(".qcontent:first").children();
+
+            if ($qcontents.length == 0)
+                return parent;
+
+            $qcontents.each(function (i, e) {
+                if ($(e).hasClass("qitem")) {
+                    var key = $(e).find("select.field").data("kendoDropDownList").value();
+                    var operand = $(e).find("select.operand").data("kendoDropDownList").value();
+                    var value = $(e).find(".value").val();
+
+                    var item = {};
+                    item[key] = {};
+
+                    if (operand === "like") {
+                        item[key]["$regex"] = ".*" + String(value).toLowerCase() + ".*";
+                    } else {
+                        item[key]["$" + operand] = value;
+                    }
+
+                    values.push(item);
+                } else {
+                    values.push((parse($(e))));
+                }
+            });
+
+            parent["$" + gate.toLowerCase()] = values;
+
+            return parent;
+        };
+
+        model.Detail.Query(JSON.stringify(parse()));
+    };
+
+    model.RevParseQuery = function (raw, $qwindow) {
+        if (typeof $qwindow === "undefined") {
+            $qwindow = $(".qcontainer > .qwindow:first");
+            $qwindow.find(".qcontent:first").html("");
+        }
+
+        for (var i in raw) {
+            if (raw.hasOwnProperty(i)) {
+                $qwindow.find("select.label-title").data("kendoDropDownList").value(String(i).replace("$", "").toUpperCase());
+
+                for (var j in raw[i]) {
+                    if (raw[i].hasOwnProperty(j)) {
+
+                        for (var k in raw[i][j]) {
+                            if (raw[i][j].hasOwnProperty(k)) {
+                                var field = k;
+                                var operand = "";
+                                var value = "";
+
+                                if (["or", "and"].indexOf(String(k).toLowerCase().replace("$", "")) > -1) {
+                                    var $newQWindow = $($("#qcontainer-template").html());
+                                    $newQWindow.appendTo($qwindow.find("> .qcontent"));
+                                    $newQWindow.find("select.label-title").kendoDropDownList();
+                                    model.RevParseQuery(raw[i][j], $newQWindow);
+                                } else {
+                                    $qwindow.find(".btn-add-item").trigger("click");
+                                    var $currentItem = $qwindow.find("> .qcontent").find(".qitem:last");
+
+                                    for (var l in raw[i][j][k]) {
+                                        if (raw[i][j][k].hasOwnProperty(l)) {
+                                            operand = String(l).replace("$", "");
+                                            value = raw[i][j][k][l];
+                                            break;
+                                        }
+                                    }
+
+                                    $currentItem.find("select.field").data("kendoDropDownList").value(field);
+                                    $currentItem.find("select.operand").data("kendoDropDownList").value(operand);
+                                    $currentItem.find("input.value").val(value);
+                                }
+
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    $(function () {
+        function updateAndSort() {
+            model.Detail.Fields([]);
+            $(".moveable.to").find("li").each(function (i, e) {
+                model.Detail.Fields.push($(e).attr("data-id"));
+            })
+        }
+
+        $(".moveable").droppable({
+            drop: function (event, ui) {
+                var isFromTo = !$(this).hasClass("from");
+
+                var $from = (isFromTo ? $(".moveable.from") : $(".moveable.to"));
+                var $to = (!isFromTo ? $(".moveable.from") : $(".moveable.to"));
+
+                var $draggedItem = $from.find("[data-id='" + ui.draggable.attr("data-id") + "']");
+                if ($draggedItem.size() == 0) return;
+
+                $draggedItem.remove();
+                $("<li></li>", { text: ui.draggable.html(), "data-id": ui.draggable.attr("data-id") }).appendTo($to.find("ul"));
+
+                updateAndSort();
+            }
+        }).sortable({
+            items: "li:not(.placeholder)",
+            sort: function () {
+                $(this).removeClass("ui-state-default");
+            },
+            update: function () {
+                updateAndSort();
+            }
+        });
+
+        $(".moveable").on("click", "li", function () {
+            var isFromTo = $(this).closest(".moveable").hasClass("from");
+
+            var $from = (isFromTo ? $(".moveable.from") : $(".moveable.to"));
+            var $to = (!isFromTo ? $(".moveable.from") : $(".moveable.to"));
+
+            var $draggedItem = $from.find("[data-id='" + $(this).attr("data-id") + "']");
+            $draggedItem.remove();
+            $("<li></li>", { text: $(this).html(), "data-id": $(this).attr("data-id") }).appendTo($to.find("ul"));
+
+            updateAndSort();
+        });
+
+        var $qwindow = $($("#qcontainer-template").html());
+        $qwindow.appendTo($(".qcontainer"));
+        $qwindow.find("select.label-title").kendoDropDownList({ value: "AND", change: function () { model.parseQuery(); } });
+
+        $(".qcontainer").on("click", ".btn-custom", function () {
+            if ($(this).hasClass("btn-remove-block")) {
+                $(this).closest(".qwindow").remove();
+                model.parseQuery();
+                return;
+            }
+
+            if ($(this).hasClass("btn-add-item")) {
+                var $qwindow = $(this).parent().next().find(".qwindow:eq(0)");
+                var $template = $($("#qitem-template").html());
+
+                if ($qwindow.size() > 0) {
+                    $template.insertBefore($qwindow);
+                } else {
+                    $template.appendTo($(this).parent().next());
+                }
+
+                $template.find(".operand").kendoDropDownList({
+                    placeholder: "Select one",
+                    change: function () { model.parseQuery(); }
+                });
+                $template.find(".field").kendoDropDownList({
+                    placeholder: "Select one",
+                    dataSource: { data: model.FieldsTemplate() },
+                    change: function () { model.parseQuery(); }
+                });
+
+                model.parseQuery();
+                return;
+            }
+
+            if ($(this).hasClass("btn-remove-item")) {
+                $(this).closest(".qitem").remove();
+                model.parseQuery();
+                return;
+            }
+
+            var isOR = $(this).hasClass("btn-add-block-or");
+
+            var $qwindow = $($("#qcontainer-template").html());
+            $qwindow.appendTo($(this).parent().next());
+            $qwindow.find("select.label-title").kendoDropDownList({ value: (isOR ? "OR" : "AND") });
+
+            model.parseQuery();
+        });
+
+        $(".qcontainer").on("keyup", ".value", function () {
+            model.parseQuery();
+        });
+    });
+</script>
+
+<div class="col-md-12" data-bind="with: Detail, visible: model.Mode() == 'Insert'">
+    <div class="col-md-12" style="margin-bottom: 30px; margin-left: 228px;">
+        <button class="btn btn-sm btn-custom btn-warning" onclick="model.Back();">
+            <span class="glyphicon glyphicon-arrow-left"></span> Back to List
+        </button>
+        &nbsp;
+        <button class="btn btn-sm btn-custom btn-primary" onclick="model.Save();" data-bind="visible:!model.isRO()=='1'">
+            <span class="glyphicon glyphicon-ok"></span> Save
+        </button>
+        <button class="btn btn-sm btn-custom btn-primary" onclick="model.Preview();">
+            <span class="glyphicon glyphicon-eye-open"></span> Preview
+        </button>
+    </div>
+
+    <div class="clearfix"></div>
+
+    <div class="block form">
+        <form>
+            <div class="col-md-12">
+                <div class="col-md-4">
+                    Title:
+                </div>
+                <div class="col-md-8">
+                    <input style="width: 100%;" name="name" type="text" placeholder="Type title here ..."
+                           data-bind="value: Name" required data-required-msg="Name cannot be empty" />
+                    <span class="k-invalid-msg" data-for="name"></span>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-4">
+                    Path (opt):
+                </div>
+                <div class="col-md-8">
+                    <input style="width: 100%;" type="text" placeholder="Type output path here ..." data-bind="value: OutputPath" />
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12">
+                <div class="col-md-4">
+                    Table:
+                </div>
+                <div class="col-md-8">
+                    <select style="width: 100%;" required data-required-msg="Table cannot be empty" name="table"
+                            data-bind="kendoDropDownList: { data: $root.Tables, value: CollectioName, optionLabel: 'Select one', change: $root.ChangeFields }"></select>
+                    <span class="k-invalid-msg" data-for="table"></span>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="clearfix"></div>
+        </form>
+        <div style="position: relative; margin-bottom: 4px;" data-bind="visible: $root.FieldVisibility">
+            <div style="left: 207px; position: absolute; top: 4px;">Fields:</div>
+            <div class="from moveable" style="margin-right: 16px;">
+                <ul></ul>
+            </div>
+            <div class="to moveable">
+                <ul></ul>
+            </div>
+            <div class="query-raw-container">
+                <label>Query:</label>
+                <textarea style="width: 100%; min-height: 100px" class="query-raw" data-bind="value: Query, enable: false"></textarea>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+
+    <div class="block qcontainer" data-bind="visible: $root.FieldVisibility">
+        <div class="qtitle">Query Builder:</div>
+    </div>
+
+    <div class="clearfix"></div>
+</div>
+
+<script type="text/template" id="qcontainer-template">
+    <div class="qwindow">
+        <div class="qcontrol left">
+            <select class="label-title" style="width: 70px;">
+                <option value="AND">AND</option>
+                <option value="OR">OR</option>
+            </select>
+        </div>
+        <div class="qcontrol right">
+            <button class="btn btn-custom btn-success btn-xs btn-add-block-and" title="Add new 'AND' block">
+                <span class="glyphicon glyphicon-plus"></span> AND
+            </button>
+            <button class="btn btn-custom btn-success btn-xs btn-add-block-or" title="Add new 'OR' block">
+                <span class="glyphicon glyphicon-plus"></span> OR
+            </button>
+            <button class="btn btn-custom btn-primary btn-xs btn-add-item" title="Add new condition">
+                <span class="glyphicon glyphicon-plus"></span>
+            </button>
+            <button class="btn btn-custom btn-danger btn-xs btn-remove-block" title="Remove current block">
+                <span class="glyphicon glyphicon-remove"></span>
+            </button>
+        </div>
+        <div class="qcontent"></div>
+    </div>
+</script>
+
+<script type="text/template" id="qitem-template">
+    <div class="qitem">
+        <div class="col-md-4">
+            <select class="field" style="width: 100%"></select>
+        </div>
+        <div class="col-md-4">
+            <select class="operand" style="width: 100%">
+                <option value="eq">Equals</option>
+                <option value="ne">Not Equals</option>
+                <option value="gt">Greater Than</option>
+                <option value="gte">Greater Than / Equals</option>
+                <option value="lt">Lower Than</option>
+                <option value="lte">Lower Than / Equals</option>
+                <option value="like">Like</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <input type="text" style="width: 100%" class="value" placeholder="Type value here ..." />
+        </div>
+        <div class="col-md-1" style="padding-top: 2px; padding-left: 0px;">
+            <button class="btn btn-custom btn-danger btn-xs btn-remove-item" title="Remove current block">
+                <span class="glyphicon glyphicon-remove"></span>
+            </button>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+</script>
+
+<div class="modal fade myModal" id="modal-preview" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                <h4 class="modal-title" id="myModalLabel">Preview</h4>
+            </div>
+            <div class="modal-body">
+                <h6>Preview <span data-bind="text: model.Detail.Name()"></span> using 10 Data.</h6>
+                <div data-bind="visible: model.IsMiniProcessing()">
+                    @Html.Partial("_processing")
+                </div>
+                <div class="grid-preview-container" data-bind="visible: !model.IsMiniProcessing()"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .qcontainer { width: 600px; position: relative; }
+    .qcontainer > .qwindow > .qcontrol.right .btn-danger { display: none; }
+    .qcontainer .qtitle { padding-top: 4px; height: 22px; }
+    .qcontainer.invalid { opacity: 0.4; pointer-events: none; }
+    .qcontainer.invalid:after { content: "Invalid Query!"; position: absolute; z-index: 1; top: 50%; height: 46px; text-align: center; margin-top: -12px; left: 0px; right: 0px; font-size: 30px; color: #CBCBCB; }
+    .qwindow { border: 1px solid rgb(221, 221, 221); padding: 5px; width: 100%; height: 100%; padding: 5px; position: relative; margin-bottom: 5px; }
+    .qwindow .qcontrol { width: 320px; position: absolute; top: 5px; }
+    .qwindow .qcontrol.right { text-align: right; right: 5px; top: 7px; }
+    .qwindow .qcontrol.left { text-align: left; left: 5px; }
+    .qwindow .label-title { font-weight: bold; }
+    .qcontent { min-height: 60px; padding-top: 32px; }
+    .qcontent > .qwindow:last-child { margin-bottom: 0px !important; }
+    .qitem { margin-bottom: 4px; }
+    .qitem .value { height: auto; line-height: inherit; padding: 5px 7px; }
+</style>

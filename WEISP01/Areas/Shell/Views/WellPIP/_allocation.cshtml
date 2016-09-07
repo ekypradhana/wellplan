@@ -1,0 +1,479 @@
+﻿@using Newtonsoft.Json
+@using ECIS.Core
+@using ECIS.Client.WEIS
+
+<script>
+    model.allocation = ko.observable({
+        idea: ko.observable(""),
+        ElementId: ko.observable(),
+        dpi: ko.observable(),
+        dpr: ko.observable(),
+        cpi: ko.observable(),
+        cpr: ko.observable(),
+        led: ko.observable(),
+        lec: ko.observable(),
+        dpi_total: ko.observable(),
+        dpr_total: ko.observable(),
+        cpi_total: ko.observable(),
+        cpr_total: ko.observable(),
+        led_total: ko.observable(),
+        lec_total: ko.observable(),
+        dpi_diff: ko.observable(),
+        dpr_diff: ko.observable(),
+        cpi_diff: ko.observable(),
+        cpr_diff: ko.observable(),
+        led_diff: ko.observable(),
+        lec_diff: ko.observable(),
+        monthdiff: ko.observable(),
+        PeriodStart: ko.observable(),
+        PeriodFinish: ko.observable(),
+        DataReset: ko.observable(""),
+        DataChanged: ({
+            dpi: ko.observable(false),
+            dpr: ko.observable(false),
+            cpi: ko.observable(false),
+            cpr: ko.observable(false),
+            LEDays: ko.observable(false),
+            LECost: ko.observable(false),
+        }),
+        DataOri: ({
+            dpi: ko.observableArray([]),
+            dpr: ko.observableArray([]),
+            cpi: ko.observableArray([]),
+            cpr: ko.observableArray([]),
+            LEDays: ko.observableArray([]),
+            LECost: ko.observableArray([])
+        }),
+    });
+
+    function asFloat(number, floatingPoint) {
+        floatingPoint = (typeof floatingPoint === "undefined" ? 2 : floatingPoint);
+        return kendo.format("{0:N" + floatingPoint + "}", number);
+    }
+
+    function buildFieldAllocation(trAppend, name, i, value) {
+        var x = model.uimodel();
+        if (name.indexOf("le") > -1) {
+            if (!x.isWAUExist()) {
+                return (trAppend + "<td><input disabled='disabled' style='width:70px;text-align:right' id='" + name + "_" + i + "' value='" + asFloat(value) + "'></td>");
+            } else {
+                return (trAppend + "<td><input type='number' name='" + name + "' step='any' onkeyup='count_total(\"" + name + "\"," + i + ")' onchange='count_total(\"" + name + "\"," + i + ")' style='width:70px;text-align:right' id='" + name + "_" + i + "' value='" + asFloat(value) + "'></td>");
+            }
+        } else {
+            return (trAppend + "<td><input type='number' name='" + name + "' step='any' onkeyup='count_total(\"" + name + "\"," + i + ")' onchange='count_total(\"" + name + "\"," + i + ")' style='width:70px;text-align:right' id='" + name + "_" + i + "' value='" + asFloat(value) + "'></td>");
+        }
+    }
+
+    model.uimodel().openAllocationModal = function (ElementId, idea, PeriodStart, PeriodFinish, DaysPlanImprovement, DaysPlanRisk, CostPlanImprovement, CostPlanRisk, LEDays, LECost) {
+
+        $("#myModal").modal('show');
+        var x = model.allocation();
+
+        x.DataChanged.dpi(false);
+        x.DataChanged.dpr(false);
+        x.DataChanged.cpi(false);
+        x.DataChanged.cpr(false);
+        x.DataChanged.LEDays(false);
+        x.DataChanged.LECost(false);
+        x.DataOri.dpi([]);
+        x.DataOri.dpr([]);
+        x.DataOri.cpi([]);
+        x.DataOri.cpr([]);
+        x.DataOri.LEDays([]);
+        x.DataOri.LECost([]);
+
+
+        model.uimodel().processing(true);
+
+        x.idea(idea);
+        x.ElementId(ElementId);
+        x.PeriodStart(PeriodStart);
+        x.PeriodFinish(PeriodFinish);
+
+        x.dpi(asFloat(DaysPlanImprovement));
+        x.dpr(asFloat(DaysPlanRisk));
+        x.cpi(asFloat(CostPlanImprovement));
+        x.cpr(asFloat(CostPlanRisk));
+        x.led(asFloat(LEDays));
+        x.lec(asFloat(LECost));
+
+        x.dpi_total(0.0);
+        x.dpr_total(0.0);
+        x.cpi_total(0.0);
+        x.cpr_total(0.0);
+        x.led_total(0.0);
+        x.lec_total(0.0);
+
+        var PIPId = model.uimodel().selectedPIPId();
+        var data = [];
+        var trAppend = "";
+
+        ajaxPost("@Url.Action("GetDataAllocation")", { PIPId: PIPId, ElementId: ElementId },
+        function (data) {
+        if (data.Success == true) {
+            var diff = data.monthDiff;
+            x.monthdiff(diff);
+
+            var DPI = (DaysPlanImprovement / diff).toFixed(3);
+            var DPR = (DaysPlanRisk / diff).toFixed(3);
+            var CPI = (CostPlanImprovement / diff).toFixed(3);
+            var CPR = (CostPlanRisk / diff).toFixed(3);
+
+            model.uimodel().processing(false);
+            dataAllocation = data.Data;
+            
+            var eachTotal = {
+                dpi: 0.0,
+                dpr: 0.0,
+                cpi: 0.0,
+                cpr: 0.0,
+                led: 0.0,
+                lec: 0.0
+            };
+
+            var i = 1;
+            for (var da = 0; da < dataAllocation.length; da++) {
+                month = jsonDate(dataAllocation[da].Period);
+
+                trAppend = trAppend + "<tr>";
+                trAppend = trAppend + "<td style='text-align:left;'>" + kf("{0:MMMM yyyy}",month) + "</td>";
+
+                var each = {
+                    dpi: dataAllocation[da].DaysPlanImprovement,
+                    dpr: dataAllocation[da].DaysPlanRisk,
+                    cpi: dataAllocation[da].CostPlanImprovement,
+                    cpr: dataAllocation[da].CostPlanRisk,
+                    led: dataAllocation[da].LEDays,
+                    lec: dataAllocation[da].LECost,
+                };
+
+                x.DataOri.dpi().push(each.dpi);
+                x.DataOri.dpr().push(each.dpr);
+                x.DataOri.cpi().push(each.cpi);
+                x.DataOri.cpr().push(each.cpr);
+                x.DataOri.LEDays().push(each.led);
+                x.DataOri.LECost().push(each.lec);
+
+                trAppend = buildFieldAllocation(trAppend, "dpi", i, each.dpi);
+                trAppend = buildFieldAllocation(trAppend, "dpr", i, each.dpr);
+                trAppend = buildFieldAllocation(trAppend, "cpi", i, each.cpi);
+                trAppend = buildFieldAllocation(trAppend, "cpr", i, each.cpr);
+                trAppend = buildFieldAllocation(trAppend, "led", i, each.led);
+                trAppend = buildFieldAllocation(trAppend, "lec", i, each.lec);
+
+                eachTotal.dpi = eachTotal.dpi + each.dpi;
+                eachTotal.dpr = eachTotal.dpr + each.dpr;
+                eachTotal.cpi = eachTotal.cpi + each.cpi;
+                eachTotal.cpr = eachTotal.cpr + each.cpr;
+                eachTotal.led = eachTotal.led + each.led;
+                eachTotal.lec = eachTotal.lec + each.lec;
+
+                trAppend = trAppend + "</tr>";
+                i++;
+            }
+
+            x.dpi_total(asFloat(eachTotal.dpi));
+            x.dpr_total(asFloat(eachTotal.dpr));
+            x.cpi_total(asFloat(eachTotal.cpi));
+            x.cpr_total(asFloat(eachTotal.cpr));
+            x.led_total(asFloat(eachTotal.led));
+            x.lec_total(asFloat(eachTotal.lec));
+        }
+
+        x.dpi_diff(asFloat(x.dpi() - x.dpi_total()));
+        x.dpr_diff(asFloat(x.dpr() - x.dpr_total()));
+        x.cpi_diff(asFloat(x.cpi() - x.cpi_total()));
+        x.cpr_diff(asFloat(x.cpr() - x.cpr_total()));
+        x.led_diff(asFloat(x.led() - x.led_total()));
+        x.lec_diff(asFloat(x.lec() - x.lec_total()));
+
+        x.DataReset(trAppend);
+        $("#tableAllocationBody").html(trAppend);
+
+        setTimeout(function () {
+
+            $("#myModal").find("input[name='dpi']").each(function () {
+                var d = $(this).data("kendoNumericTextBox");
+                if (d == undefined)
+                    $(this).kendoNumericTextBox();
+            });
+            $("#myModal").find("input[name='cpi']").each(function () {
+                var d = $(this).data("kendoNumericTextBox");
+                if (d == undefined)
+                    $(this).kendoNumericTextBox();
+            });
+            $("#myModal").find("input[name='led']").each(function () {
+                var d = $(this).data("kendoNumericTextBox");
+                if (d == undefined)
+                    $(this).kendoNumericTextBox();
+            });
+            $("#myModal").find("input[name='lec']").each(function () {
+                var d = $(this).data("kendoNumericTextBox");
+                if (d == undefined)
+                    $(this).kendoNumericTextBox();
+            });
+
+
+
+
+            $("#myModal").find("input[name='dpr']").each(function () {
+                var d = $(this).data("kendoNumericTextBox");
+                if (d == undefined)
+                    $(this).kendoNumericTextBox();
+                $(this).data("kendoNumericTextBox").max(0);
+            });
+
+            $("#myModal").find("input[name='cpr']").each(function () {
+                var d = $(this).data("kendoNumericTextBox");
+                if (d == undefined)
+                    $(this).kendoNumericTextBox();
+                $(this).data("kendoNumericTextBox").max(0);
+            });
+        }, 200);
+    });
+
+    };
+
+    function count_total(type, id) {
+
+        var vl = $("#" + type + "_" + id).val();
+        if (type == "dpr" || type == "cpr") {
+            if (vl > 0)
+                return;
+        }
+
+        var x = model.allocation();
+        //alert(type + " - " + id + " | Monthdiff = " + x.monthdiff());
+        var total = 0;
+        for (var i = 1; i <= x.monthdiff() ; i++) {
+            var a = parseFloat($("#" + type + "_" + i).val());
+            //if(!isNaN(a))
+            total = (total + a);
+        }
+
+
+        switch (type) {
+            case "dpi":
+                x.dpi_total(asFloat(total));
+                x.dpi_diff(count_diff(x.dpi(), total));
+                x.DataChanged.dpi(true);
+                break;
+            case "dpr":
+                x.dpr_total(asFloat(total));
+                x.dpr_diff(count_diff(x.dpr(), total));
+                x.DataChanged.dpr(true);
+                break;
+            case "cpi":
+                x.cpi_total(asFloat(total));
+                x.cpi_diff(count_diff(x.cpi(), total));
+                x.DataChanged.cpi(true);
+                break;
+            case "cpr":
+                x.cpr_total(asFloat(total));
+                x.cpr_diff(count_diff(x.cpr(), total));
+                x.DataChanged.cpr(true);
+                break;
+            case "led":
+                x.led_total(asFloat(total));
+                x.led_diff(count_diff(x.led(), total));
+                x.DataChanged.LEDays(true);
+                break;
+            case "lec":
+                x.lec_total(asFloat(total));
+                x.lec_diff(count_diff(x.lec(), total));
+                x.DataChanged.LECost(true);
+                break;
+        }
+    }
+
+    function count_diff(ori,total) {
+        var diff = ori - total;
+        if ( (diff >= -0.005) && (diff <= 0.005) ) diff = 0;
+        return asFloat(diff);
+    }
+
+    function SaveAllocation() {
+        var x = model.allocation();
+        if ((x.dpi_diff() == 0) && (x.dpr_diff() == 0) && (x.cpi_diff() == 0) && (x.cpr_diff() == 0)) {
+
+            var start = moment(jsonDateStr(x.PeriodStart()), 'DD-MMM-YYYY').add(-1, "months");
+            //alert(start);
+            //var diff = moment(x.PeriodFinish()).diff(moment(x.PeriodStart()), 'months') + 2;
+            var diff = x.monthdiff();
+            var dataAllocation = [];
+            var trAppend = "";
+            //alert(diff);
+            for (var i = 1; i <= diff; i++) {
+                month = start.add(1, "months");
+                //alert(month.format("MMMM YYYY"));
+                var dataAll = {
+                    Period: month.toDate().toUTCString(),
+                    DaysPlanImprovement: x.DataChanged.dpi() ? $("#dpi_" + i).val() : x.DataOri.dpi()[i - 1],
+                    DaysPlanRisk: x.DataChanged.dpr() ? $("#dpr_" + i).val() : x.DataOri.dpr()[i - 1],
+                    CostPlanImprovement: x.DataChanged.cpi() ? $("#cpi_" + i).val() : x.DataOri.cpi()[i - 1],
+                    CostPlanRisk: x.DataChanged.cpr() ? $("#cpr_" + i).val() : x.DataOri.cpr()[i - 1],
+                    LEDays: x.DataChanged.LEDays() ? $("#led_" + i).val() : x.DataOri.LEDays()[i - 1],
+                    LECost: x.DataChanged.LECost() ? $("#lec_" + i).val() : x.DataOri.LECost()[i - 1]
+                    //LEDays: $("#led_" + i).val(),
+                    //LECost: $("#lec_" + i).val()
+                };
+                dataAllocation.push(dataAll);
+                console.log(dataAll);
+            }
+            var data = { PIPId: model.uimodel().selectedPIPId(), ElementId: x.ElementId() };
+            data.Allocation = dataAllocation;
+
+            //console.log(data);
+
+            model.uimodel().processing(true);
+
+            ajaxPost("@Url.Action("SaveAllocation")", data,
+            function (dataServer) {
+                //console.log(dataServer);
+                model.uimodel().processing(false);
+                if (dataServer.Success == true) {
+                    $("#myModal").modal('hide');
+                    $("#myModal").modal('hide');
+                    $("#myModal").modal('hide');
+                    $("#myModal").modal('hide');
+                    $("#myModal").modal('hide');
+                    $("#myModal").modal('hide');
+                } else {
+                    alert(dataServer.Message);
+                }
+            });
+
+
+        } else {
+            alert("Edited data doesn't match with allocation!");
+            return;
+        }
+    }
+
+    function ResetData() {
+
+        var x = model.allocation();
+
+        $("#tableAllocationBody").html("");
+        $("#tableAllocationBody").html(x.DataReset());
+        x.dpi_diff(0);
+        x.dpr_diff(0);
+        x.cpi_diff(0);
+        x.cpr_diff(0);
+        x.led_diff(0);
+        x.lec_diff(0);
+
+        x.dpi_total(x.dpi());
+        x.dpr_total(x.dpr());
+        x.cpi_total(x.cpi());
+        x.cpr_total(x.cpr());
+        x.led_total(x.led());
+        x.lec_total(x.lec());
+    }
+
+    function ResetAllocation() {
+        $("#myModal").modal('hide');
+        model.uimodel().processing(true);
+        var x = model.allocation();
+        var ElementId = x.ElementId();
+        var PIPId = model.uimodel().selectedPIPId();
+        
+        var idea = x.idea();
+        var PeriodStart = x.PeriodStart();
+        var PeriodFinish = x.PeriodFinish();
+        var DaysPlanImprovement = x.dpi();
+        var DaysPlanRisk = x.dpr();
+        var CostPlanImprovement = x.cpi();
+        var CostPlanRisk = x.cpr();
+        var LEDays = x.led();
+        var LECost = x.lec();
+
+        var data = { PIPId: PIPId, ElementId: ElementId };
+
+        ajaxPost("@Url.Action("ResetSingleAllocation")", data,
+        function (d) {
+            setTimeout(function () {
+                model.uimodel().openAllocationModal(ElementId, idea, PeriodStart, PeriodFinish, DaysPlanImprovement, DaysPlanRisk, CostPlanImprovement, CostPlanRisk, LEDays, LECost);
+            }, 500);
+           
+        });
+
+    }
+
+</script>
+
+<!-- Modal Allocation -->
+<div class="modal fade myModal" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                <h4 class="modal-title" id="myModalLabel" data-bind="text:model.allocation().idea"></h4>
+            </div>
+            <div class="modal-body">
+                @*<div style="margin-bottom:20px;display:none;" id="gridAllocation" data-bind="kendoGrid:{data:[],columns:gridColumnsAllocation,pageable:false,sortable:true,filterable:true,editable:true}"></div>*@
+                <div data-bind="visible:model.uimodel().processing()==true">
+                    @Html.Partial("_processing")
+                </div>
+
+                <div data-bind="visible:!model.uimodel().processing()==true">
+                    <table id="tableAllocation" style="width:100%" border="1">
+                        <thead>
+                            <tr>
+                                <th>Period</th>
+                                <th>Days Plan<br />Improvement<br />(Days)</th>
+                                <th>Days Plan<br />Risk<br />(Days)</th>
+                                <th>Cost Plan<br />Improvement<br />($ mln)</th>
+                                <th>Cost Plan<br />Risk<br />($ mln)</th>
+                                <th>LE Days<br />(Days)</th>
+                                <th>LE Cost<br />($ mln)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableAllocationBody"></tbody>
+                        <tfoot>
+                            <tr>
+                                <td>Total</td>
+                                <td data-bind="text:model.allocation().dpi_total"></td>
+                                <td data-bind="text:model.allocation().dpr_total"></td>
+                                <td data-bind="text:model.allocation().cpi_total"></td>
+                                <td data-bind="text:model.allocation().cpr_total"></td>
+                                <td data-bind="text:model.allocation().led_total"></td>
+                                <td data-bind="text:model.allocation().lec_total"></td>
+                            </tr>
+                            <tr>
+                                <td>Origin</td>
+                                <td data-bind="text:model.allocation().dpi"></td>
+                                <td data-bind="text:model.allocation().dpr"></td>
+                                <td data-bind="text:model.allocation().cpi"></td>
+                                <td data-bind="text:model.allocation().cpr"></td>
+                                <td data-bind="text:model.allocation().led"></td>
+                                <td data-bind="text:model.allocation().lec"></td>
+                            </tr>
+                            <tr>
+                                <td>Diff</td>
+                                <td data-bind="text:model.allocation().dpi_diff"></td>
+                                <td data-bind="text:model.allocation().dpr_diff"></td>
+                                <td data-bind="text:model.allocation().cpi_diff"></td>
+                                <td data-bind="text:model.allocation().cpr_diff"></td>
+                                <td data-bind="text:model.allocation().led_diff"></td>
+                                <td data-bind="text:model.allocation().lec_diff"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-custom btn-sm btn-warning" data-dismiss="modal">
+                    Close
+                </button>
+                <button type="button" class="btn btn-custom btn-sm btn-success" onclick="ResetAllocation();">
+                    <span class="glyphicon glyphicon-refresh"></span> Reset
+                </button>
+                <button type="button" class="btn btn-custom btn-sm btn-primary" onclick="SaveAllocation();">
+                    <span class="glyphicon glyphicon-ok"></span> Save changes 
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End Allocation Modal -->

@@ -1,0 +1,629 @@
+﻿@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.ProgressData = ko.observableArray();
+    model.StatusProgress = ko.observable();
+    model.dataTempUpload = ko.observable();
+    model.dataTempUpload2 = ko.observable();
+    model.StatusError = ko.observable(false);
+    model.ShowData = ko.observable(true);
+</script>
+
+@Html.Partial("_Notifier")
+<div>
+
+    <div class="box">
+        <h4>PIP Data Maintenance</h4>
+        <b>This module is use for upload PIP data </b>
+        <ul type="circle">
+            <li><b class="btn-xs btn-warning">Download PIP Template</b> to Download template for PIP Datas</li>
+            <li>After data has been uploaded, you can <b class="btn-xs btn-warning">Download</b> it, or <b class="btn-xs btn-danger">Execute</b> it to replace the current datas</li>
+            <li>Before Executing Process will start, application will create a single restore point, and naming it with : : <i style="color:darkorange;">_PIP_yyyyMMdd</i> </li>
+        </ul>
+
+    </div>
+    <div class="col-md-12" data-bind="visible:model.StatusError">
+        <div>
+            <div style="text-align:center;font-size:20px;margin-bottom:-30px">
+                <span class="label label-default">Upload PIP Result</span>
+            </div>
+            <div style="text-align:right">
+                <button type="button" class="btn btn-success btn-danger btn-sm" data-dismiss="modal" onclick="model.StatusError(false); model.ShowData(true);" style="margin-bottom:10px">
+                    <span class="glyphicon glyphicon-download"></span> Back
+                </button>
+            </div>
+        </div>
+        
+        <div class="gridTempData"></div>
+    </div>
+    <div class="col-md-12 no-padding" data-bind="visible:model.ShowData">
+        <div data-bind="visible: model.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+        <div style="text-align:right">
+            <button type="button" class="btn btn-success btn-warning btn-sm" data-dismiss="modal" onclick="DownloadTemplate()">
+                <span class="glyphicon glyphicon-download"></span> Download PIP Template
+            </button>
+        </div>
+        
+        <div class="clearfix"><br /></div>
+        <div data-bind="visible: !model.IsProcessing()">
+            <div class="demo-section k-header">
+                <input name="files" id="files" type="file" />
+            </div>
+
+            <div class="grid grid1"></div>
+            <div class="clearfix">&nbsp;</div>
+            <div id="grid"></div>
+            <div style="text-align: left; padding-bottom: 6px; visibility:hidden">
+                <a id="NewData" class="btn btn-primary btn-custom btn-sm" onclick="OpenModal();">
+                    <span class="glyphicon glyphicon-plus"></span>
+                    Backup Current Data
+                </a>
+            </div>
+            <ul class="nav nav-tabs" role="tablist" style="visibility:hidden">
+                <li role="presentation" class="active">
+                    <a href="#tab1" aria-controls="home" role="tab" data-toggle="tab">Uploaded PIP Files</a>
+                </li>
+                <li role="presentation">
+                    <a href="#tab2" aria-controls="profile" role="tab" data-toggle="tab">Restore</a>
+                </li>
+            </ul>
+            <div class="tab-content" style="visibility:hidden">
+                <div class="clearfix">&nbsp;</div>
+                <div role="tabpanel" class="tab-pane active" id="tab1">
+                    <div>
+                        <div class="box">
+                            <b>
+                                Upload PIP File :
+                            </b>
+                        </div>
+                        <div class="clearfix">&nbsp;</div>
+
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+
+                </div>
+                <div role="tabpanel" class="tab-pane" id="tab2">
+                    <div class="clearfix">&nbsp;</div>
+
+                    <div class="grid grid2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        $(document).ready(function () {
+            $("#files").kendoUpload({
+                async: {
+                    saveUrl: '@Url.Action("Upload", "UploadPIP")',
+                    //removeUrl: "remove",
+                    autoUpload: false
+                },
+                complete: onComplete,
+                select: onSelect,
+                success: function(e) {
+                    var res = e.response;
+                    //getTempUploadData(res.Data);
+                    if (res.Result != "OK") {
+                        alert(res.Message);
+                        showErrorMessageGrid(res.Data);
+                        //return;
+
+                    }
+                    
+                }
+            });
+        });
+
+
+    </script>
+    <div class="modal fade myModal" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title">Backup Current</h4>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form_new_phase" class="k-content">
+                            <div class="form-group">
+                                <div class="col-md-8">
+                                    <label style="text-align:right; font-weight:bold;">Backup Name : </label><input id="inputName" type="text" class="text">
+                                </div>
+                            </div>
+                            <div class="clearfix">&nbsp;</div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-custom btn-sm btn-shell" data-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-custom btn-sm btn-primary" onclick="Backup();">
+                            <span class="glyphicon glyphicon-ok"></span> Backup
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function DownloadTemplate() {
+        var url = "@Url.Action("DonwloadTemplate", "UploadPIP")";
+        location.href = url;
+    }
+
+    function DownloadResult() {
+        var url = "@Url.Action("DonwloadResult", "UploadPIP")";
+        location.href = url;
+    }
+
+
+    function showErrorMessageGrid(filename) {
+        var url = "@Url.Action("CollectTemDataUpload", "UploadPIP")";
+        ajaxPost(url, { tmpfile: filename }, function (res) {
+            model.dataTempUpload2(res.Data);
+            var Temp = [];
+            if (res.Result == "OK") {
+                setTimeout(function () {
+                    res.Data.forEach(function (d) {
+                        if (_.size(d.Messages) != 0) {
+                            d.Messages.forEach(function (e) {
+                                Temp.push(e.Message);
+                            })
+                        }
+                    })
+
+
+                    var a = '<li class="k-file k-file-success" style="height: 150px; overflow-x: auto;">';
+                    if (Temp.length > 0) {
+                        Temp.forEach(function (hh) {
+                            a = a + "<div>" + hh + "</div>";
+                        });
+                    }
+                    a = a + "</li>";
+                    $(a).appendTo($(".k-upload-files.k-reset"));
+                    $(".k-upload-pct").html("FAILED!");
+                    return;
+
+                }, 300);
+            }
+        })
+    }
+
+    function getTempUploadData(tmpname) {
+        var url = "@Url.Action("CollectTemDataUpload", "UploadPIP")";
+
+        ajaxPost(url, { tmpfile: tmpname }, function (res) {
+            model.dataTempUpload(res.Data);
+            var Temp = [];
+            model.StatusError(true);
+            model.ShowData(false);
+            if (res.Result == "OK") {
+                setTimeout(function () {
+                    res.Data.forEach(function (d) {
+                        if (_.size(d.Messages) == 0) {
+                            d.Messages.push({
+                                Status: "Success",
+                                Message:""
+                            });
+                        }
+                        Temp.push(d);
+                    });
+
+                    model.dataTempUpload(Temp);
+                    $('.gridTempData').replaceWith($('<div />').addClass('grid gridTempData'));
+                    $('.gridTempData').kendoGrid({
+                        toolbar: ["excel"],
+                        excel: { fileName: "Upload_PIP.xlsx", allPages: true },
+                        dataSource: { data: model.dataTempUpload(), type: "json", pageSize: 10 },
+                        pageable: true,
+                        sortable: true,
+                        resizable: true,
+                        columns: [
+                            {
+                                field: "Messages[0].Status",
+                                title: "Status",
+                                //attributes: { style: "background-color: red;" },
+                                //template: "<div style='color:#if(Messages[0].Status == 'Error'){# red #}else{# white #}#' ># Messages[0].Status #</div>",
+                                width: 80
+                            },
+                            { field: "WellName", title: "Well Name" ,width:140},
+                            { field: "RigName", title: "Rig Name", width: 120 },
+                            { field: "ActivityType",title:"Activity Type",width:200 },
+                            { field: "PIPType", title: "PIP Type" ,width:80},
+                            { field: "Idea", title: "Idea" },
+                            { field: "Messages[0].Message", title: "Message", width: 200 }
+                        ],
+
+                    });
+                }, 300);
+            }
+        });
+    }
+
+
+    function DownloadCurrentPIP() {
+        var url = "@Url.Action("DonwloadCurrentPIP", "UploadPIP")";
+        location.href = url;
+    }
+
+
+    function ClearDataUpload() {
+
+        var up = $('#files').data().kendoUpload;
+        var allLiElementsToBeRemoved = up.wrapper.find('.k-file');
+        up._removeFileEntry(allLiElementsToBeRemoved);
+
+    }
+
+    function onSelect(e) {
+        $(".k-upload-files.k-reset").remove();
+        $.each(e.files, function (index, value) {
+            //alert(value.extension);
+            var ok = value.extension == ".xlsx"
+                     || value.extension == ".xls"
+
+            if (!ok) {
+                e.preventDefault();
+                alert("Please upload only Excel (xls, xlsx) files");
+            }
+        });
+    }
+
+    function onUpload(e) {
+        alert('onUpload');
+        //console.log("onupload");
+
+        var url = '@Url.Action("Upload", "UploadPIP")';
+        //model.IsProcessing(true);
+
+        ajaxPost(url, "", function (res) {
+            alert('after upload');
+        }, function (a, b, c) {
+            alert('error upload');
+            //alert('Error occured when loading data');
+        });
+
+    }
+
+    function onSuccess(e) {
+        alert('onSuccess');
+        //console.log("onSuccess");
+        //kendoConsole.log("Success (" + e.operation + ") :: " + getFileInfo(e));
+    }
+
+    function onError(e) {
+        alert('onError');
+        //console.log("onError");
+
+        //kendoConsole.log("Error (" + e.operation + ") :: " + getFileInfo(e));
+    }
+
+    function onComplete(e, s) {
+        console.log(e);
+        console.log(s);
+        model.LoadDataGrid();
+    }
+
+    function onCancel(e) {
+        alert('onCancel');
+
+        //console.log("onCancel");
+
+    }
+
+    function onRemove(e) {
+        alert('onRemove');
+        //console.log("Remove :: " + getFileInfo(e));
+    }
+
+    function onProgress(e) {
+        alert('onProgress');
+
+        //console.log("Upload progress :: " + e.percentComplete + "% :: " + getFileInfo(e));
+    }
+
+    function getFileInfo(e) {
+        return $.map(e.files, function (file) {
+            var info = file.name;
+
+            // File size is not available in all browsers
+            if (file.size > 0) {
+                info += " (" + Math.ceil(file.size / 1024) + " KB)";
+            }
+            return info;
+        }).join(", ");
+    }
+
+    function DateTimeParse(date) {
+        var t = new Date();
+        var defaultDate = new Date(1900, 1, 1);
+        var result = " - ";
+        if (date != "") {
+            t = new Date(parseInt(date.replace('/Date(', '')));
+            if (t > defaultDate) {
+                result = moment(t).format("DD-MMM-YY hh:mm:ss A");
+            }
+        }
+        return result;
+        //return moment(jsonDateStr(date), 'DD-MMM-YYYY').format("DD-MMM-YY hh:mm:ss");
+    }
+
+    function Execute(id) {
+        if (!confirm('Are you sure want to replace data from this PIP file?'))
+            return;
+        //model.IsProcessing(true);
+        model.CollectDataTemp();
+        model.GetCalculationStatus();
+        ajaxPost("@Url.Action("BgWorker")", { id: id }, function (res) {
+            if (res.Result == "OK") {
+                
+                //console.log(res.Data);
+                ajaxPost("@Url.Action("updateexecute")", { filename: id }, function (res2) {
+                    model.LoadDataGrid();
+                    model.IsProcessing(false);
+                    RenderGrid(res.Data);
+                    alert("Load PIP Datas Done");
+                })
+                
+            } else {
+                alert(res.Message + res.Trace);
+                //model.IsProcessing(false);
+                alert("Error on Executing Process");
+            }
+
+        }, function () {
+            alert(res.Message);
+            //model.IsProcessing(false);
+        });
+    }
+
+    function RenderGrid(Data) {
+        //$("#grid")
+        $('#grid').replaceWith($('<div />').attr('id', 'grid'));
+        var columnPhases = [];
+        columnPhases.push(
+                { field: "Message", title: "Message", width: 250 },
+                { field: "PIP_Type", title: "Type", width: 100 },
+                { field: "Rig_Name", title: "Rig Name", width: 100 },
+                { field: "Well_Name", title: "Well Name", width: 100 },
+                { field: "Activity_Type", title: "Activity Type", width: 120 },
+                { field: "Idea", title: "Idea", width: 150 },
+                { field: "Activity_Start", title: "Activity Start", width: 100 },
+                { field: "Activity_End", title: "Activity End", width: 100 },
+                { field: "Year", title: "Year", width: 80 },
+                { field: "Complete", title: "% Complete", width: 100, attributes: { "style": "text-align:right" } },
+                { field: "High_Level_Classification", title: "High Level Classification", width: 150 },
+                { field: "Theme", title: "Theme", width: 100 },
+                { field: "OppoertunityDays", title: "Opportunity  Days (-)", width: 130, attributes: { "style" : "text-align:right" } },
+                { field: "RiskDays", title: "Risk  Days (+)", width: 100, attributes: { "style": "text-align:right" } },
+                { field: "OpportunityCostMM", title: "Opportunity Cost MM  (-)", width: 140, attributes: { "style": "text-align:right" } },
+                { field: "RiskCostMM", title: "Risk Cost MM (+)", width: 110, attributes: { "style": "text-align:right" } },
+                { field: "LEOpportunityDays", title: "LE Opportunity Days (-)", width: 140, attributes: { "style": "text-align:right" } },
+                { field: "LERiskDays", title: "LE Risk Days (+)", width: 110, attributes: { "style": "text-align:right" } },
+                { field: "LEOpportunityCost", title: "LE Opportunity Cost MM (-)", width: 160, attributes: { "style": "text-align:right" } },
+                { field: "LERiskCost", title: "LE Risk Cost MM (+)", width: 130, attributes: { "style": "text-align:right" } },
+                { field: "Action_Party", title: "Action Party", width: 100 },
+                { field: "Performance_Unit", title: "Performance Unit", width: 100 },
+                { field: "Asset_Name", title: "Asset Name", width: 100 },
+                { field: "Project_Name", title: "Project Name", width: 100 }
+               );
+        var dataSource = new kendo.data.DataSource({
+            data: Data,
+            pageSize: 5,
+        });
+
+        $("#grid").kendoGrid({
+            columns: columnPhases,
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            scrollable:true,
+            dataSource: dataSource
+        });
+    };
+
+    function OpenModal() {
+        $("#myModal").modal('show');
+    }
+
+    function Backup() {
+        var value = $("#inputName").val();
+        model.IsProcessing(true);
+        model.GetCalculationStatus();
+        ajaxPost("@Url.Action("Backup")", { id: value }, function (res) {
+            if (res.Result == "OK") {
+                $("#myModal").modal('hide');
+                alert("Backup Done");
+                model.IsProcessing(false);
+                model.LoadDataGrid();
+                ClearDataUpload();
+                model.LoadDataGridCollection();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    function Restore(id) {
+        if (!confirm('Are you sure want to restore data from this revision?'))
+            return;
+
+        model.IsProcessing(true);
+
+        ajaxPost("@Url.Action("Restore")", { id: id }, function (res) {
+            if (res.Result == "OK") {
+                alert("PIPs data has been restored");
+                model.IsProcessing(false);
+            } else {
+                //alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            //alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    function DeleteBackup(id) {
+        if (!confirm('Are you sure want to delete?'))
+            return;
+
+        model.IsProcessing(true);
+
+        ajaxPost("@Url.Action("DeleteBackup")", { id: id }, function (res) {
+            if (res.Result == "OK") {
+                alert("Backup Data has been deleted");
+                model.IsProcessing(false);
+            } else {
+                //alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            //alert(res.Message);
+            model.IsProcessing(false);
+        });
+
+        model.LoadDataGrid();
+        ClearDataUpload();
+        model.LoadDataGridCollection();
+    }
+
+    function Download(id) {
+        model.IsProcessing(true);
+        ajaxPost('@Url.Action("ChangeDataInExcel")', { id: id }, function (data) {
+            var url = '@Url.Action("Download")' + "?id=" + data.Data;
+            location.href = url;
+            model.IsProcessing(false);
+        })
+        @*var url = '@Url.Action("Download")' + "?id=" + id;
+        location.href = url;
+        model.IsProcessing(false);*@
+        
+    }
+
+
+    $(document).ready(function () {
+        model.LoadDataGrid();
+        ClearDataUpload();
+        model.LoadDataGridCollection();
+        model.GetCalculationStatus();
+    });
+
+    model.LoadDataGrid = function () {
+
+        var url = '@Url.Action("LoadGridData", "UploadPIP")';
+        ajaxPost(url, "", function (res) {
+            //console.log(res);
+            LoadGrid(res.Data);
+            model.LoadDataGridCollection();
+        }, function (a, b, c) {
+            //console.log(a);
+            //console.log(b);
+            //console.log(c);
+            //alert('Error occured when fetching data from server');
+            model.IsProcessing(false);
+        });
+
+        LoadGrid = function (data) {
+            $('.grid1').replaceWith($('<div />').addClass('grid grid1'));
+            $('.grid1').kendoGrid({
+                dataSource: { data: data, type: "json", pageSize: 5 },
+                pageable: true,
+                sortable: true,
+                resizable: true,
+                columns: [
+                    { field: "FileName", title: "File Name" },
+                    { field: "CreateDate", title: "Create Date", width: 90, template: "#: DateTimeParse(CreateDate) #", },
+                    //{ field: "LastWrite", title: "Last Write", width: 90, template: "#: DateTimeParse(LastWrite) #", },
+                    { field: "LastExecute", title: "Last Execute", width: 90, template: "#: DateTimeParse(LastExecute) #", },
+                    { field: "UserUpload", title: "Uploaded By", width: 90, },
+                    {
+                        title: "", width: 105,
+                        template: "<button class='btn btn-xs btn-warning' onclick='Download(\"#: FileName #\")'>Download</a>"
+                        //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='Download(\"#: FileName #\")'>Download</a></div>", width: 100
+                    },
+                    {
+                        title: "", width: 70,
+                        template: "<button class='btn btn-xs btn-danger' onclick='Execute(\"#: FileName #\")'>Execute</a>"
+                        //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='Execute(\"#: FileName #\")'>Load</a></div>", width: 90
+                    }
+
+
+                ],
+
+            });
+        };
+    };
+
+    model.LoadDataGridCollection = function () {
+
+        var url = '@Url.Action("LoadCollection", "UploadPIP")';
+        ajaxPost(url, "", function (res) {
+
+            LoadGridCollection(res.Data);
+
+        }, function (a, b, c) {
+            console.log(a);
+            console.log(b);
+            console.log(c);
+            //alert('Error occured when fetching data from server');
+            model.IsProcessing(false);
+        });
+
+        LoadGridCollection = function (data) {
+            $('.grid2').replaceWith($('<div />').addClass('grid grid2'));
+            $('.grid2').kendoGrid({
+                dataSource: { data: data, type: "json", pageSize: 5 },
+                pageable: true,
+                sortable: true,
+                resizable: true,
+                columns: [
+                    { field: "CollectionName", title: "Collection Name" },
+                    { field: "CreateDate", title: "Create Date", width: 90, template: "#: DateTimeParse(CreateDate) #", },
+                    {
+                        title: "", width: 70,
+                        template: "<button class='btn btn-xs btn-warning' onclick='Restore(\"#: CollectionName #\")'>Restore</a>"
+                        //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='Restore(\"#: CollectionName #\")'>Restore</a></div>", width: 100
+                    },
+                    {
+                        title: "", width: 100,
+                        template: "<button class='btn btn-xs btn-danger' onclick='DeleteBackup(\"#: CollectionName #\")'>Delete</a>"
+                        //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='DeleteBackup(\"#: CollectionName #\")'>Delete</a></div>", width: 90
+                    }
+                ],
+
+            });
+        };
+    };
+
+    model.CollectDataTemp = function () {
+        var url = "@Url.Action("CreateTemp")";
+        ajaxPost(url, {}, function (res) {
+            return "OK";
+        });
+    };
+
+    model.GetProgress = function () {
+        var url = "@Url.Action("GetStatus")";
+        ajaxPost(url, {}, function (res) {
+            console.log(res.Data[0].Status);
+            if (res.Data[0].Status == 'In Progress') {
+                model.StatusProgress(res.Data[0].Status);
+                model.GetCalculationStatus();
+            }
+        });
+    };
+</script>

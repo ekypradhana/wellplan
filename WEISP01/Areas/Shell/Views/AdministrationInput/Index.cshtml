@@ -1,0 +1,290 @@
+﻿@{
+    ViewBag.Title = "Administration Input";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+@{
+    var biz = BizMaster.Populate<BizMaster>();
+}
+
+<script>
+    model.AdminInput = {}; var n = model.AdminInput;
+    n.DetailVisibility = ko.observable(false);
+    n.OptionsInterest = ko.observableArray([
+        { Id: "Inflation", Title: "Economic Inflation" },
+        { Id: "MarketEscalation", Title: "Market Escalation" },
+        { Id: "GlobalMarketEscalation", Title: "Global Market Escalation" },
+        { Id: "MaturityRisk", Title: "Maturity Risk Matrix" },
+        { Id: "CSO", Title: "Capitalized Staff Overhead" },
+        { Id: "LongLead", Title: "Long Lead Items" },
+        { Id: "RigRate", Title: "Rig Rates" }
+    ]);
+    n.OptionsCountry = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(biz.GroupBy(d => d.Country).Select(d => d.Key))));
+    n.OptionsRigName = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(biz.GroupBy(d => d.RigName).Select(d => d.Key))));
+    n.OptionsActivityType = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(biz.GroupBy(d => d.ActivityType).Select(d => d.Key))));
+    n.Interest = ko.observable(n.OptionsInterest()[0].Id);
+    n.Country = ko.observable('');
+    n.RigName = ko.observable('');
+    n.ActivityType = ko.observable('');
+
+    n.EconomicInflationFactor = ko.observable(0);
+
+    n.GetParamForSearch = function () {
+        if (n.Interest() == n.OptionsInterest()[0].Id) {
+            return {
+                Country: n.Country()
+            };
+        } else if (n.Interest() == n.OptionsInterest()[1].Id) {
+            return {
+                Country: n.Country(),
+                Which: n.Interest()
+            };
+        }
+
+        return {};
+    };
+    n.GetParamForSave = function () {
+        if (n.Interest() == n.OptionsInterest()[0].Id) {
+            return {
+                Country: n.Country(),
+                Value: n.EconomicInflationFactor()
+            };
+        } else if (n.Interest() == n.OptionsInterest()[1].Id) {
+            var data = $(".market-escalation-grid").data("kendoGrid").dataSource.data();
+            var filteredData = JSON.parse(kendo.stringify(_.filter(data, { dirty: true })));
+
+            return {
+                Country: n.Country(),
+                Changes: filteredData,
+                Which: n.Interest()
+            };
+        }
+
+        return {};
+    };
+    n.GetURL = function (which) {
+        if (which == "Fetch") {
+            if (n.Interest() == n.OptionsInterest()[0].Id) {
+                return "@Url.Action("GetDataOf")" + n.Interest();
+            } else if (n.Interest() == n.OptionsInterest()[1].Id) {
+                return "@Url.Action("GetDataOfGrid")";
+            }
+        } else {
+            if (n.Interest() == n.OptionsInterest()[0].Id) {
+                return "@Url.Action("SaveDataOf")" + n.Interest();
+            } else if (n.Interest() == n.OptionsInterest()[1].Id) {
+                return "@Url.Action("SaveDataOfGrid")";
+            }
+        }
+
+        return "";
+    }
+    n.Refresh = function () {
+        var url = n.GetURL('Fetch');
+        var param = n.GetParamForSearch();
+
+        model.Processing(true);
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            n.DetailVisibility(true);
+            model.Processing(false);
+
+            if (n.Interest() == n.OptionsInterest()[0].Id) {
+                n.Prepare1EconomicInflation(res.Data);
+            } else if (n.Interest() == n.OptionsInterest()[1].Id) {
+                n.Prepare2MarketEscalation(res.Data);
+            }
+        });
+    };
+    n.Save = function () {
+        var url = n.GetURL('Save');
+        var param = n.GetParamForSave();
+
+        model.Processing(true);
+        n.DetailVisibility(false);
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            n.Refresh();
+        });
+    };
+
+    n.Interest.subscribe(function () {
+        n.DetailVisibility(false);
+        n.MaxYear(moment(new Date()).year());
+        n.MinYear(moment(new Date()).year());
+    });
+
+    n.GenerateColumnsAndFields = function (data) {
+        var columns = [{
+            field: "Title",
+            width: 150,
+            locked: true
+        }];
+        var fields = {}
+        var years = [];
+
+        if (data.length > 0) {
+            var sampleData = data[0];
+
+            for (var i in sampleData) {
+                if (sampleData.hasOwnProperty(i)) {
+                    if (i.indexOf("Year_") > -1) {
+                        years.push(parseInt(i.replace(/Year_/g, ''), 10));
+                    }
+                }
+            }
+        }
+
+        var min = _.min(years);
+        var max = _.max(years);
+
+        for (var i = min; i <= max; i++) {
+            columns.push({
+                title: "FY" + String(i).slice(2),
+                field: "Year_" + i,
+                attributes: { style: "text-align: right" },
+                format: "{0:N2}",
+                width: 100
+            });
+
+            fields["Year_" + i] = { type: "number" };
+        }
+
+        n.MinYear(min);
+        n.MaxYear(max);
+
+        return {
+            columns: columns,
+            fields: fields
+        };
+    };
+
+    n.GenerateConfig = function (data) {
+        var columnsAndFields = n.GenerateColumnsAndFields(data);
+        var width = $(".the-container").parent().width();
+
+        var config = {
+            //width: width,
+            dataSource: {
+                schema: {
+                    model: columnsAndFields.fields
+                },
+                data: data,
+                pageSize: 15
+            },
+            columns: columnsAndFields.columns,
+            filterable: false,
+            pageable: true,
+            resizable: false,
+            editable: true,
+            sortable: true
+        };
+
+        return config;
+    }
+
+    // logic
+    n.MaxYear = ko.observable(moment(new Date()).year());
+    n.MinYear = ko.observable(moment(new Date()).year());
+
+    n.Prepare1EconomicInflation = function (data) {
+        n.EconomicInflationFactor(data);
+    };
+    n.Prepare2MarketEscalation = function (data) {
+        var config = n.GenerateConfig([data]);
+        console.log(config);
+        $(".market-escalation-grid").replaceWith('<div class="market-escalation-grid"></div>');
+        $(".market-escalation-grid").kendoGrid(config);
+    };
+</script>
+
+<div class="col-md-12" data-bind="with: model.AdminInput">
+    <div class="control">
+        <div class="col-md-2">
+            <span>Interest:</span>
+        </div>
+        <div class="col-md-2" data-bind="visible: ([n.OptionsInterest()[0].Id,n.OptionsInterest()[1].Id].indexOf(Interest()) > -1)">
+            <span>Country:</span>
+        </div>
+        <div class="col-md-2" data-bind="visible: (['asdf'].indexOf(Interest()) > -1)">
+            <span>Rig Name:</span>
+        </div>
+        <div class="col-md-2" data-bind="visible: (['asdf'].indexOf(Interest()) > -1)">
+            <span>Activity Type:</span>
+        </div>
+        <div class="clearfix"></div>
+        <div class="col-md-2">
+            <select data-bind="kendoDropDownList: { data: OptionsInterest, dataTextField: 'Title', dataValueField: 'Id', value: Interest }"></select>
+        </div>
+        <div class="col-md-2" data-bind="visible: ([n.OptionsInterest()[0].Id,n.OptionsInterest()[1].Id].indexOf(Interest()) > -1)">
+            <select data-bind="kendoDropDownList: { data: OptionsCountry, value: Country, optionLabel: 'Select one' }"></select>
+        </div>
+        <div class="col-md-2" data-bind="visible: (['asdf'].indexOf(Interest()) > -1)">
+            <select data-bind="kendoDropDownList: { data: OptionsRigName, value: RigName, optionLabel: 'Select one' }"></select>
+        </div>
+        <div class="col-md-2" data-bind="visible: (['asdf'].indexOf(Interest()) > -1)">
+            <select data-bind="kendoDropDownList: { data: OptionsActivityType, value: ActivityType, optionLabel: 'Select one' }"></select>
+        </div>
+        <div class="clearfix"></div>
+        <div class="col-md-12" style="margin-top: 10px;">
+            <button class="btn btn-sm btn-custom btn-primary" data-bind="click: Refresh">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+            <button class="btn btn-sm btn-custom btn-success" data-bind="click: Save, visible: DetailVisibility()">
+                <span class="glyphicon glyphicon-save"></span> Save
+            </button>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+
+    <div class="col-md-12 the-container" data-bind="visible: Interest() == OptionsInterest()[0].Id && DetailVisibility()">
+        <div style="width: 250px;">
+            <div class="col-md-8 input-label">
+                <span>Economic Inflation Factor:</span>
+            </div>
+            <div class="col-md-4 input-value">
+                <input type="text" data-bind="kendoNumericTextBox: { format: 'N2', value: EconomicInflationFactor }" />
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-12 the-container" data-bind="visible: Interest() == OptionsInterest()[1].Id && DetailVisibility()">
+        <div class="col-md-12 no-padding">
+            <div class="market-escalation-grid"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .the-container {
+        margin-top: 10px;
+    }
+    
+    .input-label {
+        padding-top: 5px;
+        padding-left: 0px;
+    }
+
+    .input-value {
+        padding-left: 0px;
+    }
+
+    .no-padding {
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+    }
+</style>

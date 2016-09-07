@@ -1,0 +1,365 @@
+﻿@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+
+<script>
+    model.Masters = ko.observable(ko.mapping.fromJS({
+        Regions: ko.observableArray(@MvcTools.Obj2HtmlStr(MasterRegion.Populate<MasterRegion>().Select(d=>d._id.ToString()).OrderBy(d=>d))),
+        RigTypes: ko.observableArray(@MvcTools.Obj2HtmlStr(MasterRegion.Populate<MasterRigType>().Select(d=>d._id).OrderBy(d=>d))),
+        Rigs: ko.observableArray(@MvcTools.Obj2HtmlStr(MasterRigName.Populate<MasterRigName>().Select(d => d._id.ToString()).OrderBy(d => d))),
+        WellNames: ko.observableArray(@MvcTools.Obj2HtmlStr(WellInfo.Populate<WellInfo>(Query.NE("IsVirtualWell", true)).Select(d=>d._id).OrderBy(d=>d))),
+        Activities: ko.observableArray(@MvcTools.Obj2HtmlStr(ActivityMaster.Populate<ActivityMaster>().Select(d=>d._id).OrderBy(d=>d))),
+        RollingTypes: ko.observableArray([
+            { _id: "Week", Title: "Rolling by Weekly Report" },
+            { _id: "OP14", Title: "Changes by OP-14" },
+            { _id: "LastSequence", Title: "Changes by Last Sequence" }
+        ])
+    }));
+
+    function CreateFilterParm() {
+        @{
+            var lastwau = WellActivityUpdate.Get<WellActivityUpdate>(Query.Null, SortBy.Descending("UpdateVersion"));
+            var asAtDate = lastwau == null ? "" : lastwau.UpdateVersion.ToString("dd-MMM-yyyy");
+        }
+
+        var obj = ko.mapping.fromJS({
+            Regions: ko.observableArray([]),
+            RigTypes: ko.observableArray([]),
+            AsAtDate: ko.observable("@asAtDate"),
+            Rigs: ko.observableArray([]),
+            WellNames: ko.observableArray([]),
+            Activities: ko.observableArray([]),
+            RollingNo: 4,
+            RollingType: "Week"
+        });
+
+        return obj;
+    }
+
+    model.FilterParm = ko.observable(CreateFilterParm());
+
+    function CalcItem(order, title) {
+        var obj = ko.mapping.fromJS({
+            Order: order,
+            Title: title,
+            Source: "",
+            Days: 0,
+            Cost: 0
+        });
+        return obj;
+    }
+
+    model.CalcObjects = ko.observableArray([]);
+
+    model.AddCalcObject = function () {
+        var idx = model.CalcObjects().length + 1;
+        model.CalcObjects.push(new CalcObject(idx));
+    }
+
+    model.RemoveCalcObject = function (obj) {
+        model.CalcObjects.remove(obj);
+    }
+</script>
+
+
+<style>
+    .kontainer { margin: 13px 10px; position: relative; }
+    .kontainer h3 { border: none; background-color: rgb(249, 249, 249); }
+
+    .sidebar { padding-right: 15px !important; }
+    .sidebar .row { margin-bottom: 3px; }
+    .sidebar .row:last-child { margin-top: 10px; }
+    .sidebar .row .col-md-3 { padding-top: 5px; padding-right: 0px; text-align: right; }
+    .sidebar .row .col-md-3 .k-multiselect { box-sizing: border-box; }
+    .sidebar .row .col-md-9 { padding-left: 4px; }
+    .sidebar, .content { position: relative; }
+
+    .header { overflow: hidden !important; }
+    .header .each h4 { border: 0px; margin: 0px; margin-bottom: 3px; font-size: 22px; }
+    .header .each .table { margin-bottom: 2px; }
+    .header .each .table tr th { border-bottom: 3px solid rgb(232, 232, 232); }
+
+    .content .each .table { margin-bottom: 5px; }
+    .content .each .table tbody { border: none !important; }
+    .content .each .table tbody.b tr:first-child td { border-top: 1px solid transparent !important; }
+    .content .each .table tbody.b.n tr td { border-top: 1px solid transparent !important; }
+
+    .section { overflow: scroll; }
+    .section .each:not(:last-child) { margin-right: 10px; }
+    .section .each .title { border: none !important; padding: 0px !important; }
+    .section .each .title span { display: block; width: 100%; min-height: 35px; margin-bottom: 2px; padding: 10px; color: white; font-weight: bold; text-align: center; }
+    .section .each .title span.summary { font-size: 16px; padding: 6px 10px; }
+    .section .each .b.n.inactive { background-color: rgb(249, 249, 249); }
+
+    span.h-status.summary { background-color: #d33; }
+    span.h-status.start { background-color: rgb(18, 98, 55); }
+    span.h-status.ongoing { background-color: rgba(66, 139, 202, 0.95); }
+    span.h-status.finish { background-color: rgb(239, 201, 76); }
+    span.h-status.inactive { background-color: gray; }
+
+    .legend { padding: 0px 25px; }
+    .legend .row { margin-top: 0px !important; margin-bottom: 5px; }
+    .legend .row .h-status { height: 16px; width: 16px; display: block; float: left; margin-right: 6px; border-radius: 2px; }
+
+    .each { width: 275px; float: left; }
+    .no-space { margin: 0px; padding: 0px; }
+</style>
+
+<div class="row kontainer">
+    <div class="col-md-3 no-space sidebar" data-bind="with: FilterParm">
+        <h3>Filter</h3>
+        <div>
+            <div class="row">
+                <div class="col-md-3">Region :</div>
+                <div class="col-md-9">
+                    <input type="text" class="full" data-bind="kendoMultiSelect:{data:$root.Masters().Regions, value: Regions}" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3">Rig Type :</div>
+                <div class="col-md-9">
+                    <input type="text" class="full" data-bind="kendoMultiSelect:{data:$root.Masters().RigTypes, value: RigTypes}" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3">Rig :</div>
+                <div class="col-md-9">
+                    <input type="text" class="full" data-bind="kendoMultiSelect:{data:$root.Masters().Rigs, value: Rigs}" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3">Well :</div>
+                <div class="col-md-9">
+                    <input type="text" class="full" data-bind="kendoMultiSelect:{data:$root.Masters().WellNames, value: WellNames}" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3">As at Date :</div>
+                <div class="col-md-9">
+                    <input type="text" style="width: 100%;" data-bind="kendoDatePicker:{value:AsAtDate, format:'{0:dd-MMM-yyyy}'}" />
+                </div>
+            </div>
+            @*<div class="row">
+                <div class="col-md-3">View Type:</div>
+                <div class="col-md-9">
+                    <input type="text" style="width: 100%;" data-bind="kendoDropDownList:{data:$root.Masters().RollingTypes, dataTextField:'Title', dataValueField:'_id', value: RollingType}" />
+                </div>
+            </div>*@
+            <div class="row">
+                <div class="col-md-3">Rolling #:</div>
+                <div class="col-md-9">
+                    <input type="number" style="width: 100%;" data-bind="kendoNumericTextBox:{value:RollingNo, step:1, min:1, format:'N0'}" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12" style="text-align: right;">
+                    <button class="btn btn-custom btn-primary btn-sm" data-bind="click: $root.RecalcObjects">
+                        <span class="glyphicon glyphicon-refresh"></span> Refresh
+                    </button>
+                    <button class="btn btn-custom btn-warning btn-sm" data-bind="click: $root.ResetObjects">
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div style="height: 10px;">&nbsp;</div>
+
+        <h3>Legend</h3>
+        <div class="legend">
+            <div class="row">
+                <span class="h-status summary"></span> Summary
+            </div>
+            <div class="row">
+                <span class="h-status start"></span> Activity Started
+            </div>
+            <div class="row">
+                <span class="h-status ongoing"></span> Activity is On Progress
+            </div>
+            <div class="row">
+                <span class="h-status finish"></span> Activity Finished
+            </div>
+            <div class="row">
+                <span class="h-status inactive"></span> No Data / Inactive / Not Yet Started
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-9 no-space" data-bind="visible: !processingCalc()">
+        <h3>Historical Data</h3>
+        <div class="section header">
+            <div data-bind="foreach: CalcObjects" class="row data-container no-space">
+                <div class="each">
+                    <h4 data-bind="text: kendo.format('{0:dd-MMM-yyyy}', jsonDate(Version()))"></h4>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th style="vertical-align: middle; text-align: left;">Title</th>
+                                <th width="50" style="vertical-align: middle; text-align: center;">Source</th>
+                                <th width="50" style="vertical-align: middle; text-align: right;">Days</th>
+                                <th width="80" style="vertical-align: middle; text-align: right; padding-bottom: 5px;">
+                                    Cost<br />(US$ MM)
+                                </th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="section content">
+            <div data-bind="foreach: CalcObjects" class="row data-container no-space">
+                <div class="each">
+                    <table class="table">
+                        <tbody class="h">
+                            <tr>
+                                <td colspan="4" class="title">
+                                    <span class="h-status summary">Summary</span>
+                                </td>
+                            </tr>
+                        </tbody>
+
+                        <tbody class="b" data-bind="foreach: Items">
+                            <tr>
+                                <td data-bind="text: Title"></td>
+                                <td width="50" style="text-align: center;" data-bind="text: Source"></td>
+                                <td width="50" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Days())"></td>
+                                <td width="80" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Cost())"></td>
+                            </tr>
+                        </tbody>
+                        
+                        <!-- ko foreach: WellItems -->
+                        <tbody class="h">
+                            <tr>
+                                <td colspan="4" class="title">
+                                    <span data-bind="text: (WellName() + ' ' + ActivityType()), attr: { 'class' : 'h-status ' + PhaseStatus() }"></span>
+                                </td>
+                            </tr>
+                        </tbody>
+
+                        <!-- ko if: HasItems() -->
+                        <tbody data-bind="foreach: Items, attr: { 'class' : 'b ' + PhaseStatus() }">
+                            <tr>
+                                <td data-bind="text: Title"></td>
+                                <td width="50" style="text-align: center;" data-bind="text: Source"></td>
+                                <td width="50" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Days())"></td>
+                                <td width="80" style="text-align: right;" data-bind="text: kendo.format('{0:N0}', Cost())"></td>
+                            </tr>
+                        </tbody>
+                        <!-- /ko -->
+
+                        <!-- ko if: !HasItems() -->
+                        <tbody data-bind="foreach: Items, attr: { 'class' : 'b n ' + PhaseStatus() }">
+                            <tr>
+                                <td colspan="4">&nbsp;</td>
+                            </tr>
+                        </tbody>
+                        <!-- /ko -->
+
+                        <!-- /ko -->
+                    </table>
+                </div>
+            </div>
+
+            <div class="row" data-bind="visible:$root.CalcObjects().length==0 && $root.processingCalc()==false">
+                <div class="align_center" style="margin-top:20px">
+                    <h4 style="border:none;">Please enter comparison filter on left panel and click on <b><i>Refresh</i></b> button</h4>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="col-md-9 no-space" data-bind="visible: $root.processingCalc()">
+        @Html.Partial("_processing")
+    </div>
+</div>
+
+<script>
+    model.processingCalc = ko.observable(false);
+    model.ResetObjects = function () {
+        model.FilterParm(CreateFilterParm());
+        model.RecalcObjects();
+    }
+
+    model.RecalcObjects = function () {
+        if (model.processingCalc()) return;
+        model.processingCalc(true);
+
+        var url = "@Url.Action("Calculate")";
+        ajaxPost(url, model.FilterParm(),
+            function (data) {
+                model.processingCalc(false);
+                if (data.Result != "OK") {
+                    alert(data.Message + data.Trace);
+                    return;
+                }
+
+                model.CalcObjects.removeAll();
+                $.each(data.Data.Details, function (i, e) {
+                    $.each(e.WellItems, function (k, g) {
+                        g.HasItems = true;
+                    });
+
+                    $.each(data.Data.WellActivityNames, function (j, f) {
+                        var d = _.find(e.WellItems, function (u) {
+                            return f.WellName === u.WellName && f.ActivityType === u.ActivityType;
+                        });
+
+                        if (typeof d !== String(undefined))
+                            return;
+
+                        e.WellItems.push({
+                            WellName: f.WellName,
+                            ActivityType: f.ActivityType,
+                            Items: data.Data.EmptyItem,
+                            PhaseStatus: "inactive",
+                            HasItems: false
+                        });
+                    });
+
+                    e.WellItems = _.sortBy(e.WellItems, function (g) {
+                        return g.WellName + g.ActivityType;
+                    });
+
+                    var x = ko.mapping.fromJS(e);
+                    model.CalcObjects.push(x);
+                });
+
+                $(".data-container").width(290 * data.Data.Details.length);
+            },
+            function (err) {
+                model.processingCalc(false);
+                alert("Error occured when getting data!");
+                console.log(err);
+            });
+    }
+    
+    $(document).ready(function () {
+        var $window = $(window);
+        var $header = $(".header");
+        var $content = $(".content");
+        var $headerDataContainer = $header.find(".data-container");
+
+        $window.on("resize", function () {
+            var self = $(this);
+            var otherHeight = 200;
+            var navHeight = (function (d) { return (d === 0 ? 30 : d); }($(".navbar-header").height()));
+            $(".content").height($(this).height() - otherHeight - navHeight);
+        });
+
+        setTimeout(function () { $window.trigger("resize"); }, 0);
+        setTimeout(function () { $window.trigger("resize"); }, 500);
+
+        $content.on("scroll", function () {
+            $headerDataContainer.css("margin-left", -1 * $content.scrollLeft());
+        });
+
+        //setTimeout(model.RecalcObjects, 0); // enable for testing purpose
+    });
+</script>

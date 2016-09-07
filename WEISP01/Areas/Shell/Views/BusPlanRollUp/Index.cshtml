@@ -1,0 +1,357 @@
+﻿
+@{
+    ViewBag.Title = "Plan Roll Up";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<style>
+    #summaryData .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+    #summaryData .k-header[role=columnheader][data-field=Particular] {
+        text-align: center;
+    }
+
+    #summaryData .k-header[role=columnheader][data-field=OpsDuration] {
+        vertical-align: bottom;
+        text-align: center;
+    }
+
+    #summaryData .k-header[role=columnheader][data-colspan], #summaryData .k-header[role=columnheader][data-role] {
+        text-align: center;
+        font-weight: bold;
+        color: #a8a8a8;
+    }
+
+    .detailData .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+    .detailData .k-header[role=columnheader][data-field=Particular] {
+        text-align: center;
+    }
+
+    .detailData .k-header[role=columnheader][data-field=OpsDuration] {
+        vertical-align: bottom;
+        text-align: center;
+    }
+
+    .detailData .k-header[role=columnheader][data-colspan], .detailData .k-header[role=columnheader][data-role] {
+        text-align: center;
+        font-weight: bold;
+        color: #a8a8a8;
+    }
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+    .tab-content {
+        margin-bottom: 20px;
+    }
+</style>
+<script>
+    model.PageId("Business Plan");
+    model.IsProcessing = ko.observable(false);
+</script>
+
+<div data-bind="" class="col-md-12">
+    @Html.Partial("FilterForWaterfall")
+    <script>
+        model.FilterVisibility.PerformanceUnits(false);
+        model.FilterVisibility.MonthlySequence(false);
+        //model.FilterVisibility.YearsCalc(true);
+
+        model.FilterVisibility.Activities(true);
+        model.FilterVisibility.OPs(true);
+        model.FilterVisibility.OpRelation(true);
+        model.FilterVisibility.Date(true);
+        model.FilterVisibility.Date2(true);
+        model.FilterVisibility.PeriodBase(false);
+        model.FilterVisibility.PeriodView(true);
+        model.FilterVisibility.PeriodRelation(false);
+
+        model.reloadData = function () {
+            PlanRollUp.GetData();
+        }
+
+        var PlanRollUp = {
+            selectedFiscalYear: ko.observableArray([]),
+            compareWith: ko.observable("CurrentOP"),
+        }
+
+    </script>
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+    <div data-bind="visible: !model.IsProcessing(),with:PlanRollUp">
+        <div class="col-md-12">
+            <ul class="nav nav-tabs">
+                <li class="active"><a href="#summary" data-toggle="tab">Summary</a></li>
+                <!-- ko foreach:selectedFiscalYear-->
+                <li><a data-bind="attr:{href:'#detail'+$data},text:'Detail FY'+$data" data-toggle="tab">Detail</a></li>
+                <!--/ko-->
+            </ul>
+            <div class="row" data-bind="visible:false">
+                <div class="col-md-12">&nbsp;</div>
+                    <div class="col-md-12">
+                        <label>Compare To : </label>&nbsp;
+                        <label><input type="radio" name="CompareTo" value="CurrentOP" data-bind="checked: compareWith">&nbsp;Current OP</label>&nbsp;&nbsp;&nbsp;
+                        <label><input type="radio" name="CompareTo" value="CurrentLE" data-bind="checked: compareWith">&nbsp;Current LE</label>&nbsp;&nbsp;&nbsp;
+                        <label><input type="radio" name="CompareTo" value="CurrentLS" data-bind="checked: compareWith">&nbsp;Current LS</label>
+                    </div>
+                </div>
+            <div class="tab-content">
+                <div class="tab-pane active" id="summary">
+                    <div id="summaryData"></div>
+                </div>
+                <!-- ko foreach:selectedFiscalYear-->
+                <div class="tab-pane" data-bind="attr:{id:'detail'+$data}">
+                    <div data-bind="attr:{id:'detailData'+$data}" class="detailData">
+                    </div>
+                </div>
+                <!--/ko-->
+            </div>
+
+        </div>
+    </div>
+</div>
+<script>
+    PlanRollUp.GetData = function () {
+        $('.nav-tabs a:first').tab("show");
+
+        model.IsProcessing(true);
+        var parm = model.getFilterValues();
+        var tabs = $('.nav-tabs li[class="active"] a');
+        var LastActiveTab = tabs.attr("href");
+        var isLastActiveTabAvailable = (tabs.size() > 0);
+
+        PlanRollUp.selectedFiscalYear([]);
+        parm.CompareWith = PlanRollUp.compareWith();
+        parm.FiscalYearStart = 0;
+        parm.FiscalYearFinish = 0;
+
+        ajaxPost("@Url.Action("GetData")", parm, function (res) {
+            model.IsProcessing(false);
+
+            for (var y = res.Data.YearStart; y <= res.Data.YearFinish; y++) {
+                if (y != 2015) 
+                    PlanRollUp.selectedFiscalYear.push(y);
+            }
+
+            PlanRollUp.GenerateResult(res.Data, res.Data.YearStart, res.Data.YearFinish, parm.CompareWith);
+        }, function () {
+            model.IsProcessing(false);
+        });
+
+        
+    }
+    PlanRollUp.GenerateResult = function (dataSource, yearStart, yearFinish,compareWith) {
+        var PRUTitle = "PRU";
+        var ComparisonTitle = "";
+        switch (compareWith) {
+            case "CurrentOP":
+                ComparisonTitle = "OP";
+                break;
+            case "CurrentLE":
+                ComparisonTitle = "LE";
+                break;
+            case "CurrentLS":
+                ComparisonTitle = "LS";
+                break;
+            default: break;
+        }
+        //Generate Summary Result
+        var SummaryDataSource = dataSource.Summary;
+        var SummarySeries = [
+            {field:"Particular",width:150}
+        ];
+        var SummaryAggregate = [];
+        for (var y = yearStart; y <= yearFinish; y++) {
+            var d = {
+                title: "FY " + y, columns: [
+                    { field: "FY" + y + "val", title: PRUTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, /** footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N1') #</div>" */ },
+                    { field: "FY" + y + "comparison", title: ComparisonTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, /** footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N1') #</div>" */ },
+                    { field: "FY" + y + "delta", title: "∆", attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, /** footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N1') #</div>" */ },
+                ]
+            };
+            SummaryAggregate.push({ field: "FY" + y + "val", aggregate: "sum", format: "{0:0.00}" });
+            SummaryAggregate.push({ field: "FY" + y + "comparison", aggregate: "sum", format: "{0:0.00}" });
+            SummaryAggregate.push({ field: "FY" + y + "delta", aggregate: "sum", format: "{0:0.00}" });
+            
+            if (y > 2015) {
+                SummarySeries.push(d);
+            }            
+        }
+        $("#summaryData").html("");
+        $("#summaryData").kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "Plan Roll Up.pdf" },
+            excel: { fileName: "Plan Roll Up.xlsx", allPages: true, filterable: true },
+            columns: SummarySeries,
+            pageable: false,
+            sortable: true,
+            resizable: true,
+            scrollable: true,
+            dataSource: {
+                data: SummaryDataSource, pageSize: 10,
+                //aggregate: SummaryAggregate
+            },
+        });;
+
+        //Generate Detail Result
+        for (var y = yearStart; y <= yearFinish; y++) {
+            var source = Enumerable.From(dataSource.DetailData).Where(function (x) { return x.Year == "FY" + y }).ToArray();
+            $("#detailData" + y).html("");
+            if (source.length > 0) {
+                $("#detailData" + y).kendoGrid({
+                    toolbar: ["pdf", "excel"],
+                    pdf: { fileName: "Plan Roll Up.pdf" },
+                    excel: { fileName: "Plan Roll Up.xlsx", allPages: true, filterable: true },
+                    columns: [
+                        { field: "WellName", width: 150 },
+                        { field: "ActivityType", width: 150 },
+                        { field: "RigName", width: 150 },
+                        {
+                            title: "Esc Cost - Rig " + y, columns: [
+                                { field: "EscalationCostEDMRig.Value", title: PRUTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "EscalationCostEDMRig.Comparison", title: ComparisonTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "EscalationCostEDMRig.Delta", title: "∆", attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                            ]
+                        },
+                        {
+                            title: "Esc Cost - Services " + y, columns: [
+                                { field: "EscalationCostEDMServices.Value", title: PRUTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "EscalationCostEDMServices.Comparison", title: ComparisonTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "EscalationCostEDMServices.Delta", title: "∆", attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                            ]
+                        },
+                        {
+                            title: "Esc Cost - Materials " + y, columns: [
+                                { field: "EscalationCostEDMMaterial.Value", title: PRUTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "EscalationCostEDMMaterial.Comparison", title: ComparisonTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "EscalationCostEDMMaterial.Delta", title: "∆", attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                            ]
+                        },
+                        {
+                            title: "Esc Cost - Total " + y, columns: [
+                                { field: "EscalationCostEDMTotal.Value", title: PRUTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "EscalationCostEDMTotal.Comparison", title: ComparisonTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "EscalationCostEDMTotal.Delta", title: "∆", attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                            ]
+                        },
+                        {
+                            title: "CSO Cost" + y, columns: [
+                                { field: "CSOCostEDM.Value", title: PRUTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "CSOCostEDM.Comparison", title: ComparisonTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "CSOCostEDM.Delta", title: "∆", attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                            ]
+                        },
+                        {
+                            title: "Inflation Cost" + y, columns: [
+                                { field: "EscalationCostEDMTotal.Value", title: PRUTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "EscalationCostEDMTotal.Comparison", title: ComparisonTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "EscalationCostEDMTotal.Delta", title: "∆", attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                            ]
+                        },
+
+                        {
+                            title: "Mean Cost EDM" + y, columns: [
+                                { field: "MeanCostEDM.Value", title: PRUTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "MeanCostEDM.Comparison", title: ComparisonTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "MeanCostEDM.Delta", title: "∆", attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                            ]
+                        },
+
+                        {
+                            title: "Mean Cost Real Term" + y, columns: [
+                                { field: "MeanCostRealTerm.Value", title: PRUTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "MeanCostRealTerm.Comparison", title: ComparisonTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "MeanCostRealTerm.Delta", title: "∆", attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                            ]
+                        },
+                        {
+                            title: "Mean Cost MOD" + y, columns: [
+                                { field: "MeanCostMOD.Value", title: PRUTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "MeanCostMOD.Comparison", title: ComparisonTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "MeanCostMOD.Delta", title: "∆", attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                            ]
+                        },
+
+                        {
+                            title: "Shell Share" + y, columns: [
+                                { field: "ShellShareMOD.Value", title: PRUTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "ShellShareMOD.Comparison", title: ComparisonTitle, attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                                { field: "ShellShareMOD.Delta", title: "∆", attributes: { style: "text-align: right" }, format: "{0:N1}", width: 100, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum.toFixed(2),'N1') #</div>" },
+                            ]
+                        },
+
+
+                    ],
+                
+                    pageable: true,
+                    sortable: true,
+                    resizable: true,
+                    scrollable: true,
+                    dataSource: {
+                        data: source[0].DataValue, pageSize: 10,
+                        aggregate: [
+                            { field: "EscalationCostEDMRig.Value", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "EscalationCostEDMRig.Comparison", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "EscalationCostEDMRig.Delta", aggregate: "sum", format: "{0:0.00}" },
+
+                            { field: "EscalationCostEDMServices.Value", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "EscalationCostEDMServices.Comparison", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "EscalationCostEDMServices.Delta", aggregate: "sum", format: "{0:0.00}" },
+
+                            { field: "EscalationCostEDMMaterial.Value", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "EscalationCostEDMMaterial.Comparison", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "EscalationCostEDMMaterial.Delta", aggregate: "sum", format: "{0:0.00}" },
+
+                            { field: "EscalationCostEDMTotal.Value", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "EscalationCostEDMTotal.Comparison", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "EscalationCostEDMTotal.Delta", aggregate: "sum", format: "{0:0.00}" },
+
+
+                            { field: "CSOCostEDM.Value", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "CSOCostEDM.Comparison", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "CSOCostEDM.Delta", aggregate: "sum", format: "{0:0.00}" },
+
+                            { field: "InflationCostEDM.Value", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "InflationCostEDM.Comparison", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "InflationCostEDM.Delta", aggregate: "sum", format: "{0:0.00}" },
+
+                            { field: "MeanCostEDM.Value", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "MeanCostEDM.Comparison", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "MeanCostEDM.Delta", aggregate: "sum", format: "{0:0.00}" },
+
+                            { field: "MeanCostRealTerm.Value", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "MeanCostRealTerm.Comparison", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "MeanCostRealTerm.Delta", aggregate: "sum", format: "{0:0.00}" },
+
+                            { field: "MeanCostMOD.Value", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "MeanCostMOD.Comparison", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "MeanCostMOD.Delta", aggregate: "sum", format: "{0:0.00}" },
+
+                            { field: "ShellShareMOD.Value", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "ShellShareMOD.Comparison", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "ShellShareMOD.Delta", aggregate: "sum", format: "{0:0.00}" },
+
+                        ],
+                    },
+                });;
+            }
+            
+        }
+    }
+
+
+    $(document).ready(function () {
+        var dateValue = moment(new Date(2015, 11, 31)).add(15, 'years').toDate();
+        $('[data-model="dateFinish"]:last').data("kendoDatePicker").value(dateValue);
+        $('[data-model="periodBase"]').data("kendoDropDownList").value("By Last Estimate");
+
+        $("[data-model=YearsCalc]").data('kendoMultiSelect').value([new Date().getFullYear()]);
+        PlanRollUp.GetData();
+    });
+</script>

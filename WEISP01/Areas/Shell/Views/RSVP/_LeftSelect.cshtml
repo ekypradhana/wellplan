@@ -1,0 +1,152 @@
+﻿<style>
+    .sidebar-each {
+        margin-bottom: 15px;
+    }
+    
+    .sidebar-each .row .col-md-3 {
+        text-align: right;
+        padding-top: 3px;
+        padding-right: 0px;
+    }
+
+    .sidebar-each .row {
+        margin-bottom: 3px;
+    }
+
+    .sidebar-each .row .col-md-9 .k-multiselect {
+        box-sizing: border-box;
+    }
+
+    .sidebar-each .row-button {
+        margin-top: 6px;
+        text-align: right;
+    }
+
+    .sidebar-each .row-tree {
+        padding-left: 10px;
+        margin-right: 0px;
+    }
+
+    .sidebar-each .k-widget.k-treeview {
+        min-height: 200px;
+    }
+
+    .k-treeview .k-item .k-in {
+        cursor: default;
+        padding-left: 25px;
+        position: relative;
+    }
+
+    .k-treeview .k-item .k-in .k-image {
+        height: 19px;
+        position: absolute;
+        top: 2px;
+        left: 3px;
+    }
+
+    .k-treeview .k-minus {
+        background-position: 0px -32px !important;
+    }
+
+    .k-treeview .k-plus {
+        background-position: 0px -16px !important;
+    }
+
+    .k-treeview .k-state-selected, .k-treeview .k-state-focused, .k-editor-toolbar .k-dropdown, .k-panelbar .k-state-focused {
+        -webkit-box-shadow: none;
+        box-shadow: none;
+        background: cornflowerblue;
+        color: black;
+    }
+
+    .k-in.k-state-focused:not(.k-state-selected) {
+        background: transparent;
+    }
+
+    .k-in .fa {
+        position: absolute;
+        margin-left: 4px;
+        margin-top: -1px;
+        font-size: 9px;
+        color: #DD3333;
+    }
+
+    .table-condensed > tbody > tr:hover {
+        background: #F6F5F7 !important;
+    }
+
+    .k-treeview > .k-group {
+        overflow: auto;
+        height: 480px;
+        margin-right: 18px;
+    }
+</style>
+
+
+<script type="text/javascript">
+    function Init() {
+        var url = "@Url.Action("Search")";
+        var param = [];
+        ajaxPost(url, param, function (res) {
+            initTreeView(res.Data);
+        }, function (res) {
+            alert("Error occured when getting the data!");
+        })
+    };
+
+    function initTreeView(datasource) {
+        var g = $("<div class='Tree'>");
+        $(".Tree").replaceWith(g);
+        $(".Tree").kendoTreeView({
+            dataSource: datasource,
+            height: 100
+        });
+
+        $(".k-group.k-treeview-lines li > ul").each(function (i, e) {
+            var $label = $(e).parent().find("> .k-mid .k-in");
+            $label.html($label.html() + '<i class="fa fa-video-camera"></i>');
+
+        });
+
+        setTimeout(function() {
+            $(".k-treeview .k-in").on("dblclick", function (e) {
+                var x = $(".k-treeview").data("kendoTreeView");
+                var node = $(e.target).closest(".k-item");
+                if (x.dataItem(node).items.length == 0) {
+                    var a = node[0];
+                    var theUid = a.dataset.uid;
+                    var selectitem = x.dataSource.getByUid(theUid);
+                    //console.log(selectitem);
+                    if (selectitem.Streamer == null) {
+                        alert("This Rig doesn't have any RSVP");
+                        return;
+                    } else {
+                        var d = Enumerable.From(model.rsvp().record()).Where("$.text != '" + selectitem.text + "'").ToArray();
+                        model.rsvp().record(d);
+                        if (model.rsvp().record().length >= 6) {
+                            alert("Sorry, only maximum of 6 videos can be streamed at once");
+                        }
+                        else {
+                            model.rsvp().record.push(selectitem);
+                        }
+                        model.rsvp().SaveConfig();
+                    }
+                }
+            });
+        }, 200);
+    }
+
+    $(document).ready(function () {
+        Init();
+    });
+</script>
+
+<h3 class="section-title">Rig Stream Point</h3>
+
+<div class="sidebar-each">
+    <div class="row row-tree">
+        <div class="col-md-12" style="padding-right: 0px;">
+            <div class="Tree"></div>
+        </div>
+    </div>
+</div>

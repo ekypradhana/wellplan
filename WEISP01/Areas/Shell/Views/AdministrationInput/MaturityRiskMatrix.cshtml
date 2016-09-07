@@ -1,0 +1,691 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+@{
+    ViewBag.Title = "Maturity Risk Matrix";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+    var FetchBaseOP = new List<string>();
+    FetchBaseOP = DataHelper.Populate("WEISOPs").Select(x => BsonHelper.GetString(x, "_id")).ToList<string>();
+}
+
+<style>
+    .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .control {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+    .cell-right {
+        text-align: right;
+    }
+
+    .cell-center {
+        text-align: center;
+    }
+
+    .modal .modal-body .form-group {
+        min-height: 27px;
+        margin-bottom: 4px;
+    }
+
+        .modal .modal-body .form-group input,
+        .modal .modal-body .form-group textarea {
+            border-color: #EFEFEF;
+        }
+
+        .modal .modal-body .form-group .col-md-4 {
+            text-align: right;
+            padding-top: 5px;
+            padding-right: 0px;
+        }
+</style>
+
+<script>
+    model.maturityrisk = {};
+    model.maturityrisk.IsProcessing = ko.observable(false);
+    model.maturityrisk.IsEdited = ko.observable(false);
+    //model.maturityrisk.Data = ko.observable(@MvcTools.Obj2HtmlStr(new MacroEconomic()));
+
+    model.maturityrisk.visibility = ko.observable(true);
+    model.maturityrisk.Data = ko.observableArray();
+    model.maturityrisk.DataDummies = ko.observableArray();
+    model.maturityrisk.DataDummies([
+       { "Title": "Type 0 ", "Detail": [{ "Year": "2014", "NPTTime": 0, "NPTCost": 0, "TECOPTime": 0, "TECOPCost": 0 }] },
+       { "Title": "Type 1 ", "Detail": [{ "Year": "2014", "NPTTime": 0, "NPTCost": 0, "TECOPTime": 0, "TECOPCost": 0 }] },
+       { "Title": "Type 2 ", "Detail": [{ "Year": "2014", "NPTTime": 0, "NPTCost": 0, "TECOPTime": 0, "TECOPCost": 0 }] },
+       { "Title": "Type 3 ", "Detail": [{ "Year": "2014", "NPTTime": 0, "NPTCost": 0, "TECOPTime": 0, "TECOPCost": 0 }] },
+       { "Title": "Type 4 ", "Detail": [{ "Year": "2014", "NPTTime": 0, "NPTCost": 0, "TECOPTime": 0, "TECOPCost": 0 }] }
+    ]);
+    model.maturityrisk.AddItem = {};
+    model.maturityrisk.AddItem.BasOP = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(FetchBaseOP)));
+    model.maturityrisk.AddItem.BaseOPValue = ko.observable(model.maturityrisk.AddItem.BasOP()[1]);
+    model.maturityrisk.AddItem.Year = ko.observable(0);
+    model.maturityrisk.AddItem.YearCurrent = ko.observable(0);
+    model.maturityrisk.AddItem.Value = ko.observable(0);
+    model.maturityrisk.AddItem.Source = ko.observable("");
+    model.maturityrisk.AddItem.Desc = ko.observable("");
+    model.maturityrisk.AddItem.ID = ko.observable("");
+    model.maturityrisk.AddItem.Type = ko.observable("GDP"); 
+    model.maturityrisk.AddItem.InterestRatesType = ko.observable("short");
+
+    model.reloadData = function () {
+        model.maturityrisk.Refresh();
+        model.maturityrisk.RenderGridNewMaturity();
+        model.maturityrisk.getLastYear();
+        //$("input.ClassBaseOP").data("kendoMultiSelect").value([model.maturityrisk.AddItem.BaseOPValue()])
+    };
+
+    model.maturityrisk.getLastYear = function () {
+        var url = "@Url.Action("GetMaturityLastYear")";
+        ajaxPost(url, {}, function (res) {
+            var Y = res.Data + 1;
+            model.maturityrisk.AddItem.Year(Y);
+            model.maturityrisk.AddItem.YearCurrent(res.Data);
+        });
+    }
+
+    model.maturityrisk.CheckYear = function () {
+        var url = "@Url.Action("GetMaturityYears")";
+        var param = { y: $("#Year").data("kendoNumericTextBox").value() };
+        ajaxPost(url, param, function (res) {
+            if (res.Data != null) {
+                return alert("Year of " + $("#Year").data("kendoNumericTextBox").value() + " already exist");
+            }
+        });
+    }
+    model.maturityrisk.PrepareUploadForm = function () {
+        $("#upload .grid").kendoUpload({
+            async: {
+                saveUrl: '@Url.Action("Upload")',
+                removeUrl: "remove",
+                autoUpload: false
+            },
+            complete: function (e) {
+                model.maturityrisk.Refresh();
+            },
+            select: function (e) {
+                $.each(e.files, function (index, value) {
+                    var ok = value.extension == ".xlsx" || value.extension == ".xls"
+
+                    if (!ok) {
+                        e.preventDefault();
+                        alert("Please upload only Excel (xls, xlsx) files");
+                    }
+                });
+            }
+        });
+    };
+    model.maturityrisk.Refresh = function (callback) {
+        var url = "@Url.Action("GetMaturityRiskNewVersion")";
+        var param = {};
+
+        model.maturityrisk.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result == "NOK") {
+                model.maturityrisk.visibility(false);
+            } else {
+                model.maturityrisk.Data(res.Data);
+                model.maturityrisk.RenderGridMatrix();
+
+                $(".tab-content .tab-pane:not(.active) .grid").css("visibility", "hidden");
+
+                if (callback != undefined) {
+                    callback();
+                }
+            }
+            model.maturityrisk.IsProcessing(false);
+        });
+    };
+    model.maturityrisk.GridSave = function () {
+        var updates = [];
+        var keys = [];
+
+        $(".grid").each(function (i, e) {
+            var data = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true });
+            data.forEach(function (f, j) {
+                var update = _.find(updates, { _id: f.Detail[0]._id });
+                if (update == undefined) {
+                    for (var k in f) {
+                        if (f.hasOwnProperty(k) && k.indexOf(".") > -1) {
+                            delete f[k];
+                        }
+                    }
+                    updates.push(f);
+
+                    return;
+                }
+
+                //if ($(e).parent().attr("id") == "grid-gdp")
+                //    update.GDP = f.GDP;
+                //else if ($(e).parent().attr("id") == "grid-maturity")
+                //    update.Inflation = f.Inflation;
+                //else if ($(e).parent().attr("id") == "grid-exchange-rate")
+                //    update.ExchangeRate = f.ExchangeRate;
+                //else if ($(e).parent().attr("id") == "grid-interest-rate-short")
+                //    update.InterestRateShort = f.InterestRateShort;
+                //else if ($(e).parent().attr("id") == "grid-interest-rate-long")
+                //    update.InterestRateLong = f.InterestRateLong;
+            });
+        });
+
+        var TempData = [];
+        updates.forEach(function (t,j) {
+            //console.log("update=>", t.Detail.length);
+            t.Detail.forEach(function (x, y) {
+                TempData.push({ "_id": x._id, "Title": t.Title, "Year": x.Year,"BaseOP": x.BaseOP, "NPTTime": x.NPTTime, "NPTCost": x.NPTCost, "TECOPTime": x.TECOPTime, "TECOPCost": x.TECOPCost });
+            });
+        });
+
+        console.log("data==>",TempData);
+        var url = "@Url.Action("UpdateInlineMaturity")";
+        var param = { updates: TempData };
+
+        model.maturityrisk.IsProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                model.maturityrisk.IsProcessing(false);
+                return;
+            }
+
+            model.maturityrisk.IsEdited(false);
+            model.maturityrisk.IsProcessing(false);
+            model.maturityrisk.Refresh();
+        });
+    };
+    model.maturityrisk.GridReset = function () {
+        $(".grid").each(function (i, e) {
+            $(e).data("kendoGrid").dataSource.read();
+        });
+        model.maturityrisk.CheckGrid();
+    };
+    model.maturityrisk.CheckGrid = function () {
+        var isDirty = false;
+
+        $(".grid").each(function (i, e) {
+            if (isDirty) return;
+            isDirty = _.filter($(e).data("kendoGrid").dataSource.data(), { dirty: true }).length > 0;
+            if (isDirty) model.maturityrisk.IsEdited(true);
+        });
+
+        if (!isDirty) {
+            model.maturityrisk.IsEdited(false);
+        }
+    };
+    model.maturityrisk.KendoNumericTextBoxEditor = function (container, option) {
+        var input = $("<input data-bind=\"value:" + option.field + "\" data-min=\"0" + "\" data-max=\"100" + "\"></input>");
+        input.appendTo(container);
+        input.kendoNumericTextBox({
+
+            change: function () {
+                model.maturityrisk.CheckGrid();
+            }
+        });
+    };
+    model.maturityrisk.ShowAddItem = function (o, id) {
+        var gridID = $(o).closest("[id]").attr("id");
+        var data = $(o).closest(".k-grid").data("kendoGrid").dataSource.data();
+        var year = moment(new Date()).year();
+
+        if (gridID == "grid-gdp") {
+            model.maturityrisk.AddItem.Type("GDP");
+            if (data.length > 0) {
+                year = _.max(data[0].GDP.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-maturity") {
+            model.maturityrisk.AddItem.Type("inflation");
+            if (data.length > 0) {
+                year = _.max(data[0].Inflation.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-exchange-rate") {
+            model.maturityrisk.AddItem.Type("exchangerates");
+            if (data.length > 0) {
+                year = _.max(data[0].ExchangeRate.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-interest-rate-short") {
+            model.maturityrisk.AddItem.Type("interestrates");
+            if (data.length > 0) {
+                year = _.max(data[0].InterestRateShort.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        } else if (gridID == "grid-interest-rate-long") {
+            model.maturityrisk.AddItem.Type("interestrates");
+            model.maturityrisk.AddItem.InterestRatesType("long");
+            if (data.length > 0) {
+                year = _.max(data[0].InterestRateLong.AnnualValues, function (e) { return e.Year }).Year + 1;
+            }
+        }
+
+        model.maturityrisk.AddItem.ID(id);
+        model.maturityrisk.AddItem.Value(0);
+        model.maturityrisk.AddItem.Year(year);
+    }
+    model.maturityrisk.SaveItem = function () {
+        //if (model.maturityrisk.CheckYear() == false) {
+        //    return;
+        //}
+        var updates = [];
+        var keys = [];
+
+        $(".gridAdd").each(function (i, e) {
+            var data = _.filter($(e).data("kendoGrid").dataSource.data());
+
+            data.forEach(function (f, j) {
+                var update = _.find(updates, { _id: f.Detail[0]._id });
+                if (update == undefined) {
+                    for (var k in f) {
+                        if (f.hasOwnProperty(k) && k.indexOf(".") > -1) {
+                            delete f[k];
+                        }
+                    }
+                    updates.push(f);
+                    return;
+                }
+            });
+        });
+
+        var TempData = [];
+        updates.forEach(function (t) {
+            TempData.push({ "_id": t.Detail[0]._id, "Title": t.Title.replace(/\s+\S*$/, ""), "Year": $("#Year").data("kendoNumericTextBox").value(), "BaseOP": model.maturityrisk.AddItem.BaseOPValue(), "NPTTime": t.Detail[0].NPTTime, "NPTCost": t.Detail[0].NPTCost, "TECOPTime": t.Detail[0].TECOPTime, "TECOPCost": t.Detail[0].TECOPCost });
+        });
+        console.log(TempData);
+        var url = "@Url.Action("SaveNewMaturity")";
+        var param = { updates:TempData};
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+            console.log("result",res);
+            if (res.Result == "NOK") {
+                alert(res.Message);
+                return;
+            }
+            $("#modal-add-item").modal("hide");
+            model.reloadData();
+        });
+    };
+
+    model.maturityrisk.DeleteItem = function () {
+        var url = "@Url.Action("DeleteMaturyRiskByBaseOPYear")";
+        var param = {
+            baseop: model.maturityrisk.AddItem.BaseOPValue(),
+            year: model.maturityrisk.AddItem.YearCurrent()
+        }
+        ajaxPost(url, param, function (res) {
+            if (res.Result == "OK") {
+                alert("Maturity Risk for Base OP:" + model.maturityrisk.AddItem.BaseOPValue() + " and Year: " + model.maturityrisk.AddItem.YearCurrent() + " Deleted");
+            } else {
+                alert(res.Message);
+            }
+            $("#modal-delete-item").modal("hide");
+            model.reloadData();
+        });
+    }
+
+    model.maturityrisk.BuildGridConfig = function (data, columns, editableFields, interest) {
+        var width = $(".nav-tabs").closest(".col-md-12").width();
+        var schema = {};
+        var addItem = {
+            locked: true,
+            width: 0,
+            attributes: { class: "cell-right" },
+            template: function (dataItem) {
+                return "<button class='btn btn-xs btn-custom btn-primary' onclick='model.maturityrisk.ShowAddItem(this, \"" + dataItem._id + "\")'><span class='glyphicon glyphicon-plus'></span></button>"
+            }
+        };
+
+        if (interest != undefined) {
+            schema = {
+                model: {
+                    fields: {
+                        NPTCost: { editable: true },
+                        NPTTime: { editable: true },
+                        TECOPCost: { editable: true },
+                        TECOPTime: { editable: true },
+                    }
+                }
+            };
+
+            schema.model.fields[interest + ".SeasonallyAdjusted"] = { type: "boolean" };
+            schema.model.fields[interest + ".DateOfLastUpdate"] = { type: "date" };
+            editableFields.forEach(function (e) {
+                schema.model.fields[e] = { type: "number" };
+            });
+
+            columns = [addItem].concat(columns).concat([
+            //columns = columns.concat([
+                { field: interest + ".Source", title: "Source", width: 240 },
+                { field: interest + ".SeasonallyAdjusted", title: "Seasonally Adjusted", attributes: { class: "cell-center" }, width: 120 },
+                { field: interest + ".BaseYearPrice", title: "Base Year Price", attributes: { class: "cell-right" }, width: 120 },
+                { field: interest + ".BaseYearIndex", title: "Base Year Index", attributes: { class: "cell-right" }, width: 120 },
+                { field: interest + ".HistoricalEndYear", title: "Historical End Year", attributes: { class: "cell-right" }, width: 120 },
+                { field: interest + ".HistoricalEndQuarter", title: "Historical End Quarter", attributes: { class: "cell-right" }, width: 140 },
+                { field: interest + ".DateOfLastUpdate", title: "Date Of Last Update", width: 120, format: "{0:dd-MMM-yyyy}", template: "#: jsonDateStr(" + interest + ".DateOfLastUpdate" + ") #" },
+                { field: interest + ".SourceDetail", title: "Source Detail", width: 160 },
+                { field: interest + ".AdditionalSourceDetail", title: "Additional Source Detail", width: 200 },
+                { field: interest + ".Location", title: "Location Code", width: 120 },
+                { field: interest + ".IndicatorCode", title: "Indicator Code", width: 120 }
+            ]);
+        } else {
+            schema = {
+                model: {
+                    fields: {
+                        Title: { editable: false },
+                    }
+                }
+            };
+
+            editableFields.forEach(function (e) {
+                schema.model.fields[e] = { type: "number" };
+            });
+
+            columns = [
+                addItem,
+                { field: "Title", title: "Maturity", width: 100, format: "{0:N2}" },
+            ]
+            .concat(columns);
+        }
+
+        return {
+            chartArea: {
+                width: width
+            },
+            dataSource: {
+                data: data,
+                schema: schema,
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            filterable: false,
+            editable: true,
+            columns: columns
+        };
+    };
+    model.maturityrisk.RenderGridMatrix = function () {
+        var data = model.maturityrisk.Data();
+        var columns = [];
+        var columnsEdit = [];
+        var editableFields = [];
+        var newbaseop = [];
+        data[1].Detail.forEach(function (a, b, c) {
+            newbaseop.push(a.BaseOP);
+        });
+        var gr = _.uniq(newbaseop);
+      
+        data[1].Detail.forEach(function (e, i) {
+            columns.push({
+                title: e.BaseOP + " - " + String(e.Year), attributes: { style: "text-align:center;" }, headerAttributes: {
+                    style: "text-align:center;",
+                },
+                //columns:[
+                //    {
+                //        title: String(e.Year), field: "Detail[" + i + "].Year", attributes: { style: "text-align:center;" }
+                //    }
+                //],
+
+                columns: [
+                    {
+                        title: "NPT Time", width: 115, field: "Detail[" + i + "].NPTTime", attributes: { style: "text-align:right;" },
+                        editor: model.maturityrisk.KendoNumericTextBoxEditor, attributes: { class: "cell-right" }, format: "{0:N0}%"
+                    },
+                    {
+                        title: "NPT Cost", width: 115, field: "Detail[" + i + "].NPTCost", attributes: { style: "text-align:right;" },
+                        editor: model.maturityrisk.KendoNumericTextBoxEditor, attributes: { class: "cell-right" }, format: "{0:N0}%"
+                    },
+                    {
+                        title: "TECOP Time", width: 115, field: "Detail[" + i + "].TECOPTime", attributes: { style: "text-align:right;" },
+                        editor: model.maturityrisk.KendoNumericTextBoxEditor, attributes: { class: "cell-right" }, format: "{0:N0}%"
+                    },
+                    {
+                        title: "TECOP Cost", width: 115, field: "Detail[" + i + "].TECOPCost", attributes: { style: "text-align:right;" },
+                        editor: model.maturityrisk.KendoNumericTextBoxEditor, attributes: { class: "cell-right" }, format: "{0:N0}%"
+                    }
+                ]
+
+            });
+            //editableFields.push("NPTCost[" + i + "]");
+        });
+      
+        //if (data.length > 0) {
+        //    data[0].Inflation.AnnualValues.forEach(function (e, i) {
+        //        columns.push({
+        //            field: "NPTCost[" + i + "]",
+        //            title: "NPT Cost",
+        //            width: 80,
+        //            format: "{0:N2}",
+        //            attributes: { class: "cell-right" },
+        //            editor: model.maturityrisk.KendoNumericTextBoxEditor,
+        //        });
+        //        editableFields.push("NPTCost[" + i + "]");
+        //    });
+        //}
+
+        var config = model.maturityrisk.BuildGridConfig(data, columns, editableFields);
+
+        $("#grid-maturity .grid").replaceWith('<div class="grid"></div>');
+        $("#grid-maturity .grid").kendoGrid(config);
+        $("#grid-maturity .grid").on("change", function () {
+            model.maturityrisk.CheckGrid();
+        });
+    };
+    model.maturityrisk.RenderGridNewMaturity = function () {
+        var data = model.maturityrisk.DataDummies();
+        var columns = [];
+        var editableFields = [];
+
+        data[0].Detail.forEach(function (e, i) {
+            columns.push({
+                columns: [
+                    {
+                        title: "NPT Time", width: 115, field: "Detail[" + i + "].NPTTime", attributes: { style: "text-align:right;" },
+                        editor: model.maturityrisk.KendoNumericTextBoxEditor, attributes: { class: "cell-right" }, format: "{0:N0}%"
+                    },
+                    {
+                        title: "NPT Cost", width: 115, field: "Detail[" + i + "].NPTCost", attributes: { style: "text-align:right;" },
+                        editor: model.maturityrisk.KendoNumericTextBoxEditor, attributes: { class: "cell-right" }, format: "{0:N0}%"
+                    },
+                    {
+                        title: "TECOP Time", width: 115, field: "Detail[" + i + "].TECOPTime", attributes: { style: "text-align:right;" },
+                        editor: model.maturityrisk.KendoNumericTextBoxEditor, attributes: { class: "cell-right" }, format: "{0:N0}%"
+                    },
+                    {
+                        title: "TECOP Cost", width: 115, field: "Detail[" + i + "].TECOPCost", attributes: { style: "text-align:right;" },
+                        editor: model.maturityrisk.KendoNumericTextBoxEditor, attributes: { class: "cell-right" }, format: "{0:N0}%"
+                    }
+                ],
+            });
+
+        });
+
+        var config = model.maturityrisk.BuildGridConfig(data, columns, editableFields);
+        $(".gridAdd").replaceWith('<div class="gridAdd"></div>');
+        $(".gridAdd").kendoGrid(config);
+    };
+    model.maturityrisk.Prepare = function () {
+        $(".nav-tabs a").on("click", function (e) {
+            $($(e.currentTarget).attr("href") + " .grid").each(function (i, e) {
+                var $grid = $(e);
+
+                if ($grid.css("visibility") != "hidden") {
+                    return;
+                }
+
+                setTimeout(function () {
+                    $grid.data("kendoGrid").dataSource.read();
+                    $grid.css("visibility", "visible");
+                }, 100);
+            });
+        });
+    };
+
+    AddMaturiry = function () {
+        $("#modal-add-item").modal("show");
+        window.setTimeout(function () {
+            $(".gridAdd").data("kendoGrid").refresh();
+        }, 1000);
+
+    }
+    DeleteMaturity = function () {
+        $("#modal-delete-item").modal("show");
+    }
+    //$(function () {
+    //    model.maturityrisk.Prepare();
+    //    model.maturityrisk.Refresh();
+    //});
+</script>
+
+@Html.Partial("_BusPlanCalculationNotifier")
+
+<script type="text/html" id="grid-control-template">
+
+</script>
+
+<div class="col-md-12" data-bind="visible: model.maturityrisk.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+
+@*<div class="col-md-5">@Html.Partial("_Country")</div>*@
+<div class="col-md-12">
+    <button class="btn-sm btn btn-custom btn-success" data-bind="enable: model.maturityrisk.IsEdited() && !model.BisPlanRecalculateStatus(), click: model.maturityrisk.GridSave">
+        <span class="glyphicon glyphicon-save"></span> Save Changes
+    </button>
+    <button class="btn-sm btn-custom btn-primary" data-bind="click:AddMaturiry">
+        <span class="glyphicon glyphicon-plus"></span> Add
+    </button>
+    <button class="btn-sm btn-custom btn-danger" data-bind="click:DeleteMaturity">
+        <span class="glyphicon glyphicon-plus"></span> Delete
+    </button>
+</div>
+<div class="col-md-12" style="text-align:right">
+    <br />
+    @** All values in US$*@
+</div>
+<div data-bind="visible:model.maturityrisk.visibility">
+    <div class="col-md-12" data-bind="with: model.maturityrisk, style: { 'visibility': model.maturityrisk.IsProcessing() ? 'hidden' : 'visible' }">
+
+        <div id="grid-maturity">
+            <div class="control" data-bind="template: { name: 'grid-control-template' }"></div>
+            <div class="grid"></div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-add-item" data-bind="with: model.maturityrisk">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title">Add Item</h4>
+                </div>
+                <div class="modal-body row">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <div class="col-md-4">
+                                <label>Base OP</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input class="ClassBaseOP" type="text" style="width: 200px" data-bind="kendoDropDownList: { data: AddItem.BasOP,value:AddItem.BaseOPValue}" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="col-md-4">
+                                <label>Year</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input id="Year" type="text" style="width: 200px" data-bind="kendoNumericTextBox: { format: '#', value: AddItem.Year }" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="col-md-12">
+                                <div class="gridAdd"></div>
+                            </div>
+
+                        </div>
+                    </div>
+                    
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-custom btn-warning" data-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-primary" data-bind="click: SaveItem">
+                        <span class="glyphicon glyphicon-refresh"></span> Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-delete-item" data-bind="with: model.maturityrisk">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                        <span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title">Select Maturity Matrix Base OP and Year to be deleted</h4>
+                </div>
+                <div class="modal-body row">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <div class="col-md-4">
+                                <label>Base OP</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input class="ClassBaseOP" type="text" style="width: 200px" data-bind="kendoDropDownList: { data: AddItem.BasOP,value:AddItem.BaseOPValue}" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="col-md-4">
+                                <label>Year</label>
+                            </div>
+                            <div class="col-md-8">
+                                <input id="Year" type="text" style="width: 200px" data-bind="kendoNumericTextBox: { format: '#', value: AddItem.YearCurrent }" />
+                            </div>
+                        </div>
+                        
+                    </div>
+
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-custom btn-warning" data-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-sm btn-custom btn-danger" data-bind="click: DeleteItem">
+                        <span class="glyphicon glyphicon-refresh"></span>Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <script>
+        $(document).ready(function () {
+            model.maturityrisk.Prepare();
+            model.reloadData();
+        });
+    </script>
+
+

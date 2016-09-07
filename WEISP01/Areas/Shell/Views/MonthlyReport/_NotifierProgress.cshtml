@@ -1,0 +1,64 @@
+﻿<script>
+    toastr.options = {
+        "closeButton": false,
+        "debug": false,
+        "newestOnTop": false,
+        "progressBar": false,
+        "positionClass": "toast-bottom-right",
+        "preventDuplicates": false,
+        "onclick": null,
+        "showDuration": "300000",
+        "hideDuration": "1000",
+        "timeOut": "300000",
+        "extendedTimeOut": "1000",
+        "showEasing": "swing",
+        "hideEasing": "linear",
+        "showMethod": "fadeIn",
+        "hideMethod": "fadeOut"
+    }
+
+
+    model.GetCalculationStatus = function () {
+        
+        var DoGetCalculationStatus = function () {
+            $(".btn.btn-xs.btn-primary.btn-custom.btn-initiate").prop("disabled", true);
+                 if (model.FinancialCalendar.StatusProgress() == "Working") {
+                     if ($("#toast-container").size() == 0) {
+                         toastr["info"]("Financial Calendar is running. Some features will be disabled for a while ");
+                     }
+
+                     if ($(".toast-message:first").find("span").size() == 0) {
+                         $(".toast-message:first").append("<span style='padding-left: 5px;'></span>");
+                     }
+                     setTimeout(function() {
+                         DoGetCalculationStatus();
+                     }, 1000);
+
+                     return;
+                 } else {
+                     $("#toast-container").remove();
+                     $(".btn.btn-xs.btn-primary.btn-custom.btn-initiate").prop("disabled", false);
+                     model.FinancialCalendar.GetData()
+                 }
+
+                // if (model.FinancialCalendar.StatusProgress() == "Done" || model.FinancialCalendar.StatusProgress() == "Empty" || model.FinancialCalendar.StatusProgress() == "None") {
+                //    $("#toast-container").remove();
+                //    $(".btn.btn-xs.btn-primary.btn-custom.btn-initiate").prop("disabled", false);
+                //    model.FinancialCalendar.GetData()
+                //    //toastr["success"]("Recalculation process finished.");
+                //    //setTimeout(function () {
+                //    //    $("#toast-container").remove();
+                //    //}, 3000);
+                //}
+            
+        };
+
+        DoGetCalculationStatus();
+    };
+</script>
+
+<style>
+    #toast-container * {
+        opacity: 1 !important;
+    }
+</style>

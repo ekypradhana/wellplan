@@ -1,0 +1,300 @@
+﻿@{
+    ViewBag.Title = "Rig Rates";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<script>
+    model.Yo = {}; var y = model.Yo;
+    
+    y.MaxYear = ko.observable(moment(new Date()).year());
+    y.MinYear = ko.observable(moment(new Date()).year());
+    y.Mode = ko.observable('');
+    y.AddTitle = ko.observable('');
+
+    y.Refresh = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        model.Processing(true);
+
+        var url = "@Url.Action("GetRigRatesData")";
+        var param = y.GetParam();
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            model.Processing(false);
+            y.MinYear(res.Data.MinYear);
+            y.MaxYear(res.Data.MaxYear);
+            y.GenerateGrid(res.Data);
+        });
+    };
+    y.GenerateGrid = function (data) {
+        var width = $(".the-container:visible").width();
+
+        var config = {
+            width: width,
+            dataSource: {
+                schema: {
+                    model: {
+                        fields: data.Fields
+                    }
+                },
+                data: data.Items,
+                pageSize: 15
+            },
+            columns: data.Columns,
+            filterable: false,
+            pageable: true,
+            resizable: false,
+            editable: true,
+            sortable: true
+        };
+
+        $('.grid').replaceWith('<div class="grid"></div>');
+        $('.grid').kendoGrid(config);
+    };
+    y.GetChanges = function () {
+        var data = $(".grid").data("kendoGrid").dataSource.data();
+        var filteredData = JSON.parse(kendo.stringify(_.filter(data, { dirty: true })));
+
+        return filteredData;
+    };
+    y.GetLatestYear = function () {
+        try {
+            var years = [];
+            var data = $(".grid").data("kendoGrid").dataSource.data()[0];
+
+            for (var i in data) {
+                if (data.hasOwnProperty(i) && i.indexOf('Year') > -1) {
+                    years.push(parseInt(i.replace(/Year_/g, ''), 10));
+                }
+            }
+
+            return _.max(years);
+        } catch (err) {
+            return moment(new Date()).year();
+        }
+    };
+    y.AddYear = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        var newFY = "FY" + String(y.GetLatestYear() + 1).substring(2);
+        if (!confirm("This will add new column " + newFY + ". Are you sure?")) {
+            return;
+        }
+
+        var url = "@Url.Action("AddYearOnRigRates")";
+        var param = y.GetParam();
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+    y.RemoveYear = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        var newFY = "FY" + String(y.GetLatestYear()).substring(2);
+        if (!confirm("This will remove column " + newFY + ". Are you sure?")) {
+            return;
+        }
+
+        var url = "@Url.Action("RemoveYearOnRigRates")";
+        var param = y.GetParam();
+
+        model.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+    y.SaveUpdate = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        model.Processing(true);
+
+        var url = "@Url.Action("SaveRigRatesData")";
+        var param = y.GetParam({ Changes: y.GetChanges() });
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Refresh();
+        });
+    };
+    y.AddRig = function () {
+        $(".form-add .form-group:gt(0)").remove();
+        y.AddTitle('');
+        y.Mode('Add');
+
+        for (var i = y.MinYear() ; i <= y.MaxYear() ; i++) {
+            var input = $("#add-form-input").html();
+            $(".form-add").append(input);
+            $(".form-add .form-group:last .year").html('Year ' + i);
+            $(".form-add .form-group:last .value").kendoNumericTextBox({
+                value: 0
+            });
+        }
+    };
+    y.Back = function () {
+        y.Mode('');
+    };
+    y.ParseNewData = function () {
+        var result = { Title: y.AddTitle() };
+
+        $(".form-add .form-group:gt(0)").each(function (i, e) {
+            var year = $(e).find(".year").html().replace(/ /g, "_");
+            var value = $(e).find("input:eq(1)").data("kendoNumericTextBox").value();
+
+            result[year] = value;
+        });
+
+        return result;
+    };
+    y.SaveAdd = function () {
+        if (!y.IsValidInput()) {
+            return;
+        }
+
+        var url = "@Url.Action("AddRigRate")";
+        var param = y.GetParam({ insert: y.ParseNewData() });
+
+        ajaxPost(url, param, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            y.Mode('');
+            y.Refresh();
+        });
+    };
+
+    $(function () {
+        y.Refresh();
+    });
+</script>
+
+<script type="text/template" id="add-form-input">
+    <div class="form-group">
+        <div class="col-md-4">
+            <span class="year"></span>
+        </div>
+        <div class="col-md-8">
+            <input class="value" type="text" style="width: 100%;" />
+        </div>
+    </div>
+</script>
+
+<div class="col-md-12" data-bind="with: model.Yo">
+    <div class="controls" data-bind="visible: (Mode() == '')">
+        @Html.Partial("_Filter")
+
+        <div class="filter">
+            <div class="form-group">
+                <div class="col-md-1"></div>
+                <div class="col-md-11">
+                    <button class="btn btn-sm btn-custom btn-primary" data-bind="click: Refresh">
+                        <span class="glyphicon glyphicon-refresh"></span> Refresh
+                    </button>
+                    <button class="btn btn-sm btn-custom btn-success" data-bind="click: SaveUpdate">
+                        <span class="glyphicon glyphicon-save"></span> Save Changes
+                    </button>
+                    &nbsp;
+                    <button class="btn btn-sm btn-custom btn-warning" data-bind="click: AddRig">
+                        <span class="glyphicon glyphicon-plus"></span> Add Rig
+                    </button>
+                    &nbsp;
+                    <button class="btn btn-sm btn-custom btn-warning" data-bind="click: AddYear">
+                        <span class="glyphicon glyphicon-plus"></span> Add Year
+                    </button>
+                    <button class="btn btn-sm btn-custom btn-warning" data-bind="click: RemoveYear">
+                        <span class="glyphicon glyphicon-remove"></span> Remove Year
+                    </button>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form col-md-12" data-bind="visible: (Mode() == '')">
+        <div class="grid"></div>
+    </div>
+
+    <div data-bind="visible: (Mode() == 'Add')">
+        <div class="controls">
+            <button class="btn btn-sm btn-custom btn-primary" data-bind="click: Back">
+                <span class="glyphicon glyphicon-chevron-left"></span> Back to Grid
+            </button>
+            <button class="btn btn-sm btn-custom btn-success" data-bind="click: SaveAdd">
+                <span class="glyphicon glyphicon-save"></span> Save Changes
+            </button>
+            <div class="clearfix"></div>
+        </div>
+        <form class="form-add">
+            <div class="form-group">
+                <div class="col-md-4">
+                    <span>Rig Name</span>
+                </div>
+                <div class="col-md-8">
+                    <select style="width: 100%;" data-bind="kendoDropDownList: { data: RigNames, value: AddTitle, optionLabel: 'Select one' }"></select>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .form-add {
+        width: 400px;
+    }
+
+        .form-add .form-group {
+            height: 14px;
+        }
+
+            .form-add .form-group .col-md-4 {
+                padding-top: 5px;
+            }
+
+    .controls {
+        margin-bottom: 10px;
+    }
+</style>

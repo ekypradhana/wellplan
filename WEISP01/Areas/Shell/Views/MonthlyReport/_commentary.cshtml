@@ -1,0 +1,1353 @@
+﻿@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using MongoDB.Bson;
+@using Newtonsoft.Json;
+
+@{
+    //var PerformanceUnits = new List<string>();
+    //var elements = DataHelper.Populate("WEISPerformanceUnits").Select(x => BsonHelper.GetString(x, "_id"));
+    //PerformanceUnits = elements.ToList(); //.Where(d => d.PerformanceUnit != null).GroupBy(d => d.PerformanceUnit).Select(d => d.Key).OrderBy(d => d).ToList();
+
+
+    //PerformanceUnits = elements
+    //        .Select(d => new
+    //        {
+    //            DataText = d.ToString() == "" ? "All Others" : d.ToString(),
+    //            DataValue = d.ToString()
+    //        }.ToBsonDocument()).OrderBy(d => d.GetString("DataValue"))
+    //        .Select(d => d.ToDictionary()).ToList();
+    
+    //var elements = DataHelper.Populate<WellPIP>("WEISWellPIPs").SelectMany(d => d.Elements);
+    //if (elements.Where(d => d.PerformanceUnit != null).Count() > 0)
+    //{
+    //    PerformanceUnits = elements.Where(d => d.PerformanceUnit != null).GroupBy(d => d.PerformanceUnit)
+    //        .Select(d => new
+    //        {
+    //            DataText = d.Key == "" ? "All Others" : d.Key,
+    //            DataValue = d.Key
+    //        }.ToBsonDocument()).OrderBy(d => d.GetString("DataValue"))
+    //        .Select(d => d.ToDictionary()).ToList();
+    //}
+
+    var PerformanceUnits = new List<Dictionary<string, object>>();
+    var elements = DataHelper.Populate("WEISPerformanceUnits").Select(x => BsonHelper.GetString(x, "_id")).ToList<string>();
+    if (elements.Count() > 0)
+    {
+        PerformanceUnits = elements
+            .Select(d => new
+            {
+                DataText = d.ToString() == "" ? "All Others" : d.ToString(),
+                DataValue = d.ToString()
+            }.ToBsonDocument()).OrderBy(d => d.GetString("DataValue"))
+            .Select(d => d.ToDictionary()).ToList();
+    }
+    
+    string[] arr1 = new string[] { "AFE", "Agreed Target", "Best In Class", "Operations Plan 2014", "P50", "Top Quartile", "Type 1 Baseline", "Type 2 Baseline", "Type 3 Baseline" };
+    var MetricDropDown = arr1.ToList();
+}
+
+<style>
+    .pip {
+    }
+    .nopadLR {
+        padding-right: 0.22%x;
+        /*padding-left: 0px;*/
+    }
+
+    textarea {
+        border: solid 1px #ccc;
+    }
+
+    .counter {
+        text-align: right;
+        font-size: 10px;
+        color: blue;
+    }
+
+        .counter span {
+            font-weight: bold;
+        }
+
+    span.glyphicon.glyphicon-comment.comment-exist {
+        color: rgb(66, 139, 202);
+    }
+
+        span.glyphicon.glyphicon-comment.comment-exist .comment-counter {
+            color: black;
+            font-size: 10px;
+            position: absolute;
+            top: -5px;
+            right: -7px;
+            font-weight: normal !important;
+        }
+
+    .fontRed {
+        color: red;
+    }
+
+    .form-group > label {
+        margin-top: 10px;
+    }
+
+    /*.form-group > div > span{
+        line-height: 35px;
+    }*/
+
+    .block-summary {
+        width: 400px;
+        padding: 15px;
+        padding-bottom: 5px;
+    }
+
+        .block-summary .col-md-12 {
+            margin: 0px;
+            padding: 3px;
+        }
+
+        .block-summary .col-md-4 {
+            padding: 0px;
+            margin: 0px;
+        }
+
+        .block-summary .col-md-8 {
+            padding-left: 4px;
+            margin: 0px;
+        }
+
+            .block-summary .col-md-8:before {
+                z-index: 5;
+                content: ":";
+                margin-right: 5px;
+            }
+
+        .block-summary .col-md-4 {
+            font-weight: bold;
+        }
+
+    .font-transparent {
+        color: transparent;
+    }
+
+    .font-black {
+        color: black;
+    }
+
+    .bg-td-green {
+        background-color: #27ae60 !important;
+        color: white;
+    }
+
+    .bg-td-red {
+        background-color: #d14233 !important;
+        color: white;
+    }
+
+    .val{
+        margin-top:8px;
+    }
+
+    .ec-center {
+        text-align: center;
+    }
+
+    .pip-inputs > div > .form-group {
+        height: 36px;
+    }
+
+    .pip-inputs > div > .form-group label {
+        margin-top: 12px;
+    }
+    .pip-inputs label {
+        padding-top: 5px;
+    }
+</style>
+<script>
+    model.GetOpActive = function () {
+        var url = "@Url.Action("GetBaseOPConfig", "BaseOPSetting")";
+        ajaxPost(url, {}, function (data) {
+            
+            if (data.Data.BaseOPConfig != null) {
+                xx = data.Data.BaseOPConfig.split('');
+                xx.splice(2, 0, "-");
+                model.OpActive(xx.join(""));
+            }
+        });
+    };
+    ApplyChecked = function(element) {
+        //var current = model.wrmodel().record().Elements()[2].Completion();
+        var $elem = $(element);
+        var _idx = $elem.attr("GI");
+        var idx = _idx.split("-");
+        //console.log('idx  : ' + idx);
+        var checking = $elem.is(":checked");
+        if (checking) {
+            model.wrmodel().record().Elements()[idx[1]].Completion("Realized");
+        } else {
+            model.wrmodel().record().Elements()[idx[1]].Completion("Not yet Realized");
+        }
+        //model.wrmodel().record().Elements()[2].Completion()
+    }
+
+    model.wrmodel().countNPTCOst = function () {
+        var x = model.wrmodel().record();
+        AFEDays = parseFloat(x.AFE.Days());
+        AFECost = parseFloat(x.AFE.Cost());
+        NPTDays = parseFloat(x.NPT.Days());
+        //if (AFEDays == 0 || NPTDays == 0) {
+        //    x.NPT.Cost(0);
+        //} else {
+        //    var perc = NPTDays / AFEDays;
+        //    x.NPT.Cost(perc);
+        //}
+        //<a href="~/Areas/Shell/Views/WeeklyReport/_commentary.cshtml">~/Areas/Shell/Views/WeeklyReport/_commentary.cshtml</a>
+        //var cost = NPTDays * 100 / AFEDays;
+        //x.NPT.Cost(cost);
+    }
+
+    model.wrmodel().countNPTDays = function () {
+        var x = model.wrmodel();
+        ActualDays = parseFloat(x.record().Actual.Days());
+        NPTHours = parseFloat(x.NPTHours());
+        if (ActualDays == 0 || NPTHours == 0) {
+            x.record().NPT.Days(0);
+        } else {
+            var perc = NPTHours / 24 / ActualDays;
+            x.record().NPT.Days(perc);
+        }
+        //x.countNPTCOst();
+    }
+    var opDatasource =  ['OP14','OP15'];
+    model.wrmodel().PIPAssignTOOp = ko.observableArray("");
+    model.wrmodel().CounterExecutiveSummary = ko.observable("");
+    model.wrmodel().CounterOperationSummary = ko.observable("");
+    model.wrmodel().CounterPlannedOperation = ko.observable("");
+    model.wrmodel().CounterSuplementReason = ko.observable("");
+    model.wrmodel().LineExecutiveSummary = ko.observable("");
+    model.wrmodel().LineOperationSummary = ko.observable("");
+    model.wrmodel().LinePlannedOperation = ko.observable("");
+    model.wrmodel().LineSuplementReason = ko.observable("");
+    model.wrmodel().MaxCharPerLine = ko.observable(105);
+
+
+    
+
+
+    function getTotalLine(Chars) {
+        var x = model.wrmodel();
+        //var totalN = (Chars.match(/\n/g) || []).length;
+        //var totalLine = Math.ceil((Chars.length - totalN) / x.MaxCharPerLine());
+        //totalLine = totalLine + totalN;
+
+        var totalN = (Chars.match(/\n/g) || []).length;
+        var additionalLine = 0;
+        var splitLine = Chars.split(/\n/g);
+        for (var i = 0; i < splitLine.length; i++) {
+            var addLine = Math.ceil((splitLine[i].length) / x.MaxCharPerLine());
+            additionalLine = additionalLine + (addLine == 0 ? 1 : addLine);
+        }
+        var totalLine = additionalLine;
+        return totalLine;
+    }
+
+    $(document).ready(function () {
+        var x = model.wrmodel();
+        var characters = model.wrmodel().WordCount();
+        $(".container-fluid").on("keyup", "#ExeSum", function () {
+            if (characters == 0) {
+                //unlimited chars
+                x.CounterExecutiveSummary("Total Characters: " + $(this).val().length);
+            } else {
+                if ($(this).val().length > characters) {
+                    $(this).val($(this).val().substr(0, characters));
+                    x.record().ExecutiveSummary($(this).val().substr(0, characters));
+                }
+                var remaining = characters - $(this).val().length;
+                x.CounterExecutiveSummary("You have " + remaining + " characters remaining");
+
+                var totalLine = getTotalLine($(this).val())
+
+                if (totalLine > 6) {
+                    $("#LineExecutiveSummary").addClass("fontRed");
+                    x.LineExecutiveSummary("(" + totalLine + " lines on PDF, but only shown 6 lines)");
+                } else {
+                    $("#LineExecutiveSummary").removeClass("fontRed")
+                    x.LineExecutiveSummary("(" + totalLine + " lines on PDF)");
+                }
+            }
+        });
+        $(".container-fluid").on("keyup", "#OpsSum", function () {
+            if (characters == 0) {
+                //unlimited chars
+                x.CounterOperationSummary("Total Characters: " + $(this).val().length);
+            } else {
+                if ($(this).val().length > characters) {
+                    $(this).val($(this).val().substr(0, characters));
+                    x.record().OperationSummary($(this).val().substr(0, characters));
+                }
+                var remaining = characters - $(this).val().length;
+                x.CounterOperationSummary("You have " + remaining + " characters remaining");
+
+                var totalLine = getTotalLine($(this).val())
+
+                if (totalLine > 14) {
+                    $("#LineOperationSummary").addClass("fontRed");
+                    x.LineOperationSummary("(" + totalLine + " lines on PDF, but only shown 14 lines)");
+                } else {
+                    $("#LineOperationSummary").removeClass("fontRed")
+                    x.LineOperationSummary("(" + totalLine + " lines on PDF)");
+                }
+            }
+        });
+        $(".container-fluid").on("keyup", "#PlnOps", function () {
+            if (characters == 0) {
+                //unlimited chars
+                x.CounterPlannedOperation("Total Characters: " + $(this).val().length);
+            } else {
+                if ($(this).val().length > characters) {
+                    $(this).val($(this).val().substr(0, characters));
+                    x.record().PlannedOperation($(this).val().substr(0, characters));
+                }
+                var remaining = characters - $(this).val().length;
+                x.CounterPlannedOperation("You have " + remaining + " characters remaining");
+
+                var totalLine = getTotalLine($(this).val())
+
+                if (totalLine > 6) {
+                    $("#LinePlannedOperation").addClass("fontRed");
+                    x.LinePlannedOperation("(" + totalLine + " lines on PDF, but only shown 6 lines)");
+                } else {
+                    $("#LinePlannedOperation").removeClass("fontRed")
+                    x.LinePlannedOperation("(" + totalLine + " lines on PDF)");
+                }
+            }
+        });
+        $(".container-fluid").on("keyup", "#SupRes", function () {
+            if (characters == 0) {
+                //unlimited chars
+                x.CounterSuplementReason("Total Characters: " + $(this).val().length);
+            } else {
+                if ($(this).val().length > characters) {
+                    $(this).val($(this).val().substr(0, characters));
+                    x.record().SupplementReason($(this).val().substr(0, characters));
+                }
+                var remaining = characters - $(this).val().length;
+                x.CounterSuplementReason("You have " + remaining + " characters remaining");
+
+                var totalLine = getTotalLine($(this).val())
+
+                if (totalLine > 6) {
+                    $("#LineSuplementReason").addClass("fontRed");
+                    x.LineSuplementReason("(" + totalLine + " lines on PDF, but only shown 6 lines)");
+                } else {
+                    $("#LineSuplementReason").removeClass("fontRed")
+                    x.LineSuplementReason("(" + totalLine + " lines on PDF)");
+                }
+            }
+        });
+    });
+    function replaceString(value){
+        return value.replace("_"," ");
+    }
+
+    var SumData;
+    function GetPIPSummary(){
+        var datas = {
+            PIPId: model.wrmodel().selectedPIPId(),
+            BaseOP : model.summaryop()
+
+        };
+        ajaxPost("@Url.Action("GetSummary")",datas,
+        function (data) {
+            if (data.Success == true) {
+                refreshPIPSummary(data);
+                SumData = data
+            } else {
+                alert(data.Message);
+            }
+        });
+    }
+    
+    function sum(numbers) {
+        return _.reduce(numbers, function(result, current) {
+            return result + parseFloat(current);
+        }, 0);
+    }
+
+    function GenDataPIPSummary(data){
+        var result = _.chain(data)
+            .groupBy("Completion")
+            .map(function(value, key) {
+                return {
+                    Completion: key,
+                    CostCurrentWeekImprovement: sum(_.pluck(value, "CostCurrentWeekImprovement")),
+                    CostCurrentWeekRisk: sum(_.pluck(value, "CostCurrentWeekRisk")),
+                    CostPlanImprovement: sum(_.pluck(value, "CostPlanImprovement")),
+                    CostPlanRisk: sum(_.pluck(value, "CostPlanRisk")),
+                    DaysCurrentWeekImprovement: sum(_.pluck(value, "DaysCurrentWeekImprovement")),
+                    DaysCurrentWeekRisk: sum(_.pluck(value, "DaysCurrentWeekRisk")),
+                    DaysPlanImprovement: sum(_.pluck(value, "DaysPlanImprovement")),
+                    DaysPlanRisk: sum(_.pluck(value, "DaysPlanRisk"))
+                }
+            })
+            .value();
+
+        return result
+    }
+    
+    function refreshPIPSummary(data){
+        var dt = GenDataPIPSummary(data.Data);
+
+        var ds = new kendo.data.DataSource({
+            data: dt,
+            schema: {
+                model: {
+                    fields: {
+                        "DaysPlanImprovement": { type: "number" },
+                        "DaysPlanRisk": { type: "number" },
+                        "CostPlanImprovement": { type: "number" },
+                        "CostPlanRisk": { type: "number" },
+                        "DaysCurrentWeekImprovement": { editable: false },
+                        "CostCurrentWeekImprovement": { editable: false },
+                        "DaysCurrentWeekRisk": { editable: false},
+                        "CostCurrentWeekRisk": { editable: false },
+                        "Completion": { editable: false }
+                    }
+                },
+            },
+
+            batch: true
+        });
+
+        $("#GridPIPSummary").data("kendoGrid").setDataSource(ds);
+    }
+
+    
+    function HideHeader(){
+        $(".k-grid tbody .k-grid .k-grid-header").hide();
+    }
+    
+    function detailInit(e) {
+
+        $("<div/>").appendTo(e.detailCell).kendoGrid({
+            dataSource: {
+                data: SumData.Data,
+                schema: {
+                    model: {
+                        fields: {
+                            "DaysPlanImprovement": { type: "number" },
+                            "DaysPlanRisk": { type: "number" },
+                            "CostPlanImprovement": { type: "number" },
+                            "CostPlanRisk": { type: "number" },
+                            "DaysCurrentWeekImprovement": { editable: false },
+                            "CostCurrentWeekImprovement": { editable: false },
+                            "DaysCurrentWeekRisk": { editable: false},
+                            "CostCurrentWeekRisk": { editable: false },
+                            "Completion": { editable: false },
+                            "Type_PIP": { editable: false }
+                        }
+                    },
+                },
+                filter: { field: "Completion", operator: "eq", value: e.data.Completion }
+            },
+            scrollable: false,
+            sortable: true,
+            pageable: false,
+            columns: [
+                        {
+                            field: "Type_PIP", title: " ",  filterable: false, template:"#= kendo.toString(replaceString(Type_PIP))#", headerAttributes: {
+                                //style: "display: none"
+                            }, width: 410
+                        },
+                        {
+                            field: "DaysPlanImprovement", title: "Original<br>Estimate<br>Days Opp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                                //style: "display: none"
+                            }, width: 95
+           
+                        },
+                        {
+                            field: "DaysPlanRisk", title: "Original<br>Estimate<br>Days Risk", filterable: false, attributes: { class: "cell-number" },  format: "{0:N2}", headerAttributes: {
+                                //style: "display: none"
+                            }, width:95
+           
+                        },
+                        {
+                            field: "CostPlanImprovement", title: "Original<br>Estimate<br>Cost Opp", filterable: false, attributes: { class: "cell-number" }, format: "{0:N2}", headerAttributes: {
+                                //style: "display: none"
+                            }, width:95
+           
+                        },
+                        {
+                            field: "CostPlanRisk", title: "Original<br>Estimate<br>Cost Risk", filterable: false, attributes: { class: "cell-number" },  format: "{0:N2}", headerAttributes: {
+                                // style: "display: none"
+                            }, width:95
+           
+                        },
+                        {
+                            field: "DaysCurrentWeekImprovement", title: "Last<br>Estimate<br>Days Opp", filterable: false, format: "{0:N2}", attributes: { class: "cell-number" }, headerAttributes: {
+                                // style: "display: none"
+                            }, width:95
+            
+                        },
+                        {
+                            field: "DaysCurrentWeekRisk", title: "Last<br>Estimate<br>Days Risk", filterable: false, format: "{0:N2}", attributes: { class: "cell-number" }, headerAttributes: {
+                                //style: "display: none"
+                            }, width:95
+            
+                        },
+                        {
+                            field: "CostCurrentWeekImprovement", title: "Last<br>Estimate<br>Cost Opp", filterable: false, format: "{0:N2}", attributes: { class: "cell-number" }, headerAttributes: {
+                                //style: "display: none"
+                            }, width:95
+           
+                        },
+                        {
+                            field: "CostCurrentWeekRisk", title: "Last<br>Estimate<br>Cost Risk", filterable: false, format: "{0:N2}", attributes: { class: "cell-number" }, headerAttributes: {
+                                // style: "display: none"
+                            }, width: 95
+           
+                        }
+            ]
+        });
+        HideHeader()
+    }
+    function headerTemplate(title, unit) {
+        return "<a class='k-link'>" + title + "</a><span class='k-unit'>(" + unit + ")</a>";
+    };
+    var headerUnitSummary = 85;
+    var gridColumnsPIPSummary = [     
+        {
+            field: "Completion", title: " ", filterable: false, headerAttributes: {
+                style: "font-size: 11px"
+            } ,width : 370, attributes: { style:"font-weight:bold;" }
+        },
+        {
+            field: "DaysPlanImprovement", title: "Original<br>Estimate<br>Days Opp", filterable: false, attributes: { class: "cell-number",style:"font-weight:bold;" },  format: "{0:N2}"
+           , width : headerUnitSummary ,headerTemplate: headerTemplate("Original<br>Estimate<br>Days Opp", "days")
+        },
+        {
+            field: "DaysPlanRisk", title: "Original<br>Estimate<br>Days Risk",  filterable: false, attributes: { class: "cell-number",style:"font-weight:bold;" },  format: "{0:N2}"
+            ,width : headerUnitSummary,headerTemplate: headerTemplate("Original<br>Estimate<br>Days Risk", "days")
+        },
+        {
+            field: "CostPlanImprovement", title: "Original<br>Estimate<br>Cost Opp", filterable: false, attributes: { class: "cell-number",style:"font-weight:bold;" }, format: "{0:N2}"
+            ,width : headerUnitSummary,headerTemplate: headerTemplate("Original<br>Estimate<br>Cost Opp", "$mm")
+        },
+        {
+            field: "CostPlanRisk", title: "Original<br>Estimate<br>Cost Risk",  filterable: false, attributes: { class: "cell-number",style:"font-weight:bold;" }, format: "{0:N2}"
+            ,width : headerUnitSummary,headerTemplate: headerTemplate("Original<br>Estimate<br>Cost Risk", "$mm")
+        },
+        {
+            field: "DaysCurrentWeekImprovement", title: "Last<br>Estimate<br>Days Opp", filterable: false, format: "{0:N2}", attributes: { class: "cell-number",style:"font-weight:bold;" },
+            width : headerUnitSummary,headerTemplate: headerTemplate("Last<br>Estimate<br>Days Opp", "days")
+        },
+        {
+            field: "DaysCurrentWeekRisk", title: "Last<br>Estimate<br>Days Risk", filterable: false, format: "{0:N2}", attributes: { class: "cell-number",style:"font-weight:bold;" }
+            ,width : headerUnitSummary,headerTemplate: headerTemplate("Last<br>Estimate<br>Days Risk", "days")
+        },
+        {
+            field: "CostCurrentWeekImprovement", title: "Last<br>Estimate<br>Cost Opp", filterable: false, format: "{0:N2}", attributes: { class: "cell-number",style:"font-weight:bold;" }
+            ,width : headerUnitSummary, headerTemplate: headerTemplate("Last<br>Estimate<br>Cost Opp", "$mm")
+        },
+        {
+            field: "CostCurrentWeekRisk", title: "Last<br>Estimate<br>Cost Risk", filterable: false, format: "{0:N2}", attributes: { class: "cell-number",style:"font-weight:bold;" }, 
+            width : headerUnitSummary, headerTemplate: headerTemplate("Last<br>Estimate<br>Cost Risk", "$mm")
+        },
+        //{
+        //    title:"", width: 350
+        //}
+    ];
+
+
+    // add pip
+    model.wrmodel().PIPNewIdea = ko.observable("");
+    model.wrmodel().PIPNewActivityStart = ko.observable("");
+    model.wrmodel().PIPNewActivityEnd = ko.observable("");
+    model.wrmodel().PIPNewPlanDaysOpp = ko.observable();
+    model.wrmodel().PIPNewPlanDaysRisk = ko.observable();
+    model.wrmodel().PIPNewPlanCostOpp = ko.observable();
+    model.wrmodel().PIPNewPlanCostRisk = ko.observable();
+    model.wrmodel().PIPNewClassification = ko.observable();
+    model.wrmodel().PIPNewActionParty = ko.observable();
+    model.wrmodel().ActionParties = ko.observableArray([]);
+    model.wrmodel().PerfMetricsTitle = ko.observable("");
+    model.wrmodel().PerfMetricsSchedule = ko.observable();
+    model.wrmodel().PerfMetricsCost = ko.observable();
+    model.wrmodel().ProjectMilestoneTitle = ko.observable("");
+    model.wrmodel().ProjectMilestonePeriod = ko.observable();
+    model.wrmodel().ProjectInfosScaled = ko.observable("");
+    model.wrmodel().ProjectInfosCostLevel = ko.observable("");
+    model.wrmodel().ProjectInfosProjectType = ko.observable("");
+    model.wrmodel().ProjectInfosField = ko.observable("");
+    model.wrmodel().ProjectInfosPIPType = ko.observable("");
+    model.wrmodel().ProjectInfosRigName = ko.observable("");
+    model.wrmodel().isPositive = ko.observable(false);
+    model.wrmodel().ThemeNames = (function () {
+        var dataTheme = @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISPIPThemes").Select(d => d.GetString("Name")).OrderBy(d => d)));
+        //dataTheme.unshift("");
+        return ko.observableArray(dataTheme);
+    }());
+    model.wrmodel().PerformanceUnits =  ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(PerformanceUnits)));
+    model.wrmodel().Completions =  ko.observableArray(['Not Yet Realized','Realized']);
+    model.wrmodel().MetricDropDown =  ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(MetricDropDown)));
+    model.wrmodel().ClassificationName =  ko.observable("");
+    model.wrmodel().Classifications =  ko.observableArray([]);
+    model.wrmodel().ActionParties =  ko.observableArray([]);
+    model.wrmodel().setClassifications = function () {
+        var x = this;
+        ajaxPost("@Url.Action("GetPIPClassification", "WellPIP")", {}, function (data) {
+            var src_class = data.Data;
+            var new_src_class = [];
+            for(var v=0;v<data.Data.length;v++){
+                new_src_class.push({DataText:data.Data[v],DataValue:data.Data[v]});
+            }
+            new_src_class.unshift({DataText:"All Others",DataValue:""});
+            $("#Classification").data("kendoDropDownList").setDataSource(new_src_class);
+            x.Classifications(new_src_class);
+        });
+    };
+    model.wrmodel().addClassification = function () {
+        var name = prompt("Insert new name of Classification:");
+        if ((name != null) && (name != "")) {
+            //alert(name);
+            model.wrmodel().ClassificationName(name);
+            model.wrmodel().SaveClassification();
+        }
+    };
+    model.wrmodel().SaveClassification = function () {
+        var x = this;
+        var datas = {
+            Name: x.ClassificationName()
+        };
+
+        ajaxPost("@Url.Action("Save", "MasterClassification")", datas,
+        function (data) {
+            if (data.Success == true) {
+                //$("#modalClassification").modal("hide");
+                x.setClassifications();
+                var dropdownlist = $("#Classification").data("kendoDropDownList");
+                dropdownlist.select(function (dataItem) {
+                    return dataItem.text === x.ClassificationName();
+                });
+            } else {
+                alert(data.Message);
+            }
+        });
+    };
+    model.wrmodel().DetailStatus = ko.observable("");
+    model.wrmodel().StatusAddPIP = ko.observable("");
+    model.wrmodel().RoleData = ko.observableArray((function (excludes) {
+        var data = @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRoles").Select(d => d.GetString("_id")).OrderBy(d => d)));
+        var result = [];
+
+        for (var d in data) {
+            var isFound = false;
+            for (var e in excludes) {
+                if (String(data[d]).toLowerCase().indexOf(excludes[e]) > -1) {
+                    isFound= true;
+                    break;
+                }
+            }
+            if (!isFound) {
+                result.push(data[d]);
+            }
+        }
+
+        return result;
+    } (["administrators", "app-supports", "ro-all"])));
+    model.wrmodel().CreatePIPDoc = function () {
+        if (confirm("Are you sure want to create new PIP Document for this Weekly Report?")) {
+            //alert('create pip doc');
+            var id = model.wrmodel().record()._id();
+            var phase = model.wrmodel().record().Phase.PhaseNo();
+            var wellname = model.wrmodel().record().WellName();
+            console.log("ID : " + id);
+            console.log("Phase NO : " + phase);
+            console.log("WELLNAME : " + wellname);
+            createPIPDoc(id, phase, wellname);
+        }
+    };
+
+    function createPIPDoc (id, PhaseNo, WellName) {
+        var type = "Efficient";
+        var data = {
+            _id: id
+        };
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("CreatePIPDocFromMonthly", "WellPIP")", data, function (data) {
+            //console.log(data);
+            alert('PIP Document Has been created');
+
+            setTimeout(function () {
+                select(model.ActivityId(), model.SelectedWellName());
+            }, 2000);
+
+        });
+
+    }
+
+
+
+    model.wrmodel().addPIP = function () {
+        if (this.Classifications().length == 0)
+            this.setClassifications();
+
+        if ($("#ActivityStart").data("kendoDatePicker") === undefined) input2datePicker($("#ActivityStart"));
+        if ($("#ActivityEnd").data("kendoDatePicker") === undefined) input2datePicker($("#ActivityEnd"));
+        if ($("#PlanDaysOpp").data("kendoNumericTextBox") === undefined) $("#PlanDaysOpp").kendoNumericTextBox();
+        if ($("#PlanDaysRisk").data("kendoNumericTextBox") === undefined) $("#PlanDaysRisk").kendoNumericTextBox();
+        if ($("#PlanCostOpp").data("kendoNumericTextBox") === undefined) $("#PlanCostOpp").kendoNumericTextBox();
+        if ($("#PlanCostRisk").data("kendoNumericTextBox") === undefined) $("#PlanCostRisk").kendoNumericTextBox();
+        if ($("#Classification").data("kendoDropDownList") === undefined) $("#Classification").kendoDropDownList();
+        if ($("#Completion").data("kendoDropDownList") === undefined) $("#Completion").kendoDropDownList();
+        if ($("#ProjectMilestonePeriod").data("kendoDatePicker") === undefined) input2datePicker($("#ProjectMilestonePeriod"));
+
+        this.PIPNewActivityStart("");
+        this.PIPNewActivityEnd("");
+        this.PIPNewPlanDaysOpp(0);
+        this.PIPNewPlanDaysRisk(0);
+        this.PIPNewPlanCostOpp(0);
+        this.PIPNewPlanCostRisk(0);
+        this.PIPNewIdea("");
+        this.ActionParties([]);
+
+        $("#ActivityStart").data("kendoDatePicker").value("");
+        $("#ActivityEnd").data("kendoDatePicker").value("");
+        $("#PlanDaysOpp").data("kendoNumericTextBox").value(0);
+        $("#PlanDaysRisk").data("kendoNumericTextBox").value(0);
+        $("#PlanCostOpp").data("kendoNumericTextBox").value(0);
+        $("#PlanCostRisk").data("kendoNumericTextBox").value(0);
+
+        $("#PerformanceUnit").data("kendoDropDownList").value("");
+        $("#Classification").data('kendoDropDownList').value("");
+        $("#Completion").data('kendoDropDownList').value("");
+        $("#Theme").data('kendoDropDownList').value("");
+
+        $("#modalPIP").modal("show");
+
+        if (this.Classifications().length == 0)
+            this.setClassifications();
+    };
+    model.wrmodel().SaveNewPIP = function () {
+        
+        var add_pip_validator = $("#form_add_pip").kendoValidator({
+            rules: {
+                hasItems: function (input) {
+                    if (input.is("[name=Classification]")) {
+                        //Get the MultiSelect instance
+                        var ms = input.data("kendoDropDownList");
+                        if (ms.value().length === 0) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            },
+            messages: {
+                hasItems: "Please select at least one Classification"
+            }
+        }).data("kendoValidator");
+
+        if (add_pip_validator.validate()) {
+            var x = this;
+            var datas = {
+                AssignToOP: model.wrmodel().PIPAssignTOOp(),
+                Title: x.PIPNewIdea(),
+                ActivityStart: x.PIPNewActivityStart() == "" ? $("#ActivityStart").val() : x.PIPNewActivityStart(),
+                ActivityEnd: x.PIPNewActivityEnd() == "" ? $("#ActivityEnd").val() : x.PIPNewActivityEnd(),
+                PlanDaysOpp: x.PIPNewPlanDaysOpp() == "" ? $("#PlanDaysOpp").val() : x.PIPNewPlanDaysOpp(),
+                PlanDaysRisk: x.PIPNewPlanDaysRisk() == "" ? $("#PlanDaysRisk").val() : x.PIPNewPlanDaysRisk(),
+                PlanCostOpp: x.PIPNewPlanCostOpp() == "" ? $("#PlanCostOpp").val() : x.PIPNewPlanCostOpp(),
+                PlanCostRisk: x.PIPNewPlanCostRisk() == "" ? $("#PlanCostRisk").val() : x.PIPNewPlanCostRisk(),
+                ActivityUpdateId: model.ActivityId(),
+                PerformanceUnit: $("#PerformanceUnit").data('kendoDropDownList').value(),
+                Classification: $("#Classification").data('kendoDropDownList').value(),
+                Completion: $("#Completion").data('kendoDropDownList').value(),
+                Theme: $("#Theme").data('kendoDropDownList').value(),
+                ActionParty: x.PIPNewActionParty(),
+                ActionParties: ko.mapping.toJS(x.ActionParties()),
+                isPositive: x.isPositive()
+            };
+            model.IsProcessing(true);
+            ajaxPost("@Url.Action("SaveNewPIP")", datas,
+            function (data) {
+                if (data.Success == true) {
+                    $("#modalPIP").modal("hide");
+                    setTimeout(function () {
+                        select(model.ActivityId(), model.SelectedWellName());
+                        GetPIPSummary();
+                    }, 2000);
+                } else {
+                    alert(data.Message);
+                    model.IsProcessing(false);
+                }
+            });
+        } else {
+            alert("Some inputs is not valid!");
+            return;
+        }
+    };
+    
+    model.TotalAdditionalBankedSavings = function (which) {
+        return function () {
+            var fields = ["BankedSavingsSupplyChainTransformation", "BankedSavingsCompetitiveScope", "BankedSavingsEfficientExecution", "BankedSavingsTechnologyAndInnovation"];
+            var total = 0;
+
+            fields.forEach(function (e) {
+                total += parseFloat(model.wrmodel().record()[e][which]());
+            });
+
+            return total;
+        };
+    };
+
+    model.RealizedClassificationValueOf = function (which, what) {
+        return function () {
+            var elements = ko.mapping.toJS(model.wrmodel().record().Elements());
+            var filter = _.filter(elements,function (e){ 
+                return (e.Classification == which) && (e.Completion == "Realized") && (e.AssignTOOps.indexOf(model.DefaultOP) != -1);
+                //Classification: which,
+                //Completion: "Realized"
+            });
+            //console.log("aaaaa");
+            //console.log(which);
+            console.log(filter);
+            var value = _(elements).filter(function (e){ 
+                return (e.Classification == which) && (e.Completion == "Realized") && (e.AssignTOOps.indexOf(model.DefaultOP) != -1);
+                //Classification: which,
+                //Completion: "Realized"
+            }).reduce(function (m, n) { 
+                return m + (n[what + "CurrentWeekRisk"] + n[what + "CurrentWeekImprovement"]); 
+            }, 0);
+            return value;
+        };
+    };
+
+    model.TotalOfRealizedClassification = function (what) {
+        return function () {
+            var elements = ko.mapping.toJS(model.wrmodel().record().Elements())
+            var value = _(elements).filter(function (e) {
+                return e.Completion == "Realized" && e.Classification != null;
+            }).reduce(function (m, n) { 
+                return m + (n[what + "CurrentWeekRisk"] + n[what + "CurrentWeekImprovement"]); 
+            }, 0);
+            return value;
+            
+            //if(what == "Days"){
+            //    return model.dataRealized().TotalDays();
+            //}else{
+            //    return model.dataRealized().TotalCost();
+            //}
+
+            
+        };
+    };
+
+    model.CalculateDelta = function (what) {
+        return function () {
+            var r = model.wrmodel().record();
+            var le = r.CurrentWeek[what]() / (what == "Days" ? 1 : 1000000);
+            var op = r.Plan[what]() / (what == "Days" ? 1 : 1000000);
+            var v = parseFloat((le - op).toFixed(2));
+
+            return v;
+        };
+    };
+
+    model.CalculatedLEof = function (what) {
+        return function () {
+            var r = model.wrmodel().record();
+            //var le = r.CurrentWeek[what]() / (what == "Days" ? 1 : 1000000);
+            //var totalElementsRealizedAndBank = model.TotalAdditionalBankedSavings(what)() + model.TotalOfRealizedClassification(what)();
+            //var calculatedDelta = model.CalculateDelta(what)() - totalElementsRealizedAndBank;
+            var calculatedLE = 0;
+            var pipPlusBanked = 0;
+            if (what == 'Days') {
+                pipPlusBanked = model.TotalAdditionalBankedSavings(what)() + model.dataRealized().TotalDays();
+                calculatedLE = r.Plan.Days() + pipPlusBanked;
+            }
+            else{
+                pipPlusBanked = model.TotalAdditionalBankedSavings(what)() + model.dataRealized().TotalCost();
+                calculatedLE = (r.Plan.Cost() / 1000000) + pipPlusBanked;
+            }
+
+            //var calculatedLE = le + pipPlusBanked;// - calculatedDelta;
+            return calculatedLE;
+        };
+    }
+
+    model.NewEstimateMaturityData = ko.observableArray([
+        "TYPE 0", "TYPE 1", "TYPE 2", "TYPE 3", "TYPE 4"
+    ]);
+
+    model.CurrentWeekCostHolder = ko.observable(0);
+    model.CurrentWeekCostHolder.subscribe(function (val) {
+        model.wrmodel().record().CurrentWeek.Cost(val * 1000000);
+    });
+</script>
+
+@Html.Partial("../WeeklyReport/_comment")
+
+<div style="margin-top:10px;">
+    <div style="margin:0px auto" class="form-horizontal text-areas">
+        <div data-bind="visible:false">
+            <div class="form-group">
+                <label class="col-sm-2">Executive Summary</label>
+                <div class="col-sm-4">
+                    <textarea id="ExeSum" style="width: 100%; min-height: 60px;" data-bind="value:ExecutiveSummary, enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1'"></textarea>
+                    <div class="counter"><span data-bind="text:model.wrmodel().CounterExecutiveSummary"></span>&nbsp;<span data-bind="text:model.wrmodel().LineExecutiveSummary" id="LineExecutiveSummary"></span></div>
+                </div>
+                <label class="col-sm-2">Planned Operations</label>
+                <div class="col-sm-4">
+                    <textarea id="PlnOps" style="width: 100%; min-height: 60px;" data-bind="value:PlannedOperation, enable:Status()=='In-Progress'  && !model.wrmodel().isRO()=='1'"></textarea>
+                    <div class="counter"><span data-bind="text:model.wrmodel().CounterPlannedOperation" id="counterPlannedOperation"></span>&nbsp;<span data-bind="text:model.wrmodel().LinePlannedOperation" id="LinePlannedOperation"></span></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2">Operation Summary</label>
+                <div class="col-sm-4">
+                    <textarea id="OpsSum" style="width: 100%; min-height: 60px;" data-bind="value:OperationSummary, enable:Status()=='In-Progress'  && !model.wrmodel().isRO()=='1'"></textarea>
+                    <div class="counter"><span data-bind="text:model.wrmodel().CounterOperationSummary" id="counterOperationSummary"></span>&nbsp;<span data-bind="text:model.wrmodel().LineOperationSummary" id="LineOperationSummary"></span></div>
+                </div>
+                <label class="col-sm-2">Suplement Reason</label>
+                <div class="col-sm-4">
+                    <textarea id="SupRes" style="width:100%;height:60px" data-bind="value:SupplementReason, enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1'"></textarea>
+                    <div class="counter"><span data-bind="text:model.wrmodel().CounterSuplementReason" id="counterSuplementReason"></span>&nbsp;<span data-bind="text:model.wrmodel().LineSuplementReason" id="LineSuplementReason"></span></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2">Suplement Last 7 Days</label>
+                <div class="col-sm-4">
+                    <input type="checkbox" data-bind="checked:SupplementLast7Days, enable:Status()=='In-Progress'  && !model.wrmodel().isRO()=='1'" />
+                </div>
+            </div>
+        </div>
+
+        <div style="width:100%">
+
+            <div class="col-sm-12 pip-inputs">
+                <div class="col-sm-4">
+                    <div class="col-sm-12">&nbsp;</div>
+                </div>
+
+                <div class="col-sm-7 col-sm-offset-1">
+                    <div class="col-sm-4 col-sm-offset-4 ec-center">Realized PIP's</div>
+                    <div class="col-sm-4 ec-center">Additional Banked Savings/Risks</div>
+                </div>
+
+                <div class="col-sm-4">
+                    <div class="col-sm-3 col-sm-offset-6 ec-right val">Days</div>
+                    <div class="col-sm-3 ec-right val">Cost</div>
+                </div>
+
+                <div class="col-sm-7 col-sm-offset-1">
+                    <div class="col-sm-2 col-sm-offset-4 ec-center val">Days</div>
+                    <div class="col-sm-2 ec-center val">Cost</div>
+                    <div class="col-sm-2 ec-center val">Days</div>
+                    <div class="col-sm-2 ec-center val">Cost</div>
+                </div>
+
+                <div class="col-sm-12" style="border-bottom: solid 1px #888; border-bottom: solid 1px #888;"></div>
+
+                <div class="col-sm-4">
+                    <div class="form-group">
+                        <label class="col-sm-6" data-bind="text:model.OpActive()"></label>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value:kendo.format('{0:N2}',Plan.Days())" />
+                        </div>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value:kendo.format('{0:N2}',Plan.Cost()/1000000)" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-6">AFE</label>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value:kendo.format('{0:N2}',AFE.Days())" />
+                        </div>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value:kendo.format('{0:N2}',AFE.Cost()/1000000)" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-6">Previous LE</label>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value:kendo.format('{0:N2}',LastWeek.Days())" />
+                        </div>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value:kendo.format('{0:N2}',LastWeek.Cost()/1000000)" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-6">TQ/Agreed Target</label>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value:kendo.format('{0:N2}',TQ.Days())" />
+                        </div>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value:kendo.format('{0:N2}',TQ.Cost()/1000000)" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-6">LE</label>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:(Status()=='In-Progress' && !model.wrmodel().isRO()=='1' && model.wrmodel().isRecordHaveWeeklyReport() == 'No'),kendoNumericTextBox: { value:CurrentWeek.Days }" aria-disabled="false" aria-readonly="false">
+                        </div>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:(Status()=='In-Progress' && !model.wrmodel().isRO()=='1' && model.wrmodel().isRecordHaveWeeklyReport() == 'No'),kendoNumericTextBox: { value:$root.CurrentWeekCostHolder }" aria-disabled="false" aria-readonly="false">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-sm-6">Calc LE</label>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.CalculatedLEof('Days')().toFixed(2)" />
+                        </div>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.CalculatedLEof('Cost')().toFixed(2)" />
+                        </div>
+                    </div>
+
+                    <div class="form-group" data-bind="">
+                        <label class="col-sm-6">TQ Gaps</label>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:false,value:0" />
+                        </div>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:false,value:0" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="">
+                        <label class="col-sm-6">BIC</label>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:false,value:BestInClass.Days" />
+                        </div>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:false,value:BestInClass.Cost" />
+                        </div>
+                    </div>
+                    <div class="form-group" data-bind="">
+                        <label class="col-sm-6">BIC Gaps</label>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:false,value:0" />
+                        </div>
+                        <div class="col-sm-3 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:false,value:0" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-sm-7 col-sm-offset-1">
+                    <div class="form-group">
+                        <label class="col-sm-4">Supply Chain Transformation</label>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' : model.dataRealized().SupplyChainTransformationDays().toFixed(2)" />
+                        </div>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' :  model.dataRealized().SupplyChainTransformationCost().toFixed(2)" />
+                        </div>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1', kendoNumericTextBox: { value:BankedSavingsSupplyChainTransformation.Days }" />
+                        </div>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1', kendoNumericTextBox: { value:BankedSavingsSupplyChainTransformation.Cost }" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-4">Competitive Scope</label>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' :  model.dataRealized().CompetitiveScopeDays().toFixed(2)" />
+                        </div>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' :  model.dataRealized().CompetitiveScopeCost().toFixed(2)" />
+                        </div>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1', kendoNumericTextBox: { value:BankedSavingsCompetitiveScope.Days }" />
+                        </div>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1', kendoNumericTextBox: { value:BankedSavingsCompetitiveScope.Cost }" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-4">Efficient Execution</label>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' :  model.dataRealized().EfficientExecutionDays().toFixed(2)" />
+                        </div>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' :  model.dataRealized().EfficientExecutionCost().toFixed(2)" />
+                        </div>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1', kendoNumericTextBox: { value:BankedSavingsEfficientExecution.Days }" />
+                        </div>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1', kendoNumericTextBox: { value:BankedSavingsEfficientExecution.Cost }" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-4">Technology and Innovation</label>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' :  model.dataRealized().TechnologyandInnovationDays().toFixed(2)" />
+                        </div>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' :  model.dataRealized().TechnologyandInnovationCost().toFixed(2)" />
+                        </div>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1', kendoNumericTextBox: { value:BankedSavingsTechnologyAndInnovation.Days }" />
+                        </div>
+                        <div class="col-sm-2 ec-right val">
+                            <input type="text" style="width:100%" class="align_right" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1', kendoNumericTextBox: { value:BankedSavingsTechnologyAndInnovation.Cost }" />
+                        </div>
+                    </div>
+
+                    <div class="col-sm-12" style="border-bottom: 2px solid black; margin-top: 5px; margin-bottom: 3px;"></div>
+
+                    <div class="col-sm-12 nopadLR">
+                        @*<label class="col-sm-4">Total</label>*@
+                        <div class="col-sm-4 align_right nopadLR">
+                            <label>Total</label>
+                        </div>
+                        <div class="col-sm-2 ec-right val nopadLR">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' :  model.dataRealized().TotalDays().toFixed(2)" />
+                        </div>
+                        <div class="col-sm-2 ec-right val nopadLR">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' :  model.dataRealized().TotalCost().toFixed(2)" />
+                        </div>
+                        <div class="col-sm-2 ec-right val nopadLR">
+                            <input type="text" style="width:100%" class="align_right" data-bind="value:$root.TotalAdditionalBankedSavings('Days')().toFixed(2)" disabled />
+                        </div>
+                        <div class="col-sm-2 ec-right val nopadLR">
+                            <input type="text" style="width:100%" class="align_right" data-bind="value:$root.TotalAdditionalBankedSavings('Cost')().toFixed(2)" disabled />
+                        </div>
+                    </div>
+
+                    <div class="col-sm-12 nopadLR">
+                        <div class="col-sm-8 align_right nopadLR">
+                            <label>LE - OP</label>
+                        </div>
+                        <div class="col-sm-2 ec-right val nopadLR">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value:kendo.toString(model.CalculateDelta('Days')(),'n2')" />
+                        </div>
+                        <div class="col-sm-2 ec-right val nopadLR">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value:kendo.toString(model.CalculateDelta('Cost')(),'n2')" />
+                        </div>
+                    </div>
+
+                    <div class="col-sm-12 nopadLR">
+                        @*<label class="col-sm-4 col-sm-offset-4 ec-right val">Realized PIPs + Banked Savings</label>*@
+                        <div class="col-sm-8 align_right nopadLR">
+                            <label>Realized PIPs + Banked Savings</label>
+                        </div>
+                        <div class="col-sm-2 ec-right val nopadLR">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' : kendo.toString(model.TotalAdditionalBankedSavings('Days')() + model.dataRealized().TotalDays(),'n2')" /><!--model.TotalOfRealizedClassification('Days')()-->
+                        </div>
+                        <div class="col-sm-2 ec-right val nopadLR">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' : kendo.toString(model.TotalAdditionalBankedSavings('Cost')() + model.dataRealized().TotalCost(),'n2')" /><!--model.TotalOfRealizedClassification('Cost')()-->
+                        </div>
+                    </div>
+
+                    <div class="col-sm-12 nopadLR">
+                        @*<label class="col-sm-4 col-sm-offset-4 ec-right val">Delta</label>*@
+                        <div class="col-sm-8 align_right nopadLR">
+                            <label>Delta</label>
+                        </div>
+                        <div class="col-sm-2 ec-right val nopadLR">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' : kendo.toString(model.ShowCalculateDelta('Days')(),'n2'), css: { 'bg-td-green': model.IsDeltaAndSumSame('Days')(), 'bg-td-red': !model.IsDeltaAndSumSame('Days')() }" />
+                        </div>
+                        <div class="col-sm-2 ec-right val nopadLR">
+                            <input type="text" style="width:100%" class="align_right" disabled data-bind="value: model.NeedToRecalc() ? 'Need to recalc' : kendo.toString(model.ShowCalculateDelta('Cost')(),'n2'), css: { 'bg-td-green': model.IsDeltaAndSumSame('Cost')(), 'bg-td-red': !model.IsDeltaAndSumSame('Cost')() }" />
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="clearfix" style="margin-bottom: 20px;"></div>
+
+                <div class="col-sm-4" style="height: 110px;">
+                    <div class="form-group">
+                        <label class="col-sm-7" >Current Maturity</label>
+                        <div class="col-sm-5 ec-right val">
+                            <input style="width: 100%; text-align:center" disabled   data-bind="value: Phase.LevelOfEstimate" />
+                        </div>
+
+                        <div data-bind="visible:false">
+                            <label class="col-sm-7">New Maturity</label>
+                            <div class="col-sm-5 ec-right val">
+                                <select style="width: 100%;" data-bind="kendoDropDownList: { data:$root.NewEstimateMaturityData, value: NewEstimateMaturity, optionLabel: 'Select one' }"></select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-sm-7 col-sm-offset-1">
+                    
+                </div>
+
+                <div class="col-sm-7 col-sm-offset-1">
+                    
+                </div>
+
+                <div class="col-sm-7 col-sm-offset-1">
+                    
+                </div>
+
+                <div class="clearfix"></div>
+
+                @*<div class="form-group">
+                    <label class="col-sm-2">Latest Sequence</label>
+                    <div class="col-sm-2 ec-right val"><span data-bind="text:kendo.format('{0:N2}',OP.Days())">112.0</span></div>
+                    <div class="col-sm-2 ec-right val"><span data-bind="text:kendo.format('{0:N2}',OP.Cost()/1000000)">0.0</span></div>
+                    <div class="clearfix"></div>
+
+                    <label class="col-sm-2">Actual</label>
+                    <div class="col-sm-2 ec-right">
+                        <input type="text" style="width:100%" class="align_right input_number" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1',value:Actual.Days" />
+                    </div>
+                    <div class="col-sm-2 ec-right">
+                        <input type="text" style="width:100%" class="align_right input_number" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1',value:Actual.Cost" />
+                    </div>
+                    <div class="clearfix"></div>
+
+                    <label class="col-sm-2">LE</label>
+                    <div class="col-sm-2 ec-right">
+                        <input type="text" style="width:100%" class="align_right input_number" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1',value:CurrentWeek.Days" onchange="calculateDelta();" />
+                    </div>
+                    <div class="col-sm-2 ec-right">
+                        <input type="text" style="width:100%" class="align_right input_number" data-bind="enable:Status()=='In-Progress' && !model.wrmodel().isRO()=='1',value:CurrentWeek.Cost" onchange="calculateDelta();" />
+                    </div>
+                    <div class="clearfix"></div>
+
+                    <label class="col-sm-2">&nbsp;</label>
+                    <div class="col-sm-2 ec-right">&nbsp;</div>
+                    <div class="col-sm-2 ec-right">&nbsp;</div>
+
+                </div>*@
+            </div>
+
+            @*<div style="margin-top:20px;" class="col-sm-8">
+                <div class="form-group" style="border-bottom:solid 1px #888;border-bottom:solid 1px #888;">
+                    <label class="col-sm-1 col-sm-offset-3" style="text-align:right">Hours</label>
+                    <label class="col-sm-2" style="text-align:right">Days</label>
+                    <label class="col-sm-1 col-sm-offset-3" style="text-align:right">&nbsp;</label>
+                    <label class="col-sm-2" style="text-align:right">&nbsp;</label>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-sm-2">NPT Hours</label>
+                    <div class="col-sm-2 ec-right val">
+                        <input type="text" style="width:100%" min="0" class="align_right" id="npt_hours" onchange="model.wrmodel().countNPTDays();" onkeyup="model.wrmodel().countNPTDays();" data-bind="enable: Status() == 'In-Progress' && !model.wrmodel().isRO()=='1', value: $parent.NPTHours" />
+                    </div>
+                    <div class="col-sm-2 ec-right val">
+                        <input type="text" style="width:100%" class="align_right" id="npt_days" data-bind="enable: false, value: kendo.toString(NPT.Days(), 'p0')" />
+                    </div>
+                    <label class="col-sm-2">&nbsp;</label>
+                    <div class="col-sm-2 ec-right val">&nbsp;</div>
+                    <div class="col-sm-2 ec-right val">&nbsp;</div>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+            <div style="margin-top:20px;" class="col-sm-4">
+                <div class="form-group" style="border-bottom:solid 1px #888;border-bottom:solid 1px #888;">
+                    <label class="col-sm-2 col-sm-offset-7" style="text-align:right">Days</label>
+                    <label class="col-sm-2" style="text-align:right">Cost</label>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-6">Realized PIP</label>
+                    <div class="col-sm-2 col-sm-offset-1 ec-right val">
+                        <input type="text" style="width:100%" class="align_right ec-right" data-bind="enable:false,value:RealizedDays" />
+                    </div>
+                    <div class="col-sm-2 ec-right val">
+                        <input type="text" style="width:100%" class="align_right ec-right" data-bind=" enable:false,value:RealizedCost" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-sm-6">Gap</label>
+                    <div class="col-sm-2 col-sm-offset-1 ec-right val">
+                        <input type="text" style="width:100%" class="align_right" data-bind="enable:false,value:GapsDays" />
+                    </div>
+                    <div class="col-sm-2 ec-right val">
+                        <input type="text" style="width:100%" class="align_right" data-bind="enable:false,value:GapsCost" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-sm-6">Not Realized</label>
+                    <div class="col-sm-2 col-sm-offset-1 ec-right val">
+                        <input type="text" style="width:100%" class="align_right" data-bind="enable:false,value:UnRealizedDays" />
+                    </div>
+                    <div class="col-sm-2 ec-right val">
+                        <input type="text" style="width:100%" class="align_right" data-bind="enable:false,value:UnRealizedCost" />
+                    </div>
+                </div>
+
+            </div>*@
+
+            <div class="clearfix"></div>
+        </div>
+
+
+        <div class="clearfix"></div>
+        <h3 style="margin-top:20px;">Improvement Ideas</h3>
+        <div class="row" style="margin-bottom:10px">
+            <label>Assigned to OP : </label>
+            <select name="assignedtoop" id="assignedtoop" style="width: 80px; "
+                    data-bind="kendoDropDownList: { data: model.OPs(), value: model.summaryop }"></select>
+            <button class="btn btn-xs btn-primary" onclick="GetPIPSummary()"> Refresh Summary</button>
+        </div>
+        <div class="row" style="overflow-x:auto;">
+            <!-- PIP Summary-->
+            <div style="margin-bottom:20px;" id="GridPIPSummary" data-bind="kendoGrid:{data:[],columns:gridColumnsPIPSummary,pageable:false,sortable:false,filterable:true,detailInit: detailInit}"></div>
+
+            
+            <ul class="nav nav-tabs">
+                <li class="active"><a href="#wellpip" data-toggle="tab">Well/ Project PIP</a></li>
+                <li><a href="#rigpip" data-toggle="tab">Rig/ General SCM</a></li>
+            </ul>
+
+            <div class="tab-content">
+                <div class="tab-pane active" id="wellpip" style="overflow-y:auto;">
+                    @Html.Partial("../WeeklyReport/_summarypip")
+
+                    <div data-bind="visible: model.wrmodel().DetailStatus() == 'In-Progress'" style="margin-top: 10px; margin-left: 15px;">
+                        <button class="btn btn-custom btn-primary btn-sm" onclick="model.Recalc()" data-bind="visible: model.wrmodel().record().Status() == 'In-Progress' && !model.wrmodel().isRO()=='1' && model.NeedToRecalc() == true">
+                            <span class="glyphicon glyphicon-save"></span> Recalc
+                        </button>
+                        <button id="createPIPbtn" class="btn btn-warning btn-custom btn-sm" onclick="model.wrmodel().CreatePIPDoc()" data-bind="visible:!model.wrmodel().isRO()=='1',enable:true">
+                            + Create PIP Document
+                        </button>
+                        <button id="createPIPElemnbtn" class="btn btn-primary btn-custom btn-sm" onclick="model.wrmodel().addPIP()" data-bind="visible:!model.wrmodel().isRO()=='1',enable:model.wrmodel().StatusAddPIP()==''">
+                            + Add PIP Elements
+                        </button>
+                        <label data-bind="html: model.wrmodel().StatusAddPIP()" style="color: #b92c28; font-weight: normal;"></label>
+                    </div>
+
+                    @Html.Partial("_wellpip")
+                    @*@Html.Partial("../WeeklyReport/_wellpip")*@
+                </div>
+
+                <div class="tab-pane" id="rigpip">
+                    @Html.Partial("../WeeklyReport/_summarypip")
+
+                    <div data-bind="visible: model.wrmodel().DetailStatus() == 'In-Progress'" style="margin-top: 10px; margin-left: 15px;">
+                        <button class="btn btn-custom btn-primary btn-sm" onclick="model.wrmodel().save()" data-bind="visible: model.wrmodel().record().Status() == 'In-Progress' && !model.wrmodel().isRO()=='1'">
+                            <span class="glyphicon glyphicon-save"></span> Save
+                        </button>
+                        <label data-bind="html: model.wrmodel().StatusAddPIP()" style="color: #b92c28; font-weight: normal;"></label>
+                    </div>
+
+                    @Html.Partial("_rigpip")
+                </div>
+
+            </div>
+
+
+        </div>
+    </div>
+</div>
+@Html.Partial("../WeeklyReport/_modalAllocation")
+@Html.Partial("../WeeklyReport/_pipmodals")

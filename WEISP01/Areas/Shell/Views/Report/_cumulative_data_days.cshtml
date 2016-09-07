@@ -1,0 +1,22 @@
+﻿<div>
+    <div id="chart-cumulative-panel-cost" style="width:1020px; margin: 0px auto;">
+        <div class="mini-nav bordered-mini-nav" style="width: 220px; margin: 0px;">
+            <div class="each-nav no-border-nav">
+                Select Data Type:
+                <select data-bind="value:showDataType">
+                    <option value="Total">Improvement + Risk</option>
+                    <option value="Improvement">Improvement</option>
+                    <option value="Risk">Risk</option>
+                </select>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+</div>
+
+<div style="padding: 0px 30px 20px;" class="grid">
+    <h6 data-bind="text: GridDaysTitle">Cumulative Days of Improvement and Risk</h6>
+    <div class="grid-day"></div>
+    <h6 @*data-bind="text: GridLEDaysTitle"*@>Cumulative Last Estimate Days</h6>
+    <div class="grid-leday"></div>
+</div>

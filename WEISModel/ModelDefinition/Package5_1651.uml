@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns:dm0="http://schemas.microsoft.com/VisualStudio/2008/DslTools/Core" xmlns:dm1="http://schemas.microsoft.com/dsltools/Kernel" xmlns:dm2="http://schemas.microsoft.com/dsltools/Component" xmlns:dm3="http://schemas.microsoft.com/dsltools/UseCase" xmlns:dm4="http://schemas.microsoft.com/dsltools/Activity" xmlns:dm5="http://schemas.microsoft.com/dsltools/Interaction" xmlns:dm6="http://schemas.microsoft.com/dsltools/UmlModelLibrary" xmlns:dm7="http://schemas.microsoft.com/dsltools/UmlDiagrams" xmlns:dm8="http://schemas.microsoft.com/dsltools/LogicalClassDesigner"
+  dslVersion="1.0.0.0"
+  Id="9c26b0db-5850-4421-af04-9fd7770f9dab"
+  name="Bson"
+  visibility="Private" xmlns="http://schemas.microsoft.com/dsltools/ModelStore">
+  <referencesInternal>
+    <reference
+      Id="139d565d-fe0d-44a7-8f2c-ad5582e78ab6"
+      handle="viewcode://./CodeSchema_Namespace?Namespace%3DMongoDB.Bson"
+      tag="ViewCode" />
+  </referencesInternal>
+  <packagedElements>
+    <packageHasNamedElement>
+      <class
+        Id="69083d8a-6810-4052-9107-7c961d8a452d"
+        name="BsonDocument"
+        isAbstract="false"
+        isLeaf="false"
+        isActiveClass="false">
+        <referencesInternal>
+          <reference
+            Id="d1918dd1-da35-4425-9457-fbf9301c0240"
+            handle="viewcode://./CodeSchema_Class?Assembly%3Dfile:%2F%2F%2FC:%2FUsers%2Fariefdarmawan%2FDocuments%2FSVNRepo%2FSemeru%2FWeb%2FWEIS%2FDataModel%2FWEIS%2Fbin%2FDebug%2FMongoDB.Bson.dll Namespace%3DMongoDB.Bson Type%3DBsonDocument"
+            tag="ViewCode" />
+        </referencesInternal>
+        <appliedStereotypesInternal>
+          <stereotypeInstance
+            Id="9f61aa47-0d6c-4b82-97f5-1d95b0b86578"
+            name="class"
+            profile="CSharpProfile">
+            <propertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="62a79232-21de-4fe8-922c-7ee889f94105">
+                <propertyInstance
+                  Id="830da523-3ad5-462a-9d4f-3e17241a7a46"
+                  name="ClrAttributes" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="4f3d51d4-290f-48fc-91ba-37a972105580">
+                <propertyInstance
+                  Id="400cbb1b-c15e-4dde-b11d-9d8444529c7c"
+                  name="IsPartial"
+                  value="false" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="4fa089a2-527c-4629-bbd5-c17b14bc6378">
+                <propertyInstance
+                  Id="6ca28d8a-f7f1-47c1-beb8-853da099255f"
+                  name="IsStatic"
+                  value="False" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="18c8a1b1-141f-4009-a98c-cc4395d96a29">
+                <propertyInstance
+                  Id="dc1f31f5-ff07-4509-ae5b-4ecfcf4f59f5"
+                  name="IsUnsafe"
+                  value="false" />
+              </stereotypeInstanceHasPropertyInstances>
+              <stereotypeInstanceHasPropertyInstances
+                Id="eef6ef80-6d8b-45b5-b250-a91aa1723d71">
+                <propertyInstance
+                  Id="ca6d49ad-258f-4e35-bfde-e4f283e3c152"
+                  name="PackageVisibility"
+                  value="internal" />
+              </stereotypeInstanceHasPropertyInstances>
+            </propertyInstances>
+          </stereotypeInstance>
+        </appliedStereotypesInternal>
+      </class>
+    </packageHasNamedElement>
+  </packagedElements>
+</package>

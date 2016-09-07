@@ -1,0 +1,314 @@
+﻿@{
+    ViewBag.Title = "Report Standard PMaster";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+
+}
+
+<script>
+    model.IsProcessing = ko.observable(false);
+</script>
+
+<style>
+    .grids .grid {
+        height: 100%;
+        width: 100%;
+    }
+
+    .grids {
+        margin-top: 15px;
+    }
+
+    .grids {
+        padding: 0px 15px 0px 0px !important;
+    }
+
+        .grids .cell-number {
+            text-align: right;
+        }
+
+        .grids .cell-date {
+            text-align: center;
+        }
+
+        .grids .k-grid .k-grid-content {
+            min-height: 100px;
+            /*max-height: 600px;*/
+        }
+
+
+
+        .grids .k-header.k-grid-toolbar {
+            /*background-color: #F9F9FB;*/
+        }
+
+        .grids .k-header[role=columnheader] {
+            vertical-align: middle;
+        }
+
+            .grids .k-header[role=columnheader][data-colspan] {
+                text-align: center;
+                font-weight: bold;
+                color: #a8a8a8;
+            }
+
+        .grids [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+            text-align: center;
+            vertical-align: top;
+        }
+
+    .k-grid .k-grid-content-locked {
+        height: auto !important;
+    }
+</style>
+
+
+
+<div class="col-md-12" style="margin-bottom: 10px;">
+    <!-- filters -->
+    @Html.Partial("FilterForPalantir")
+
+    <script>
+        model.FilterVisibility.LineOfBusiness(true);
+        model.FilterVisibility.Asset(true);
+        model.FilterVisibility.FundingType(true);
+
+        //model.FilterVisibility.CaseNames(true);
+        model.FilterVisibility.MoneyType(true);
+        model.FilterVisibility.Currency(true);
+        model.FilterVisibility.SSTG(true);
+        model.FilterVisibility.InPlan(true);
+
+        model.FilterVisibility.BtnGenerateSpmaster(true);
+
+    </script>
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden'), height: (!model.IsProcessing() ? '' : '0px'), overflow: (!model.IsProcessing() ? '' : 'hidden') }">
+
+        <div class="col-md-12 grids by-standarpm">
+            <div style="margin-bottom:10px">
+                @*<button class="btn btn-custom btn-sm btn-danger" data-bind="click: deleteaggrspmaster">
+                    <span class="glyphicon glyphicon-trash"></span> Delete Record
+                </button>
+
+                <button class="btn btn-custom btn-sm btn-danger" data-bind="click: deletemapspmaster">
+                    <span class="glyphicon glyphicon-trash"></span> Delete Map
+                </button>
+                <button class="btn btn-custom btn-sm btn-primary" data-bind="click: generatemappmaster">
+                    <span class="glyphicon glyphicon-refresh"></span> Generate
+                </button>*@
+            </div>
+            <div id="grid_standard" class="grid"></div>
+        </div>
+
+        <div style="clear: both;"></div>
+    </div>
+
+</div>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        model.reloadData();
+    });
+
+    model.reloadData = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+        model.GetDataReport("@Url.Action("GetPMasterStandardReport")");
+    }
+
+    model.GetDataReport = function (url) {
+        var param = model.getFilterValues();
+        ajaxPost(url, param, function (res) {
+            model.IsProcessing(false);
+            if (res.Result != "OK") {
+                alert(res.Message);
+                return;
+            }
+
+            if (res.Data.length > 0) {
+                renderGridUsingData(res.Data);
+            }
+
+        }, function (res) {
+            model.IsProcessing(false);
+            alert(res);
+        });
+    }
+
+    var uniqueArray = function (a) {
+        return a.reduce(function (p, c) {
+            if (p.indexOf(c) < 0) p.push(c);
+            return p;
+        }, []);
+    };
+
+    function toggleCheckStandard(sender) {
+        var s = $(sender);
+        var cbxs = s.closest("#grid_standard.k-grid").find("input[type='checkbox'].checkme");
+        cbxs.prop("checked", s.prop("checked"));
+    }
+
+    model.renderGridColumnsStandard = function (data) {
+        var gridColumns = [];
+        gridColumns.push({
+            width: 30,
+            template: "<input type='checkbox' class='checkme' value='#: _id #'>",
+            headerTemplate: "<input type='checkbox' class='check_toggle' onchange='javascript:toggleCheckStandard(this)'>",
+            locked: true,
+            lockable: false
+        }, {
+            field: "reportEntity",
+            title: "Reporting Entity",
+            width: 110,
+            locked: true,
+            lockable: false
+        },
+        {
+            field: "planningEntity",
+            title: "Planning Entity",
+            width: 110,
+            locked: true
+        }, {
+            field: "planningEntityID",
+            title: "Planning<br/> Entity ID",
+            width: 90,
+            locked: true
+        }, {
+            field: "activityEntity",
+            title: "Activity Entity",
+            width: 110,
+            locked: true
+        }, {
+            field: "activityEntityID",
+            title: "Activity<br/> Entity ID",
+            width: 90,
+            locked: true
+        },{
+            field: "probabilityofSuccess",
+            title: "Probability<br/> Of Success",
+            width: 90,
+            format: "{0} %"
+        }, {
+            field: "averageShellShare",
+            title: "Average<br/> ShellShare",
+            width: 90
+        }, {
+            field: "unit",
+            title: "Unit",
+            width: 80
+        }, {
+            field: "pMasterField",
+            title: "PMaster Field",
+            width: 80
+        }, {
+            field: "pMatserRef",
+            title: "PMaster<br/> Reference",
+            width: 80
+        });
+
+        var recordAnnual = data[0].Annual;
+        var iAnnual = 0;
+        for (var key in recordAnnual) {
+            if (recordAnnual.hasOwnProperty(key)) {
+                for (var keyitem in recordAnnual[key]) {
+                    gridColumns.push({ field: ("Annual[" + iAnnual + "]." + keyitem), title: keyitem.split('_')[1], width: 70, format: "{0:N1}", attributes: { style: 'text-align:right;' } });
+                }
+                iAnnual++;
+            }
+        }
+        return gridColumns;
+    }
+
+    function renderGridUsingData(data) {
+        $('#grid_standard').replaceWith($('<div />').attr('id', 'grid_standard'));
+        $('#grid_standard').kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { filename: "Data Standard.pdf" },
+            excel: { fileName: "Data Standard.xlsx", allPages: true, filterable: true },
+            dataSource: {
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: model.renderGridColumnsStandard(data),
+            excelExport: function (e) {
+                var sheet = e.workbook.sheets[0];
+                for (var rowIndex = 0; rowIndex < sheet.rows.length; rowIndex++) {
+                    var row = sheet.rows[rowIndex];
+                    for (var cellIndex = 0; cellIndex < row.cells.length; cellIndex++) {
+                        if (rowIndex == 0) {
+                            row.cells[cellIndex].value = row.cells[cellIndex].value.replace("<br/>", "");
+                        }
+                    }
+                }
+            }
+        });
+
+    }
+
+    model.deleteaggrspmaster = function () {
+        var conf = confirm("Are you sure want to delete?");
+        if (conf) {
+            model.deleteaggr("grid_standard", "pmasterstandard");
+        }
+    }
+
+    model.deleteaggr = function (idgrid, report) {
+        var ids = $("#" + idgrid).find("input.checkme:checked");
+        var idValues = $.map(ids, function (obj, idx) {
+            var $obj = $(obj);
+            return $obj.val();
+        });
+
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("DeleteAggr")", { ids: idValues, report: report }, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadData();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+    model.deletemapmpmaster = function () {
+        var conf = confirm("Are you sure want to delete?");
+        if (conf) {
+            model.deletemap("pmasterStandart");
+        }
+    }
+
+    model.deletemap = function (report) {
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("DeleteMap")", { caseName: casename, report: report }, function (res) {
+            if (res.Success) {
+                model.IsProcessing(false);
+                model.reloadData();
+            } else {
+                alert(res.Message);
+                model.IsProcessing(false);
+            }
+        }, function () {
+            alert(res.Message);
+            model.IsProcessing(false);
+        });
+    }
+
+</script>

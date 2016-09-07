@@ -1,0 +1,798 @@
+﻿@using ECIS.Core
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+<style>
+    .k-tooltip.k-chart-tooltip {
+        width: 30%;
+    }
+
+    .col-health-check > div {
+        box-sizing: border-box;
+        border: none;
+    }
+
+    .col-health-check header.col-sec {
+        background-color: rgb(72, 145, 217);
+        color: white;
+        padding: 4px;
+    }
+
+    .col-health-check header h3 {
+        text-align: left;
+        border-bottom: none;
+        margin: 0px;
+    }
+
+    .col-health-check .col-sec {
+        padding: 0px 8px;
+        position: relative;
+    }
+
+        .col-health-check .col-sec:not(header) {
+            border-left: 1px solid rgb(221, 221, 221);
+            border-right: 1px solid rgb(221, 221, 221);
+            border-bottom: 1px solid rgb(236, 236, 236);
+            padding-top: 6px;
+            padding-bottom: 6px;
+        }
+
+            .col-health-check .col-sec:not(header):after {
+                position: absolute;
+                z-index: 1;
+                background-color: rgb(236, 236, 236);
+                height: 18px;
+                top: 0;
+                right: 0;
+                border-bottom: 1px solid rgb(228, 228, 228);
+                border-left: 1px solid rgb(228, 228, 228);
+                padding: 1px 5px;
+            }
+
+        .col-health-check .col-sec.latest-status {
+            background-color: rgb(249, 249, 249);
+        }
+
+        .col-health-check .col-sec.info:after {
+            content: "Configuration";
+        }
+
+        .col-health-check .col-sec.latest-status:after {
+            content: "Latest Status";
+        }
+
+        .col-health-check .col-sec.historical-status:after {
+            content: "Historical Status";
+        }
+
+        .col-health-check .col-sec.info.health-check-hide {
+            overflow: hidden;
+            height: 26px;
+            pointer-events: none;
+            display: none;
+        }
+
+            .col-health-check .col-sec.info.health-check-hide:before {
+                content: " ";
+                z-index: 1;
+                position: absolute;
+                left: 0;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                background-color: white;
+            }
+
+        .col-health-check .col-sec.latest-status .col-sec-status {
+            text-transform: capitalize;
+            font-size: 20px;
+        }
+
+        .col-health-check .col-sec.info .optional {
+            display: none;
+        }
+
+        .col-health-check .col-sec.info .optional,
+        .col-health-check .col-sec.latest-status [data-status="0"] {
+            color: green;
+        }
+
+        .col-health-check .col-sec.latest-status [data-status="1"] {
+            color: rgb(221, 51, 51);
+        }
+
+        .col-health-check .col-sec.info > div {
+            margin-bottom: 5px;
+        }
+
+            .col-health-check .col-sec.info > div > span:not(.k-widget),
+            .col-health-check .col-sec.info > div > input {
+                float: left;
+            }
+
+            .col-health-check .col-sec.info > div > span:not(.k-widget) {
+                width: 100px;
+                padding-top: 4px;
+            }
+
+            .col-health-check .col-sec.info > div > input {
+                padding: 2px 4px;
+            }
+
+    .heath-nav {
+        margin-bottom: 10px;
+        margin-top: 10px;
+    }
+
+    .col-health-check .col-sec.of-loader {
+        background-color: white;
+    }
+
+        .col-health-check .col-sec.of-loader h4 {
+            display: none;
+        }
+
+    .btn-save-config {
+        position: absolute;
+        right: 6px;
+        top: 24px;
+    }
+
+    .health-info {
+        display: none;
+    }
+
+        .health-info span {
+            width: 100% !important;
+        }
+    .historical-status.of-database g[clip-path]:hover .k-tooltip.k-chart-tooltip pre{
+        visibility:visible;
+    }
+        .k-tooltip.k-chart-tooltip pre{
+            visibility:visible;
+        }
+</style>
+
+<script>
+    model.DataHealthStartDate = ko.observable(new Date(new Date().setDate(new Date().getDate() - 5)));
+    model.DataHealthEndDate = ko.observable(new Date());
+    model.isCustom = ko.observable(false);
+    model.Humanize = function (time) {
+        if (time.years()   > 0) { return time.years()   + ' years and '     + time.months()   + ' months ago'; }
+        if (time.months()  > 0) { return time.months()  + ' months and '    + time.days()     + ' days ago'; }
+        if (time.days()    > 0) { return time.days()    + ' days and '      + time.hours()    + ' hours ago'; }
+        if (time.hours()   > 0) { return time.hours()   + ' hours and '     + time.minutes()  + ' minutes and ' + time.seconds() + ' seconds ago'; }
+        if (time.minutes() > 0) { return time.minutes() + ' minutes and '   + time.seconds()  + ' seconds ago'; }
+        if (time.seconds() > 0) { return time.seconds() + ' seconds ago'; }
+
+        return "";
+    };
+    model.DataTempHistorical = ko.observableArray([
+        { Date: new Date(2015, 5, 6), Up: 10, Down: 5, Total: 15 },
+        { Date: new Date(2015, 5, 7), Up: 12, Down: 4, Total: 16 },
+        { Date: new Date(2015, 5, 8), Up: 8, Down: 1, Total: 9 },
+        { Date: new Date(2015, 5, 9), Up: 12, Down: 2, Total: 14 },
+        { Date: new Date(2015, 5, 10), Up: 11, Down: 0, Total: 11 },
+        { Date: new Date(2015, 5, 11), Up: 14, Down: 2, Total: 16 },
+    ]);
+    model.ToggleConfig = function () {
+        if (model.ToggleConfigStatus())
+            $(".col-sec.info").removeClass('health-check-hide');
+        else
+            $(".col-sec.info").addClass('health-check-hide');
+
+        model.ToggleConfigStatus(!model.ToggleConfigStatus());
+    };
+    model.ToggleConfigStatus = ko.observable(false);
+    model.HealthCheckTemplate = @MvcHtmlString.Create(JsonConvert.SerializeObject(new SysHealthCheck()));
+    model.HealthCheck = ko.mapping.fromJS(model.HealthCheckTemplate);
+    model.HistoricalCheck = ko.observableArray([]);
+    model.SMTPConHealthData = ko.observableArray([
+        { id: "Telnet", text: "Telnet" },
+        { id: "MailSend", text: "Send Mail" }
+    ]);
+    model.LabelStatus = ko.observable("Current Status:");
+    model.LabelLastChecked = ko.observable("Last ping:");
+    model.ChartProcessing = ko.observable(false);
+    model.LastPingTemplate = { database: null, smtp: null, proxy: null };
+    model.LastPing = ko.mapping.fromJS(model.LastPingTemplate);
+    model.LastPingOf = function (what) {
+        return ko.computed(function () {
+            return model.Humanize(moment.duration(moment.utc(model.LastPing[what]()).diff(moment(new Date()))));
+        }, model);
+    };
+    model.RenderChart = function (which, data) {
+        var $container = $(".historical-status.of-" + which);
+        $container.html("&nbsp;");
+        var messageColumn = "";
+        switch(which){
+            case "database":
+                messageColumn = "DBMessage";
+                break;
+            case "proxy":
+                messageColumn = "ProxyMessage";
+                break;
+            case "smtp":
+                messageColumn = "SMTPMessage";
+                break;
+            case "storage":
+                messageColumn = "StorageMessage";//"StorageInfo.AvailableDBDriveSize";
+                break;
+            case "edm":
+                messageColumn = "EDMMessage";
+                break;
+            default:break;
+        }
+        var seriesList = [];
+        for(var i = 0;i<=24;i++){
+            var series = {};
+            series.name = "("+i+".00)";
+            series.field = "Series."+which+i;
+            //console.log(series.field);
+            series.color = function(e){
+                if(e.value==1 || e.value==1.1){
+                    return "#32B539";
+                }else{
+                    return "#E62A2A";
+                }
+            }
+            seriesList.push(series);
+        }
+        var config = {
+            dataSource: {
+                data: data
+            },
+            chartArea: {
+                height: 400,
+                margin: {
+                    bottom: 10
+                },
+                width: $container.width()
+            },
+            seriesDefaults: {
+                type: "column",
+                stack: true,
+            },
+            series:seriesList,
+            categoryAxis: {
+                field: "Day",
+                type: "date",
+                //baseUnit: "days",
+                majorGridLines: {
+                    visible: false
+                },
+                labels: {
+                    rotation:-15,
+                    dateFormats: {
+                        days: "dd/MM/yy"
+                    }
+                }
+            },
+            valueAxis: {
+                majorGridLines: {
+                    visible: false
+                },
+                max:25,
+                majorUnit: 6
+            },
+            legend: {
+                visible:false,
+            },
+            tooltip: {
+                visible: true,
+                template: "Status on <i>#= moment(dataItem.Date).format('DD MMM YYYY') # #:series.name#</i> : <b># if(value==1 || value==2){ #Up#}else{#Down #} #</b>"+
+                    "#if(value!==1 || '"+ which +"'=='storage'){#"+
+                    "<pre>"+
+                    "#:dataItem."+messageColumn+"#"+
+                    "</pre>"+
+                    "#}#"
+            }
+        };
+        $container.kendoChart(config);
+    };
+    model.PrepareCharts = function (data, status) {
+        model.RenderChart("database", data.database, status);
+        model.RenderChart("smtp", data.smtp, status);
+        model.RenderChart("proxy", data.proxy, status);
+        model.RenderChart("storage",data.storage,status);
+    };
+    model.RefreshCustom = function(e){
+        var url = "@Url.Action("RefreshCustom")";
+        var param = {healthCheck:((typeof e ===String(undefined))?null:ko.mapping.toJS(model.HealthCheck))}
+        model.ChartProcessing(true);
+        ajaxPost(url,param,function(res){
+            model.ChartProcessing(false);
+            model.RenderChart("database", res.Data.historicalData);
+            model.RenderChart("smtp", res.Data.historicalData);
+            model.RenderChart("proxy", res.Data.historicalData);
+            model.RenderChart("storage",res.Data.historicalData);
+            model.RenderChart("edm",res.Data.historicalData);
+            ko.mapping.fromJS(res.Data.healthCheck, model.HealthCheck);
+            ko.mapping.fromJS({
+                database: moment(res.Data.lastPing.database).toDate(),
+                smtp: moment(res.Data.lastPing.smtp).toDate(),
+                proxy: moment(res.Data.lastPing.proxy).toDate(),
+            }, model.LastPing);
+        },function(){
+            model.ChartProcessing(false);
+
+            model.HistoricalCheck([]);
+            ko.mapping.fromJS(model.HealthCheckTemplate, model.HealthCheck);
+            ko.mapping.fromJS(model.LastPingTemplate, model.LastPing);
+        })
+    }
+    model.RefreshData = function (e) {
+        var timeDiff = Math.abs(model.DataHealthStartDate().getTime() - model.DataHealthEndDate().getTime());
+        var diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        if(diffDays>7){
+            alert("Max date range is only 7");
+            return false;
+        }
+        var url = "@Url.Action("RefreshData")";
+        var param = {
+            StartDate:model.DataHealthStartDate(),
+            EndDate:model.DataHealthEndDate(),
+            isCheckHealth: ((typeof e === String(undefined)) ? false : true),
+            healthCheck: ((typeof e === String(undefined)) ? null : ko.mapping.toJS(model.HealthCheck))
+        };
+        model.ChartProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.ChartProcessing(false);
+            model.RenderChart("database", res.Data.historicalData);
+            model.RenderChart("smtp", res.Data.historicalData);
+            model.RenderChart("proxy", res.Data.historicalData);
+            model.RenderChart("storage",res.Data.historicalData);
+            model.RenderChart("edm",res.Data.historicalData);
+            //model.HistoricalCheck(res.Data.historicalData);
+            //model.PrepareHistoricalResults();
+            ko.mapping.fromJS(res.Data.healthCheck, model.HealthCheck);
+            ko.mapping.fromJS({
+                database: moment(res.Data.lastPing.database).toDate(),
+                smtp: moment(res.Data.lastPing.smtp).toDate(),
+                proxy: moment(res.Data.lastPing.proxy).toDate(),
+            }, model.LastPing);
+        }, function () {
+            model.ChartProcessing(false);
+
+            model.HistoricalCheck([]);
+            ko.mapping.fromJS(model.HealthCheckTemplate, model.HealthCheck);
+            ko.mapping.fromJS(model.LastPingTemplate, model.LastPing);
+            //model.PrepareCharts({ database: [], smtp: [], proxy: [] }, false);
+        });
+    };
+    model.StatusOf = function (what) {
+        return ko.computed(function () {
+            return model.HealthCheck[what]() ? 'Up' : 'Down';
+        }, model);
+    };
+    model.HistoricalResults = { database: ko.observable(""), proxy: ko.observable(""), smtp: ko.observable("") };
+    model.PrepareHistoricalResults = function () {
+        for (var what in model.HistoricalResults) {
+            if (model.HistoricalResults.hasOwnProperty(what)) {
+                var arr = model.HistoricalCheck()[what];
+
+                if (typeof arr === String(undefined))
+                    return "";
+
+                if (arr.lenght == 0)
+                    return "";
+
+                var latestPing = arr.reverse()[0];
+                var latestResult = ["Total ping", latestPing.Total, "times,", latestPing.Up, "Up &", latestPing.Down, "Down"].join(" ");
+
+                model.HistoricalResults[what](latestResult);
+            }
+        }
+    };
+
+    model.RunCommand = function() {
+        model.ChartProcessing(true);
+        //alert("This function still under development");
+        ajaxPost("@Url.Action("RunBatchWithBasicConfig")", {},
+            function(res) {
+                if (res.result != "ok") {
+                    model.ChartProcessing(false);
+                    //alert(res.message);
+                    return;
+                }
+                model.ChartProcessing(false);
+            }
+        );
+    }
+
+    model.SaveConfig = function (what) {
+        return function () {
+            var url = "";
+            var param = {};
+
+            if (what === "database") {
+                url = "@Url.Action("SaveDBHealth")";
+                param = ko.mapping.toJS(model.HealthCheck.DBConHealth);
+            } else if (what === "smtp") {
+                url = "@Url.Action("SaveSMTPHealth")";
+                param = ko.mapping.toJS(model.HealthCheck.SMTPConHealth);
+            } else if (what === "proxy") {
+                url = "@Url.Action("SaveProxyHealth")";
+                param = ko.mapping.toJS(model.HealthCheck.ProxyConHealth);
+            }
+
+            ajaxPost(url, param, function (res) {
+                if (res.Data !== "OK") {
+                    alert("Error when saving data");
+                    return;
+                }
+
+                alert("Saved");
+            }, function () {
+                alert("Error when saving data");
+                return;
+            });
+        };
+    }
+
+    $(function () {
+        model.ToggleConfig();
+        model.RefreshData();
+    });
+
+
+</script>
+
+<div class="col-md-12 heath-nav">
+    <label>From :</label>
+    <input data-bind="kendoDatePicker:{value:model.DataHealthStartDate}" style="width:100px;" />
+    <label style="width:10px;">&nbsp;</label>
+    <label>Till :</label>
+    <input data-bind="kendoDatePicker:{value:model.DataHealthEndDate}" style="width:100px;" />
+    <label style="width:10px;">&nbsp;</label>
+    <button class="btn btn-custom btn-sm btn-primary" data-bind="click:model.RefreshData,enable: !model.ChartProcessing(),visible:model.ToggleConfigStatus()">
+        <span class="glyphicon glyphicon-refresh"></span>
+        <span>Refresh</span>
+    </button>
+
+    <button class="btn btn-custom btn-sm btn-success" data-bind="click: model.ToggleConfig">
+        <span class="glyphicon glyphicon-cog"></span>
+        <span data-bind="text: (model.ToggleConfigStatus() ? 'Show' : 'Hide')"></span>
+        <span>Custom Config</span>
+    </button>
+    <button class="btn btn-custom btn-sm btn-primary" data-bind="click:model.RefreshCustom, enable: !model.ChartProcessing(),visible:!model.ToggleConfigStatus()">
+        <span class="glyphicon glyphicon-refresh"></span>
+        <span>Refresh From Custom</span>
+    </button>
+    <button class="btn btn-success btn-sm"  onclick="model.RunCommand()" data-bind="visible:model.ToggleConfigStatus()">
+        <span class="glyphicon glyphicon-play"></span> Run With Basic Configuration
+    </button>
+</div>
+<div class="col-md-12">
+    <div class="col-md-6 col-health-check">
+        <div>
+            <header class="col-sec">
+                <h3>Database Connectivity</h3>
+            </header>
+            <div class="col-sec info">
+                <button style="display:none;" class="btn btn-xs btn-custom btn-primary btn-save-config" data-bind="click: model.SaveConfig('database'), enable: !model.ChartProcessing()">
+                    <span class="glyphicon glyphicon-save"></span> Save
+                </button>
+                <div>
+                    <span>Database Host</span>
+                    <input type="text" style="width: 150px" placeholder="localhost"
+                           data-bind="value: model.HealthCheck.DBConHealth.ServerHost" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>Database Port</span>
+                    <input type="text" style="width: 150px" placeholder="27017"
+                           data-bind="value: model.HealthCheck.DBConHealth.Port" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>Database Name</span>
+                    <input type="text" style="width: 150px" placeholder="db"
+                           data-bind="value: model.HealthCheck.DBConHealth.ServerDB" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>
+                        Username
+                        <i class="optional">*</i>
+                    </span>
+                    <input type="text" style="width: 150px" placeholder="root"
+                           data-bind="value: model.HealthCheck.DBConHealth.UserName" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>
+                        Password
+                        <i class="optional">*</i>
+                    </span>
+                    <input type="password" style="width: 150px" placeholder="password"
+                           data-bind="value: model.HealthCheck.DBConHealth.Password" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>
+                        Enable SSL
+                        <i class="optional">*</i>
+                    </span>
+                    <input type="checkbox" data-bind="checked: model.HealthCheck.DBConHealth.UseSSL" />
+                    <div class="clearfix"></div>
+                </div>
+
+                <div class="health-info">
+                    <span>If empty health check will use default configuration</span>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+            <div class="col-sec of-loader" data-bind="visible: model.ChartProcessing()">
+                @Html.Partial("_processing")
+            </div>
+            <div class="col-sec latest-status" data-bind="visible: !model.ChartProcessing()">
+                <div class="col-sec-status">
+                    <span data-bind="text: model.LabelStatus"></span>
+                    <span data-bind="attr: { 'data-status': model.HealthCheck.isDBConHealthy() ? 0 : 1 }, text: model.StatusOf('isDBConHealthy')"></span>
+                </div>
+                <div>
+                    <span data-bind="text: model.HistoricalResults.database"></span>
+                </div>
+                <div class="col-sec-status-date">
+                    <span data-bind="text: model.LabelLastChecked"></span>
+                    <span data-bind="text: model.LastPingOf('database')"></span>
+                </div>
+            </div>
+            <div class="col-sec" data-bind="visible: !model.ChartProcessing()">
+                <div class="historical-status of-database"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-health-check">
+        <div>
+            <header class="col-sec">
+                <h3>Storage Status</h3>
+            </header>
+            @*<div class="col-sec info">
+                    <button class="btn btn-xs btn-custom btn-primary btn-save-config" data-bind="click: model.SaveConfig('proxy'), enable: !model.ChartProcessing()">
+                        <span class="glyphicon glyphicon-save"></span> Save
+                    </button>
+                    <div>
+                        <span>Proxy Host</span>
+                        <input type="text" style="width: 150px" placeholder="localhost"
+                               data-bind="value: model.HealthCheck.ProxyConHealth.Host" />
+                        <div class="clearfix"></div>
+                    </div>
+                    <div>
+                        <span>Proxy Port</span>
+                        <input type="text" style="width: 150px" placeholder="27017"
+                               data-bind="value: model.HealthCheck.ProxyConHealth.Port" />
+                        <div class="clearfix"></div>
+                    </div>
+
+                    <div class="health-info">
+                        <span>If empty health check will use default configuration</span>
+                        <div class="clearfix"></div>
+                    </div>
+                </div>*@
+            <div class="col-sec of-loader" data-bind="visible: model.ChartProcessing()">
+                @Html.Partial("_processing")
+            </div>
+            <div class="col-sec latest-status" data-bind="visible: !model.ChartProcessing()">
+                <div class="col-sec-status">
+                    <span>Storage Info</span>
+
+                </div>
+                <div>
+                    <span>&nbsp;</span>
+                </div>
+            </div>
+            <div class="col-sec" data-bind="visible: !model.ChartProcessing()">
+                <div class="historical-status of-storage"></div>
+            </div>
+        </div>
+    </div>
+
+    
+</div>
+<div class="col-md-12" style="margin-top: 20px;">
+    <div class="col-md-4 col-health-check">
+        <div>
+            <header class="col-sec">
+                <h3>SMTP Connectivity</h3>
+            </header>
+            <div class="col-sec info">
+                <button style="display:none;" class="btn btn-xs btn-custom btn-primary btn-save-config" data-bind="click: model.SaveConfig('smtp'), enable: !model.ChartProcessing()">
+                    <span class="glyphicon glyphicon-save"></span> Save
+                </button>
+                <div>
+                    <span>Connection Type</span>
+                    <input data-bind="kendoDropDownList: { data: model.SMTPConHealthData, value: model.HealthCheck.SMTPConHealth.ConType, dataTextField: 'text', dataValueField: 'id', optionLabel: 'Select one' }" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>SMTP Host</span>
+                    <input type="text" style="width: 150px" placeholder="localhost"
+                           data-bind="value: model.HealthCheck.SMTPConHealth.Host" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>SMTP Port</span>
+                    <input type="text" style="width: 150px" placeholder="27017"
+                           data-bind="value: model.HealthCheck.SMTPConHealth.Port" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>
+                        Enable TLS
+                        <i class="optional">*</i>
+                    </span>
+                    <input type="checkbox" data-bind="checked: model.HealthCheck.SMTPConHealth.TLS" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>Username</span>
+                    <input type="text" style="width: 150px" placeholder="root"
+                           data-bind="value: model.HealthCheck.SMTPConHealth.UserName" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>Password</span>
+                    <input type="password" style="width: 150px" placeholder="password"
+                           data-bind="value: model.HealthCheck.SMTPConHealth.Password" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>From</span>
+                    <input type="text" style="width: 150px" placeholder="from@test.com"
+                           data-bind="value: model.HealthCheck.SMTPConHealth.From" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>To</span>
+                    <input type="text" style="width: 150px" placeholder="to@test.com"
+                           data-bind="value: model.HealthCheck.SMTPConHealth.To" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>Subject</span>
+                    <input type="text" style="width: 150px" placeholder="Subject"
+                           data-bind="value: model.HealthCheck.SMTPConHealth.Subject" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>Message</span>
+                    <input type="text" style="width: 150px" placeholder="Message Content"
+                           data-bind="value: model.HealthCheck.SMTPConHealth.Message" />
+                    <div class="clearfix"></div>
+                </div>
+
+                <div class="health-info">
+                    <span>If empty health check will use default configuration</span>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+            <div class="col-sec of-loader" data-bind="visible: model.ChartProcessing()">
+                @Html.Partial("_processing")
+            </div>
+            <div class="col-sec latest-status" data-bind="visible: !model.ChartProcessing()">
+                <div class="col-sec-status">
+                    <span data-bind="text: model.LabelStatus"></span>
+                    <span data-bind="attr: { 'data-status': model.HealthCheck.isSMTPHealthy() ? 0 : 1 }, text: model.StatusOf('isSMTPHealthy')"></span>
+                </div>
+                <div>
+                    <span data-bind="text: model.HistoricalResults.smtp"></span>
+                </div>
+                <div class="col-sec-status-date">
+                    <span data-bind="text: model.LabelLastChecked"></span>
+                    <span data-bind="text: model.LastPingOf('smtp')"></span>
+                </div>
+            </div>
+            <div class="col-sec" data-bind="visible: !model.ChartProcessing()">
+                <div class="historical-status of-smtp"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 col-health-check">
+        <div>
+            <header class="col-sec">
+                <h3>Proxy Connectivity</h3>
+            </header>
+            <div class="col-sec info">
+                <button style="display:none;" class="btn btn-xs btn-custom btn-primary btn-save-config" data-bind="click: model.SaveConfig('proxy'), enable: !model.ChartProcessing()">
+                    <span class="glyphicon glyphicon-save"></span> Save
+                </button>
+                <div>
+                    <span>Proxy Host</span>
+                    <input type="text" style="width: 150px" placeholder="localhost"
+                           data-bind="value: model.HealthCheck.ProxyConHealth.Host" />
+                    <div class="clearfix"></div>
+                </div>
+                <div>
+                    <span>Proxy Port</span>
+                    <input type="text" style="width: 150px" placeholder="27017"
+                           data-bind="value: model.HealthCheck.ProxyConHealth.Port" />
+                    <div class="clearfix"></div>
+                </div>
+
+                <div class="health-info">
+                    <span>If empty health check will use default configuration</span>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+            <div class="col-sec of-loader" data-bind="visible: model.ChartProcessing()">
+                @Html.Partial("_processing")
+            </div>
+            <div class="col-sec latest-status" data-bind="visible: !model.ChartProcessing()">
+                <div class="col-sec-status">
+                    <span data-bind="text: model.LabelStatus"></span>
+                    <span data-bind="attr: { 'data-status': model.HealthCheck.isProxyHealthy() ? 0 : 1 }, text: model.StatusOf('isProxyHealthy')"></span>
+                </div>
+                <div>
+                    <span data-bind="text: model.HistoricalResults.proxy"></span>
+                </div>
+                <div class="col-sec-status-date">
+                    <span data-bind="text: model.LabelLastChecked"></span>
+                    <span data-bind="text: model.LastPingOf('proxy')"></span>
+                </div>
+            </div>
+            <div class="col-sec" data-bind="visible: !model.ChartProcessing()">
+                <div class="historical-status of-proxy"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 col-health-check">
+        <div>
+            <header class="col-sec">
+                <h3>EDM Connectivity</h3>
+            </header>
+            <div class="col-sec info">
+                @*<button class="btn btn-xs btn-custom btn-primary btn-save-config" data-bind="click: model.SaveConfig('proxy'), enable: !model.ChartProcessing()">
+                        <span class="glyphicon glyphicon-save"></span> Save
+                    </button>*@
+                <div>
+                    <span style="width:100%;">EDM Connection String</span>
+                    <input type="text" style="width:100% " placeholder="localhost"
+                           data-bind="value: model.HealthCheck.EDMConHealth.OraServerShell" />@*150px*@
+                    <div class="clearfix"></div>
+                </div>
+                @*<div>
+                        <span>EDM Port</span>
+                        <input type="text" style="width: 150px" placeholder="27017"
+                               data-bind="value: model.HealthCheck.ProxyConHealth.Port" />
+                        <div class="clearfix"></div>
+                    </div>*@
+
+                <div class="health-info">
+                    <span>If empty health check will use default configuration</span>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+            <div class="col-sec of-loader" data-bind="visible: model.ChartProcessing()">
+                @Html.Partial("_processing")
+            </div>
+            <div class="col-sec latest-status" data-bind="visible: !model.ChartProcessing()">
+                <div class="col-sec-status">
+                    <span data-bind="text: model.LabelStatus"></span>
+                    <span data-bind="attr: { 'data-status': model.HealthCheck.isEDMHealthy() ? 0 : 1 }, text: model.StatusOf('isEDMHealthy')"></span>
+                </div>
+                @*<div>
+                        <span data-bind="text: model.HistoricalResults.proxy"></span>
+                    </div>*@
+                @*<div class="col-sec-status-date">
+                        <span data-bind="text: model.LabelLastChecked"></span>
+                        <span data-bind="text: model.LastPingOf('proxy')"></span>
+                    </div>*@
+            </div>
+            <div class="col-sec" data-bind="visible: !model.ChartProcessing()">
+                <div class="historical-status of-edm"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<div class="clearfix">
+    &nbsp;
+</div>

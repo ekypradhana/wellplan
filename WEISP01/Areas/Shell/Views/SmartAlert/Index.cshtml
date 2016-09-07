@@ -1,0 +1,330 @@
+﻿@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    model.PageId("Smart Alerts");
+    model.IsProcessing = ko.observable(false);
+</script>
+
+<style>
+    #grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+        #grid .k-header[role=columnheader][data-field=_id] {
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-field=OpsDuration], #grid .k-header[role=columnheader][data-field=PhRiskDuration] {
+            vertical-align: bottom;
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-colspan] {
+            text-align: center;
+            font-weight: bold;
+            color: #a8a8a8;
+        }
+
+    #grid [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #grid [data-field=PhStart], #grid [data-field=PhFinish], #grid [data-field=OpsStart], #grid [data-field=OpsFinish] {
+        pointer-events: none;
+    }
+
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+
+    .customClass {
+        background-color: red;
+    }
+</style>
+
+<div style="padding: 0px 15px 15px;">
+
+    @Html.Partial("Filter")
+    <div data-bind="visible:model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+    <div data-bind="visible: !model.IsProcessing()">
+        <div class="col-md-12 no-padding">
+            @*<ul class="nav nav-tabs" role="tablist">
+                <li role="presentation" class="active">
+                    <a href="#tab1" aria-controls="home" role="tab" data-toggle="tab">GAP</a>
+                </li>
+                <li role="presentation">
+                    <a href="#tab2" aria-controls="profile" role="tab" data-toggle="tab">Improvement</a>
+                </li>
+            </ul>*@
+
+            @*<div class="tab-content">
+                <div role="tabpanel" class="tab-pane active" id="tab1">
+                    
+                </div>
+                <div role="tabpanel" class="tab-pane" id="tab2">
+                    <div id="grid2" class="grid grid2"></div>
+                </div>
+            </div>*@
+            <div id="grid" class="grid grid1"></div>
+        </div>
+
+        <div style="clear: both;"></div>
+    </div>
+
+</div>
+
+<script>
+    model.FilterVisibility.DateStart(true);
+    model.FilterVisibility.WellNames(true);
+    model.FilterVisibility.Regions(false);
+    model.FilterVisibility.OperatingUnits(false);
+    model.FilterVisibility.RigTypes(false);
+    model.FilterVisibility.RigNames(true);
+    model.FilterVisibility.ProjectNames(false);
+    model.FilterVisibility.riskcheck(true);
+   
+    model.setButton = function (isEnabled) {
+        $(".btn.btn-custom.btn-sm.btn-primary.do-filter").prop('disabled', isEnabled);
+    }
+    model.RenderGrid = function (data) {
+        //console.log(data);
+
+        $('#grid').replaceWith($('<div />').attr('id', 'grid'));
+        $('#grid').kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "Smart Alert-" + moment(new Date()).format("YYYY-MM-DD-HHmmss")+".pdf" },
+            excel: { fileName: "Smart Alert-" + moment(new Date()).format("YYYY-MM-DD-HHmmss") +".xlsx", allPages: true, filterable: true },
+            dataSource: { data: data, type: "json", pageSize: 10 },
+            pageable: true,
+            sortable: true,
+            resizable: true,
+
+            detailInit: detailInit,
+            //dataBound: function () {
+            //    this.expandRow(this.tbody.find("tr.k-master-row").first());
+            //},
+
+            columns: [
+                { field: "RigName", title: "Rig Name" , width: 230},
+                {
+                    title: "LS Schedule", columns: [
+                      { field: "PhScheduleStart", title: "Start", attributes: { style: "text-align: center" }, width: 80 },
+                      { field: "PhScheduleFinish", title: "Finish", attributes: { style: "text-align: center" }, width: 80 },
+                    ]
+                },
+                {
+                    title: "Plan Schedule", columns: [
+                      { field: "PlanStart", title: "Start", attributes: { style: "text-align: center" } , width: 80},
+                      { field: "PlanFinish", title: "Finish", attributes: { style: "text-align: center" }, width: 80 },
+                    ]
+                },
+                {
+                    field: "GAP", title: "GAP (days)",
+                    format: "{0:N1}", width: 80,
+                    attributes: { style: "text-align: right" }
+                },
+                {
+                    field: "Seq", title: "Sequence Id",
+                    attributes: { style: "text-align: center" }
+                }
+
+
+    //{ field: "UARigSequenceId", title: "Seq ID", width: 90 },
+            ]
+        });
+
+    }
+
+    $(document).ready(
+
+        function () {
+            model.reloadData();
+            $("[data-model=dateStart]").closest(".col-md-8").prev().find("label").html("Plan Schedule:");
+
+        });
+
+
+
+
+    function detailInit(e) {
+        var withRisk;
+        if ($('#riskcheck').is(':checked')) {
+            withRisk = "1";
+        } else {
+            withRisk = "0";
+        }
+
+        var param = model.getFilterValues();
+        //console.log(param);
+        //console.log(param.RigName);
+        //console.log(param.wellNames);
+        //console.log(e.data.RigName);
+        //console.log(e.data.WellName);
+        //alert(param.wellNames);
+        //alert(param.wellNames.length);
+        //alert(e.data.WellName);
+        //var data = detilByRigName(e.data.RigName, e.data.WellName);
+        console.log("PARAM DETIL : ");
+        console.log(param);
+        var url = "";
+        if (e.data.WellName == 'undefined' || param.wellNames.length < 1) {
+            //alert(param.wellNames.length);
+            url = "@Url.Action("DetilByRigName")" + "?RigName=" + e.data.RigName + "&planstart=" + param.dateStart + "&planfinish=" + param.dateFinish + "&risk=" + withRisk;
+        }
+        else
+            url = "@Url.Action("DetilByRigName")" + "?RigName=" + e.data.RigName + "&WellName=" + param.wellNames + "&planstart=" + param.dateStart + "&planfinish=" + param.dateFinish + "&risk=" + withRisk;
+
+        //console.log(e);
+        ajaxPost(url, "", function (res) {
+            //console.log(e.detailCell);
+            $("<div/>").appendTo(e.detailCell).kendoGrid({
+                dataSource: {
+
+                    data: res.Data,
+                    aggregate: [
+                            {
+                                field: "GAP", aggregate: "sum", format: "{0:0.00}"
+                            },
+                            { field: "PhScheduleStart", aggregate: "min" },
+                            { field: "PhScheduleFinish", aggregate: "max" },
+                            { field: "PlanStart", aggregate: "min" },
+                            { field: "PlanFinish", aggregate: "max" },
+                            { field: "ActualDays", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "ActualCost", aggregate: "sum" },
+                            { field: "OPDays", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "OPCost", aggregate: "sum" }
+
+                    ],
+                    //rowTemplate: '<tr class="#:GAP==\"More\"? \"red\" : \"white\"#" data-uid="#= uid #"><td>#: name #</td><td>#:GAP#</td></tr>',
+                    type: "json",
+                    //serverPaging: true,
+                    //serverSorting: true,
+                    //serverFiltering: true,
+                    pageSize: 10,
+                    //filter: { field: "RigName", operator: "eq", value: e.data.RigName }
+                },
+                scrollable: false,
+                sortable: true,
+                pageable: true,
+                columns: [
+                     { field: "WellName", title: "Well Name", width: 100 },
+                    { field: "UARigSequenceId", title: "Seq ID", width: 50 },
+                    { field: "ActivityType", title: "Activity Type" },
+                    { field: "PhaseNo", title: "Phase No", width: 65 },
+                    {
+                        title: "Actual", columns: [
+                          { field: "ActualDays", title: "Duration<br />(Days)", format: "{0:N0}", width: 80, attributes: { style: "text-align: right" }, footerTemplate: "<div style='text-align:right'>#: sum #</div>" },
+                          { field: "ActualCost", title: "Cost<br />(US$ m)", format: "{0:N1}", width: 80, attributes: { style: "text-align: right" }, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N1') #</div>" },
+                        ]
+                    },
+                    {
+                        title: "OP-15", columns: [
+                          { field: "PlanStart", title: "Start", width: 80, attributes: { style: "text-align: center" }, template: "#: DateTimeParse(PlanStart) #", footerTemplate: "<div style='text-align:center'>" + res.pmin + "</div>" },
+                          { field: "PlanFinish", title: "Finish", width: 80, attributes: { style: "text-align: center" }, template: "#: DateTimeParse(PlanFinish) #", footerTemplate: "<div style='text-align:center'>" + res.pmax + "</div>" },
+                          { field: "OPDays", title: "Duration<br />(Days)", format: "{0:N0}", width: 80, attributes: { style: "text-align: right" }, footerTemplate: "<div style='text-align:right'>#: sum #</div>" },
+                          { field: "OPCost", title: "Cost<br />(US$ m)", format: "{0:N1}", width: 80, attributes: { style: "text-align: right" }, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N1') #</div>" },
+                        ]
+                    },
+                    {
+                        title: "LE", columns: [
+                          { field: "PhScheduleStart", title: "Start", width: 80, attributes: { style: "text-align: center" }, template: "#: DateTimeParse(PhScheduleStart) #", footerTemplate: "<div style='text-align:center'>" + res.MinDate + "</div>" },
+                          { field: "PhScheduleFinish", title: "Finish", width: 80, attributes: { style: "text-align: center" }, template: "#: DateTimeParse(PhScheduleFinish) #", footerTemplate: "<div style='text-align:center'>" + res.MaxDate + "</div>" },
+                        ]
+                    },
+                    { field: "Type", title: "Type", width: 80 },
+                    {
+                        field: "GAP", title: "GAP", attributes: { style: "text-align: right" }, width: 90,
+                        template: "<div style='width:100%;height:100%;text-align:right; color:#: GAP<0?\"white\":\"black\" #; font-weight: bold; color:#: GAP<0?\"blue\":\"red\" #'>#: kendo.toString(GAP,'N1')  #</div>",
+                        footerTemplate: "<div style='text-align:right'>#: sum #</div>"
+                    }
+                ],
+
+                dataBound: onDataBound
+
+            });
+
+
+
+        }, function (a, b, c) {
+            console.log(a);
+            console.log(b);
+            console.log(c);
+        });
+    }
+
+
+    function DateTimeParse(date) {
+        return moment(jsonDateStr(date), 'DD-MMM-YYYY').format("DD-MMM-YY");
+    }
+
+    function detilByRigName(RigName, WellName) {
+
+        var withRisk;
+        if ($('#riskcheck').is(':checked')) {
+            withRisk = "1";
+        } else {
+            withRisk = "0";
+        }
+
+        var url = "@Url.Action("DetilByRigName")" + "?RigName=" + RigName + "&WellName=" + WellName + "&risk=" + withRisk;
+        //console.log(e);
+        ajaxPost(url, "", function (res) {
+            //console.log(res.Data);
+            //alert(res.Data);
+            //alert("ok");
+            //console.log(data);
+        }, function (a, b, c) {
+            console.log(a);
+            console.log(b);
+            console.log(c);
+        });
+        return data;
+    }
+
+    model.reloadData = function () {
+        var url = "@Url.Action("GetData")";
+        var param = model.getFilterValues();
+        console.log(param);
+        model.IsProcessing(true); model.setButton(true);
+
+        ajaxPost(url, param, function (res) {
+            //console.log(res.Data);
+            model.RenderGrid(res.Data);
+            model.IsProcessing(false); model.setButton(false);
+        }, function (a, b, c) {
+            console.log(a);
+            console.log(b);
+            console.log(c);
+            model.IsProcessing(false); model.setButton(false);
+        });
+    }
+
+</script>
+
+<script>
+    function onDataBound(e) {
+        var grid = $("#grid").data("kendoGrid");
+        var gridData = grid.dataSource.view();
+        //console.log(e);
+
+        for (var i = 0; i < gridData.length; i++) {
+            //get the item uid
+            var currentUid = gridData[i].uid;
+            //console.log(gridData[i]);
+
+            //if the record fits the custom condition
+            if (gridData[i].EmployeeId % 2 == 0) {
+                //find the row based on the uid and the custom class
+                var currenRow = grid.table.find("tr[data-uid='" + currentUid + "']");
+                $(currenRow).addClass("customClass");
+            }
+        }
+    }
+</script>

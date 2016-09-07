@@ -1,0 +1,207 @@
+﻿@{
+    ViewBag.Title = "Data QC";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+    //var GetOP = new List<string>();
+    //GetOP = DataHelper.Populate("WEISOPs").Select(x => BsonHelper.GetString(x, "_id")).ToList<string>();
+}
+
+<script src="@Url.Content("~/Scripts/selectize.js")"></script>
+<div class="col-md-12" data-bind="">
+    @Html.Partial("FilterForWaterfall")
+
+    <script>
+        model.FilterVisibility.PerformanceUnits(false);
+        model.FilterVisibility.MonthlySequence(false);
+        model.FilterVisibility.showLabelLSFilter(true);
+        model.FilterVisibility.LineOfBusiness(true);
+
+        model.FilterVisibility.Activities(true);
+        model.FilterVisibility.OPs(true);
+        model.FilterVisibility.OpRelation(true);
+        model.FilterVisibility.Date(true);
+        model.FilterVisibility.Date2(true);
+        model.FilterVisibility.PeriodBase(false);
+        model.FilterVisibility.PeriodView(true);
+        model.FilterVisibility.PeriodRelation(false);
+        model.FilterVisibility.Status(true);
+        model.FilterVisibility.inlastuploadls(true);
+        model.FilterVisibility.isInPlan(true);
+        model.FilterVisibility.ExType(true);
+
+        model.onlyDiscrepancies = ko.observable(true);
+    </script>
+</div>
+<div data-bind="visible: model.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+<div class="form-horizontal" style="width:700px;margin:0px auto" data-bind="visible: !model.IsProcessing()">
+    <div class="form-group">
+        <div class="col-sm-4 no-padding">&nbsp;</div>
+        <div class="col-sm-4">
+            <input type="checkbox" id="onlyDiscrepancies" data-bind="checked:model.onlyDiscrepancies" /> Only Discrepancies
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="form-group">
+        <div class="col-sm-4 no-padding">
+            <label>Send To :</label>
+        </div>
+        <div class="col-sm-4">
+            <input type="text" id="input-email" />
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="form-group">
+        <div class="col-sm-12" style="text-align: center;">
+            <button class="btn btn-primary btn-sm btn-custom" onclick="sendMODChecker(false)">
+                <span class="glyphicon glyphicon-ok"></span> Send Email
+            </button>&nbsp;&nbsp;&nbsp;
+            <button class="btn btn-primary btn-sm btn-success" onclick="sendMODChecker(true)">
+                <span class="glyphicon glyphicon-download"></span> Export Only
+            </button>
+        </div>
+    </div>
+</div>
+
+
+<script>
+
+    model.MODChecker = {}; var y = model.MODChecker;
+    model.IsProcessing = ko.observable(false);
+    function sendMODChecker(onlyExport) {
+        var toMails = $("#input-email").val().split(",");
+        if (($("#input-email").val() != "" && toMails.length > 0) || onlyExport) {
+            var url = "@Url.Action("SendEmailMODChecker", "DataQC")";
+            var param = {
+                toMails: toMails,
+                onlyExport: onlyExport,
+                wb: model.getFilterValues(),
+                FileNameDownload: moment(new Date()).format("DD-MM-YYYY HHmmss"),
+                onlyDiscrepancies: model.onlyDiscrepancies()
+            };
+            model.IsProcessing(true);
+            ajaxPost(url, param, function (data) {
+                if (onlyExport) {
+                    url = "@Url.Action("DownloadModCheckerFile", "DataQC")" + "?stringName=" + data.Data;
+                    model.IsProcessing(false);
+                    location.href = url;
+                } else {
+                    if (data.Result == "OK") {
+                        alert("Email Sent!");
+                    }
+                    else {
+                        //alert(data.Message + data.Trace);
+                    }
+                }
+                model.IsProcessing(false);
+            });
+        } else {
+            alert("Please input at least 1 destination email");
+        }
+    }
+
+    $(document).ready(function () {
+        $(".do-filter").hide();
+        $('[data-model="date"]').data("kendoDropDownList").value("None");
+        $('[data-model="date2"]').data("kendoDropDownList").value("None");
+        $('[data-model="Status"]').data('kendoMultiSelect').value(["Complete", "Draft", "Modified"]);
+        //$('[data-model="inlastuploadls"]').removeAttr("checked");
+        $('[data-model="inlastuploadls"]').data("kendoDropDownList").select(1);
+        $('[data-model="OPs"]').data('kendoMultiSelect').value(["OP16"]);
+        $('[data-model="dateStart"]').data("kendoDatePicker").value("");
+        $('[data-model="dateStart2"]').data("kendoDatePicker").value("");
+        $('[data-model="dateFinish"]').data("kendoDatePicker").value("");
+        $('[data-model="dateFinish2"]').data("kendoDatePicker").value("");
+
+        $('head').append('<link rel="stylesheet" href="@Url.Content("~/Scripts/selectize.bootstrap3.css")">');
+        //$('#input-email').selectize({
+        //    persist: false,
+        //    createOnBlur: true,
+        //    create: true
+        //});
+
+        var REGEX_EMAIL = '([a-z0-9!#$%&\'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&\'*+/=?^_`{|}~-]+)*@@' +
+                  '(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)';
+
+        $('#input-email').selectize({
+            persist: false,
+            maxItems: null,
+            valueField: 'email',
+            labelField: 'name',
+            searchField: ['name', 'email'],
+            options: [],
+            render: {
+                item: function (item, escape) {
+                    return '<div>' +
+                        (item.name ? '<span class="name">' + escape(item.name) + '</span>' : '') +
+                        (item.email ? '<span class="email">' + escape(item.email) + '</span>' : '') +
+                    '</div>';
+                },
+                option: function (item, escape) {
+                    var label = item.name || item.email;
+                    var caption = item.name ? item.email : null;
+                    return '<div>' +
+                        '<span class="label">' + escape(label) + '</span>' +
+                        (caption ? '<span class="caption">' + escape(caption) + '</span>' : '') +
+                    '</div>';
+                }
+            },
+            createFilter: function (input) {
+                var match, regex;
+
+                // email@address.com
+                regex = new RegExp('^' + REGEX_EMAIL + '$', 'i');
+                match = input.match(regex);
+                if (match) return !this.options.hasOwnProperty(match[0]);
+
+                // name <email@address.com>
+                regex = new RegExp('^([^<]*)\<' + REGEX_EMAIL + '\>$', 'i');
+                match = input.match(regex);
+                if (match) return !this.options.hasOwnProperty(match[2]);
+
+                return false;
+            },
+            create: function (input) {
+                if ((new RegExp('^' + REGEX_EMAIL + '$', 'i')).test(input)) {
+                    return { email: input };
+                }
+                var match = input.match(new RegExp('^([^<]*)\<' + REGEX_EMAIL + '\>$', 'i'));
+                if (match) {
+                    return {
+                        email: match[2],
+                        name: $.trim(match[1])
+                    };
+                }
+                alert('Invalid email address.');
+                return false;
+            }
+        });
+
+    });
+</script>
+
+<style>
+    .form-horizontal h3 {
+        text-align: left;
+        border-bottom: 1px solid #ECECEC;
+        font-weight: bold;
+    }
+
+    .no-padding {
+        padding: 0px;
+    }
+
+    .form-group .col-sm-4:first-child {
+        text-align: right;
+    }
+
+    .form-horizontal .form-group .col-sm-4:first-child label {
+        margin-top: 3px;
+    }
+</style>

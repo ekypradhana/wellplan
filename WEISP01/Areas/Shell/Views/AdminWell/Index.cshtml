@@ -1,0 +1,218 @@
+﻿@{
+    ViewBag.Title = "Well Info";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core
+@using ECIS.Biz.Common
+@using ECIS.Client.WEIS
+
+<script>
+    model.uimodel = ko.observable({
+        mode: ko.observable(""),
+        //gridData: ko.observableArray([]),
+        //dsGrid: ko.observable(new kendo.data.DataSource({data:[]})),
+        record: ko.observable(ko.mapping.fromJS(@MvcTools.Obj2HtmlStr(new WellInfo()))),
+        refresh: function () {
+            var x = this;
+            ajaxPost("@Url.Action("Search")", model.getFilterValues(),
+                function (data) {
+                    if (data.Result != "OK") {
+                        alert(data.Message);
+                        return;
+                    }
+
+                    var ds = new kendo.data.DataSource({
+                        data: data.Data,
+                        pageSize: 10
+                    });
+
+                    $("#grid").data("kendoGrid").setDataSource(ds);
+                });
+        },
+        cancel: function () {
+            var x = model.uimodel();
+            x.mode('');
+        },
+        save: function () {
+            var x = model.uimodel();
+            var r = ko.mapping.toJS(x.record());
+            ajaxPost("@Url.Action("Save")", r, function (data) {
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+                x.refresh();
+                x.mode("");
+            });
+        },
+        loadFromOPS: function(){
+            var x = model.uimodel();
+            x.mode('');
+        },
+        select: function (id) {
+            var x = model.uimodel();
+            ajaxPost("@Url.Action("Get")", { id: id },
+                function (data) {
+                    if (data.Result != "OK") {
+                        alert(data.Message);
+                        return;
+                    }
+                    var r = ko.mapping.fromJS(data.Data);
+                    x.record(r);
+                    x.mode('Edit');
+
+                    var spud = $("input.spudDate");
+                    input2datePicker(spud);
+                    //spud.val(jsonDateStr(data.Data.OriginalSpudDate));
+                });
+        }
+    });
+
+    model.uimodel().refresh();
+</script>
+
+<script>
+    var gridColumns = [
+        {
+            field: "_id", title: "Well Name",
+            template: "<a style='cursor:pointer' onclick='model.uimodel().select(\"#: _id #\")'>#: _id #</a>"
+        },
+        { field: "Company" },
+        { field: "Site" },
+        { field: "Project" },
+        { field: "WellType", title:"Well Type"}
+    ];
+</script>
+
+<div data-bind="with:uimodel">
+
+    <!-- filters -->
+    @Html.Partial("Filter2")
+
+    <div class="ec-panel" data-bind="visible:mode()==''">
+        <div class="ec-toolbar">
+            @*<button class="btn btn-primary btn-sm" data-bind="click:refresh">Refresh</button>*@
+            <button class="btn btn-primary btn-sm" data-bind="click:loadFromOPS">Load Well From OPS Sequence</button>
+        </div>
+        <div id="grid" data-bind="kendoGrid:{data:[],columns:gridColumns,pageable:true,sortable:true,filterable:true}"></div>
+    </div>
+
+    <div class="ec-panel" data-bind="visible:['New','Edit'].indexOf(mode())>0">
+        <div class="ec-toolbar">
+            <button class="btn btn-warning btn-sm" data-bind="click:cancel">Back to List</button>
+            <button class="btn btn-primary btn-sm" data-bind="click:save">Save</button>
+        </div>
+        <div data-bind="with:record" class="ec-form form-horizontal">
+            <div class="form-group">
+                <label class="col-sm-2">Well Name</label>
+                <div class="col-sm-4">
+                    <input type="text" data-bind="value:_id" class="full" disabled />
+                </div>
+                <label class="col-sm-2">Well Type</label>
+                <div class="col-sm-4">
+                    <input type="text" data-bind="value:WellType" class="full" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-2">Company</label>
+                <div class="col-sm-4">
+                    <input type="text" data-bind="value:Company" class="full" />
+                </div>
+                <label class="col-sm-2">Site</label>
+                <div class="col-sm-4">
+                    <input type="text" data-bind="value:Site" class="full" />
+                </div>
+            </div>
+            <div class="form-group">
+                <script>
+                    makeField("Project", "value:Project", "col-sm-2", "col-sm-4", "full");
+                    makeField("Work Unit", "value:WorkUnit", "col-sm-2", "col-sm-4", "full");
+                </script>
+            </div>
+            <div class="form-group">
+                <script>
+                    makeField("Rig Superintendent", "value:Superintendent", "col-sm-2", "col-sm-4", "full");
+                    makeField("Well Engineer", "value:WellEngineer", "col-sm-2", "col-sm-4", "full");
+                </script>
+            </div>
+            <div class="form-group">
+                <script>
+                    makeField("Original Spud Date", "value:OriginalSpudDate", "col-sm-2", "col-sm-4", "spudDate");
+                    makeField("Estimated Days", "value:EstimatedDays", "col-sm-2", "col-sm-4", "");
+                </script>
+            </div>
+            <h3>Person In Charges</h3>
+            <script>
+                model.uimodel().addWeeklyReportPICs = function () {
+                    model.uimodel().record().WeeklyReportPICs.push(ko.observable(@MvcTools.Obj2HtmlStr(new Person())));
+                }
+
+                model.uimodel().removeWeeklyReportPICs = function (d) {
+                    model.uimodel().record().WeeklyReportPICs.remove(d);
+                }
+            </script>
+            <script>
+                model.uimodel().addAlertPICs = function () {
+                    model.uimodel().record().AlertPICs.push(ko.observable(@MvcTools.Obj2HtmlStr(new Person())));
+                }
+
+                model.uimodel().removeAlertPICs = function (d) {
+                    model.uimodel().record().AlertPICs.remove(d);
+                }
+            </script>
+            <div class="row">
+                <label class="col-sm-1">Weekly PIC</label>
+                <div class="col-sm-5">
+                    <div data-bind="foreach:WeeklyReportPICs">
+                        <div class="form-group form-group-sm">
+                            <div class="col-sm-4">
+                                <input type="text" class="form-control" placeholder="Name" />
+                            </div>
+                            <div class="col-sm-4">
+                                <input type="text" class="form-control" placeholder="Role" />
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="input-group input-group-sm" style="margin-bottom:5px;">
+                                    <input type="text" data-bind="value:Email" class="form-control" />
+                                    <div class="input-group-btn">
+                                        <button class="btn btn-danger btn-sm" data-bind="click:$root.uimodel().removeWeeklyReportPICs">&nbsp;-&nbsp;</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-sm btn-xs" data-bind="click:$root.uimodel().addWeeklyReportPICs">&nbsp;+&nbsp;</button>
+                </div>
+                <label class="col-sm-1">Alert PIC</label>
+                <div class="col-sm-5">
+                    <div data-bind="foreach:AlertPICs">
+                        <div class="form-group form-group-sm">
+                            <div class="col-sm-4">
+                                <input type="text" class="form-control" placeholder="Name" />
+                            </div>
+                            <div class="col-sm-4">
+                                <input type="text" class="form-control" placeholder="Role" />
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="input-group input-group-sm" style="margin-bottom:5px;">
+                                    <input type="text" data-bind="value:Email" class="form-control" />
+                                    <div class="input-group-btn">
+                                        <button class="btn btn-danger btn-sm" data-bind="click:$root.uimodel().removeAlertPICs">&nbsp;-&nbsp;</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-sm btn-xs" data-bind="click:$root.uimodel().addAlertPICs">&nbsp;+&nbsp;</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    model.FilterVisibility.RigName(false);
+    model.FilterVisibility.FloatedButton(false);
+    model.reloadData = function () { model.uimodel().refresh(); }
+    model.reloadData();
+</script>

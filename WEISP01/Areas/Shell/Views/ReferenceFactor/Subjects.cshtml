@@ -1,0 +1,925 @@
+﻿@{
+    ViewBag.Title = "Reference Factor Model";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+@{
+    var casegroup = DataHelper.Populate("WEISReferenceFactorModel").Select(d => Convert.ToString(d.GetString("GroupCase"))).Distinct().OrderBy(d => d);
+    var countries = MacroEconomic.Populate<MacroEconomic>().GroupBy(d => d.Country).Select(d => d.Key).OrderBy(d => d);
+    var wells = DataHelper.Populate("WEISWellNames").Select(d => Convert.ToString(d.GetString("_id"))).OrderBy(d => d);
+    var activities = DataHelper.Populate("WEISActivities").Select(d => Convert.ToString(d.GetString("_id"))).OrderBy(d => d);
+    var projectNames = DataHelper.Populate("WEISProjectNames").Select(d => Convert.ToString(d.GetString("_id"))).OrderBy(d => d);
+    var BaseOP = DataHelper.Populate("WEISOPs").Select(x => BsonHelper.GetString(x, "_id")).ToList<string>();
+}
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+</script>
+
+<script>
+    
+    var m = model;
+    m.BaseOPs = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(BaseOP)));
+    model.Subject = {}; var n = model.Subject;
+    model.Subject.Value = {}; var v = model.Subject.Value;
+    model.Subject.LinkToProject = {}; var p = model.Subject.LinkToProject;
+    model.Subject.AddYearCustom = {}; var y = model.Subject.AddYearCustom;
+    
+    //n.AllCountries = ko.observableArray(["All Countries"].concat( @MvcHtmlString.Create(JsonConvert.SerializeObject(countries))));
+    n.AllCountries = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(countries)));
+    n.AllGroupCases = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(casegroup)));
+
+    n.asdasd = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(WebTools.LoginUser.GetRoles())));
+    n.SubjectMatters = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(ViewBag.SubjectMatters)));
+    n.GroupCase = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(casegroup)));
+
+    n.MaxYear = ko.observable(moment(new Date()).year());
+    n.MinYear = ko.observable(moment(new Date()).year());
+    n.BackupData = ko.observableArray([]);
+
+    //n.Countries = ko.observableArray(["All Countries"].concat( @MvcHtmlString.Create(JsonConvert.SerializeObject(countries))));
+    n.Countries = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(countries)));
+    n.WellNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(wells)));
+    n.ActivityTypes = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(activities)));
+    n.ProjectNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(projectNames)));
+
+    n.IsForAllCountries = ko.observable(true);
+
+    v.SubjectMatter = ko.observable('');
+    v.GroupCaseHandler = ko.observable('');
+    v.GroupCase = ko.observable('');
+
+    v.BaseOP = ko.observable(m.BaseOPs()[0]);
+    v.BaseOPs = ko.observableArray([]);
+    v.Country = ko.observable(n.Countries()[0]);
+    v.CountryHandler = ko.observable(n.Countries()[0]);
+    v.WellName = ko.observable('');
+    v.ActivityType = ko.observable('');
+    v.CSORate = ko.observable(0);
+    v.UnitType = ko.observable('');
+
+    p.ProjectName = ko.observable('');
+    p.RFMs = ko.observableArray([]);
+
+    y.IsAllCountry = ko.observable(true);
+    y.InflationInitialValue = ko.observable(0);
+    y.InflationPercentage = ko.observable(4);
+    y.Countries = ko.observableArray([]);
+    y.ToYear = ko.observable(new Date().getFullYear());
+    y.SubjectMattersOptions = ko.observableArray(_.sortBy(n.SubjectMatters()).map(function (e) {
+        return ko.mapping.fromJS({ Title: e, IsUsingLastYearValue: true, Value: 0 });
+    }));
+
+    n.IsSaveable = ko.observable(false);
+    n.IsModalProcessing = ko.observable(false);
+
+    n.ValidateFilter = function () {
+        if ($.trim(v.GroupCaseHandler()) == '') {
+            alert('Model name cannot be empty');
+            return false;
+        }
+
+        if ($.trim(v.CountryHandler()) == '') {
+            alert('Country cannot be empty');
+            return false;
+        }
+
+        var subjectsToShow = $("[data-subject]:checked").map(function (i, e) {
+            return $(this).data("subject");
+        });
+
+        if (subjectsToShow.length == 0) {
+            alert('At least one subject matter should be checked');
+            return false;
+        }
+
+        v.Country(v.CountryHandler());
+        v.GroupCase(v.GroupCaseHandler());
+        //n.IsForAllCountries(['', 'All Countries'].indexOf(v.Country()) > -1);
+        n.IsForAllCountries(true);
+        return true;
+    };
+    n.CanEdit = ko.observable("@ViewBag.CanEdit" == "True");
+
+    function numberEditor(container, options) {
+        $('<input name="' + options.field + '"/>')
+                .appendTo(container)
+                .kendoNumericTextBox({
+                    decimals: 4,
+                    step: 0.1
+                });
+    }
+
+    n.GenerateGrid = function (res, callback) {
+        var width = $(".container-subject").width();
+
+        var subject = $(this).data("subject");
+        var columns = [{ field: "Subject", width: 150, locked: true }];
+        var fields = { Subject: { editable: false } };
+        var years = [];
+
+        var sampleData = res[0];
+        for (var each in sampleData) {
+            //console.log(each);
+            if (sampleData.hasOwnProperty(each) && each != "Subject") {
+                columns.push({
+                    field: each,
+                    title: each.replace(/_/g, " "),
+                    width: 100,
+                    attributes: { class: 'col-number' },
+                    template: "#: kendo.format('{0:N4}', " + each + ") # %",
+                    //format: "{0:0.#########}",
+                    editor: numberEditor
+                });
+                fields[each] = { type: "number" };
+                years.push(parseInt(each.split("_")[1], 10));
+            }
+        }
+        //console.log(years);
+
+        var config = {
+            width: width,
+            dataSource: {
+                data: res,
+                pageSize: 15,
+                schema: {
+                    model: {
+                        fields: fields
+                    }
+                }
+            },
+            columns: columns,
+            filterable: false,
+            pageable: true,
+            resizable: false,
+            editable: n.CanEdit(),
+            sortable: true
+        };
+
+        if (callback == undefined) {
+            $(".grid").replaceWith("<div class='grid'></div>");
+            $(".grid").kendoGrid(config);
+        } else {
+            callback(config);
+        }
+
+        if (years.length > 0) {
+            n.MaxYear(_.max(years));
+            n.MinYear(_.min(years));
+        } else {
+            n.MaxYear(moment(new Date()).year());
+            n.MinYear(moment(new Date()).year());
+        }
+    };
+    n.DoRefresh = function () {
+        $('[data-country="all"]').html('');
+
+        var url = n.IsForAllCountries() ? "@Url.Action("GetDataForAllCountriesBySubjectMatter")" : "@Url.Action("GetDataBySubjectMatter")";
+        var param = ko.mapping.toJS(v);
+
+        param.SubjectMatters = [];
+        $("[data-subject]:checked").each(function (i, e) {
+            param.SubjectMatters.push($(this).data("subject").replace(/_/g, " "));
+        });
+
+        n.IsSaveable(false);
+        n.BackupData([]);
+        v.CSORate(0);
+        $("input.single-base-ops").data("kendoMultiSelect").value([v.BaseOP()]);
+        //v.BaseOP([]);
+        m.Processing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                m.Processing(false);
+                return;
+            }
+
+            m.Processing(false);
+            n.IsSaveable(true);
+
+            if (n.IsForAllCountries()) {
+                var huruf = res.Data.Alphabet[0].toLowerCase();
+                n.GenerateAllGrid(res.Data,huruf);
+            } else {
+                v.UnitType(res.Data.UnitType);
+                n.BackupData(res.Data);
+                n.GenerateGrid(res.Data);
+            }
+
+            y.InflationInitialValue(res.Data.initialInflation);
+            n.GenerateKendoAutoComplete();
+        });
+    };
+    n.Refresh = function () {
+        if (!n.ValidateFilter()) {
+            return;
+        }
+
+        console.log('refresh called');
+
+        //v.GroupCaseHandler('');
+        //$("input.model-name").data("kendoAutoComplete").value('');
+        //$("input.model-name").data("kendoAutoComplete").dataSource.filter({});
+
+        n.DoRefresh();
+    };
+    n.GetChanges = function ($grid) {
+        var data = $grid.data("kendoGrid").dataSource.data();
+        var filteredData = _.filter(data, { dirty: true });
+
+        filteredData.map(function (e) {
+            for (var i in e) {
+                if (e.hasOwnProperty(i) && i.indexOf("Values.") > -1) {
+                    delete e[i];
+                }
+            }
+        });
+
+        var changes = JSON.parse(kendo.stringify(filteredData));
+
+        return changes;
+    };
+    n.DoSave = function ($grid, country, BaseOPs) {
+        var changes = n.GetChanges($grid);
+
+        m.Processing(true);
+
+        var url = "@Url.Action("SaveDataForSubjectMatter")";
+        var header = ko.mapping.toJS(v);
+        if (typeof BaseOPs == "undefined") {
+            header.BaseOPs = $("input.single-base-ops").data("kendoMultiSelect").value();
+        } else {
+            header.BaseOPs = BaseOPs;
+        }
+        var param = {
+            Header: header,
+            Changes: changes
+        };
+
+        if (country != undefined)
+            param.Header.Country = country;
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                m.Processing(false);
+                return;
+            }
+
+            if (country != undefined) {
+                n.DoRefreshCurrentCountry(country,BaseOPs[0]);
+            } else {
+                n.DoRefresh();
+            }
+
+            m.Processing(true);
+        });
+    };
+    n.Save = function () {
+        n.DoSave($(".grid"));
+    };
+    n.DoAddYear = function (country,BaseOP) {
+        m.Processing(true);
+
+        var url = "@Url.Action("AddYearForSubjectMatter")";
+        var param = ko.mapping.toJS(v);
+
+        if (country != undefined) {
+            param.Country = country;
+        }
+        if (BaseOP != undefined) {
+            param.BaseOP = BaseOP;
+        }
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                m.Processing(false);
+                return;
+            }
+
+            if (country != undefined) {
+                n.DoRefreshCurrentCountry(country,BaseOP);
+            } else {
+                n.DoRefresh();
+            }
+
+            m.Processing(true);
+        });
+    };
+    n.AddYear = function () {
+        n.DoAddYear();
+    };
+    n.DoRemoveYear = function (country,BaseOP) {
+        m.Processing(true);
+
+        var url = "@Url.Action("RemoveYearForSubjectMatter")";
+        var param = ko.mapping.toJS(v);
+
+        if (country != undefined) {
+            param.Country = country;
+        }
+        if (BaseOP != undefined) {
+            param.BaseOP = BaseOP;
+        }
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                m.Processing(false);
+                return;
+            }
+
+            if (country != undefined) {
+                n.DoRefreshCurrentCountry(country,BaseOP);
+            } else {
+                n.DoRefresh();
+            }
+
+            m.Processing(true);
+        });
+    };
+    n.RemoveYear = function () {
+        n.DoRemoveYear();
+    };
+    n.GenerateKendoAutoComplete = function () {
+        var url = "@Url.Action("AutoCompleteDataSource")";
+
+        ajaxPost(url, {}, function (res) {
+            if (res.Result != "OK") {
+                alert(res.Message);
+                return;
+            }
+
+            model.Subject.GroupCase(res.Data);
+        });
+    };
+    n.ShowModalLinkToProject = function () {
+        p.RFMs([]);
+        p.ProjectName('');
+
+        n.GroupCase().forEach(function (d) {
+            $(".rfm .key:contains('" + d + "')").next().prop("checked", false);
+        });
+
+        $("#modal-link-to-project").modal("show");
+    };
+
+    n.CSORateApply = function (val, backup, $grid) {
+        var data = JSON.parse(JSON.stringify(backup));
+
+        data.forEach(function (e) {
+            e.dirty = true;
+
+            for (var i in e) {
+                if (e.hasOwnProperty(i)) {
+                    if (i == "Subject" && e[i].toLowerCase().indexOf("cso") == -1) {
+                        return;
+                    }
+
+                    if (i.indexOf("Year") > -1) {
+                        e[i] += val;
+                    }
+                }
+            }
+        });
+
+        if ($grid.data("kendoGrid") != undefined) {
+            $grid.data("kendoGrid").setDataSource(new kendo.data.DataSource({ data: data }));
+            $grid.data("kendoGrid").dataSource.data().forEach(function (e) { e.dirty = true; });
+            $grid.data("kendoGrid").refresh();
+        }
+    };
+    n.GetMaxYear = function () {
+        var maxYears = [];
+
+        $(".k-grid").each(function (i, e) {
+            var columns = $(e).data("kendoGrid").options.columns;
+            var targetData = _.max(columns, function (f) {
+                if (f.field.indexOf("Year_") > -1) {
+                    return parseInt(f.field.replace(/Year_/g, ''), 10);
+                }
+
+                return 0;
+            });
+
+            var maxYear = parseInt(targetData.field.replace(/Year_/g, ''), 10);
+            maxYears.push(maxYear);
+        });
+
+        return _.max(maxYears);
+    };
+    n.ShowModalAddYearCustom = function () {
+        var filter = ko.mapping.toJS(v);
+        //y.IsAllCountry(true);
+        y.Countries([filter.Country]);
+        y.ToYear(n.GetMaxYear() + 1);
+        //y.InflationInitialValue(0);
+        y.InflationPercentage(4);
+        y.SubjectMattersOptions().forEach(function (e) {
+            e.IsUsingLastYearValue(true);
+            e.Value(0);
+        });
+        $("#modal-add-year-custom input.is-subject-matter[data-bind]").each(function (i, e) {
+            $(e).data("kendoNumericTextBox").enable(false);
+        });
+
+        $("#modal-add-year-custom").modal("show");
+    };
+    n.SaveAddYearCustom = function () {
+        var param = $.extend(ko.mapping.toJS(v), ko.mapping.toJS(y));
+
+        if (param.ToYear == '' || param.ToYear == 0) {
+            alert("To Year cannot be empty");
+            return;
+        }
+
+        var url = "@Url.Action("SaveAddYearCustom")";
+
+        n.IsModalProcessing(true);
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                n.IsModalProcessing(false);
+                $("#modal-add-year-custom").modal("hide");
+                return;
+            }
+
+            n.IsModalProcessing(false);
+            $("#modal-add-year-custom").modal("hide");
+            n.DoRefresh();
+        });
+    };
+    n.Delete = function () {
+        n.DoDelete();
+    };
+    n.DoDelete = function (country, BaseOP) {
+        m.Processing(true);
+
+        var url = "@Url.Action("Delete")";
+        var param = ko.mapping.toJS(v);
+
+        if (country != undefined) {
+            param.Country = country;
+        }
+
+        if (BaseOP != undefined) {
+            param.BaseOP = BaseOP;
+        }
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                m.Processing(false);
+                return;
+            }
+
+            alert("Model \"" + v.GroupCase() + "\" for country \"" + param.Country + "\" successfully deleted");
+
+            n.GroupCase(res.Data);
+            m.Processing(false);
+
+            if (country != undefined) {
+                n.DoRefreshCurrentCountry(country,BaseOP);
+            } else {
+                n.DoRefresh();
+            }
+
+            model.GetCalculationStatus();
+        });
+    };
+    n.DeleteForAllCountry = function () {
+        m.Processing(true);
+
+        var url = "@Url.Action("Delete")";
+        var param = ko.mapping.toJS(v);
+        param.Country = "*";
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                m.Processing(false);
+                return;
+            }
+
+            alert("Model \"" + v.GroupCase() + "\" for all countries successfully deleted");
+
+            n.GroupCase(res.Data);
+            m.Processing(false);
+
+            n.DoRefresh();
+
+            model.GetCalculationStatus();
+        });
+    };
+    y.IsAllCountry.subscribe(function (val) {
+        var $target = $("#modal-add-year-custom input.countries").data("kendoMultiSelect");
+        $target.enable(!val);
+
+        if (!val) {
+            $target.popup.open()
+        }
+    });
+
+    n.GroupCaseSelect = function (e) {
+        v.GroupCaseHandler(this.value());
+    };
+    v.CSORate.subscribe(function (val) {
+        n.CSORateApply(val, n.BackupData(), $(".grid"));
+    });
+    //v.SubjectMatter.subscribe(function () {
+    //    n.IsSaveable(false);
+    //});
+    //v.Country.subscribe(function (val) {
+    //    n.IsForAllCountries(['', 'All Countries'].indexOf(val) > -1);
+    //    //v.GroupCase('');
+    //    $('[data-country="all"]').html('');
+    //    n.IsSaveable(false);
+    //});
+    //v.WellName.subscribe(function () {
+    //    n.IsSaveable(false);
+    //});
+    //v.ActivityType.subscribe(function () {
+    //    n.IsSaveable(false);
+    //});
+
+    $(function () {
+        $(".filter-country:last").data("kendoDropDownList").popup.element.find("li:contains('All Countries')").css("font-weight", "bold");
+        $('.model-name').off("click").on("click", function (e) {
+            try {
+                $(this).data("kendoAutoComplete").popup.open();
+                $(this).data("kendoAutoComplete").dataSource.filter({});
+            } catch (err) {
+
+            }
+        });
+
+        $("#modal-add-year-custom").off("change").on("change", "[data-subject-matter=true]", function (e) {
+            var $input = $(e.target).closest(".form-group").find("input[data-bind].k-input").data("kendoNumericTextBox");
+            $input.enable(!$(e.target).is(":checked"));
+        });
+    });
+
+    function changeCountry() {
+        setTimeout(function () {
+            //console.log(v.CountryHandler());
+            var country = v.CountryHandler();
+            var param = {
+                IsNotTagged: true,
+                IsOnlyTagged: true,
+                Countries: [country],
+                RFMs: []
+            };
+
+            if (country == "All Countries") {
+                n.GroupCase(n.AllGroupCases());
+            } else {
+                ajaxPost("@Url.Action("GetCountryRFMData")", param, function (res) {
+                    if (res.Data[0].ListRFM == null) {
+                        n.GroupCase([]);
+                    } else {
+                        n.GroupCase(res.Data[0].ListRFM);
+                    }
+                });
+            }
+
+        }, 300);
+
+    }
+</script>
+
+@Html.Partial("../AdministrationInput/_BusPlanCalculationNotifier")
+
+<script type="text/template" id="form-each-value">
+    <div class="form-group">
+        <div class="col-md-4">
+            <label class="title"></label>
+        </div>
+        <div class="col-md-8">
+            <input type="text" class="value" style="width: 200px;" value="0" />
+        </div>
+    </div>
+</script>
+
+<div class="col-md-12 container-subject" data-bind="with: model.Subject">
+    <div class="control">
+        <div class="col-md-3">
+            <label>Country :</label>
+            @*<select style="width: 200px;" data-bind="kendoDropDownList: { data: Countries, value: v.Country, filter: 'contains', optionLabel: 'Select one' }"></select>*@
+            <select style="width: 200px;" class="filter-country" data-bind="kendoDropDownList: { data: Countries, value: v.CountryHandler, filter: 'contains', change:changeCountry }"></select>
+            <div class="clear"></div>
+        </div>
+
+        <div class="clearfix" data-bind="visible: false"></div>
+
+        <div class="col-md-3">
+            <label>Model Name :</label>
+            <input style="width: 200px;" data-bind="kendoAutoComplete: { data: GroupCase, filter: 'contains', optionLabel: 'Select or type new case group', change: GroupCaseSelect, placeholder: 'Pick model' }" class="model-name" />
+            <div class="clear"></div>
+        </div>
+
+        <div class="col-md-3" data-bind="visible: false">
+            <label>Well Name :</label>
+            <select style="width: 200px;" data-bind="kendoDropDownList: { data: WellNames, value: v.WellName, filter: 'contains', optionLabel: 'Select one' }"></select>
+            <div class="clear"></div>
+        </div>
+        <div class="col-md-3" data-bind="visible: false">
+            <label>Activity Type :</label>
+            <select style="width: 200px;" data-bind="kendoDropDownList: { data: ActivityTypes, value: v.ActivityType, filter: 'contains', optionLabel: 'Select one' }"></select>
+            <div class="clear"></div>
+        </div>
+
+        <div class="col-md-6">
+            <label style="width: 100%;">Subject matters to show :</label>
+            <!-- ko foreach: SubjectMatters -->
+            <div>
+                <input type="checkbox" data-bind="attr: { 'data-subject': $data.replace(/ /g, '_') }" checked />
+                <span data-bind="text: $data"></span>
+            </div>
+            <!-- /ko -->
+            <div class="clearfix"></div>
+        </div>
+
+        <div class="row col-md-12">
+
+            <div class="col-md-3">
+                <label>Base OP :</label><br />
+                <select style="width: 200px;" data-bind="kendoMultiSelect: { data: model.BaseOPs(), value: v.BaseOPs, filter: 'contains' }"></select>
+                <div class="clear"></div>
+            </div>
+
+            <div class="col-md-8">
+                <label class="label-warning" style="padding:5px;margin-top:10px;">
+                    Please choose any model on the model name field, or type anything to add new model. Then click reload data and modify the model value.<br />
+                    New model will be added once Save Changes button is clicked.
+                </label>
+            </div>
+        </div>
+
+        <div class="clearfix"></div>
+    </div>
+
+    <div data-bind="visible: !IsForAllCountries() && IsSaveable()">
+        <div class="col-md-12 contents" style="margin-bottom: 10px;">
+            <h3 style="margin: 0px;">Model: <b data-bind="text: v.GroupCase()"></b>&nbsp;&nbsp;&nbsp;&nbsp;Country: <b data-bind="text: v.Country()"></b></h3>
+        </div>
+    </div>
+
+    <div class="control col-md-12">
+        <button class="btn btn-sm btn-primary btn-custom" data-bind="click: Refresh, enable: !model.BisPlanRecalculateStatus()">
+            <span class="glyphicon glyphicon-refresh"></span> Reload Data
+        </button>
+        <button class="btn btn-sm btn-success btn-custom" data-bind="click: Save, visible: IsSaveable() && !IsForAllCountries(), enable: !model.BisPlanRecalculateStatus() && n.CanEdit()">
+            <span class="glyphicon glyphicon-save"></span> Save Changes
+        </button>
+        @*<button class="btn btn-sm btn-custom btn-danger" data-bind="click: DeleteForAllCountry, visible: IsSaveable() && IsForAllCountries() && n.CanEdit(), enable: !model.BisPlanRecalculateStatus()">
+            <span class="glyphicon glyphicon-remove"></span> Delete Model of All Countries</span>
+        </button>
+        <button class="btn btn-sm btn-custom btn-danger" data-bind="click: Delete, visible: IsSaveable() && !IsForAllCountries() && n.CanEdit(), enable: !model.BisPlanRecalculateStatus()">
+            <span class="glyphicon glyphicon-remove"></span> Delete Model <span style="font-weight: bold;" data-bind="text: v.GroupCase()"></span> of Country <span style="font-weight: bold;" data-bind="text: v.Country()"></span>
+        </button>*@
+        <button class="btn btn-sm btn-info btn-custom" data-bind="click: ShowModalAddYearCustom, visible: IsSaveable(), enable: !model.BisPlanRecalculateStatus() && n.CanEdit()">
+            <span class="glyphicon glyphicon-plus"></span> Add Year Wizard
+        </button>
+        &nbsp;
+        <button class="btn btn-sm btn-info btn-custom" data-bind="click: ShowModalLinkToProject, enable: !model.BisPlanRecalculateStatus()">
+            <span class="glyphicon glyphicon-link"></span> Link To Project
+        </button>
+        &nbsp;
+        <button class="btn btn-sm btn-primary btn-custom" data-bind="click: AddYear, visible: IsSaveable() && !IsForAllCountries(), enable: !model.BisPlanRecalculateStatus() && n.CanEdit()">
+            <span class="glyphicon glyphicon-plus"></span> Add Year
+        </button>
+        <button class="btn btn-sm btn-danger btn-custom" data-bind="click: RemoveYear, visible: IsSaveable() && !IsForAllCountries(), enable: !model.BisPlanRecalculateStatus() && n.CanEdit()">
+            <span class="glyphicon glyphicon-remove"></span> Remove Year
+        </button>
+        <div class="pager" data-bind="visible: IsForAllCountries() && IsSaveable()"></div>
+        <div class="clearfix"></div>
+    </div>
+
+    @Html.Partial("_AllCountries")
+    <div data-country="all" data-bind="visible: IsForAllCountries() && IsSaveable()"></div>
+    <div class="grid-rfm"></div>
+    <div data-bind="visible: !IsForAllCountries() && IsSaveable()" style="padding-top: 10px;">
+        <div class="col-md-12 contents">
+            <div class="col-md-3" style="margin-bottom: 12px;">
+                <label style="width: 88px;">CSO Rate :</label>
+                <input style="width: 200px;" data-bind="kendoNumericTextBox: { value: v.CSORate, min:0, max:100,format: '{0:#.#### \\%}' }" />
+                <div class="clear"></div>
+            </div>
+            <div class="col-md-3" style="margin-bottom: 12px;">
+                <label style="width: 88px;">Base OP :</label>
+                <input style="width: 200px;" class="single-base-ops" data-bind="kendoMultiSelect: { data:model.BaseOPs() }" />
+                <div class="clear"></div>
+            </div>
+
+            <div class="clearfix"></div>
+
+            <div class="grid"></div>
+        </div>
+    </div>
+</div>
+
+@Html.Partial("_LinkProjectToRFM")
+<script>n.IsShowViewLinkedProjectButton(true);</script>
+
+<div class="modal fade" id="modal-add-year-custom" data-bind="with: n">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                <h4 class="modal-title">Add Years</h4>
+            </div>
+            <div class="modal-body" data-bind="visible: IsModalProcessing()">
+                @Html.Partial("_processing")
+            </div>
+            <div class="modal-body" data-bind="visible: !IsModalProcessing()">
+                <div class="form-group">
+                    <div class="col-md-2">
+                        <label style="padding-top: 2px;">Country :</label>
+                    </div>
+                    <div class="col-md-10">
+                        <input type="checkbox" data-bind="checked: false,visible:false" /> @*All Countries<br />*@
+                        <input type="text" class="countries" data-bind="kendoMultiSelect: { data: Countries, value: y.Countries, enabled: false }" />
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-2">
+                        <label style="padding-top: 7px;">To Year :</label>
+                    </div>
+                    <div class="col-md-10">
+                        <input class="text" data-bind="kendoNumericTextBox: { format: '#', min: 2000, max: 3000, value: y.ToYear }" />
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="clearfix"></div>
+
+                <h5>&nbsp;</h5>
+
+                <div class="form-group" style="margin-bottom: 10px; font-size: 14px;">
+                    <div class="col-md-4">
+                        <label>Subject Matter</label>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Use Latest Year Value</label>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Custom Value</label>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+
+                <!-- ko foreach: y.SubjectMattersOptions -->
+                <!-- ko if (Title() != 'Inflation Factors') -->
+                <div class="form-group">
+                    <div class="col-md-4">
+                        <label data-bind="text: Title"></label>
+                    </div>
+                    <div class="col-md-4" style="text-align: center;">
+                        <input type="checkbox" data-subject-matter="true" data-bind="checked: IsUsingLastYearValue" />
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" class="is-subject-matter" data-bind="kendoNumericTextBox: { value: Value, enabled: false, format: 'n4', decimals: 4 }" />
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <!-- /ko -->
+                <!-- /ko -->
+                <div class="clearfix"></div>
+
+                <h5>&nbsp;</h5>
+
+                <div class="form-group" style="margin-bottom: 10px; font-size: 14px;">
+                    <div class="col-md-4">
+                        <label>Subject Matter</label>
+                    </div>
+                    <div class="col-md-4">
+                        <label>Initial Value (2016)</label>
+                    </div>
+                    <div class="col-md-4" style="padding-right: 0px;">
+                        <label>Compound Percentage</label>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-md-4">
+                        <label style="padding-top: 7px;">Inflation Factor</label>
+                    </div>
+                    <div class="col-md-4">
+                        <input class="text" data-bind="kendoNumericTextBox: { format: '{0:#.#### \\%}', value: y.InflationInitialValue, decimals: 4 }" />
+                    </div>
+                    <div class="col-md-4">
+                        <input data-bind="kendoNumericTextBox: { format: '{0:#.#### \\%}', value: y.InflationPercentage, decimals: 4 }" />
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+            <div class="modal-footer" data-bind="visible: !IsModalProcessing()">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" data-bind="click: SaveAddYearCustom">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    #modal-link-to-project .col-md-6 h5 {
+        text-align: left;
+        border-bottom: 1px solid #E5E5E5;
+        font-size: 14px;
+        font-weight: bold;
+    }
+    
+    .control {
+        margin-bottom: 10px;
+    }
+    .control > .col-md-3 {
+        margin-bottom: 10px;
+    }
+
+    .control > .col-md-3 > label,
+    .control > .col-md-6 > label {
+        display: block;
+        margin-top: 7px;
+        margin-right: 10px;
+        width: 78px;
+    }
+
+    .control > .col-md-3 > * {
+        float: left;
+    }
+
+    .control .clear {
+        clear: both !important;
+    }
+    .control > .col-md-6 > div {
+        float: left;
+        margin-right: 20px;
+    }
+
+    .col-number {
+        text-align: right;
+    }
+
+    .contents h3 {
+        text-align: left;
+        font-weight: bold;
+        border-bottom: 1px solid #E5E5E5;
+        margin-top: 20px;
+    }
+
+    .k-grid-header-wrap th[role="columnheader"] {
+        text-align: right;
+    }
+
+    .control h5 {
+        margin-bottom: 0px;
+        border-bottom: 1px solid #F1F1F1;
+        text-align: left;
+        font-size: 12px;
+        padding-left: 0px;
+        margin-left: 0px;
+        font-weight: bold;
+        width: 610px;
+    }
+    #modal-link-to-project .modal-body h4 {
+        display: none;
+    }
+    #modal-add-year-custom .form-group {
+        margin-bottom: 5px;
+    }
+    #modal-add-year-custom .modal-body h4 {
+        border-bottom: 1px solid black;
+        text-align: left;
+    }
+
+    .btn[disabled] {
+        opacity: 0.3;
+    }
+    h3 b {
+        color: #428bca;
+    }
+</style>

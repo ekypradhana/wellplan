@@ -1,0 +1,379 @@
+﻿<script>
+    model.waterfall = ko.observable({
+        GroupBy: ko.observable("GroupBy"),
+        Layout: ko.observable("OP2TQ"),
+        IncludeZero: ko.observable(true),
+        IncludeGaps: ko.observable(true),
+        IncludeCR: ko.observable(true),
+        DayOrCost: ko.observable("Cost"),
+        Scaled: ko.observable(false),
+        BaseOP: ko.observable("OP15")
+    });
+</script>
+
+
+<style>
+    .bordered-mini-nav {
+        padding: 10px 0px 6px;
+        border-bottom: 1px solid rgb(224, 224, 224);
+        margin-bottom: 10px !important;
+    }
+    .bordered-mini-nav .each-nav {
+        float: left;
+        border-right: 1px solid rgb(236, 236, 236);
+        padding-right: 3px;
+        margin-right: 5px;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav {
+        padding-right: 5px;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav div {
+        float: left;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav input {
+        margin: 1px 3px 1px 2px;
+    }
+    .bordered-mini-nav .each-nav.no-border-nav {
+        border-right: none !important;
+        margin-right: 0px !important;
+        padding-right: 0px !important;
+    }
+    .nav-filter-space {
+        margin-right: 3px;
+        border-left: 1px solid rgb(236, 236, 236);
+    }
+</style>
+
+
+<div class="ec-panel" style="width:1000px;margin:0px auto;">
+    <div style="width:1020px;margin:0px auto;margin-top:0px;" data-bind="with:$root.waterfall">
+        <div class="mini-nav bordered-mini-nav" style="width: 960px; margin: 0px auto; ">
+            <div class="each-nav">
+                Show:
+                <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                    <option value="Day">Days</option>
+                    <option value="Cost">Cost</option>
+                </select>
+            </div>
+            <div class="each-nav">
+                Breakdown by:
+                <select data-bind="value:GroupBy" style="margin-right: 5px;">
+                    <option value="Classification">Classification</option>
+                    <option value="Theme">Theme</option>
+                    <option value="Title">Idea</option>
+                    <option value="PerformanceUnit">Performance Unit</option>
+                    <option value="ActionParty">Action Party (PIC)</option>
+                </select>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeZero" />
+                </div>
+                <div>Include 0 value data point</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeGaps" />
+                </div>
+                <div>Include Gap</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeCR" />
+                </div>
+                <div>Include Rig/ General SCM</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:Scaled" />
+                </div>
+                <div>Autoscale</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav">
+                Base OP:
+                <select data-bind="value:BaseOP" style="margin-right: 5px;">
+                    <option value="OP14">OP14</option>
+                    <option value="OP15">OP15</option>
+                </select>
+            </div>
+            <div class="each-nav checkbox-nav no-border-nav">
+                <button class="btn btn-primary btn-xs" onclick="refreshWaterfall()" style="margin-top: -2px;">Refresh</button>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+
+        <div style="text-align: center; font-weight: bold; font-size: 14px;" id="wtitle"></div>
+
+        <div id="chart-waterfall" style="width:1020px;height:400px;"></div>
+    </div>
+    <div style="text-align:center">
+        <label style="background-color:#8AAAE0; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">OP</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A0C065; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Opportunity</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#C25654; width: 20px; ">&nbsp;</label>
+        <label style="font-weight:normal">Risk</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#888279; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Gap to LE</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#A48EC1; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">LE</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#E2A037; width: 20px; height: 1px;">&nbsp;</label>
+        <label style="font-weight:normal">AFE</label>
+        &nbsp;|&nbsp;
+        <label style="background-color:#37BDAC; width: 20px; height: 1px;">&nbsp;</label>
+        <label style="font-weight:normal">TQ/Agreed Target</label>
+    </div>
+</div>
+
+<script>
+    function trimIfGreaterThan(string, length) {
+        var code = "";
+        var addNbsp = function (howMany) {
+            var res = "";
+            for (var i = 0; i < howMany; i++) res += "&nbsp;";
+            return res;
+        };
+
+        if (string.indexOf("(P)") > -1) {
+            code = "(P)";
+        } else if (string.indexOf("(E)") > -1) {
+            code = "(E)";
+        }
+
+        if (string.length > length) {
+            string = string.replace(code, "").substring(0, length - 4) + code + "...";
+        }
+
+        return string;
+    }
+
+    function redrawWaterfall(wf, data) {
+        $("#wtitle").html('Waterfall - Breakdown By ' + model.waterfall().GroupBy() + ' (' + model.waterfall().DayOrCost() + ')');
+
+        var color = function (point) {
+            switch (point.dataItem.Title) {
+                case "OP":
+                    return "#8AAAE0";
+                    break;
+
+                case "Gap to LE":
+                case "Gap to LE (P)":
+                    return "#888279";
+                    break;
+
+                case "TQ / Target":
+                case "TQ / Agreed Target":
+                case "TQ/Target":
+                case "TQ/Agreed Target":
+                    return "#A48EC1";
+                    break;
+
+                case "LE":
+                case "Last Estimate":
+                    return "#A48EC1";
+                    break;
+            }
+
+            if (point.value > 0) {
+                return "#C25654";
+            } else {
+                return "#A0C065";
+            }
+        };
+        // THIS LOGIC BELOW ONLY WORK FOR CLASSIFICATION (to order the categories)
+        //var sd = ["OP", "Competitive Scope", "Efficient Execution", "Supply Chain Transformation", "Technology and Innovation", "All Others (P)", "Gap to LE", "LE", "Unrisked Upside"];
+        //var seer = [];
+        //sd.forEach(function (c) {
+        //    var wh = Enumerable.From(data.Data).FirstOrDefault(undefined, "$.Title == '" + c + "'")
+        //    if (wh != undefined) {
+        //        wh.realValue = Math.abs(wh.realValue);
+        //        seer.push(wh)
+        //    }
+        //});
+        var config = {
+            dataSource: { data: data.Data },
+            legend: { visible: false },
+            seriesDefaults: {
+                type: "column",
+                overlay: {
+                    gradient: "none"
+                },
+                border: {
+                    opacity: 0.4
+                }
+            },
+            series: [
+                { type: "waterfall",
+                    field: "Value",
+                    categoryField: "Title",
+                    summaryField: "ItemType",
+                    color: color,
+                    line: { visible: false, width: 0 },
+                    labels: {
+                        visible: true,
+                        font: "9px verdana",
+                        format: "N0",
+                        position: "outsideEnd",
+                        template: '#: kendo.format("{0:N1}", value) #'
+                    },
+                    tooltip: { visible: true, template: '#: category #: #: kendo.format("{0:N1}", value) #' }
+                },
+                { type: "line", name: "AFE", color: "#E2A037", field: "TrendLines[0]", markers: { visible: false }, width: 1,
+                    tooltip: { visible: true, template: 'AFE: #: kendo.format("{0:N1}", value) #' } },
+                { type: "line", name: "TQ/Agreed Target", color: "#37BDAC", field: "TrendLines[1]", markers: { visible: false }, width: 1,
+                    tooltip: { visible: true, template: 'TQ/Agreed Target: #: kendo.format("{0:N1}", value) #' } }
+            ],
+            valueAxis: {
+                labels: { font: "9px verdana", format: "N1" },
+                majorGridLines: { visible: false }
+            },
+            categoryAxis: {
+                labels: { font: "9px verdana", rotation: 40, template: '#= trimIfGreaterThan(value, 28) #' },
+                majorGridLines: { visible: false }
+            }
+        };
+
+        var op =  _.where(data.Data, { Title: "OP" }).length == 0 ? 0.0 : _.find(data.Data, { Title: "OP" }).Value;
+        var le = _.where(data.Data, { Title: "LE" }).length == 0 ? 0.0 : _.find(data.Data, { Title: "LE" }).Value;
+        var afe = _.where(data.Data, { Title: "OP" }).length == 0 ? 0.0 : _.find(data.Data, { Title: "OP" }).TrendLines[0];
+        var tq = _.where(data.Data, { Title: "OP" }).length == 0 ? 0.0 : _.find(data.Data, { Title: "OP" }).TrendLines[1];
+        var sumElement = _(data.Data).filter(function (e) { return (e.CategoryIndex == 0.1) && (e.Title.toLowerCase().indexOf("gap") == -1); }).reduce(function (m, x) { return m + x.Value; }, 0);
+        var max = _.max([op, le, afe, tq, sumElement]) + 5;
+
+        config.valueAxis.max = max;
+
+        if (!model.waterfall().Scaled()) {
+            if ((op + sumElement) < 0) {
+                config.valueAxis.min = sumElement - 5;
+            } else {
+                config.valueAxis.min = 0;
+            }
+        }
+
+        wf.kendoChart(config);
+
+        if (!model.waterfall().IncludeGaps()) {
+            var allGapsData = _.filter(data.Data, function (e) { return (e.Title.toLowerCase().indexOf("gap") > -1) });
+            _.each(allGapsData, function (e) {
+                var gapsData = e;
+                var gapsIndex = data.Data.indexOf(gapsData);
+
+                wf.find("tspan:contains('" + gapsData.Title + "')").closest("g").hide();
+                wf.find("svg > g:eq(0) > g[opacity]:eq(" + gapsIndex + ")").hide();
+                wf.find("svg > g:eq(0) > g:eq(0) > g[clip-path] > g:eq(" + gapsIndex + ")").hide();
+            });
+        }
+    }
+
+    function refreshWaterfall(type) {
+        var wf = $("#chart-waterfall");
+        wf.html("");
+        var wfbr = $("#chart-waterfall-by-realised");
+        wfbr.html("");
+
+        if (type == undefined || type == "")
+            type = model.uimodel().ProjectInfosPIPType();
+
+        if(type != "Reduction"){
+            var url = "@Url.Action("GetWaterfallData")";
+            var wfmodel = ko.mapping.toJS(model.waterfall);
+            wfmodel.WellName = model.uimodel().record().WellName();
+            wfmodel.SequenceId = model.uimodel().record().SequenceId();
+            wfmodel.ActivityType = model.uimodel().record().ActivityType();
+            wfmodel.PIPs = ko.mapping.toJS(model.uimodel().record().Elements());
+            wfmodel.CRPIPs = ko.mapping.toJS(model.uimodel().record().CRElements());
+            wfmodel.type = ko.mapping.toJS(model.uimodel().record().Type());
+        } else {
+            var url = "@Url.Action("GetWaterfallDataForCR")";
+            var wfmodel = ko.mapping.toJS(model.waterfall);
+            var WellName = model.uimodel().record().WellName();
+            wfmodel.WellName = model.uimodel().record().WellName();
+            wfmodel.SequenceId = model.uimodel().record().SequenceId();
+            wfmodel.ActivityType = model.uimodel().record().ActivityType();
+            wfmodel.RigName = WellName.replace("_CR", "");
+            wfmodel.PIPs = ko.mapping.toJS(model.uimodel().record().Elements());
+            wfmodel.CRPIPs = ko.mapping.toJS(model.uimodel().record().CRElements());
+            wfmodel.type = ko.mapping.toJS(model.uimodel().record().Type());
+        }
+
+        var i = 0;
+        var unautoscale = function (w) {
+            i++;
+
+            if (i < 2) return;
+
+            var cwf = wf.data("kendoChart");
+            var cwfbr = wfbr.data("kendoChart");
+
+            if (model.waterfall().Scaled()) {
+                //var interval = setInterval(function () {
+                //    if (cwf.options.valueAxis == undefined || cwfbr.options.valueAxis == undefined)
+                //        return;
+
+                //    clearInterval(interval);
+
+                //    var max = _.max([cwf.options.valueAxis.max, cwfbr.options.valueAxis.max]);
+
+                //    cwf.options.valueAxis.max = max;
+                //    cwf.options.valueAxis.min = (max * 1.0 / 4.0);
+                //    cwf.redraw();
+
+                //    cwfbr.options.valueAxis.max = max;
+                //    cwfbr.options.valueAxis.min = (max * 1.0 / 4.0);
+                //    cwfbr.redraw();
+                //}, 300);
+
+                return;
+            }
+
+            var interval = setInterval(function () {
+                if (cwf.options.valueAxis == undefined || cwfbr.options.valueAxis == undefined)
+                    return;
+
+                clearInterval(interval);
+
+                var min = _.min([cwf.options.valueAxis.min, cwfbr.options.valueAxis.min]);
+                var max = _.max([cwf.options.valueAxis.max, cwfbr.options.valueAxis.max]);
+
+                if (typeof cwf.options.valueAxis == undefined)
+                    cwf.options.valueAxis = {};
+                cwf.options.valueAxis.min = min;
+                cwf.options.valueAxis.max = max;
+                cwf.redraw();
+
+                if (typeof cwfbr.options.valueAxis == undefined)
+                    cwfbr.options.valueAxis = {};
+                cwfbr.options.valueAxis.min = min;
+                cwfbr.options.valueAxis.max = max;
+                cwfbr.redraw();
+            }, 300);
+        };
+
+        wfmodel.byRealised = false;
+        ajaxPost(url, wfmodel, function (data) {
+            if (data.Result != "OK")
+                return;
+
+            redrawWaterfall(wf, data);
+            unautoscale();
+        });
+
+        wfmodel.byRealised = true;
+        ajaxPost(url, wfmodel, function (data) {
+            if (data.Result != "OK")
+                return;
+
+            redrawWaterfallByRealised(wfbr, data);
+            unautoscale();
+        });
+    }
+</script>

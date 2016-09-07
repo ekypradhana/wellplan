@@ -1,0 +1,220 @@
+﻿<script>
+    model.waterfall = ko.observable({
+        GroupBy: ko.observable("GroupBy"),
+        Layout: ko.observable("OP2TQ"),
+        IncludeZero: ko.observable(true),
+        IncludeGaps: ko.observable(true),
+        DayOrCost: ko.observable("Day")
+    });
+</script>
+
+
+<style>
+    .bordered-mini-nav {
+        padding: 10px 0px 6px;
+        border-bottom: 1px solid rgb(224, 224, 224);
+        margin-bottom: 10px !important;
+    }
+    .bordered-mini-nav .each-nav {
+        float: left;
+        border-right: 1px solid rgb(236, 236, 236);
+        padding-right: 3px;
+        margin-right: 5px;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav {
+        padding-right: 5px;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav div {
+        float: left;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav input {
+        margin: 1px 3px 1px 2px;
+    }
+    .bordered-mini-nav .each-nav.no-border-nav {
+        border-right: none !important;
+        margin-right: 0px !important;
+        padding-right: 0px !important;
+    }
+    .nav-filter-space {
+        margin-right: 3px;
+        border-left: 1px solid rgb(236, 236, 236);
+    }
+</style>
+
+
+<div class="ec-panel" style="width:1000px;margin:0px auto;">
+    <div style="width:1020px;margin:0px auto;margin-top:0px;" data-bind="with:$root.waterfall">
+        <div class="mini-nav bordered-mini-nav" style="width: 615px; margin: 0px auto;">
+            <div class="each-nav">
+                Show:
+                <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                    <option value="Day">Days</option>
+                    <option value="Cost">Cost</option>
+                </select>
+            </div>
+            <div class="each-nav">
+                Breakdown by:
+                <select data-bind="value:GroupBy" style="margin-right: 5px;">
+                    <option value="Classification">Classification</option>
+                    <option value="Theme">Theme</option>
+                    <option value="Title">Idea</option>
+                    <option value="PerformanceUnit">Performance Unit</option>
+                    <option value="ActionParty">Action Party (PIC)</option>
+                </select>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeZero" />
+                </div>
+                <div>Include 0 value data point</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeGaps" />
+                </div>
+                <div>Include Gaps</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav no-border-nav">
+                <button class="btn btn-primary btn-xs" onclick="refreshWaterfall()" style="margin-top: -2px;">Refresh</button>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+
+        <div style="text-align: center; font-weight: bold; font-size: 14px;" id="wtitle"></div>
+
+        <div id="chart-waterfall" style="width:1020px;height:400px;"></div>
+    </div>
+</div>
+
+<script>
+    function trimIfGreaterThan(string, length) {
+        var code = "";
+        var addNbsp = function (howMany) {
+            var res = "";
+            for (var i = 0; i < howMany; i++) res += "&nbsp;";
+            return res;
+        };
+
+        if (string.indexOf("(P)") > -1) {
+            code = "(P)";
+        } else if (string.indexOf("(E)") > -1) {
+            code = "(E)";
+        }
+
+        if (string.length > length) {
+            string = string.replace(code, "").substring(0, length - 4) + code + "...";
+        } else {
+            var padding = length - string.length;
+            string = addNbsp(padding / 2) + string + addNbsp(padding / 2);
+        }
+
+        return string;
+    }
+
+    function redrawWaterfall(wf, data) {
+        $("#wtitle").html('Waterfall - breakdown by ' + model.waterfall().GroupBy() + ' (' + model.waterfall().DayOrCost() + ')');
+
+        var color = function (point) {
+            switch (point.dataItem.Title) {
+                case "OP":
+                    return "darkblue";
+                    break;
+
+                case "TQ/Target":
+                case "TQ/Agreed Target":
+                    return "gray";
+                    break;
+
+                case "LE":
+                case "Last Estimate":
+                    return "brown";
+                    break;
+            }
+
+            if (point.value > 0) {
+                return "red";
+            } else {
+                return "green";
+            }
+        };
+
+        wf.kendoChart({
+            dataSource: { data: data.Data },
+            legend: { visible: false },
+            series: [
+                { type: "waterfall",
+                    field: "Value",
+                    categoryField: "Title",
+                    summaryField: "ItemType",
+                    color: color,
+                    line: { visible: false, width: 0 },
+                    labels: {
+                        visible: true,
+                        font: "9px verdana",
+                        format: "N0",
+                        position: "outsideEnd",
+                        template: '#: kendo.format("{0:N1}", value) #'
+                    },
+                    tooltip: { visible: true, template: '#: category #: #: kendo.format("{0:N1}", value) #' }
+                },
+                { type: "line", name: "AFE", color: "gray", field: "TrendLines[0]", markers: { visible: false }, width: 1,
+                    tooltip: { visible: true, template: 'AFE: #: kendo.format("{0:N1}", value) #' } },
+                { type: "line", name: "TQ/Agreed Target", color: "orange", field: "TrendLines[1]", markers: { visible: false }, width: 1,
+                    tooltip: { visible: true, template: 'TQ/Agreed Target: #: kendo.format("{0:N1}", value) #' } }
+            ],
+            legend: { visible: true, position: "bottom" },
+            valueAxis: {
+                labels: { font: "9px verdana", format: "N0" },
+                majorGridLines: { visible: false }
+            },
+            categoryAxis: {
+                labels: { font: "9px verdana", rotation: 40, template: '#= trimIfGreaterThan(value, 28) #' },
+                majorGridLines: { visible: false }
+            }
+        });
+
+        if (!model.waterfall().IncludeGaps()) {
+            var allGapsData = _.filter(data.Data, function (e) { return (e.Title.toLowerCase().indexOf("gaps") > -1) });
+            _.each(allGapsData, function (e) {
+                var gapsData = e;
+                var gapsIndex = data.Data.indexOf(gapsData);
+
+                wf.find("tspan:contains('" + gapsData.Title + "')").closest("g").hide();
+                wf.find("svg > g:eq(0) > g[opacity]:eq(" + gapsIndex + ")").hide();
+                wf.find("svg > g:eq(0) > g:eq(0) > g[clip-path] > g:eq(" + gapsIndex + ")").hide();
+            });
+        }
+    }
+
+    function refreshWaterfall(type) {
+        var wf = $("#chart-waterfall");
+        wf.html("");
+
+        if (type == undefined || type == "")
+            type = model.uimodel().ProjectInfosPIPType();
+
+        if(type != "Reduction"){
+            var url = "@Url.Action("GetWaterfallData")";
+            var wfmodel = ko.mapping.toJS(model.waterfall);
+            wfmodel.WellName = model.uimodel().record().WellName();
+            wfmodel.SequenceId = model.uimodel().record().SequenceId();
+            wfmodel.ActivityType = model.uimodel().record().ActivityType();
+            wfmodel.PIPs = ko.mapping.toJS(model.uimodel().record().Elements());
+        } else {
+            var url = "@Url.Action("GetWaterfallDataForCR")";
+            var wfmodel = ko.mapping.toJS(model.waterfall);
+            var WellName = model.uimodel().record().WellName();
+            wfmodel.RigName = WellName.replace("_CR","");
+            wfmodel.PIPs = ko.mapping.toJS(model.uimodel().record().Elements());
+        }
+
+        ajaxPost(url, wfmodel, function (data) {
+            if (data.Result != "OK")
+                return;
+
+            redrawWaterfall(wf, data);
+        });
+    }
+</script>

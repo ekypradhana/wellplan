@@ -1,0 +1,48 @@
+﻿<div class="ec-panel">
+    <div class="ec-toolbar">
+        <button class="btn btn-warning btn-sm" onclick="model.bpmodel().changeMode('')"><span class="glyphicon glyphicon-arrow-left"></span> Back To List</button>
+        <button class="btn btn-success btn-sm" onclick="saveSimulation()"><span class="glyphicon glyphicon-save"></span> Create Simulation</button>
+    </div>
+</div>
+<div data-bind="visible: model.IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+<div class="ec-panel" data-bind="visible: !model.IsProcessing()">
+    <div class="row" style="margin-top:15px;">
+        <div class="col-md-6">
+            <div class="col-md-3">
+                <label>Simulation ID</label>
+            </div>
+            <div class="col-md-4">
+                <input type="text" data-bind="value:model.NewSimulationId" disabled="" class="text disabled" />
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="col-md-3">
+                <label>Created By</label>
+            </div>
+            <div class="col-md-4">
+                <input type="text" value="@ViewBag.UserName" disabled="" class="text disabled" />
+            </div>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+        <div class="col-md-6">
+            <div class="col-md-3">
+                <label>Title</label>
+            </div>
+            <div class="col-md-9">
+                <input type="text" style="width:100%;" data-bind="value:model.NewSimulationTitle" />
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="col-md-3">
+                <label>Copy From</label>
+            </div>
+            <div class="col-md-8">
+                <input type="text" data-bind="kendoDropDownList:{data:model.NewSimulationCopyFrom,value:model.CopyFromValue}" />
+            </div>
+        </div>
+    </div>
+</div>

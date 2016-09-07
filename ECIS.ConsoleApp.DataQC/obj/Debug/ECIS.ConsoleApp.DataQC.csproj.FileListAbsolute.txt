@@ -1,0 +1,6 @@
+C:\Users\PRADHANA\Documents\1. OFFICE\Projects\!! SHELL\ECIS.ConsoleApp.DataQC\bin\Debug\ECIS.ConsoleApp.DataQC.exe.config
+C:\Users\PRADHANA\Documents\1. OFFICE\Projects\!! SHELL\ECIS.ConsoleApp.DataQC\bin\Debug\ECIS.ConsoleApp.DataQC.exe
+C:\Users\PRADHANA\Documents\1. OFFICE\Projects\!! SHELL\ECIS.ConsoleApp.DataQC\bin\Debug\ECIS.ConsoleApp.DataQC.pdb
+C:\Users\PRADHANA\Documents\1. OFFICE\Projects\!! SHELL\ECIS.ConsoleApp.DataQC\obj\Debug\ECIS.ConsoleApp.DataQC.csprojResolveAssemblyReference.cache
+C:\Users\PRADHANA\Documents\1. OFFICE\Projects\!! SHELL\ECIS.ConsoleApp.DataQC\obj\Debug\ECIS.ConsoleApp.DataQC.exe
+C:\Users\PRADHANA\Documents\1. OFFICE\Projects\!! SHELL\ECIS.ConsoleApp.DataQC\obj\Debug\ECIS.ConsoleApp.DataQC.pdb

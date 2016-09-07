@@ -1,0 +1,94 @@
+﻿<div class="ec-panel" style="width:1000px;margin:0px auto;">
+    <div data-bind="with:$root.WaterfallFilter">
+        <div class="mini-nav bordered-mini-nav" style="width: 150px; margin: 0px;">
+            <div class="each-nav no-border-nav">
+                Show:
+                <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                    <option value="Days">Days</option>
+                    <option value="Cost">Cost</option>
+                </select>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+</div>
+
+<div style="padding: 0px 30px 20px; margin-top: 10px;" class="grid">
+    <div class="grid-waterfall-data"></div>
+</div>
+
+<script>
+    model.GenerateWaterfallGrid = function (data) {
+        var buildColumn = function (field, title) {
+            return {
+                field: field,
+                title: "<b>" + title + "</b><br />" + (model.WaterfallFilter.DayOrCost() === 'Day' ? 'Days' : 'Cost (US$ m)'),
+                width: 90,
+                format: "{0:N1}",
+                attributes: { style: 'text-align:right;' },
+                aggregates: ["sum"],
+                footerTemplate: "<div style='text-align: right;' data-value='#=sum#'>#=kendo.format('{0:N1}',sum)#</div>"
+            };
+        };
+
+        var columns = [
+            { field: "WellName", title: "Well" },
+            { field: "ActivityType", title: "Activity" },
+            { field: "RigName", title: "Rig" },
+            { field: "Type", title: "Type", width: 100 },
+            buildColumn("OP", "OP"),
+            buildColumn("LEPIPOpp", "LE PIP Opp"),
+            buildColumn("LEPIPRisk", "LE PIP Risk"),
+            buildColumn("Gaps", "Gap to LE"),
+            buildColumn("TQ", "TQ"),
+            buildColumn("LE", "LE")
+        ];
+
+        $('.grid-waterfall-data').replaceWith($('<div />').addClass('grid-waterfall-data'));
+        $('.grid-waterfall-data').kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "Waterfall Data.pdf" },
+            excel: { fileName: "Waterfall Data.xlsx", allPages: true, filterable: true },
+            dataSource: {
+                data: data,
+                type: "json",
+                aggregate: [
+                    { field: "Gaps", aggregate: "sum" },
+                    { field: "OP", aggregate: "sum" },
+                    { field: "LE", aggregate: "sum" },
+                    { field: "TQ", aggregate: "sum" },
+                    { field: "LEPIPOpp", aggregate: "sum" },
+                    { field: "LEPIPRisk", aggregate: "sum" },
+                ]
+            },
+            excelExport: function (e) {
+                e.workbook.sheets[0].rows.forEach(function (row, i) {
+                    if (i == 0) {
+                        row.cells.forEach(function (cell, j) {
+                            try { cell.value = cell.value.replace("<br />", " "); } catch (err) { }
+                            try { cell.value = cell.value.replace("<b>", ""); } catch (err) { }
+                            try { cell.value = cell.value.replace("</b>", ""); } catch (err) { }
+                        });
+                        return;
+                    }
+
+                    for (var j = 4; j < row.cells.length; j++) {
+                        if (e.workbook.sheets[0].rows.length - 1 == i) {
+                            row.cells[j].value = parseFloat($(row.cells[j].value).data("value"));
+                            continue;
+                        }
+
+                        try { row.cells[j].value = row.cells[j].value.replace("<div style='text-align: right;'>", ""); } catch (err) { }
+                        try { row.cells[j].value = row.cells[j].value.replace("</div>", ""); } catch (err) { }
+                        try { row.cells[j].value = parseFloat($.trim(row.cells[j].value)); } catch (err) { }
+                    }
+                });
+            },
+            height: 280,
+            scrollable: true,
+            sortable: true,
+            resizable: true,
+            columns: columns
+        });
+    };
+</script>

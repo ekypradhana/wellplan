@@ -1,0 +1,81 @@
+﻿<style>
+    .nav-pills > li.active > a, .nav-pills > li.active > a:hover, .nav-pills > li.active > a:focus {
+        background-color: #e74c3c;
+        color: #fff;
+    }
+</style>
+<div class="ec-panel">
+    <div class="ec-toolbar">
+        <button class="btn btn-warning btn-sm" onclick="model.bpmodel().changeMode('')"><span class="glyphicon glyphicon-arrow-left"></span> Back To Browser</button>
+        
+    </div>
+</div>
+
+<div style="padding: 0px 15px 15px;">
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing() && model.bpmodel().mode() == 'comparison'">
+        <div class="clearfix" style="margin-bottom:20px">
+            <button class="btn btn-warning btn-sm" style="width:200px;">Select Benchmark</button>
+        </div>
+        <div class="ec-panel">
+            <div class="col-md-2 no-padding">
+                
+                <ul class="nav nav-pills nav-stacked">
+                    <li class="active"><a href="#fyexpense" id="" data-toggle="pill">FY Expense Profile</a></li>
+                    <li><a href="#statcomparison" data-toggle="pill" id="">Statistics Comparison Table</a></li>
+                </ul>
+            </div>
+            <div class="col-md-10 no-padding">
+                <div class="tab-content" style="padding:5px 5px;">
+                    <div class="tab-pane active" id="fyexpense" style="overflow-y:auto;">
+                        @*<div class="row">
+                            <div class="col-md-12">
+                                UAD
+                            </div>
+                        </div>*@
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="grid" id="gridFYExpense" data-bind="kendoGrid: { data: model.bpmodel().sampleDataSimulationFYExpenseComparison, columns: model.bpmodel().simulationColumnsFYExpenseComparison, pageable: false, sortable: false, filterable: false, editable: false, scrollable: false} "></div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <div class="tab-pane" id="statcomparison" style="overflow-y:auto;">
+                        @*<div class="row">
+                            <div class="col-md-12">
+                                UAD
+                            </div>
+                        </div>*@
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="grid" id="gridStatsComparison" data-bind="kendoGrid: { data: model.bpmodel().sampleDataSimulationStatComparison, columns: model.bpmodel().simulationColumnsStatComparison, pageable: false, sortable: false, filterable: false, editable: false, scrollable: false} "></div>
+                            </div>
+                        </div>   
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ec-panel">
+            <div class="col-md-2">
+
+            </div>
+            <div class="col-md-10">
+                <br />
+                <span class="label" style="padding: 9px; font-size: 10px; background-color: #EE6B24;display:inline-block;width:80px">Add Year</span>
+                <span class="label" style="padding: 9px; font-size: 10px; background-color: #FFD800; display: inline-block; width: 80px; ">Select Years</span>
+                <button class="btn btn-sm btn-success" style="display:inline-block;width:20px;padding:5px">+</button>
+                <div style="margin-top:4px"></div>
+
+                <table>
+                    <tr>
+                        <td><span class="label" style="padding: 9px; font-size: 10px; background-color: #EE6B24; display: inline-block; width: 80px">Remove Year</span></td>
+                        <td><input id="removeYear" data-bind="kendoMultiSelect:{data:['FY15','FY16','FY17','FY18','FY19']}" data-placeholder="Select Years ..." style="width:200px;" /></td>
+                        <td><button class="btn btn-sm btn-success" style="display: inline-block; width: 20px; padding: 5px">-</button></td>
+                    </tr>
+                </table>   
+            </div>
+
+        </div>
+    </div>
+</div>

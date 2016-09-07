@@ -1,0 +1,458 @@
+﻿@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.mode = ko.observable("upload");
+    model.PageTitle = ko.observable("Business Plan Data Maintenance");
+    model.fileType = ko.observable("filteredData");
+    model.changeMode = function (mode) {
+        model.mode(mode);
+        if (mode == 'download') {
+            model.PageTitle("Download Business Upload Template");
+            model.fileType("filteredData");
+            showFilter();
+        } else {
+            model.PageTitle("Business Plan Data Maintenance");
+        }
+    }
+</script>
+
+<h4 data-bind="text:model.PageTitle"></h4>
+<div data-bind="visible:model.mode()=='upload'">
+
+    <div class="col-md-12">
+        <b>This module is used for generating data for Business Plan Module</b>
+        <ul type="circle">
+            <li><b style="color:brown"> You can download and use the BizPlan Template below </b> </li>
+        </ul>
+
+    </div>
+    
+    <div class="ec-panel">
+        <div class="ec-toolbar col-md-12">
+            <button style="float:right" class="btn btn-sm btn-success" onclick="model.changeMode('download')"><span class="glyphicon glyphicon-download"></span> Download Biz Plan Template</button>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+
+    <div class="col-md-12 no-padding">
+        <div data-bind="visible: model.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div data-bind="visible: !model.IsProcessing()">
+            <div class="demo-section k-header">
+                <input name="files" id="files" type="file" />
+            </div>
+
+            <ul class="nav nav-tabs" role="tablist" style="margin-top: 20px;">
+                <li role="presentation" class="active">
+                    <a href="#tab1" aria-controls="home" role="tab" data-toggle="tab">Uploaded Business Plan</a>
+                </li>
+                <li role="presentation">
+                    <a href="#tab2" aria-controls="profile" role="tab" data-toggle="tab">Result</a>
+                </li>
+            </ul>
+            <div class="tab-content">
+                <div class="clearfix">&nbsp;</div>
+                <div role="tabpanel" class="tab-pane active" id="tab1">
+                    <div>
+                        <div class="grid grid1"></div>
+                        <div class="clearfix">&nbsp;</div>
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="tab2">
+                    <div class="grid grid2"></div>
+                </div>
+            </div>
+            <div class="clearfix">&nbsp;</div>
+        </div>
+    </div>
+
+    <script>
+        function DownloadBlankTemplate() {
+            var url = "@Url.Action("DonwloadTemplate", "UploadBizPlan")";
+            location.href = url;
+        }
+
+        $(document).ready(function () {
+            $("#files").kendoUpload({
+                async: {
+                    saveUrl: '@Url.Action("Upload", "UploadBizPlan")',
+                    removeUrl: "remove",
+                    autoUpload: false
+                },
+                complete: onComplete,
+                select: function (e) {
+                    $(".k-upload-files.k-reset").remove();
+                    $.each(e.files, function (index, value) {
+                        //alert(value.extension);
+                        var ok = value.extension == ".xlsx"
+                            || value.extension == ".xls";
+
+                        if (!ok) {
+                            e.preventDefault();
+                            alert("Please upload only Excel (xls, xlsx) files");
+                        }
+                    });
+                },
+                success: function(e) {
+                    var res = e.response;
+                    if (res.Result == "NOK") {
+                        model.LoadDataGrid();
+                        alert("File refuse to Upload");
+                        var a = '<li class="k-file k-file-success" style="height: 150px; overflow-x: auto;">';
+                        if (res.Data.length > 0) {
+                            res.Data.forEach(function(hh) {
+                                a = a + "<div>" + hh + "</div>";
+                            });
+                        }
+                        a = a + "</li>";
+                        $(a).appendTo($(".k-upload-files.k-reset"));
+                        $(".k-upload-pct").html("FAILED!");
+                        return;
+                    } else if (res.Result == "OK2") {
+                        model.LoadDataGrid();
+                        
+                        alert("File has been accepted but there are some warnings that you may want to consider before Loading to WEIS.");
+                        var a = '<li class="k-file k-file-success" style="height: 150px; overflow-x: auto;">';
+                        if (res.Data.length > 0) {
+                            res.Data.forEach(function (hh) {
+                                a = a + "<div>" + hh + "</div>";
+                            });
+                        }
+                        a = a + "</li>";
+                        $(a).appendTo($(".k-upload-files.k-reset"));
+                        $(".k-upload-pct").html("WARNING!");
+                    }
+                    
+                },
+                upload: onUpload,
+            });
+        });
+    </script>
+</div>
+
+<div data-bind="visible:model.mode()=='download'">
+    <div data-bind="visible:!model.IsProcessing()">
+        <div class="col-md-12">
+            <div class="ec-toolbar">
+                <button onclick="model.changeMode('upload')" class="btn btn-sm btn-warning"><span class="glyphicon glyphicon-arrow-left"></span> Back</button>
+            </div>
+            <div class="">
+                <div style="font-size:14px;">
+                    <b>Choose what you want to download:</b>
+                    <div class="radio">
+                        <label><input type="radio" name="fileType" value="blankData" data-bind="checked:model.fileType" /> Blank file (only header)</label>
+                    </div>
+                    <div class="radio">
+                        <label><input type="radio" name="fileType" value="filteredData" data-bind="checked:model.fileType" /> File with filtered data</label>
+                    </div>
+                </div>
+                <div class="col-md-12" data-bind="visible:model.fileType() != 'blankData'">
+                    @Html.Partial("FilterForWaterfall")
+                </div>
+                <div style="float:right">
+                    <button class="btn btn-success btn-sm" style="margin-right:50px;" onclick="model.DownloadTemplateFile()"><span class="glyphicon glyphicon-download"></span> Download File</button> 
+                </div>
+                <div class="clearfix"></div>
+            </div>
+        </div>
+    </div>
+    <div data-bind="visible:model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+</div>
+
+    <script>
+        //model.FilterVisibility.LineOfBusiness(true);
+        model.FilterVisibility.PerformanceUnits(false);
+        model.FilterVisibility.MonthlySequence(false);
+        model.FilterVisibility.ExType(true);
+        model.FilterVisibility.isInPlan(true);
+
+        
+        //model.FilterVisibility.YearsCalc(true);
+
+        model.FilterVisibility.Activities(true);
+        model.FilterVisibility.OPs(true);
+        model.FilterVisibility.OpRelation(true);
+        model.FilterVisibility.Date(true);
+        model.FilterVisibility.Date2(true);
+        model.FilterVisibility.PeriodBase(false);
+        model.FilterVisibility.PeriodView(true);
+        model.FilterVisibility.PeriodRelation(false);
+        model.FilterVisibility.Status(true);
+        model.FilterVisibility.inlastuploadls(true);
+
+        function showFilter() {
+            var inp = $("[name=fileType]").val();
+            console.log(inp);
+        }
+
+        model.DownloadTemplateFile = function() {
+            if (model.fileType() == "blankData") {
+                DownloadBlankTemplate();
+            } else {
+                DownloadFilteredTemplate();
+            }
+        }
+
+        function DownloadFilteredTemplate() {
+            var param = model.getFilterValues();
+            var lob = $("#lob").data("kendoDropDownList").value();
+            param.LineOfBusiness = lob == "Select Line of Business" ? "" : lob;
+            model.IsProcessing(true);
+            var url ="@Url.Action("GenerateFilteredTemplateFile", "UploadBizplan")";
+            ajaxPost(url,param,function(data){
+                url = "@Url.Action("DownloadFilteredTemplateFile", "UploadBizplan")"+"?stringName="+data.Path+"&date=" + moment(new Date()).format("DD-MMM-YYYY HH:mm:ss");
+                model.IsProcessing(false);
+                location.href = url;
+            },function(err){alert(err)})
+        }
+
+        function ClearDataUpload() {
+
+            var up = $('#files').data().kendoUpload;
+            var allLiElementsToBeRemoved = up.wrapper.find('.k-file');
+            up._removeFileEntry(allLiElementsToBeRemoved);
+
+        }
+        function onUpload(e) {
+            var files = e.files;
+            $.each(files, function () {
+                if (this.extension.toLowerCase() != ".xlsx" && this.extension.toLowerCase() != ".xls") {
+                    alert("Only .xlsx or .xls files can be uploaded")
+                    e.preventDefault();
+                }
+            });
+
+        }
+
+        function onSuccess(e) {
+            console.log("onSuccess");
+            //kendoConsole.log("Success (" + e.operation + ") :: " + getFileInfo(e));
+        }
+
+        function onError(e) {
+            console.log("onError");
+            //kendoConsole.log("Error (" + e.operation + ") :: " + getFileInfo(e));
+        }
+
+        function onComplete(e) {
+            model.LoadDataGrid();
+        }
+
+        function onCancel(e) {
+            alert('onCancel');
+
+            console.log("onCancel");
+
+        }
+
+        function onRemove(e) {
+            alert('onRemove');
+            console.log("Remove :: " + getFileInfo(e));
+        }
+
+        function onProgress(e) {
+            alert('onProgress');
+
+            console.log("Upload progress :: " + e.percentComplete + "% :: " + getFileInfo(e));
+        }
+
+        function getFileInfo(e) {
+            return $.map(e.files, function (file) {
+                var info = file.name;
+
+                // File size is not available in all browsers
+                if (file.size > 0) {
+                    info += " (" + Math.ceil(file.size / 1024) + " KB)";
+                }
+                return info;
+            }).join(", ");
+        }
+
+        function DateTimeParse(date) {
+            var t = new Date();
+            var defaultDate = new Date(1900, 1, 1);
+            var result = " - ";
+            if (date != "") {
+                t = new Date(parseInt(date.replace('/Date(', '')));
+                if (t > defaultDate) {
+                    result = moment(t).format("DD-MMM-YY hh:mm:ss A");
+                }
+            }
+            return result;
+            //return moment(jsonDateStr(date), 'DD-MMM-YYYY').format("DD-MMM-YY hh:mm:ss");
+        }
+
+        function Execute(id) {
+            //alert('This function is still under developemnt');
+            //return true;
+
+
+            if (!confirm('Are you sure want to replace data current data with this one?'))
+                return;
+            model.IsProcessing(true);
+            ajaxPost("@Url.Action("Execute")", { id: id }, function (res) {
+                if (res.Result == "OK") {
+
+                    ajaxPost("@Url.Action("updateexecute")", { filename: id }, function (res2) {
+                        model.LoadDataGrid();
+                        
+                        alert("Business plan data Loaded successfully");
+                        var tableName = res.Data;
+                        console.log("tableName");
+                        console.log(tableName);
+                        model.LoadResult(tableName);
+                        model.IsProcessing(false);
+                    })
+
+
+                    
+                } else {
+                    alert(res.Message + res.Trace);
+                    model.IsProcessing(false);
+                }
+            }, function (a) {
+                //alert(res.Message);
+                console.log(a);
+                model.IsProcessing(false);
+            });
+        }
+
+        function FixMeta(id) {
+            model.IsProcessing(true);
+            ajaxPost("@Url.Action("FixMeta")", { id: id }, function (res) {
+                console.log("fixmeta", res);
+                model.IsProcessing(false);
+            }, function (a) {
+                console.log(a);
+                model.IsProcessing(false);
+            });
+        }
+
+        function Download(id) {
+            model.IsProcessing(true);
+            var url = '@Url.Action("Download")' + "?id=" + id;
+            location.href = url;
+            model.IsProcessing(false);
+        }
+
+        function AddLineBusinessFilter() {
+            var htm = $('<div class="col-md-4">' +
+                '<label class="col-md-4" style="padding-top:6px">Line of Business:</label>' +
+                '<div class="col-md-8">' +
+                '<input style="width: 100%;" id="lob"></span>' +
+                '</div>' +
+                '</div>');
+            htm.insertBefore($("[data-bind='visible: RigTypes']"));
+            $("#lob").kendoDropDownList({
+                //dataSource: ['ARCTIC', 'DEEPWATER', 'INTEGRATED GAS', 'OPERATED', 'JV/NOV', 'UNCONVENTIONALS'],
+                dataSource: ['DEEPWATER'],
+                optionLabel: "Select Line of Business",
+                value: ""
+            });
+        }
+
+        $(document).ready(function () {
+            model.LoadDataGrid();
+            ClearDataUpload();
+            //model.LoadDataGridCollection();
+            $(".do-filter").hide();
+            AddLineBusinessFilter();
+        });
+
+        model.LoadDataGrid = function () {
+            var url = '@Url.Action("LoadGridData", "UploadBizPlan")';
+            ajaxPost(url, "", function (res) {
+                LoadGrid(res.Data);
+                model.LoadResult(res.Data);
+            }, function (a, b, c) {
+                console.log(a);
+                console.log(b);
+                console.log(c);
+                //alert('Error occured when fetching data from server');
+                model.IsProcessing(false);
+            });
+
+            LoadGrid = function (data) {
+                $('.grid1').replaceWith($('<div />').addClass('grid grid1'));
+                $('.grid1').kendoGrid({
+                    dataSource: { data: data, type: "json", pageSize: 5 },
+                    pageable: true,
+                    sortable: true,
+                    resizable: true,
+                    columns: [
+                        { field: "FileName", title: "File Name" },
+                        { field: "CreateDate", title: "Create Date", width: 90, template: "#: DateTimeParse(CreateDate) #", },
+                        { field: "LastExecute", title: "Last Execute", width: 90, template: "#: DateTimeParse(LastExecute) #", },
+                        //{ field: "LastWrite", title: "Last Write", width: 90, template: "#: DateTimeParse(LastWrite) #", },
+                        { field: "UserUpload", title: "Uploaded By", width: 90 },
+                        {
+                            title: "", width: 105,
+                            template: "<button class='btn btn-xs btn-warning' onclick='Download(\"#: FileName #\")'>Download</a>"
+                            //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='Download(\"#: FileName #\")'>Download</a></div>", width: 100
+                        },
+                        {
+                            title: "", width: 70,
+                            template: "<button class='btn btn-xs btn-danger' onclick='Execute(\"#: FileName #\")'>Execute</a><button class='btn btn-xs btn-danger' onclick='FixMeta(\"#: FileName #\")' style='display: none;'>Fix Meta</button>"
+                            //template: "<div style='text-align: center;'><a class='k-button k-button-icontext' style='cursor:pointer' onclick='Execute(\"#: FileName #\")'>Load</a></div>", width: 90
+                        }
+
+
+                    ],
+
+                });
+            };
+        };
+
+        model.LoadResult = function (tableName) {
+            var url = '@Url.Action("LoadResult", "UploadBizPlan")';
+            var param = {
+                tableName: tableName,
+            };
+            ajaxPost(url, param, function (res) {
+                console.log('========= result ============');
+                console.log(res.Data);
+                LoadGridResult(res.Data);
+            }, function (a, b, c) {
+                console.log(a);
+                console.log(b);
+                console.log(c);
+                model.IsProcessing(false);
+            });
+
+            LoadGridResult = function (data) {
+                $('.grid2').replaceWith($('<div />').addClass('grid grid2'));
+                $('.grid2').kendoGrid({
+                    dataSource: { data: data, type: "json", pageSize: 5 },
+                    pageable: true,
+                    sortable: true,
+                    resizable: true,
+                    columns: [
+                        { field: "Save_To_OP", title: "Set to" },
+                        { field: "Line_Of_Business", title: "LOB" },
+                        { field: "Region", title: "Region" },
+                        { field: "Country", title: "Country" },
+                        { field: "Currency", title: "Currency" },
+                        { field: "Operating_Unit", title: "Operating Unit" },
+                        { field: "Performance_Unit", title: "Performance Unit" },
+                        { field: "Asset", title: "Asset" },
+                        { field: "Project", title: "Project" },
+                        { field: "Well_Name", title: "Well Name" },
+                        { field: "Activity_Type", title: "Activity" },
+                        { field: "Activity_Category", title: "Activity Category" },
+                        { field: "Rig_Name", title: "Rig Name" },
+                    ],
+
+                });
+            };
+        };
+    </script>

@@ -1,0 +1,250 @@
+﻿@{
+    ViewBag.Title = "Business Plan Simulation";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    //model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.bpmodel = ko.observable({
+        mode: ko.observable(""),
+        detail: ko.observable(false),
+        unhideDetail: function () {
+            model.bpmodel().detail(true)
+        },
+        economicInflation: ko.observable(""),
+        economicInflation: ko.observable(""),
+        ColumnMarketEscalation: [
+                            { field: "FiscalYear", title: "Fiscal Year" },
+                            { field: "FY15", title: "FY15" },
+                            { field: "FY16", title: "FY16" },
+                            { field: "FY17", title: "FY17" },
+                            { field: "FY18", title: "FY18" },
+                            { field: "FY19", title: "FY19" },
+
+        ],
+        DataMarketEscalation: [
+            { FiscalYear: "Yearly Escalation", FY16: "3%", FY17: "3%", FY18: "3%", FY15: "3%", FY19: "3.5%" },
+        ],
+
+        ColumnsGlobalMarketEscalation: [
+                            { field: "Category", title: " " },
+                            { field: "CostWeight", title: " " },
+
+        ],
+        DataGlobalMarketEscalation: [
+            { Category: "Rig", CostWeight: "%" },
+            { Category: "Material", CostWeight: "%" },
+            { Category: "Services", CostWeight: "%" },
+            { Category: "Escalation Factor", CostWeight: "%" },
+        ],
+        simulationColumnsMaturityMatrix: [
+                            { field: "Maturity", title: "Maturity" },
+                            { field: "NPTCost", title: "NPT Cost" },
+                            { field: "NPTTime", title: "NPT Time" },
+                            { field: "TECOPCost", title: "TECOP Cost" },
+                            { field: "TECOPTime", title: "TECOP Time" },
+        ],
+        sampleDataSimulationMaturityMatrix: [
+            { Maturity: "Type 0", NPTCost: "", NPTTime: "", TECOPCost: "", TECOPTime: "" },
+            { Maturity: "Type 1", NPTCost: "", NPTTime: "", TECOPCost: "", TECOPTime: "" },
+            { Maturity: "Type 2", NPTCost: "", NPTTime: "", TECOPCost: "", TECOPTime: "" },
+            { Maturity: "Type 3", NPTCost: "", NPTTime: "", TECOPCost: "", TECOPTime: "" },
+            { Maturity: "Type 4", NPTCost: "", NPTTime: "", TECOPCost: "", TECOPTime: "" },
+        ],
+        capitalColumns: [
+            { field: "fiscal", title: "Fiscal Year", width: "150px" },
+            { field: "fy15", title: "FY15" },
+            { field: "fy16", title: "FY16" },
+            { field: "fy17", title: "FY17" },
+            { field: "fy18", title: "FY18" },
+            { field: "fy19", title: "FY19" },
+            { field: "fy20", title: "FY20" },
+            { field: "fy21", title: "FY21" },
+            { field: "fy22", title: "FY22" },
+            { field: "fy23", title: "FY23" },
+            { field: "fy24", title: "FY24" },
+            { field: "fy25", title: "FY25" }
+        ],
+        rigColumns: [
+            { field: "rig", title: "Rig" },
+            { field: "fy15", title: "FY15" },
+            { field: "fy16", title: "FY16" },
+            { field: "fy17", title: "FY17" },
+            { field: "fy18", title: "FY18" },
+            { field: "fy19", title: "FY19" },
+            { field: "fy20", title: "FY20" },
+            { field: "fy21", title: "FY21" },
+            { field: "fy22", title: "FY22" },
+            { field: "fy23", title: "FY23" },
+            { field: "fy24", title: "FY24" },
+            { field: "fy25", title: "FY25" }
+
+        ],
+        capitalData: [
+            { fiscal: "CSO Factor", fy15: "6 %", fy16: "5.8 %", fy17: "5.5 %", fy18: "6 %", fy19: "6.2 %", fy20: "4 %", fy21: "6 %", fy22: "5.8 %", fy23: "5.2 %", fy24: "6.2 %", fy25: "7 %" }
+        ],
+        drillingData: [
+            { fiscal: "Tangible %", fy15: "20 %", fy16: "20 %", fy17: "25 %", fy18: "20 %", fy19: "20 %", fy20: "25 %", fy21: "20 %", fy22: "20 %", fy23: "5.2 %", fy24: "6.2 %", fy25: "7 %" },
+            { fiscal: "# Of Month required", fy15: "11", fy16: "10", fy17: "9", fy18: "4", fy19: "5", fy20: "6", fy21: "9", fy22: "11", fy23: "15", fy24: "13", fy25: "14" }
+        ],
+        completionData: [
+            { fiscal: "Tangible %", fy15: "15 %", fy16: "17 %", fy17: "18 %", fy18: "25 %", fy19: "15 %", fy20: "17 %", fy21: "18 %", fy22: "25 %", fy23: "24 %", fy24: "30 %", fy25: "12 %" },
+            { fiscal: "# Of Month required", fy15: "4", fy16: "5", fy17: "6", fy18: "3", fy19: "12", fy20: "7", fy21: "6", fy22: "5", fy23: "8", fy24: "9", fy25: "3" }
+        ],
+        abondonmentData: [
+            { fiscal: "Tangible %", fy15: "19 %", fy16: "16 %", fy17: "20 %", fy18: "29 %", fy19: "11 %", fy20: "19 %", fy21: "16 %", fy22: "20 %", fy23: "29 %", fy24: "11 %", fy25: "20 %" },
+            { fiscal: "# Of Month required", fy15: "9", fy16: "8", fy17: "4", fy18: "1", fy19: "6", fy20: "7", fy21: "11", fy22: "10", fy23: "6", fy24: "4", fy25: "2" }
+        ],
+        rigData: [
+            { rig: "Deepwater Nautilus", fy15: "467", fy16: "467", fy17: "495", fy18: "500", fy19: "466", fy20: "452", fy21: "444", fy22: "455", fy23: "466", fy24: "477", fy25: "488" },
+        ]
+
+    });
+
+    $(document).ready(function () {
+        $("#egridCapital").kendoGrid({
+            dataSource: model.bpmodel().capitalData,
+            editable: true
+        });
+        $("#rig_gridedit").kendoGrid({
+            dataSource: model.bpmodel().rigData,
+            editable: true,
+            columns: [
+            { field: "rig", title: "Rig" },
+            { field: "fy15", title: "FY15" },
+            { field: "fy16", title: "FY16" },
+            { field: "fy17", title: "FY17" },
+            { field: "fy18", title: "FY18" },
+            { field: "fy19", title: "FY19" },
+            { field: "fy20", title: "FY20" },
+            { field: "fy21", title: "FY21" },
+            { field: "fy22", title: "FY22" },
+            { field: "fy23", title: "FY23" },
+            { field: "fy24", title: "FY24" },
+            { field: "fy25", title: "FY25" },
+            { field: "", title: "", editable: false, template: "<button class='btn btn-custom btn-xs btn-success' <button class='btn btn-custom btn-xs btn-success'><span class='glyphicon glyphicon-minus'></span></button>" }
+            ],
+            remove: function (e) {
+                console.log("Removing", e.model.name);
+            }
+        });
+        $("#rig_editgridviewind").kendoGrid({
+            dataSource: model.bpmodel().rigData,
+            editable: true,
+            remove: function (e) {
+                console.log("Removing", e.model.name);
+            }
+        });
+    });
+</script>
+<style>
+    .nav-pills > li.active > a, .nav-pills > li.active > a:hover, .nav-pills > li.active > a:focus {
+        background-color: #e74c3c;
+        color: #fff;
+    }
+    .nav-tabs > li.active > a, .nav-tabs > li.active > a:hover, .nav-tabs > li.active > a:focus {
+        background-color: #e74c3c;
+        color: #fff;
+    }
+    /*headers*/
+
+    .k-grid th.k-header,
+    .k-grid-header {
+        background: rgb(79,129,189);
+        padding: 5px;
+    }
+
+        .k-grid th.k-header,
+        .k-grid th.k-header .k-link {
+            color: #fff;
+        }
+
+    /*rows*/
+
+    .k-grid-content > table > tbody > tr {
+        background: rgb(208,216,232);
+    }
+
+
+    .k-grid-content > table > tbody > .k-alt {
+        background: rgb(233,237,244);
+    }
+
+    /*selection*/
+
+    .k-grid table tr.k-state-selected {
+        background: #f99;
+        color: #fff;
+    }
+</style>
+
+@Html.Partial("_menuBusPlan")
+
+<script>
+    model.MenuBP().ActiveMenu("Administration Input");
+</script>
+<div style="padding: 0px 15px 15px;">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div class="row business-plan-container">
+        <div class="col-md-12 no-padding">
+            <div class="col-md-2">
+                <div class="ec-panel" id="menu">
+                    <div class="clearfix"></div>
+                    <ul class="menu nav nav-pills nav-stacked">
+                        <li class="active"><a href="#econ" id="" data-toggle="pill">Economic Inflation</a></li>
+                        <li><a href="#market" data-toggle="pill" id="">Market Escalation Factor</a></li>
+                        <li><a href="#matur" data-toggle="pill" id="">Maturiry Risk Matrix</a></li>
+                        <li><a href="#capital" data-toggle="pill" id="">Capitalized Staff Overhead</a></li>
+                        <li><a href="#item" data-toggle="pill" id="">Long Lead Items</a></li>
+                        <li><a href="#rig" data-toggle="pill" id="">Rig rate</a></li>
+
+                    </ul>
+
+                </div>
+            </div>
+            <div class="col-md-10">
+                <div class="col-md-12 no-padding">
+                    <div class="tab-content">
+                        <div class="tab-pane active" id="econ" style="overflow-y:auto;">
+                             @Html.Partial("_economicInflation")
+                        </div>
+                        <div class="tab-pane" id="market" style="overflow-y:auto;">
+                             @Html.Partial("_marketEscalation")
+                        </div>
+                        <div class="tab-pane" id="matur" style="overflow-y:auto;">
+                            <div class="col-md-12">
+                               @Html.Partial("_maturityRisk")
+                            </div>
+                        </div>
+                        <div class="tab-pane" id="capital">
+                            <div class="col-md-12">
+                                @Html.Partial("_viewCapital")
+                            </div>
+                        </div>
+                        <div class="tab-pane" id="item" style="overflow-y:auto;">
+                            <div class="col-md-12">
+                                @Html.Partial("_viewItem")
+                            </div>
+                        </div>
+
+                        <div class="tab-pane" id="rig" style="overflow-y:auto;">
+                            <div class="col-md-12">
+                                @Html.Partial("_viewRig")
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+

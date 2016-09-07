@@ -1,0 +1,311 @@
+﻿@{
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+
+<style>
+    .text {
+        height: auto !important;
+        padding: 0px 4px !important;
+        margin: 0px 12px 0px 3px;
+    }
+     
+    .modal-dialog {
+        margin: 30px auto;
+        width: 800px;
+    }
+
+    pre {
+        outline: 1px solid #ccc;
+        padding: 5px;
+        margin: 5px;
+    }
+
+    .string {
+        color: green;
+    }
+
+    .number {
+        color: darkorange;
+    }
+
+    .boolean {
+        color: blue;
+    }
+
+    .null {
+        color: magenta;
+    }
+
+    .key {
+        color: red;
+    }
+</style>
+
+<script>
+    model.PageId("Administration");
+
+    function syntaxHighlight(json) {
+        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+            var cls = 'number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    cls = 'key';
+                } else {
+                    cls = 'string';
+                }
+            } else if (/true|false/.test(match)) {
+                cls = 'boolean';
+            } else if (/null/.test(match)) {
+                cls = 'null';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
+        });
+    }
+
+    function output(inp,divid) {
+        //document.getElementById(divid).appendChild(document.createElement('pre')).innerHTML = inp;
+        //console.log(inp);
+        $("#" + divid).html(inp);
+    }
+
+    function gridClick(a, b) {
+        console.log(a);
+        console.log(b);
+        var x = model.LogBrowser();
+        console.log(x.Data());
+        var fd = Enumerable.From(x.Data()).FirstOrDefault(undefined, "$._parentid == '" + a + "'&& moment($.LogTime).format('DD-MMM-YYYY HH:mm:ss') == '" + b +"'")
+        x.DataPopup(fd)
+        var res1, res2;
+
+        if (fd.Desc1 != null) {
+            var desc1 = fd.Desc1.replace(/ISODate(\()\"/g, '"').replace(/Z\"\)/g, '"');
+        } else {
+            var desc1 = "";
+        }
+        if (fd.Desc2 != null) {
+            var desc2 = fd.Desc2.replace(/ISODate(\()\"/g, '"').replace(/Z\"\)/g, '"')
+        } else {
+            var desc2 = "";
+        }
+
+        if (desc1 != "") {
+            var json1 = JSON.stringify(JSON.parse(desc1), undefined, 4);
+        } else {
+            var json1 = "";
+        }
+
+        if (desc2 != "") {
+            var json2 = JSON.stringify(JSON.parse(desc2), undefined, 4);
+        }else{
+            var json2 = "";
+        }
+
+        $("#myModal").modal("show");
+        setTimeout(function () {
+            output(syntaxHighlight(json1), "dataBefore1");
+            output(syntaxHighlight(json1), "dataBefore2");
+            output(syntaxHighlight(json2), "dataAfter");
+        }, 300);
+        
+    }
+
+    var Column = [
+        { field: "Module", Title: "Module" },
+        { field: "LogTime", Title: "Log Time", template: "<span>#= moment(LogTime).format('DD-MMM-YYYY HH:mm:ss')#</span>" },
+        { field: "Type", Title: "Type" },
+        { field: "Collection", Title: "Affect To" },
+        { field: "", Title: "Action", template: "<span><button onclick='gridClick(\"#:_parentid#\", \"#= moment(LogTime).format('DD-MMM-YYYY HH:mm:ss')#\")'>show data</button></span>" },
+//        { field: "Desc2", Title: "After" },
+    ];
+
+
+    model.RefreshLogBrowser = function () {
+
+        new model.GenerateGrid().Prepare();
+    }
+
+    model.GenerateGrid = function () {
+        var x = model.LogBrowser();
+        var param = {
+            finish: x.FilterDateTo(),
+            start: x.FilterDateFrom(),
+            UserName: x.FilterUsers()
+        };
+        var self = this;
+        $("#grid").replaceWith($('<div />').attr('id', 'grid'));
+        var $grid = $("#grid");
+        var column = Column;
+        self.GridConfig = {
+            dataSource: {
+                transport: {
+
+                    read: function(options){
+                        param.take = options.data.take;
+                        param.skip = options.data.skip;
+                        param.sorts = options.data.sort;
+                        //model.uimodel().processing(true);
+
+                        ajaxPost("@Url.Action("LoadGridData")", param, function (result) {
+                            x.Data(result.Data);
+                            options.success(result);
+                        }, function (data) {
+                            options.error(result);
+                        });
+                    },
+                },
+                schema: {
+                    data: "Data",
+                    total: "Total",
+                    //model: {
+                    //    fields: {
+                    //        "OPStart": { type: "date" },
+                    //        "OPFinish": { type: "date" },
+                    //        "AFEStart": { type: "date" },
+                    //        "AFEFinish": { type: "date" },
+                    //        //"OPSchedule.Finish": { type: "date" },
+                    //    }
+                    //},
+                },
+                pageSize: 10,
+                serverPaging: true, // enable server paging
+                serverSorting: true,
+            },
+            resizable: true,
+            scrollable: true,
+            sortable: true,
+            pageable: {
+                refresh: false,
+                pageSizes: 10,
+                buttonCount: 5
+            },
+            columns:column,
+        };
+
+        self.Prepare = function () {
+            $grid.kendoGrid(self.GridConfig);
+        }
+    }
+
+    model.LogBrowser = ko.observable({
+        Desc1: ko.observable(),
+        Desc2: ko.observable(),
+        JsonDesc1: ko.observable(),
+        JsonDesc2: ko.observable(),
+        DataPopup: ko.observable(""),
+        Data : ko.observableArray([]),
+        Users: ko.observableArray([]),
+        FilterUsers: ko.observableArray([]),
+        FilterDateFrom: ko.observable( new Date()),
+        FilterDateTo: ko.observable(new Date()),
+        SetUsers: function () {
+            var x = model.LogBrowser();
+            ajaxPost("@Url.Action("PopulateUsers", "Comment")", {}, function (data) {
+                //console.log(data);
+                x.Users(data.Data);
+            }, function (data) {
+                console.log(data);
+            });
+        }
+    });
+
+    $(document).ready(function () {
+        input2datePicker($("#df"));
+        input2datePicker($("#dt"));
+        model.LogBrowser().SetUsers();
+        model.RefreshLogBrowser();
+    });
+
+</script>
+
+
+<div style="padding: 0px 15px 15px;">
+
+
+
+    <div class="ec-panel" data-bind="">
+        <div class="ec-toolbar" style="margin-left:15px" data-bind="with:model.LogBrowser">
+            <div class="col-sm-3">
+                <label>Date From:</label><br />
+                <input type="text" class="" placeholder="" id="df" data-bind="value:FilterDateFrom" />
+            </div>
+            <div class="col-sm-3">
+                <label>DateTo:</label><br />
+                <input type="text" class="" placeholder="" id="dt" data-bind="value:FilterDateTo" />
+            </div>
+            <div class="col-sm-3">
+                <label>Users:</label><br />
+                <input type="text" class="" placeholder="Users" id="CommentFilterUsers" data-bind="kendoMultiSelect: { data: Users, dataTextField:'UserName', dataValueField:'UserName', value: FilterUsers, optionLabels: 'Users' }" />
+            </div>
+            <div class="col-sm-3">
+                <button class="btn btn-sm btn-warning" onclick="model.RefreshLogBrowser()"><span class="glyphicon glyphicon-refresh"></span> Refresh</button> 
+            </div>
+
+            <div class="clearfix"></div>
+        </div>
+        <div class="col-md-12 no-padding">
+            @*<div class="grid" id="grid" data-bind="kendoGrid: { data: [], columns:Column, pageable: true, sortable: true, filterable: true, editable: true }"></div>*@
+            <div id="grid" class="grid"></div>
+        </div>
+    </div>
+
+</div>
+
+
+
+
+<div class="modal fade myModal" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                    <h4 class="modal-title">Revision Compare</h4>
+                </div>
+                <div class="modal-body" data-bind="with: model.LogBrowser">
+                    <div class="row">
+                        <!--ko if: DataPopup() != ""-->
+
+                        <!--ko if: DataPopup().Type == 'Insert' || DataPopup().Type == 'Delete'-->
+                        <div class="col-md-12">
+                            <label class="col-md-12" data-bind="text: DataPopup().Type"></label>
+                            @*<textarea style="height: 400px; width: 100%" data-bind="text: Desc1"></textarea>*@
+                            <div style="height: 400px; width: 100%; overflow:auto;">
+                                <pre id="dataBefore1"></pre>
+                            </div>
+                        </div>
+                        <!--/ko-->
+
+                        <!--ko if: DataPopup().Type != 'Insert' && DataPopup().Type != 'Delete'-->
+                        <div class="col-md-6">
+                            <label class="col-md-12">Before</label>
+                            @*<textarea style="height: 400px; width: 100%" data-bind="text: Desc1"></textarea>*@
+                            <div style="height: 400px; width: 100%; overflow:auto;">
+                                <pre id="dataBefore2"></pre>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="col-md-12">After</label>
+                            @*<textarea style="height: 400px; width: 100%; " data-bind="text: Desc2"></textarea>*@
+                            <div style="height: 400px; width: 100%; overflow:auto;">
+                                <pre id="dataAfter"></pre>
+                            </div>
+                        </div>
+                        <!--/ko-->
+
+                        <!--/ko-->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-custom btn-warning" data-dismiss="modal">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

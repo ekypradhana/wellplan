@@ -1,0 +1,449 @@
+﻿
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>PrintDocument</title>
+
+    <script src="@Url.Content("~/Scripts/jquery-2.1.0.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/knockout-3.1.0.js")"></script>
+    <script src="@Url.Content("~/Scripts/knockout.mapping-latest.js")"></script>
+    <script src="@Url.Content("/ecsvc/content/kendoui/js/kendo.all.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/knockout-kendo.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/bootstrap.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/underscore.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/moment.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/color.js")"></script>
+    <script src="@Url.Content("~/Scripts/tools.js")"></script>
+
+    <link href="@Url.Content("~/Content/bootstrap.css")" type="text/css" rel="stylesheet" />
+    <link href="@Url.Content("~/Content/bootstrap-theme.css")" type="text/css" rel="stylesheet" />
+
+    <link rel="stylesheet" href="@Url.Content("/ecsvc/content/kendoui/styles/kendo.material.min.css")" />
+    <link rel="stylesheet" href="@Url.Content("/ecsvc/content/kendoui/styles/kendo.common-bootstrap.min.css")" />
+    <link rel="stylesheet" href="@Url.Content("/ecsvc/content/kendoui/styles/kendo.dataviz.min.css")" />
+    <link rel="stylesheet" href="@Url.Content("/ecsvc/content/kendoui/styles/kendo.dataviz.bootstrap.min.css")" />
+
+    <script src="@Url.Content("~/Scripts/underscore.min.js")"></script>
+    <script src="@Url.Content("~/Content/Js/linq.js")"></script>
+    <script src="@Url.Content("~/Content/Js/ecis_config.js")"></script>
+    <script src="@Url.Content("/ecsvc/content/js/main.js")"></script>
+    <script src="@Url.Content("/ecsvc/content/js/ecis_start.js")"></script>
+
+    <script>
+        var model = {};
+        model.IsProcessing = ko.observable(true);
+        model.PrintModel = {
+            WellActivityData: ko.observable(""),
+            WellActivityUpdateData: ko.observable(""),
+            WellInfoData: ko.observable(""),
+            OriginalSpudDate: ko.observable(""),
+            EventStartDate: ko.observable(""),
+            UpdateVersion: ko.observable(""),
+            AFECost: ko.observable(""),
+            AFEDays: ko.observable(""),
+            ActualDays: ko.observable(""),
+            ActualCost: ko.observable(""),
+            EOWLECost: ko.observable(""),
+            EOWLEDays: ko.observable("")
+        };
+    </script>
+
+    <link rel="stylesheet" href="@Url.Content("~/Content/Site.css")" />
+    <link rel="stylesheet" href="@Url.Content("~/Content/custom.css")" />
+
+    <style type="text/css" media="all">
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #FFFFFF;
+            font: 12pt "Calibri";
+        }
+
+        * {
+            box-sizing: border-box;
+            -moz-box-sizing: border-box;
+        }
+
+        .page {
+            width: 21cm;
+            min-height: 29.7cm;
+            padding: 0.1cm;
+            margin: 1cm auto;
+            /*border: 1px #D3D3D3 solid;
+            border-radius: 5px;*/
+            background: white;
+            /*box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);*/
+        }
+
+        .subpage {
+            padding: 0.1cm;
+            /*border: 1px black solid;*/
+            height: 276mm;
+            /*outline: 2cm #FFEAEA solid;*/
+        }
+
+        .bg_grey{
+            /*background-color:grey;*/
+        }
+        
+        .title{
+            background-color:lightgrey;
+            font-weight:bold;
+        }
+
+        td{
+            padding:0px 3px 0px 3px;
+        }
+
+    </style>
+
+</head>
+<body data-bind="with:model">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div class="book" data-bind="with:PrintModel,visible: !model.IsProcessing()">
+        <div class="page">
+            <div class="subpage">
+                <div>
+                    <div style="margin-bottom:5px;">
+                        <div style="text-align:center;">
+                            <table width="100%">
+                                <tr>
+                                    <td style="width:25%">&nbsp;</td>
+                                    <td style="width:50%;text-align:center;">
+                                        <p style="font-weight: bold; font-size: 20px;">Monthly LE</p>
+                                        <p id="" style="font-weight:bold;font-size:20px;" data-bind="text:WellActivityUpdateData().WellName"></p>
+                                        <p id="date_act" style="font-weight: bold; font-size: 20px;">Date : <span data-bind="text:WellActivityUpdateData().UpdateVersion"></span></p>
+                                    </td>
+                                    <td style="width:25%">
+                                        <img src="@Url.Content("~/Content/Images/shell-logo.png")"
+                                             align="middle" height="60"
+                                             border="0" />
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <h3></h3>
+
+                    <div data-bind="with:WellActivityUpdateData">
+                        <div style="float:left;width:50%">
+                            <table>
+                                <tr>
+                                    <td class="bg_grey">Company</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="company" data-bind="text:Company"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Project</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="project" data-bind="text:Project"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Site</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="site" data-bind="text:Site"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Well</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="well" data-bind="text:WellName"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Well Type</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="well_type" data-bind="text:WellType"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Event Type</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="event_type" data-bind="text:EventType"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Objective</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="objective" data-bind="text:Objective"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Activities Start Date</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="event_start_date" data-bind="text:EventStartDate"></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div style="float:left;width:50%">
+                            <table>
+                                <tr>
+                                    <td class="bg_grey">Contractor</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="contractor" data-bind="text:Contractor"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Work Unit</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="work_unit" data-bind="text:WorkUnit"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Rig Superintendent</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="rig_superintendent" data-bind="text:RigSuperintendent"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Well Engineer</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="well_engineer" data-bind="text:LeadEngineer"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Original Spud Date</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="original_spud_date" data-bind="text:OriginalSpudDate"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Days Since Spud</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="days_since_spud"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Days on Location</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="days_on_location"></td>
+                                </tr>
+                                <tr>
+                                    <td class="bg_grey">Estimated Days</td>
+                                    <td class="bg_grey">:</td>
+                                    <td id="estimated_days"></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div style="clear:both;"></div>
+                    </div>
+
+                    <div style="margin-top:25px;">
+                        <table style="width:100%;" border="1">
+                            <tr>
+                                <td style="text-align:center;font-weight:bold;">OPERATIONS SUMMARY</td>
+                            </tr>
+                            <tr>
+                                <td class="title">LAST 7 DAYS SUMMARY</td>
+                            </tr>
+                            <tr>
+                                <td><div id="last_7_days_summary" style="min-height:100px;" data-bind="text:WellActivityUpdateData().OperationSummary"></div></td>
+                            </tr>
+                            <tr>
+                                <td class="title">PLANNED OPERATIONS</td>
+                            </tr>
+                            <tr>
+                                <td><div id="planned_operations" style="min-height:100px;" data-bind="text:WellActivityUpdateData().PlannedOperation"></div></td>
+                            </tr>
+                            <tr>
+                                <td class="title">EXECUTIVE SUMMARY</td>
+                            </tr>
+                            <tr>
+                                <td><div id="executive_summary" style="min-height:100px;" data-bind="text:WellActivityUpdateData().ExecutiveSummary"></div></td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div style="margin-top:25px;">
+                        <table style="width:100%;" border="1">
+                            <tr>
+                                <td colspan="4" style="text-align:center;font-weight:bold;">PERFORMANCE METRICS</td>
+                            </tr>
+                            <tr>
+                                <td class="title" style="text-align:center;width:50%;" colspan="2">Cost</td>
+                                <td class="title" style="text-align: center; width: 50%;" colspan="2">Days</td>
+                            </tr>
+                            <tr>
+                                <td style="width:10%;">AFE</td>
+                                <td id="afe_cost" data-bind="text:AFECost">&nbsp;</td>
+                                <td style="width:10%;">AFE</td>
+                                <td id="afe_days" data-bind="text:AFEDays">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td>Actual</td>
+                                <td id="actual_cost" data-bind="text:ActualCost">&nbsp;</td>
+                                <td>Actual</td>
+                                <td id="actual_days" data-bind="text:ActualDays">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td>EOW LE</td>
+                                <td id="eow_le_cost" data-bind="text:EOWLECost">&nbsp;</td>
+                                <td>EOW LE</td>
+                                <td id="eow_le_days" data-bind="text:EOWLEDays">&nbsp;</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div style="margin-top:25px;">
+                        <style>
+                            .table_pip thead tr td {
+                                text-align: center;
+                                font-weight: bold;
+                            }
+
+                            .table_pip tbody tr td {
+                                text-align: right;
+                            }
+                        </style>
+                        <table width="100%" border="1" class="table_pip" data-bind="with:WellActivityUpdateData">
+                            <thead>
+                                <tr>
+                                    <td colspan="12" style="text-align:center;font-weight:bold;">PERFORMANCE IMPROVEMENT PLAN</td>
+                                </tr>
+                                <tr>
+                                    <td rowspan="3" style="width:15%;">Theme</td>
+                                    <td rowspan="3" style="width:11%;">Completion</td>
+                                    <td colspan="5">Days</td>
+                                    <td colspan="5">Cost</td>
+                                </tr>
+                                <tr>
+                                    <td rowspan="2">Plan</td>
+                                    <td colspan="2">Improvement</td>
+                                    <td colspan="2">Risk</td>
+                                    <td rowspan="2">Plan</td>
+                                    <td colspan="2">Improvement</td>
+                                    <td colspan="2">Risk</td>
+                                </tr>
+                                <tr>
+                                    <td>Last<br />Week</td>
+                                    <td>Current</td>
+                                    <td>Last<br />Week</td>
+                                    <td>Current</td>
+                                    <td>Last<br />Week</td>
+                                    <td>Current</td>
+                                    <td>Last<br />Week</td>
+                                    <td>Current</td>
+                                </tr>
+                            </thead>
+                            <tbody id="elements" data-bind="foreach:Elements">
+                                <tr>
+                                    <td style="text-align:left;" data-bind="text:Title"></td>
+                                    <td data-bind="text:Completion"></td>
+                                    <td data-bind="text:DaysPlanImprovement"></td>
+                                    <td data-bind="text:DaysLastWeekImprovement"></td>
+                                    <td data-bind="text:DaysActualImprovement"></td>
+                                    <td data-bind="text:DaysLastWeekRisk"></td>
+                                    <td data-bind="text:DaysActualRisk"></td>
+                                    <td data-bind="text:CostPlanImprovement"></td>
+                                    <td data-bind="text:CostLastWeekImprovement"></td>
+                                    <td data-bind="text:CostActualImprovement"></td>
+                                    <td data-bind="text:CostLastWeekRisk"></td>
+                                    <td data-bind="text:CostActualRisk"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+
+</body>
+</html>
+
+<script>
+        function selectById() {
+                var id = '@ViewBag.Id';
+                var url = "@Url.Action("Select")";
+                ajaxPost(url, { id: id },
+                    function (data) {
+                        //console.log(data);
+                        data.Data.UpdateVersion = jsonDateStr(data.Data.UpdateVersion);
+                        data.Data.OriginalSpudDate = jsonDateStr(data.Data.OriginalSpudDate);
+                        data.Data.EventStartDate = jsonDateStr(data.Data.EventStartDate);
+                        model.PrintModel.WellActivityUpdateData(data.Data);
+                        
+                        
+                        model.PrintModel.AFECost(number_format(data.Data.AFE.Cost));
+                        model.PrintModel.ActualCost(number_format(data.Data.Actual.Cost));
+                        model.PrintModel.AFEDays(data.Data.AFE.Days);
+                        model.PrintModel.ActualDays(data.Data.Actual.Days);
+                        model.PrintModel.EOWLECost(number_format(data.Data.CurrentWeek.Cost));
+                        model.PrintModel.EOWLEDays(data.Data.CurrentWeek.Days);
+                        //console.log(model.PrintModel.WellActivityUpdateData());
+                        model.IsProcessing(false);
+                        window.print();
+                    },
+                    function (err) {
+                        alert(err.responseText)
+                    });
+            }
+
+
+            
+
+            //function show_data_pip(WellPIPData) {
+            //    //console.log(WellPIPData);
+            //    if(WellPIPData != null){
+            //        var dataPIP = WellPIPData.Elements;
+            //        //console.log(dataPIP)
+            //        for (var i = 0; i < dataPIP.length; i++) {
+            //            var td = '<tr><td style="text-align:left;">' + dataPIP[i].Title + '</td>' +
+            //                      '<td>' + dataPIP[i].Completion + '</td>' +
+            //                      '<td>' + dataPIP[i].DaysPlanImprovement + '</td>' +
+            //                      '<td>' + dataPIP[i].DaysLastWeekImprovement + '</td>' +
+            //                      '<td>' + dataPIP[i].DaysActualImprovement + '</td>' +
+            //                      '<td>' + dataPIP[i].DaysLastWeekRisk + '</td>' +
+            //                      '<td>' + dataPIP[i].DaysActualRisk + '</td>' +
+            //                      '<td>' + dataPIP[i].CostPlanImprovement + '</td>' +
+            //                      '<td>' + dataPIP[i].CostLastWeekImprovement + '</td>' +
+            //                      '<td>' + dataPIP[i].CostActualImprovement + '</td>' +
+            //                      '<td>' + dataPIP[i].CostLastWeekRisk + '</td>' +
+            //                      '<td>' + dataPIP[i].CostActualRisk + '</td></tr>';
+            //            $("#elements").append(td);
+            //        }
+            //    }
+
+            //    window.print();
+            //}
+
+            $(document).ready(function () {
+                selectById();
+            });
+
+    function number_format(number1) {
+        //alert("format:" + number1);
+        //var number = number1.replaceAll('.', '');
+        number = number1;
+        var decimals = 1;
+        var dec_point = ",";
+        var thousands_sep = ".";
+        number = (number + '')
+          .replace(/[^0-9+\-Ee.]/g, '');
+        var n = !isFinite(+number) ? 0 : +number,
+          prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
+          sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
+          dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
+          s = '',
+          toFixedFix = function (n, prec) {
+              var k = Math.pow(10, prec);
+              return '' + (Math.round(n * k) / k)
+                .toFixed(prec);
+          };
+        // Fix for IE parseFloat(0.55).toFixed(0) = 0;
+        s = (prec ? toFixedFix(n, prec) : '' + Math.round(n))
+          .split('.');
+        if (s[0].length > 3) {
+            s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, sep);
+        }
+        if ((s[1] || '')
+          .length < prec) {
+            s[1] = s[1] || '';
+            s[1] += new Array(prec - s[1].length + 1)
+              .join('0');
+        }
+        //alert (s.join(dec));
+        return s.join(dec);
+    }
+
+    ko.applyBindings(model);
+</script>

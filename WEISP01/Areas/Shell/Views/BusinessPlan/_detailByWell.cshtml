@@ -1,0 +1,444 @@
+﻿@using ECIS.Client.WEIS
+@using ECIS.Core
+@using Newtonsoft.Json
+<script>
+    model.AddNewDetail = ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new PlanSimulationBucket()))));
+
+    model.bpmodel().MoveToNearestDate = ko.observable(false);
+    model.bpmodel().simulationDetailEventColumns = [
+                        { field: "Check", title: "&nbsp;", editor: nonEditor, template: "<div style='text-align: center'><button onclick='DeleteDetailSimulation(\"#= _id #\")' class='btn btn-custom btn-danger btn-xs' style=#: model.Locked()==false ? '' : 'display:none;' #><span class='glyphicon glyphicon-remove-circle'></span> Delete</button></div>", width: 80 },
+                        { field: "ActivityType", title: "Activities", editor: nonEditor, width: 180 },
+                        { field: "WellName", title: "Well", editor: nonEditor, width: 175 },
+                        { field: "RigName", title: "Rig Name", editor: EditorDropDown, width: 175 },
+                        {
+                            title: "Simulation",
+                            headerAttributes: { style: "text-align: center;" },
+                            columns: [
+                                { field: "SimSchedule.Start", title: "Start", editor: EditorDate, template: "#=moment(SimSchedule.Start).format('DD-MMM-YYYY') #", attributes: { style: "text-align: right;" }, headerAttributes: { style: "text-align: center;" }, width: 90 },
+                                { field: "SimSchedule.Finish", title: "Finish", editor: EditorDate, template: "#=moment(SimSchedule.Finish).format('DD-MMM-YYYY')#", attributes: { style: "text-align: right;" }, headerAttributes: { style: "text-align: center;" }, width: 90 },
+                                { field: "Sim.Days", title: "Days", editor: EditorNumberWithEventChange, attributes: { style: "text-align: right;" }, headerAttributes: { style: "text-align: center;" }, width: 60 },
+                                { field: "Sim.Cost", title: "Cost <br /> (US$m)", editor: EditorNumber, attributes: { style: "text-align: right;" }, headerAttributes: { style: "text-align: center;" }, width: 60, template: "#= kendo.toString(Sim.Cost, 'N2')#" }
+                            ]
+                        },
+                        {
+                            title: "OP",
+                            headerAttributes: { style: "text-align: center;" },
+                            columns: [
+                                { field: "OP.Days", title: "Days", editor: nonEditor, attributes: { style: "text-align: right;" }, headerAttributes: { style: "text-align: center;" } },
+                                { field: "OP.Cost", title: "Cost <br /> (US$m)", editor: nonEditor, attributes: { style: "text-align: right;" }, headerAttributes: { style: "text-align: center;" }, template: "#= kendo.toString(OP.Cost, 'N2')#" }
+                            ]
+                        },
+                        {
+                            title: "LS",
+                            headerAttributes: { style: "text-align: center;" },
+                            columns: [
+                                { field: "LS.Days", title: "Days", editor: nonEditor, attributes: { style: "text-align: right;" }, headerAttributes: { style: "text-align: center;" } },
+                                { field: "LS.Cost", title: "Cost <br /> (US$m)", editor: nonEditor, attributes: { style: "text-align: right;" }, headerAttributes: { style: "text-align: center;" }, template: "#= kendo.toString(LS.Cost, 'N2')#" }
+                            ]
+                        },
+                        {
+                            title: "LE",
+                            headerAttributes: { style: "text-align: center;" },
+                            columns: [
+                                { field: "LE.Days", title: "Days", editor: nonEditor, attributes: { style: "text-align: right;" }, headerAttributes: { style: "text-align: center;" } },
+                                { field: "LE.Cost", title: "Cost <br /> (US$m)", editor: nonEditor, attributes: { style: "text-align: right;" }, headerAttributes: { style: "text-align: center;" }, template: "#= kendo.toString(LE.Cost, 'N2')#" }
+                            ]
+                        }
+    ];
+
+    function addDays(date, days) {
+        var result = new Date(date);
+        result.setDate(result.getDate() + days);
+        return result;
+    }
+
+    function setTheDate(index, dom) {
+        var spanEdit = "<span class='k-dirty'></span>";
+        var a = $("#gridDetailEvent").data("kendoGrid");
+        var data = a.dataSource.data()[index];
+        var dataPristine = a.dataSource._pristineData[index];
+        var theDate = moment(dataPristine.SimSchedule.Finish).toDate();
+        var dateMinus = parseInt(data.Sim.Days) - parseInt(dataPristine.Sim.Days);
+        var modifDate = addDays(theDate, dateMinus);
+        data.set("SimSchedule.Finish", modifDate);
+        var ct = $("#gridDetailEvent").find(".k-grid-content");
+        var trs = $(ct).find("tbody").find("tr");
+        var tr = $(trs[0]).children();
+        $(tr[5]).html(spanEdit + $(tr[5]).html());
+        $(tr[6]).html(spanEdit + $(tr[6]).html());
+    }
+
+    function setDay(index) {
+        var a = $("#gridDetailEvent").data("kendoGrid");
+        var data = a.dataSource.data()[index];
+        var dateStart = moment(data.SimSchedule.Start).toDate();
+        var dateFinish = moment(data.SimSchedule.Finish).toDate();
+        var oneDay = 24 * 60 * 60 * 1000;
+        var theDays = Math.round(Math.abs((dateStart.getTime() - dateFinish.getTime()) / (oneDay)));
+        data.set("Sim.Days", theDays + 1);
+    }
+
+    function EditorDate(container, options) {
+        $('<input data-bind="value:' + options.field + '"/>')
+        .appendTo(container)
+        .kendoDatePicker({
+            format: "dd-MMM-yyyy",
+            change: function () {
+                setTimeout(function() {
+                    setDay(container.parent().index());
+                }, 10);
+            }
+        });
+    }
+
+    function nonEditor(container, options) {
+        if (options.field.split(".").length == 2) {
+            container.text(options.model[options.field.split(".")[0]][options.field.split(".")[1]]);
+        } else {
+            container.text(options.model[options.field]);
+        }
+    }
+
+    function EditorNumberWithEventChange(container, options) {
+        $('<input data-bind="value:' + options.field + '"/>')
+        .appendTo(container)
+        .kendoNumericTextBox({
+            format: "N0",
+            step: 1,
+            change: function () {
+                setTimeout(function () {
+                    setTheDate(container.parent().index(), container);
+                }, 10);
+            }
+        });
+    }
+
+    function EditorNumber(container, options) {
+        $('<input data-bind="value:' + options.field + '"/>')
+        .appendTo(container)
+        .kendoNumericTextBox({
+            format: "N2",
+            step: 1
+        });
+    }
+
+    function EditorDropDown(container, options) {
+        $('<input data-bind="value:' + options.field + '"/>')
+        .appendTo(container)
+        .kendoDropDownList({
+            dataSource: model.bpmodel().RigName()
+        });
+    }
+
+    addEvent = function () {
+        $("#modal-add-event").modal("show");
+        $("#modal-add-event [name='Event']").data("kendoDropDownList").enable(true);
+        model.AddNewDetail(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new PlanSimulationBucket()))));
+        model.AddNewDetail().SimulationId(model.SimulationId());
+        model.AddNewDetail().WellName(model.SimulationWellName());
+        model.AddNewDetail().SimSchedule.Start(new Date());
+        model.AddNewDetail().SimSchedule.Finish(new Date());
+    };
+    
+    function DeleteDetailSimulation(id) {
+        //alert(id);
+        ajaxPost("@Url.Action("DeleteDetailSimulation")", { BucketId: id },
+            function(res) {
+                if (res.Result != "OK") {
+                    alert("Error when delete. " + res.Message);
+                    return;
+                }
+                GetDetailByWell(model.SimulationWellName());
+                alert("Detail Simulation Deleted!");
+            }    
+        )
+    }
+
+    function RefreshDataDetailSimulation() {
+        GetDetailByWell(model.SimulationWellName());
+    }
+
+    function ChangeDateModal(th) {
+        console.log(th);
+    }
+
+    function SaveSingleDetailSimulation() {
+        //var vl = $("#FormInputDetail").kendoValidator().data("kendoValidator");
+        //if (!vl.validate()) {
+        //    return;
+        //}
+
+        var a = $("#gridDetailEvent").data("kendoGrid");
+        var datas = [];
+        var e = model.AddNewDetail();
+        e.SimSchedule.Start(moment(e.SimSchedule.Start()).format("DD-MMM-YYYY"));
+        e.SimSchedule.Finish(moment(e.SimSchedule.Finish()).format("DD-MMM-YYYY"));
+        if (e.RigName() == "" || e.RigName() == null) {
+            alert("Rig Name cannot be null");
+            return;
+        }
+        if (e.ActivityType() == "" || e.ActivityType() == null) {
+            alert("Event cannot be null");
+            return;
+        }
+
+        datas.push(e);
+        ajaxPost("@Url.Action("SaveDetailSimulation")", { ListBucket: datas, MoveToNearestDate: model.bpmodel().MoveToNearestDate() },
+            function(res) {
+                if (res.Result != "OK") {
+                    alert("Error saving detail simulation. " + res.Message);
+                    return;
+                }
+
+                if (model.AddNewDetail()._id() == null || model.AddNewDetail()._id() == "") {
+                    GetDetailByWell(model.SimulationWellName());
+                    alert("Detail Simulation Created!");
+                } else {
+                    alert("Changes Saved!");
+                    if (model.bpmodel().mode() == 'detailSimulation') {
+                        model.SequenceChart.reloadData();
+                    }
+                }
+
+                $("#modal-add-event").modal("hide");
+            }
+        );
+    }
+
+    function SaveDetailSimulation() {
+        var a = $("#gridDetailEvent").data("kendoGrid");
+        var datas = a.dataSource._data;
+        var prsDatas = a.dataSource._pristineData;
+        var dataChange = [];
+        datas.forEach(function (e, idx) {
+            console.log(prsDatas[idx]);
+            e.OPSchedule.Start = moment(e.OPSchedule.Start).format("DD-MMM-YYYY");
+            e.OPSchedule.Finish = moment(e.OPSchedule.Finish).format("DD-MMM-YYYY");
+            e.LESchedule.Start = moment(e.LESchedule.Start).format("DD-MMM-YYYY");
+            e.LESchedule.Finish = moment(e.LESchedule.Finish).format("DD-MMM-YYYY");
+            e.LSSchedule.Start = moment(e.LSSchedule.Start).format("DD-MMM-YYYY");
+            e.LSSchedule.Finish = moment(e.LSSchedule.Finish).format("DD-MMM-YYYY");
+            e.SimSchedule.Start = moment(e.SimSchedule.Start).format("DD-MMM-YYYY");
+            e.SimSchedule.Finish = moment(e.SimSchedule.Finish).format("DD-MMM-YYYY");
+            if (
+                prsDatas[idx].RigName != e.RigName 
+                //|| moment(prsDatas[idx].SimSchedule.Start).format("DD MMM YYYY") != moment(e.SimSchedule.Start).format("DD MMM YYYY")
+                //|| moment(prsDatas[idx].SimSchedule.Finish).format("DD MMM YYYY") != moment(e.SimSchedule.Finish).format("DD MMM YYYY")
+                || parseInt(prsDatas[idx].Sim.Days) != parseInt(e.Sim.Days)
+                || parseInt(prsDatas[idx].Sim.Cost) != parseInt(e.Sim.Cost)
+                ) {
+                dataChange.push(e);
+            }
+            console.log(prsDatas[idx].RigName + "||" + prsDatas[idx].RigName);
+            console.log(prsDatas[idx].Sim.Days + "||" + prsDatas[idx].Sim.Days);
+            console.log(prsDatas[idx].Sim.Cost + "||" + prsDatas[idx].Sim.Cost);
+        });
+
+        if (dataChange.length == 0) {
+            alert("No Changes were made");
+            return;
+        }
+
+        ajaxPost("@Url.Action("SaveDetailSimulation")", { ListBucket: dataChange },
+            function(res) {
+                if (res.Result != "OK") {
+                    alert("Error saving detail simulation. " + res.Message);
+                    return;
+                }
+                GetDetailByWell(model.SimulationWellName());
+                alert("Detail Simulation Saved!");
+            }
+        );
+    }
+
+    $(function () {
+        $("#modal-add-event").appendTo($("#modal-add-event").parent().parent());
+    });
+</script>
+<div class="ec-panel">
+    <div>
+        <div class="col-md-12 no-padding">
+            <div class="col-md-8">
+                <span class="PSTitle" data-bind="text:model.EventTitle()"></span>
+            </div>
+            <div class="col-md-4 no-padding" style="text-align:right">
+                <button class="btn btn-warning btn-sm btn-custom" onclick="model.bpmodel().detail(model.SimulationId())">Back To List</button>
+                <button id="saveEvent" class="btn btn-success btn-sm btn-custom" onclick="SaveDetailSimulation()">Save Changes</button>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+    <div class="clearfix"></div>
+    <div style="display: none">
+        <div class="row" style="margin-top:15px;">
+            <div class="col-md-6">
+                <div class="col-md-4 text-right">
+                    <label>Rig Name:</label>
+                </div>
+                <div class="col-md-8">
+                    <input type="text" data-bind="kendoDropDownList:{data:['Brutus','Auger']}" />
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="col-md-4 text-right">
+                    <label>Level of Estimate:</label>
+                </div>
+                <div class="col-md-8">
+                    <input type="text" data-bind="kendoDropDownList:{data:[0,1,2,3,4]}" />
+                </div>
+            </div>
+        </div>
+
+        <div class="row" style="margin-top:5px;">
+            <div class="col-md-6">
+                <div class="col-md-4 text-right">
+                    <label>Expense Type:</label>
+                </div>
+                <div class="col-md-8">
+                    <input type="text" data-bind="kendoDropDownList:{data:['EXPEX','APEX','CAPEX', 'OPEX']}" />
+                </div>
+            </div>
+        </div>
+
+        <div class="row" style="margin-top:5px;">
+            <div class="col-md-6">
+                <div class="col-md-4 text-right">
+                    <label>Simulation Days:</label>
+                </div>
+                <div class="col-md-8">
+                    <input type="number" data-bind="kendoNumericTextBox:{value:0, step:1, min:1, format:'N0'}" />
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="col-md-4 text-right">
+                    <label>Simulation Cost:</label>
+                </div>
+                <div class="col-md-8">
+                    <input type="number" data-bind="kendoNumericTextBox:{value:0, step:1, min:1, format:'N0'}" />
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-add-event" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" style="width: 600px;">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h6 class="modal-title" style="font-size: 16px; font-weight: bold;" data-bind="text: model.SimulationWellName"></h6>
+            </div>
+
+            <div class="modal-body" id="FormInputDetail" data-bind="with: model.AddNewDetail">
+                <div class="row" style="margin-top:15px;">
+                    <div class="col-md-6">
+                        <div class="col-md-4 text-right">
+                            <label>Rig Name:</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" type="text" name="Rig Name" required data-bind="kendoDropDownList:{data:model.bpmodel().RigName, value: RigName, optionLabel: 'Select Rig Name'}" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="col-md-4 text-right">
+                            <label>Activities:</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" type="text" name="Event" required data-bind="kendoDropDownList:{data:model.bpmodel().ActivityType, value: ActivityType, optionLabel: 'Select Event'}" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row" style="margin-top:25px; font-size: 15px" data-bind="visible: false">
+                    <h2>Simulation</h2>
+                </div>
+
+                <div class="row" style="margin-top:10px;">
+                    <div class="col-md-6">
+                        <div class="col-md-4 text-right">
+                            <label>Start Date:</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" type="text" name="Start Date" required data-bind="kendoDatePicker:{value:SimSchedule.Start, format:'{0:dd-MMM-yyyy}', change: ChangeDateModal}" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="col-md-4 text-right">
+                            <label>Finish Date:</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" type="text" name="Finish Date" required data-bind="kendoDatePicker:{value:SimSchedule.Finish, format:'{0:dd-MMM-yyyy}', change: ChangeDateModal}" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row" style="margin-top:10px; display: none">
+                    <div class="col-md-6">
+                        <div class="col-md-4 text-right">
+                            <label>Simulation Days:</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" type="number" data-bind="kendoNumericTextBox:{value:0, step:1, min:1, format:'N0'}" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="col-md-4 text-right">
+                            <label>Simulation Cost:</label>
+                        </div>
+                        <div class="col-md-8">
+                            <input style="width: 100%;" type="number" data-bind="kendoNumericTextBox:{value:0, step:1, min:1, format:'N0'}" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row" data-bind="visible: (_id() != null)">
+                    <div class="col-md-6">
+                        <div class="col-md-4">&nbsp;</div>
+                        <div class="col-md-8">
+                            <input type="checkbox" data-bind="checked: model.bpmodel().MoveToNearestDate" />
+                            <label>Move nearest date ?</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">&nbsp;</div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                @*<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>*@
+                <button type="button" class="btn btn-primary" onclick="SaveSingleDetailSimulation()">Save changes</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<hr />
+<div class="ec-panel">
+    <div class="ec-toolbar">
+        <div class="col-md-3">
+            <div class="col-md-4 row">
+                <label>Search :</label>
+            </div>
+            <div class="col-md-8 row">
+                <input type="text" class="text search" style="width:200px;" />
+            </div>
+        </div>
+        <div class="col-md-9">
+            <div class="col-md-12 row">
+                <button class="btn btn-primary btn-sm btn-custom" data-bind="click: function(){ RefreshDataDetailSimulation() }">
+                    <span class="glyphicon glyphicon-refresh"></span> Refresh
+                </button>
+                <button id="addeventwell" class="btn btn-success btn-sm btn-custom" onclick="addEvent()">
+                    <span class="glyphicon glyphicon-plus"></span> Add Event
+                </button>
+            </div>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="col-md-12 no-padding" style="margin-top:10px;">
+        <div class="grid" id="gridDetailEvent" data-bind="kendoGrid: { data: [], columns: model.bpmodel().simulationDetailEventColumns, pageable: true, sortable: false, filterable: false, editable: true, resizable: true}"></div>
+    </div>
+</div>

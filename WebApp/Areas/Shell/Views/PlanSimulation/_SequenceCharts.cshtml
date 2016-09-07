@@ -1,0 +1,1840 @@
+﻿@*@{
+    ViewBag.Title = "Sequence Charts";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}*@
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+<script>
+    model.SequenceChart = {};
+    model.SequenceChart.IsSequenceProcessing = ko.observable(false);
+</script>
+
+<style>
+    html { overflow-y: scroll; }
+    .report .row { position: relative; }
+
+    .content-report { background-color: #Fcfcfc; }
+
+    .container-report { overflow-x: scroll; margin: 0px; padding: 0px; margin-left: 209px; }
+    .container-header { width: 210px; position: absolute; left: 0px; top: 0px; border: 1px solid #e5e5e5; padding: 0px; z-index: 3; background-color: #FAFAFA; }
+    .container-header, .container-header *, .container-report, .container-report * { box-sizing: border-box; }
+    .container-header .each.rigname { border-top: 0px; text-align: center; font-size: 20px; background-color: rgb(242, 242, 242); }
+    .container-header .each { padding: 5px; display: table; border-top: 1px solid #e5e5e5; font-weight: bold; width: 100%; overflow: auto !important; }
+    .container-header .each.item { height: 28px !important; }
+    .container-header .each.item.same-calendar { border-bottom: 1px solid #e5e5e5; }
+    .container-header .each.planning-sequence, .container-header .each.item, .container-header .each.item { position: relative; }
+    .container-header .each.planning-sequence:after, .container-header .each.item-current-week:after { top: -2px !important; }
+    .container-header .each.planning-sequence:after, .each-planning-sequence:after, .container-header .each.item-current-week:after, .each-current-week:after { content: " "; position: absolute; height: 2px; background-color: rgb(42, 42, 42); left: 0px; right: 0px; top: 0px; }
+    .each-year .each, .each-month .each, .each-weekday .each, .each-ops-sequence .each, .each-planning-sequence .each, .each-current-week .each, .each-last-week .each { text-transform: capitalize; float: left; text-align: center; }
+    .each-year .each:hover, .each-month .each:hover, .each-weekday .each:hover { background-color: #f1f1f1; opacity: 0.8; }
+    .each-year .each, .each-month .each, .each-weekday .each { padding: 5px; height: 26px; border-top: 1px solid #e5e5e5; border-left: 1px solid #e5e5e5; }
+    .each-year .each.last, .each-month .each.last, .each-weekday .each.last { border-right: 1px solid #e5e5e5; }
+
+    .each-ops-sequence, .each-planning-sequence, .each-last-week, .each-current-week { position: relative; color: white; }
+    .each-ops-sequence .each, .each-planning-sequence .each, .container-header .each { height: 70px; overflow: hidden; }
+    .each-ops-sequence .each div, .each-planning-sequence .each div { padding: 0px 5px; }
+    .each-ops-sequence .each div, .each-planning-sequence .each div, .each-current-week .each div, .each-last-week .each div { position: relative; display: table; height: 100%; width: 100%; }
+    .each-ops-sequence .each span, .each-planning-sequence .each span, .each-current-week .each span, .each-last-week .each span, .container-header .each span { display: table-cell; vertical-align: middle; } 
+    .each-ops-sequence, .each-planning-sequence { height: 70px; }
+    .each-ops-sequence .each, .each-planning-sequence .each { position: absolute; }
+    .each-ops-sequence .each, .each-planning-sequence .each, .each-current-week .each, .each-last-week .each { border-left: 1px solid #e5e5e5; border-top: 1px solid #e5e5e5; }
+
+    .each-planning-sequence .each.a-month { position: absolute; z-index: 2; background-color: white; }
+    .each-planning-sequence .each div { height: 35px; position: absolute; }
+    .each-planning-sequence .each div.up { top: 0px; }
+    .each-planning-sequence .each div.bottom { top: 35px; }
+
+    .each-current-week, .each-last-week { height: 28px; position: relative; }
+    .each-current-week .each, .each-last-week .each { position: absolute; bottom: 0px; top: 0px; overflow: hidden; }
+
+    .each-item .item { height: 28px; background-color: #f9ead4; font-size: 15px; color: #5f5f5f; }
+    .each-item .item.first { background-color: #ddd2e2; padding: 5px 11px; }
+    .each-item .item .actual { display: block; background-color: #f39c12; height: 100%; padding: 5px 10px; color: white; }
+
+    .tab-pane { padding: 15px; }
+    .clear { clear: both; }
+
+    .filter-sequence.disabled { opacity: 0.6; pointer-events: none; }
+    .filter-sequence { margin-top: 10px; margin-bottom: 10px; padding-left: 0px; }
+    .filter-sequence .col-md-3, .filter-sequence .col-md-4 { padding: 0px; margin: 0px; }
+    .filter-sequence .col-md-4 { text-align: right; }
+    .filter-sequence .col-md-4, .filter-sequence .col-md-8 { min-height: 28px; }
+    .filter-sequence .col-md-4 label { padding-top: 4px; }
+    .filter-sequence .col-md-8 { padding-left: 6px; padding-right: 6px; text-align: left; }
+    .filter-sequence .col-md-sequence { width: 170px; float: left; }
+    .filter-sequence .col-md-sequence .col-md-4 { width: 120px; }
+    .filter-sequence .col-md-sequence .col-md-8 { width: 28px; }
+    .filter-sequence input[type=checkbox] { margin-top: 6px; }
+    .filter-sequence .button { text-align: right; position: absolute; top: 0px; right: 0px; }
+    .filter-sequence .trim { position: absolute; top: 28px; left: 9px; right: 0px; }
+    .filter-sequence .trim input { height: 23px; }
+
+    .tt:before { width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-right: 6px solid #333; content: ""; left: -6px; position: absolute; z-index: 99; top: 4px; }
+    .tt { top: 36px; display: none; position: absolute; z-index: 10000; background-color: #333; color: white; padding: 5px 10px 4px; border-radius: 3px; max-width: 220px; text-align: center; }
+
+    .jspHorizontalBar, .jspVerticalBar { background-color: transparent; z-index: 6; }
+    .jspTrack { border-radius: 7px; background-color: #E0E0E0; }
+    .jspDrag { border-radius: 7px; background-color: #428BCA; }
+
+    .each-planning-sequence .each.ui-draggable { z-index: 3; cursor: move; border-color: rgb(255, 255, 255); }
+    .each-planning-sequence .each.ui-resizable { z-index: 3; cursor: e-resize; border-color: rgb(255, 255, 255); }
+    .each-planning-sequence .each .configure { width: 30px; height: 34px; position: absolute; right: 0px; padding: 0px; z-index: 2; cursor: pointer; }
+    .each-planning-sequence .each .configure .glyphicon { color: black; }
+
+    .configure-ops-modal { height: 105px; width: 80px; background-color: #F2F2F2; left: 660px; z-index: 2; border: 1px solid #2A2A2A; position: absolute; padding: 3px; top: 151px; }
+    .configure-ops-modal:after { position: absolute; left: -11px; top: 4px; content: " "; width: 0; height: 0; border-top: 10px solid transparent; border-bottom: 10px solid transparent; border-right: 10px solid #2A2A2A; }
+    .configure-ops-modal button { display: block; width: 100%; margin-bottom: 3px; border-radius: 0px !important; }
+
+    [data-sequence-chart-model="trim"] { padding-left: 4px; }
+    .drag-mode .configure { visibility: hidden; }
+
+    .drag-info { position: absolute; padding: 6px; border-left: 1px solid #428BCA; z-index: 1; color: white; font-weight: bold; min-width: 135px; }
+    .drag-info:after { background-color: #428BCA; content: " "; position: absolute; left: 0; right: 0; top: 0px; z-index: -1; height: 25px; }
+    .drag-info span { font-weight: normal; }
+    .drag-info.drag-start { margin-top: 1px; }
+    .drag-info.drag-finish { margin-top: 27px; }
+
+    .dettach-panel {
+        position: absolute;
+        margin-top: 50px;
+        background-color: #E5E5E5;
+        z-index: 10;
+        border: 10px solid transparent;
+        width: 210px;
+        height: 427px;
+        box-sizing: border-box;
+        color: white;
+        text-align: center;
+    }
+    .dettach-panel:before {
+        content: "Dettached Activity";
+        position: absolute;
+        font-weight: bold;
+        font-size: 18px;
+        left: 0px;
+        right: 0px;
+        padding: 10px;
+        background-color: #428BCA;
+    }
+    .dettach-panel .each {
+        width: 100% !important;
+        border: 1px solid transparent;
+        cursor: pointer;
+        margin-bottom: 2px;
+    }
+    .dettach-panel .each .configure {
+        display: none;
+    }
+    .dettach-panel .each div {
+        padding: 4px 8px;
+    }
+    .dettach-panel .each:hover {
+        border-color: #2A2A2A;
+    }
+    .dettach-panel .each:first-child {
+        margin-top: 55px;
+    }
+</style>
+
+<script type="text/template" id="nav-tab-template">
+    <li role="presentation">
+        <a href="#tab1" aria-controls="tab1" role="tab" data-toggle="tab">Tab1</a>
+    </li>
+</script>
+
+<script type="text/template" id="tab-content-template">
+    <div class="row" style="margin-bottom: 17px;">
+        <div class="col-md-3 container-header">
+            <div class="each rigname" style="height: 78px;">
+                <span>&nbsp;</span>
+            </div>
+            <div class="each ops-sequence">
+                <span>OP-14 Planning Sequence</span>
+            </div>
+            <div class="each planning-sequence">
+                <span class="planning-sequence-label"></span>
+            </div>
+            <div class="each item item-current-week">
+                <span class="current-week-label"></span>
+            </div>
+            <div class="each item item-previous-week">
+                <span class="previous-week-label"></span>
+            </div>
+        </div>
+        <div class="row container-report" data-cell-width="70" data-base-width="28"></div>
+    </div>
+</script>
+
+<div class="configure-ops-modal base" style="display: none;">
+    <button class="btn btn-primary btn-custom btn-xs btn-shift">
+        Shift
+    </button>
+    <button class="btn btn-primary btn-custom btn-xs btn-swap">
+        Swap
+    </button>
+    <button class="btn btn-primary btn-custom btn-xs btn-resize">
+        Resize
+    </button>
+    <button class="btn btn-primary btn-custom btn-xs btn-dettach">
+        Dettach
+    </button>
+</div>
+
+<div style="padding: 0px 0px 20px;">
+
+    <!-- dettach panel -->
+    <div class="dettach-panel" style="display: none;"></div>
+
+    <!-- filters -->
+    <div class="col-md-12 row filter-sequence" data-bind="visible: !model.SequenceChart.IsSequenceProcessing()">
+
+        <!-- by rig types -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-4">
+                <label>Rig types: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-sequence-chart-model="rigTypes" data-placeholder="Select rig types ..."></select>
+            </div>
+        </div>
+
+        <!-- by ops sequence -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-8" style="text-align: right">
+                <label>OP-14 Sequence: </label>
+            </div>
+            <div class="col-md-4" style="text-align: left">
+                <input type="checkbox" data-sequence-chart-model="opsSequence">
+            </div>
+        </div>
+
+        <!-- by historical trim -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-4">
+                <label>Historical Trim: </label>
+            </div>
+            <div class="col-md-8">
+                <input type="number" data-sequence-chart-model="trim" data-placeholder="Example: 0" style="width: 42px; margin-top: 2px;" value="0" required min="0" disabled />
+            </div>
+        </div>
+
+        <div class="clearfix" style="display: none;"></div>
+
+        <!-- by rig names -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-4">
+                <label>Rig names: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-sequence-chart-model="rigNames" data-placeholder="Select rig names ..."></select>
+            </div>
+        </div>
+
+        <!-- by planning sequence -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-8" style="text-align: right">
+                <label><span class="planning-sequence-label"></span>:</label>
+            </div>
+            <div class="col-md-4" style="text-align: left">
+                <input type="checkbox" data-sequence-chart-model="planningSequence" disabled>
+            </div>
+        </div>
+
+        <!-- by calendar mode -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-4">
+                <label>Calendar mode:</label>
+            </div>
+            <div class="col-md-8">
+                <select data-sequence-chart-model="calendarMode" data-placeholder="Select calendar mode ..." style="width: 100%;" disabled></select>
+            </div>
+        </div>
+
+        <div class="clearfix" style="display: none;"></div>
+
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-4">
+                <label>Well names: </label>
+            </div>
+            <div class="col-md-8">
+                <select data-sequence-chart-model="wellNames" data-placeholder="Select well names ..."></select>
+            </div>
+        </div>
+
+        <!-- by previous week -->
+        <div class="col-md-4" style="display: none;">
+            <div class="col-md-8" style="text-align: right">
+                <label>Previous Week: </label>
+            </div>
+            <div class="col-md-4" style="text-align: left">
+                <input type="checkbox" data-sequence-chart-model="previousWeek">
+            </div>
+        </div>
+
+        <div class="clearfix" style="display: none;"></div>
+
+        <!-- button reload filter -->
+        <div class="col-md-12">
+            <button class="btn btn-sm btn-custom btn-primary do-toggle-dettach">
+                <span class="glyphicon glyphicon-filter"></span> <span>Show</span> Dettached Activity
+            </button>
+            &nbsp;
+            <button class="btn btn-sm btn-custom btn-success btn-drag-option btn-drag-save" style="display: none;">
+                <span class="glyphicon glyphicon-save"></span> Save
+            </button>
+            &nbsp;
+            <button class="btn btn-sm btn-custom btn-danger btn-drag-option btn-drag-discard" style="display: none;">
+                <span class="glyphicon glyphicon-remove"></span> Discard
+            </button>
+            &nbsp;
+            <button class="btn btn-sm btn-custom btn-primary do-download-excel" style="display: none;">
+                <span class="glyphicon glyphicon-download"></span> Excel
+            </button>
+        </div>
+
+    </div>
+
+    <div data-bind="visible: model.SequenceChart.IsSequenceProcessing()" style="margin-top: 10px;">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible: !model.SequenceChart.IsSequenceProcessing()" class="col-md-12 report"></div>
+
+    <div class="clearfix"></div>
+</div>
+
+<script>
+    //model.SequenceChart.PageId("Sequence Chart");
+    model.SequenceChart.sequenceChart = {};
+    model.SequenceChart.sequenceChart.rigNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigNames")
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d))));
+    model.SequenceChart.sequenceChart.rigTypes = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRigTypes")
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d))));
+    model.SequenceChart.sequenceChart.wellNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISWellNames", Query.NE("IsVirtualWell", true))
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d))));
+
+    $(function () {
+        var months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+        var colors = ["#45B29D", "#EFC94C", "#29BAD9", "#E2793F", "#334D5C", "#DF5A49", "#AFC034", "#E68074", "#4793DE", "#623029", "#BB496B", "#4D315A", "#9394EE", "#6769E2", "#C08038"];
+        var constDateStart = new Date();
+        var constDateFinish = new Date();
+        var cacheColorForPlanning = {};
+        var deletedPhase = [];
+        var addedPhase = [];
+
+        function serializeDate(o) {
+            return {
+                start: (typeof o.start === 'undefined' ? o.Start : o.start),
+                finish: (typeof o.finish === 'undefined' ? o.Finish : o.finish)
+            };
+        }
+
+        function buildMargin(o, firstDateForChart, cellBaseWidth, isStrict) {
+            isStrict = (typeof isStrict === 'undefined' ? false : isStrict);
+            o = serializeDate(o);
+
+            var startDay = moment(o.start).diff(moment(firstDateForChart), 'days');
+            if (!isStrict) startDay = (startDay < 0 ? 0 : startDay);
+            var lengthDay = moment(o.finish).diff(moment(o.start), 'days');
+            if (!isStrict) lengthDay = (lengthDay < 0 ? 0 : lengthDay);
+
+            var margin = {
+                left: startDay * (cellBaseWidth / 7),
+                width: lengthDay * (cellBaseWidth / 7)
+            };
+
+            if (isStrict && (margin.left < 0)) {
+                margin = { left: 0, width: margin.left + margin.width };
+            };
+
+            return margin;
+        }
+
+        function buildDate(o) {
+            o = serializeDate(o);
+
+            return {
+                start: moment(jsonDateStr(o.start), 'DD-MMM-YYYY').toDate(),
+                finish: moment(jsonDateStr(o.finish), 'DD-MMM-YYYY').toDate()
+            };
+        }
+
+        function buildDateRangeString(o) {
+            o = serializeDate(o);
+
+            return Tools.String.capitalize(moment(o.start).format('MMM-DD, YYYY') + ' - ' + moment(o.finish).format('MMM-DD, YYYY'));
+        }
+
+        function buildDateRange(date) {
+            return {
+                start: Tools.Date.fromCSharpDateTime(date.Start),
+                finish: Tools.Date.fromCSharpDateTime(date.Finish)
+            };
+        }
+
+        function buildDiv(margin, color, prop, title) {
+            var $div = $('<div />');
+            $div.addClass('each');
+            $div.css('left', margin.left);
+            $div.css('width', margin.width);
+            $div.css('background-color', color);
+            $div.attr('data-title', title);
+
+            if (prop instanceof Object) {
+                $div.css('background-color', 'transparent');
+
+                var $configure = $("<div />").addClass("configure");
+                $configure.addClass("configure");
+                $configure.append($("<span />").addClass("glyphicon glyphicon-cog"));
+                $configure.appendTo($div);
+
+                var $divUp = $('<div />');
+                $divUp.css('background-color', color);
+                $divUp.addClass('up');
+                $divUp.html($('<span />').html(prop.activity.RigName + ' | ' + prop.activity.WellName));
+                $divUp.appendTo($div);
+
+                var $divBottom = $('<div />');
+                $divBottom.css('background-color', getActivityColor(prop.phase.ActivityType));
+                $divBottom.addClass('bottom');
+                $divBottom.html($('<span />').html(prop.phase.ActivityType));
+                $divBottom.appendTo($div);
+            } else {
+                $div.html($('<div/>').html($('<span />').html(prop)));
+            }
+
+            if (margin.width <= 0) {
+                $div.hide();
+            }
+
+            return $div;
+        }
+
+        function getActivityColor(activity) {
+            var activityContains = function (activity, what) {
+                for (var i in what) {
+                    if (activity.toLowerCase().indexOf(what[i]) > -1)
+                        return true;
+                }
+
+                return false;
+            };
+
+            if (activityContains(activity, ['abandon']))
+                return '#2c3e50';
+            else if (activityContains(activity, ['risk']))
+                return '#96281b';
+            else if (activityContains(activity, ['completion']))
+                return '#126237';
+            else if (activityContains(activity, ['drilling']))
+                return '#446cb3';
+            else
+                return 'gray';
+        }
+
+        function prepareFilter() {
+            var enableFilterTargets = function (bool) {
+                (function ($f) { (bool ? $f.removeClass('disabled') : $f.addClass('disabled')) }($('.filter-sequence')));
+            };
+
+            var $rigType = $('[data-sequence-chart-model=rigTypes]');
+
+            $rigType.kendoMultiSelect({
+                placeholder: $rigType.attr('data-placeholder'),
+                dataSource: { data: model.SequenceChart.sequenceChart.rigTypes() },
+                filter: "contains",
+                change: function () {
+                    var $rigTypeK = $rigType.data('kendoMultiSelect');
+                    var $rigNameK = $('[data-sequence-chart-model=rigNames]').data('kendoMultiSelect');
+                    var url = "@Url.Action("GetAvailableFilter", "Dashboard")";
+                    var param = {
+                        get: ["RigName"],
+                        key: "RigType",
+                        rigTypes: $rigTypeK.value()
+                    };
+
+                    enableFilterTargets(false);
+                    ajaxPost(url, param, function (res) {
+                        $rigNameK.setDataSource({ data: res.Data.RigNames });
+                        enableFilterTargets(true);
+                    }, function () {
+                        enableFilterTargets(true);
+                    });
+                }
+            });
+
+            var $rigName = $('[data-sequence-chart-model=rigNames]');
+
+            $rigName.kendoMultiSelect({
+                placeholder: $rigName.attr('data-placeholder'),
+                dataSource: { data: model.SequenceChart.sequenceChart.rigNames() },
+                filter: "contains",
+                change: function () {
+                    var $rigTypeK = $rigType.data('kendoMultiSelect');
+                    var $rigNameK = $rigName.data('kendoMultiSelect');
+                    $rigTypeK.enable($rigNameK.value().length == 0);
+                }
+            });
+
+            var $wellName = $('[data-sequence-chart-model=wellNames]');
+
+            $wellName.kendoMultiSelect({
+                placeholder: $wellName.attr('data-placeholder'),
+                dataSource: { data: model.SequenceChart.sequenceChart.wellNames() },
+                filter: "contains"
+            });
+
+            var $calendarMode = $('[data-sequence-chart-model=calendarMode]');
+
+            $calendarMode.kendoDropDownList({
+                placeholder: $calendarMode.attr('data-placeholder'),
+                dataSource: { data: ['Single Calendar', 'Separate Calendar'] },
+                value: "Separate Calendar"
+            });
+
+            $('[data-sequence-chart-model=opsSequence]').on('change', toggleSequenceVisibility);
+            $('[data-sequence-chart-model=planningSequence]').on('change', toggleSequenceVisibility);
+            $('[data-sequence-chart-model=previousWeek]').on('change', toggleSequenceVisibility);
+
+            var isEmptyFilter = function () {
+                var filter = getFilterValues();
+                return (filter.rigNames.length == 0 && filter.rigTypes.length == 0 && filter.wellNames.length == 0);
+            };
+
+            $('.do-sequence-filter').on('click', function () {
+                $(".btn-drag-option").hide();
+                model.SequenceChart.reloadData();
+            });
+
+            $('.do-toggle-dettach').on('click', function () {
+                var $panel = $(".dettach-panel");
+                var $label = $(this).find("span:eq(1)");
+
+                $panel.height($(".report").height() - 36);
+
+                if ($label.html() === "Show") {
+                    $panel.show();
+                    $label.html("Hide");
+                } else {
+                    $panel.hide();
+                    $label.html("Show");
+                }
+            });
+
+            $('.do-download-excel').on('click', function () {
+                if (isEmptyFilter()) {
+                    alert('No Rig Name or Rig Type or Well Name selected');
+                    return;
+                }
+
+                var filter = getFilterValues();
+                var filters = [];
+
+                if (filter.rigNames.length > 0)
+                    filters.push("rigNames=" + filter.rigNames.join(","));
+                if (filter.rigTypes.length > 0)
+                    filters.push("rigTypes=" + filter.rigTypes.join(","));
+                if (filter.wellNames.length > 0)
+                    filters.push("wellNames=" + filter.wellNames.join(","));
+
+                filters.push("historicalData=" + (parseInt($('[data-sequence-chart-model=trim]').val(), 10)));
+                filters.push("isCalendarModeSameMode=" + (isCalendarModeSameMode() ? 1 : 0));
+
+                var param = "?" + ((filters.length == 0) ? "" : filters.join("&"));
+                location.href = "@Url.Action("GetExcel")" + param;
+            });
+        }
+
+        function getFilterValues() {
+            return {
+                rigNames: $('[data-sequence-chart-model=rigNames]').data('kendoMultiSelect').value(),
+                rigTypes: $('[data-sequence-chart-model=rigTypes]').data('kendoMultiSelect').value(),
+                wellNames: $('[data-sequence-chart-model=wellNames]').data('kendoMultiSelect').value(),
+                opsSequence: $('[data-sequence-chart-model=opsSequence]').is(':checked'),
+                planningSequence: $('[data-sequence-chart-model=planningSequence]').is(':checked'),
+                previousWeek: $('[data-sequence-chart-model=previousWeek]').is(':checked')
+            };
+        }
+
+        function toggleSequenceVisibility() {
+            var $report = $('.report');
+
+            if (getFilterValues().opsSequence) {
+                $report.find('.each-ops-sequence').show();
+                $report.find('.ops-sequence').show();
+            } else {
+                $report.find('.each-ops-sequence').hide();
+                $report.find('.ops-sequence').hide();
+            }
+
+            if (getFilterValues().planningSequence) {
+                $report.find('.each-planning-sequence').show();
+                $report.find('.planning-sequence').show();
+            } else {
+                $report.find('.each-planning-sequence').hide();
+                $report.find('.planning-sequence').hide();
+            }
+
+            if (getFilterValues().previousWeek) {
+                $report.find('.each-last-week').show();
+                $report.find('.each.item-previous-week').show();
+            } else {
+                $report.find('.each-last-week').hide();
+                $report.find('.each.item-previous-week').hide();
+            }
+        }
+
+        function getFirstDateStartFromSpesificDay(startDate, startFrom) {
+            var days = Tools.Date.names("days", "en", startFrom);
+            var firstDate = moment(startDate);
+            var firstDayIndex = days.indexOf(moment(firstDate).format("dddd"));
+
+            if (firstDayIndex <= -1) return;
+
+            if (firstDayIndex > 0) {
+                firstDate.add(days.length - firstDayIndex, 'days');
+            }
+
+            return firstDate.toDate();
+        }
+
+        function totalWeeksBetween(startDate, finishDate) {
+            var lastDate = moment(finishDate);
+            var firstDate = moment(getFirstDateStartFromSpesificDay(startDate, "Monday"));
+            var manyWeeks = 0;
+
+            while (firstDate.toDate() <= lastDate.toDate()) {
+                firstDate.add(7, 'days');
+                manyWeeks++;
+            }
+
+            return manyWeeks;
+        }
+
+        function reorderItems(items, rigNames) {
+            var res = [];
+
+            for (var i in rigNames) {
+                var rigName = rigNames[i];
+
+                for (var k in items) {
+                    var item = items[k];
+
+                    if (rigName === item.RigName) {
+                        res.push(item);
+                    }
+                }
+            }
+
+            return res;
+        }
+
+        function isCalendarModeSameMode() {
+            var $calendarMode = $('[data-sequence-chart-model=calendarMode]').getKendoDropDownList();
+            return ($calendarMode.dataSource.data().indexOf($calendarMode.value()) == 0);
+        }
+
+        function trimByHistoricalDate() {
+            var trimVal = parseInt($('[data-sequence-chart-model=trim]').val(), 10);
+            var monthOffset = moment(constDateStart).diff(moment(new Date()), 'months');
+            if (isNaN(trimVal)) trimVal = 0;
+
+            if (trimVal > 0 && monthOffset < 1) {
+                var date = moment(constDateStart);
+
+                var ymToday = parseInt(moment(new Date()).format('YYYYMM'), 10);
+                var ymStart = parseInt(moment(constDateStart).format('YYYYMM'), 10);
+
+                if (ymToday > ymStart) date = moment(new Date());
+
+                date = date.startOf('month').subtract(trimVal, 'months');
+                constDateStart = moment(getFirstDateStartFromSpesificDay(date.toDate(), "Monday")).toDate();
+            }
+        }
+
+        function getDateStartFinish(item) {
+            var startDate = null, finishDate = null, isPsNeverValid = true;
+
+            _.each(item.Activities, function (o, i) {
+                var PsSchedule = buildDate(o.PsSchedule);
+                var isValidPsDate = (moment(PsSchedule.finish).diff(moment(PsSchedule.start), 'days') > 0);
+
+                if (isValidPsDate) {
+                    if (startDate === null)
+                        startDate = PsSchedule.start;
+                    else if (PsSchedule.start < startDate)
+                        startDate = PsSchedule.start;
+
+                    if (finishDate === null)
+                        finishDate = PsSchedule.finish;
+                    else if (PsSchedule.finish > finishDate)
+                        finishDate = PsSchedule.finish;
+
+                    if (isPsNeverValid) isPsNeverValid = false;
+                }
+
+                _.each(o.Phases, function (p, j) {
+                    var PhSchedule = buildDate(p.PhSchedule);
+                    var isValidPhDate = moment(PhSchedule.finish).diff(moment(PhSchedule.start), 'days') > 0;
+
+                    if (isValidPhDate) {
+                        if (startDate === null)
+                            startDate = PhSchedule.start;
+                        else if (PhSchedule.start < startDate)
+                            startDate = PhSchedule.start;
+
+                        if (finishDate === null)
+                            finishDate = PhSchedule.finish;
+                        else if (PhSchedule.finish > finishDate)
+                            finishDate = PhSchedule.finish;
+                    }
+                });
+            });
+
+            if (startDate === null && finishDate == null) {
+                startDate = new Date();
+                finishDate = new Date();
+            }
+
+            var ret = {
+                start: moment(getFirstDateStartFromSpesificDay(moment(startDate).startOf('month').toDate(), "Monday")).toDate(),
+                finish: moment(finishDate).startOf('month').toDate()
+            };
+
+            return ret;
+        }
+
+        function getDateStartFinishFromAllRigs(items) {
+            _.each(items, function (item, i) {
+                var dateStartFinish = getDateStartFinish(item);
+
+                if (i == 0) {
+                    constDateStart = dateStartFinish.start;
+                    constDateFinish = dateStartFinish.finish;
+                }
+
+                if (constDateStart > dateStartFinish.start)
+                    constDateStart = dateStartFinish.start;
+
+                if (constDateFinish < dateStartFinish.finish)
+                    constDateFinish = dateStartFinish.finish;
+            });
+
+            if (items.length == 0) {
+                constDateStart = new Date();
+                constDateFinish = new Date();
+            }
+            trimByHistoricalDate();
+        }
+
+        function plotEachItem(item, s) {
+            var $report = $('.report');
+            var sequencesId = {};
+
+            var $tabContent = (function () {
+                var result = null;
+
+                if ((isCalendarModeSameMode() && $('.report').find('.container-header').size() == 0) || !isCalendarModeSameMode()) {
+                    $result = $($('#tab-content-template').html());
+                    $result.attr('id', 'tab' + s);
+                    $result.appendTo($('.report'));
+                    $result.find('.container-header').find('.each').each(function (i, e) {
+                        $(e).addClass('first');
+                        if (i == 4 && isCalendarModeSameMode()) $(e).addClass('same-calendar');
+                    });
+
+                    return $result;
+                } else {
+                    $result = $('.report').find('#tab0');
+                    $result.find('.container-header').find('.each.first').each(function (i, e) {
+                        var $new = $(e.outerHTML);
+                        $new.appendTo($result.find('.container-header'));
+                        $new.removeClass('first');
+                        if (i == 4 && isCalendarModeSameMode()) $(e).addClass('same-calendar');
+                    });
+
+                    return $result;
+                }
+            }());
+
+            var $containerHeader = $tabContent.find('.container-header');
+            var $containerReport = $tabContent.find('.container-report');
+            var cellWidth = parseInt($containerReport.attr('data-cell-width'), 10);
+            var cellBaseWidth = parseInt($containerReport.attr('data-base-width'), 10);
+            var $contentReport = $('<div />')
+                .addClass('content-report')
+                .appendTo($containerReport);
+            var $year = $('<div />')
+                .addClass('each-year')
+                .appendTo($contentReport);
+            var $month = $('<div />')
+                .addClass('each-month')
+                .appendTo($contentReport);
+            var $weekday = $('<div />')
+                .addClass('each-weekday')
+                .appendTo($contentReport);
+            var $opsSequence = $('<div />')
+                .addClass('each-ops-sequence')
+                .appendTo($contentReport);
+            var $planningSequence = $('<div />')
+                .addClass('each-planning-sequence')
+                .appendTo($contentReport);
+            var $currentWeek = $('<div />')
+                .addClass('each-current-week')
+                .appendTo($contentReport);
+            var $lastWeek = $('<div />')
+                .addClass('each-last-week')
+                .appendTo($contentReport);
+            var monthsWidth = {};
+            var yearsWidth = {};
+            var allWidth = 0;
+            var firstDateForChart;
+            var AllPhases = [];
+
+            $containerHeader.find('.rigname:last span').html(item.RigName);
+            $contentReport.attr("data-rig", item.RigName);
+
+            // get start finish date
+            (function () {
+                if (isCalendarModeSameMode()) return;
+
+                var dateStartFinish = getDateStartFinish(item);
+
+                constDateStart = dateStartFinish.start;
+                constDateFinish = dateStartFinish.finish;
+
+                // add one more year for editing purpose
+                constDateFinish = moment(constDateFinish).add(2, 'year').toDate();
+
+                trimByHistoricalDate();
+            }());
+
+            // append weekdays (monday based)
+            (function () {
+                var startDate = moment(constDateStart).toDate();
+                var finishDate = moment(constDateFinish).toDate();
+                var iterableDate = moment(getFirstDateStartFromSpesificDay(startDate, "Monday"));
+
+                firstDateForChart = moment(startDate).toDate();
+
+                for (var i = startDate.getFullYear() ; i <= finishDate.getFullYear() ; i++) {
+                    var isStartYear = (i == startDate.getFullYear());
+                    var isFinishYear = (i == finishDate.getFullYear());
+
+                    var startMonth = (isStartYear ? startDate.getMonth() : 0);
+                    var finishMonth = (isFinishYear ? finishDate.getMonth() : 11);
+
+                    var totalWeek = 0;
+
+                    for (var j = startMonth; j <= finishMonth; j++) {
+                        var isStartMonth = (j == startDate.getMonth());
+                        var isFinishMonth = (j == finishDate.getMonth());
+
+                        var lastDayOfCurrentMonthBetweenDateRange = parseInt(moment(i + '-' + (j + 1), 'YYYY-M').endOf('month').format('D'));
+
+                        var startDay = ((isStartYear && isStartMonth) ? startDate.getDate() : 1);
+                        startDay = 1; // hack, show start from first week instead
+                        var finishDay = ((isFinishYear && isFinishMonth) ? finishDate.getDate() : lastDayOfCurrentMonthBetweenDateRange);
+                        finishDay = lastDayOfCurrentMonthBetweenDateRange; // hack, coz using lastDayOfCurrentMonthBetweenDateRange causing some ui bug
+
+                        var howManyWeek = totalWeeksBetween(new Date(i, j, startDay), new Date(i, j, finishDay));
+
+                        for (var k = 0; k < howManyWeek; k++) {
+                            $div = $('<div />');
+                            $div.addClass('each');
+                            $div.css('width', cellBaseWidth);
+                            $div.attr('title', iterableDate.format("MMMM DD, YYYY"));
+                            $div.attr('data-day', iterableDate.format("D"));
+                            $div.attr('data-weekday', howManyWeek);
+                            $div.attr('data-month', j);
+                            $div.attr('data-year', i);
+                            $div.html($('<span />').html(iterableDate.format("D")));
+                            $div.appendTo($weekday);
+
+                            iterableDate.add(7, 'days');
+
+                            if (j == finishMonth && i == finishDate.getFullYear() && (k + 1) == howManyWeek) {
+                                $div.addClass('last');
+                            }
+                        }
+
+                        totalWeek += howManyWeek;
+                        monthsWidth[i + '-' + Tools.String.leftPadding(j, '0', 2)] = howManyWeek;
+                    }
+
+                    allWidth += totalWeek;
+                    yearsWidth[i] = totalWeek;
+                }
+
+                $('<div />').addClass('clear').appendTo($weekday);
+                $contentReport.attr("data-start-date", moment(startDate).format("YYYY-MM-DD"));
+                $contentReport.attr("data-finish-date", moment(finishDate).format("YYYY-MM-DD"));
+            }());
+
+            (function () {
+                var startDate = moment(constDateStart).toDate();
+                var finishDate = moment(constDateFinish).toDate();
+
+                for (var i = startDate.getFullYear() ; i <= finishDate.getFullYear() ; i++) {
+
+                    // append month
+                    (function () {
+                        var startMonth = (i == startDate.getFullYear() ? startDate.getMonth() : 0);
+                        var finishMonth = (i == finishDate.getFullYear() ? finishDate.getMonth() : 11);
+
+                        for (var j = startMonth; j <= finishMonth; j++) {
+                            var $div = $('<div />');
+
+                            $div.addClass('each');
+                            $div.css('width', cellBaseWidth * (monthsWidth[i + '-' + Tools.String.leftPadding(j, '0', 2)]));
+                            $div.attr('title', moment(new Date(i, j)).format("MMMM YYYY"));
+                            $div.attr('data-month', j);
+                            $div.attr('data-year', i);
+                            $div.html($('<span />').html(months[j].substring(0, 3)));
+                            $div.appendTo($month);
+
+                            if (j == finishMonth && i == finishDate.getFullYear()) {
+                                $div.addClass('last');
+                            }
+                        }
+
+                        $firstYear = $year.find('.each:eq(' + (i - startDate.getFullYear()) + ')');
+                        $firstYear.css('width', (finishMonth - startMonth + 1) * cellWidth);
+                    }());
+
+                    // append year
+                    (function () {
+                        var $div = $('<div />');
+
+                        $div.addClass('each');
+                        $div.css('width', cellBaseWidth * (yearsWidth[i]));
+                        $div.attr('title', i);
+                        $div.attr('data-year', i);
+                        $div.html($('<span />').html(i));
+                        $div.appendTo($year);
+
+                        if (i == finishDate.getFullYear()) {
+                            $div.addClass('last');
+                        }
+                    }());
+                }
+
+                // append month
+                $('<div />').addClass('clear').appendTo($month);
+
+                // append year
+                $('<div />').addClass('clear').appendTo($year);
+            }());
+
+            (function () {
+                var setPropertyOfDiv = function ($eachDiv, date, o, p) {
+                    $eachDiv.attr("data-rig", o.RigName);
+                    $eachDiv.attr("data-well", o.WellName);
+                    $eachDiv.attr("data-sequence-id", o.UARigSequenceId);
+                    $eachDiv.attr("data-activity-type", p.ActivityType);
+                    $eachDiv.attr("data-phase-no", p.PhaseNo)
+                    $eachDiv.attr("data-original-start", moment(date.start).format("YYYY-MM-DD"));
+                    $eachDiv.attr("data-original-finish", moment(date.finish).format("YYYY-MM-DD"));
+                    $eachDiv.attr("data-after-start", moment(date.start).format("YYYY-MM-DD"));
+                    $eachDiv.attr("data-after-finish", moment(date.finish).format("YYYY-MM-DD"));
+                };
+
+                _.each(item.Activities, function (o, i) {
+
+                    // append ops sequence
+                    (function () {
+                        var date = buildDate(o.PsSchedule);
+                        var margin = buildMargin(date, firstDateForChart, cellBaseWidth, true);
+
+                        var color = (function (c) {
+                            if (typeof cacheColorForPlanning[o.WellName] === 'undefined')
+                                cacheColorForPlanning[o.WellName] = c;
+
+                            return cacheColorForPlanning[o.WellName];
+                        }(colors[i % colors.length]));
+                        var title = (o.WellName + ' | ' + buildDateRangeString(date));
+                        var html = o.WellName;
+
+                        buildDiv(margin, color, html, title).appendTo($opsSequence);
+                        item.Activities[i].Color = color;
+                    }());
+
+                    (function () {
+                        _.each(o.Phases, function (p, j) {
+
+                            // append planning sequence
+                            (function () {
+                                var date = buildDate(p.PhSchedule);
+                                var margin = buildMargin(date, firstDateForChart, cellBaseWidth, true);
+
+                                var color = (function (c) {
+                                    if (typeof cacheColorForPlanning[o.WellName] === 'undefined')
+                                        cacheColorForPlanning[o.WellName] = c;
+
+                                    return cacheColorForPlanning[o.WellName];
+                                }(colors[i % colors.length]));
+                                var days = moment(date.finish).diff(moment(date.start), 'days');
+                                var title = (o.WellName + ' | ' + p.ActivityType + ' | ' + buildDateRangeString(date));
+
+                                var $eachDiv = buildDiv(margin, color, { activity: o, phase: p }, title);
+                                $eachDiv.appendTo($planningSequence);
+                                setPropertyOfDiv($eachDiv, date, o, p);
+                            }());
+
+                            // append current week
+                            (function () {
+                                var date = buildDate(p.LESchedule);
+                                var margin = buildMargin(date, firstDateForChart, cellBaseWidth, true);
+
+                                var color = getActivityColor(p.ActivityType);
+                                var days = moment(date.finish).diff(moment(date.start), 'days');
+                                var title = (o.WellName + ' | ' + p.ActivityType + ' | ' + buildDateRangeString(date));
+                                var html = days + ' ' + (margin.width < cellBaseWidth ? '' : (margin.width < (cellBaseWidth * 2) ? 'D' : 'DAYS'));
+
+                                var $eachDiv = buildDiv(margin, color, html, title);
+                                $eachDiv.appendTo($currentWeek);
+                                setPropertyOfDiv($eachDiv, date, o, p);
+                            }());
+
+                            // append previous week
+                            (function () {
+                                var date = buildDate(p.LWESchedule);
+                                var margin = buildMargin(date, firstDateForChart, cellBaseWidth, true);
+
+                                var color = getActivityColor(p.ActivityType);
+                                var days = moment(date.finish).diff(moment(date.start), 'days');
+                                var title = (o.WellName + ' | ' + p.ActivityType + ' | ' + buildDateRangeString(date));
+                                var html = days + ' ' + (margin.width < cellBaseWidth ? '' : (margin.width < (cellBaseWidth * 2) ? 'D' : 'DAYS'));
+
+                                var $eachDiv = buildDiv(margin, color, html, title);
+                                $eachDiv.appendTo($lastWeek);
+                                setPropertyOfDiv($eachDiv, date, o, p);
+                            }());
+                        });
+                    }());
+                });
+
+                // append ops sequence
+                $('<div />').addClass('clear').appendTo($opsSequence);
+
+                // append planning sequence
+                $('<div />').addClass('clear').appendTo($planningSequence);
+
+                // append current week
+                $('<div />').addClass('clear').appendTo($currentWeek);
+
+                // append previous week
+                $('<div />').addClass('clear').appendTo($lastWeek);
+            }());
+
+            $('<div />').addClass('clear').appendTo($report);
+            $containerReport.find('.content-report').width(allWidth * cellBaseWidth);
+        }
+
+        function writeLabels() {
+            var currentWeekLabel = moment(new Date()).startOf("week").add(1, 'day').format('MMM-DD, YYYY');
+            $('.current-week-label').text('Current Week (' + currentWeekLabel + ')');
+            var previousWeekLabel = moment(new Date()).startOf("week").add(1, 'day').subtract(1, 'week').format('MMM-DD, YYYY');
+            $('.previous-week-label').text('Previous Week (' + previousWeekLabel + ')');
+            getLatestDateUploadedLS();
+        }
+
+        function getLatestDateUploadedLS() {
+            var url = "@Url.Action("GetLatestUploadedLS", "UploadLS")";
+            var callback = function (d) {
+                $('.planning-sequence-label').each(function (i, e) {
+                    $(e).html('Latest Ops Sequence' + (($(e).has('br').length > 0) ? '<br />' : ' ') + '(' + d + ')');
+                });
+            };
+
+            ajaxPost(url, {}, function (res) {
+                callback(res.Data);
+            }, function () {
+                callback("No LS Uploaded");
+            });
+        }
+
+        function getDragChanges() {
+            var changes = [];
+
+            $(".each-planning-sequence .each").each(function (i, e) {
+                if ($(e).hasClass("added-phase")) return;
+
+                var dataOriginalStart = $(e).attr("data-original-start");
+                var dataOriginalFinish = $(e).attr("data-original-finish");
+                var dataAfterStart = $(e).attr("data-after-start");
+                var dataAfterFinish = $(e).attr("data-after-finish");
+
+                if (dataOriginalStart !== dataAfterStart || dataOriginalFinish !== dataAfterFinish) {
+                    changes.push({
+                        Rig: $(e).attr("data-rig"),
+                        Well: $(e).attr("data-well"),
+                        UARigSequenceId: $(e).attr("data-sequence-id"),
+                        ActivityType: $(e).attr("data-activity-type"),
+                        PhaseNo: parseInt($(e).attr("data-phase-no"), 10),
+                        OriginalDateStart: dataOriginalStart,
+                        OriginalDateFinish: dataOriginalFinish,
+                        AfterDateStart: dataAfterStart,
+                        AfterDateFinish: dataAfterFinish,
+                    });
+                }
+            });
+
+            return changes;
+        }
+
+        function getDragDeleted() {
+            return deletedPhase;
+        }
+
+        function getDragAdded() {
+            return addedPhase;
+        }
+
+        function applyChanges(changes, deleted) {
+            $(".each-planning-sequence .each").each(function (i, e) {
+                var dataAfterStart = moment($(e).attr("data-after-start"), "YYYY-MM-DD");
+                var dataAfterFinish = moment($(e).attr("data-after-finish"), "YYYY-MM-DD");
+
+                $(e).attr("data-original-start", dataAfterStart.format("YYYY-MM-DD"));
+                $(e).attr("data-original-finish", dataAfterFinish.format("YYYY-MM-DD"));
+            });
+
+            var data = model.SequenceChart.BackupData();
+            var indexForDeletion = [];
+
+            data.forEach(function (dataByRig, i) {
+                dataByRig.Activities.forEach(function (dataByActivity, j) {
+                    dataByActivity.Phases.forEach(function (dataByPhase, k) {
+                        var dataTargetChanges = _.find(changes, {
+                            Rig: dataByRig.RigName,
+                            Well: dataByActivity.WellName,
+                            ActivityType: dataByPhase.ActivityType
+                        });
+
+                        if (dataTargetChanges !== undefined) {
+                            var timeZoneOffset = (new Date().getTimezoneOffset() / 60) * -1;
+                            var dateStart = moment(dataTargetChanges.AfterDateStart, "YYYY-MM-DD").add(timeZoneOffset, "hours");
+                            var dateFinish = moment(dataTargetChanges.AfterDateFinish, "YYYY-MM-DD").add(timeZoneOffset, "hours");
+
+                            dataByPhase.PhSchedule.Start = ["/Date(", dateStart.format("x"), ")/"].join("");
+                            dataByPhase.PhSchedule.Finish = ["/Date(", dateFinish.format("x"), ")/"].join("");
+                            dataByPhase.PhSchedule.Days = dateFinish.diff(dateStart, "days");
+
+                            console.log(dataByPhase);
+                            console.log("=========");
+                        }
+
+                        var dataTargetDeleted = _.find(deleted, {
+                            Rig: dataByRig.RigName,
+                            Well: dataByActivity.WellName,
+                            ActivityType: dataByPhase.ActivityType
+                        });
+
+                        if (dataTargetDeleted !== undefined) {
+                            indexForDeletion.push([i, j, k]);
+                        }
+                    });
+                });
+            });
+
+            console.log(indexForDeletion);
+
+            indexForDeletion.forEach(function (e) {
+                console.log(data[e[0]].Activities[e[1]].Phases);
+                data[e[0]].Activities[e[1]].Phases.splice(e[2], 1);
+            });
+
+            deletedPhase = [];
+            addedPhase = [];
+            model.SequenceChart.BackupData(data);
+        }
+
+        function prepareDrag($currentReportContainer, $target) {
+            var $dragStart = $("<div />");
+            $dragStart.addClass("drag-info drag-start");
+            $dragStart.prependTo($currentReportContainer);
+            $dragStart.outerHeight(217);
+            $dragStart.css("left", [parseInt($target.css("left").replace(/px/g, "")), "px"].join(""));
+            $dragStart.html("<span>Start Date :</span> " + $target.attr("data-original-start"));
+
+            var $dragFinish = $("<div />");
+            $dragFinish.addClass("drag-info drag-finish");
+            $dragFinish.prependTo($currentReportContainer);
+            $dragFinish.outerHeight(191);
+            $dragFinish.css("left", [parseInt($target.css("left").replace(/px/g, "")) + $target.outerWidth(), "px"].join(""));
+            $dragFinish.html("<span>Finish Date :</span> " + $target.attr("data-original-finish"));
+
+            return [$dragStart, $dragFinish];
+        };
+
+        function endDrag() {
+            $(".drag-info").remove();
+        }
+
+        function dettach($currentTarget) {
+            var $panel = $(".dettach-panel");
+            var $planSecContainer = $(".report .content-report");
+
+            $currentTarget.remove();
+            $currentTarget.prependTo($panel);
+            $currentTarget.attr("data-left", $currentTarget.css("left"));
+            $currentTarget.css("left", "auto");
+
+            $panel.each(function (i, e) {
+                if ($(e).data("ui-draggable"))
+                    $(e).draggable('destroy');
+                if ($(e).data("ui-resizable"))
+                    $(e).resizable('destroy');
+            });
+
+            $panel.find(".each").draggable({
+                snap: '.ui-droppable',
+                snapMode: 'inner',
+                start: function () {
+                    $planSecContainer.droppable({
+                        drop: function (ev, ui) {
+                            var $self = $(this);
+                            var $planningSeq = $self.find(".each-planning-sequence");
+                            var $dragged = $(ui.draggable);
+                            var maxLeft = 0;
+                            
+                            //if (!confirm("Attach to rig " + $planningSeq.closest("[data-rig]").attr("data-rig") + "?"))
+                            //    return;
+
+                            $planningSeq.find(".each").each(function (i, e) {
+                                var curLeft = parseInt($(e).css("left").replace(/px/g, "")) + $(e).outerWidth();
+                                if (curLeft > maxLeft) maxLeft = curLeft;
+                            });
+
+                            $dragged.addClass("added-phase");
+                            $dragged.appendTo($planningSeq);
+                            $dragged.css("left", maxLeft);
+                            $dragged.css("top", "auto");
+
+                            if ($dragged.data("ui-draggable"))
+                                $dragged.draggable('destroy');
+                            if ($dragged.data("ui-resizable"))
+                                $dragged.resizable('destroy');
+                            if ($dragged.data("ui-droppable"))
+                                $dragged.droppable('destroy');
+
+                            (function () {
+                                var eachWidth = parseInt($("[data-base-width]").attr("data-base-width")) / 7;
+
+                                var startDiff = maxLeft / eachWidth;
+                                var finishDiff = (maxLeft + $dragged.outerWidth()) / eachWidth;
+
+                                var startDate = $planningSeq.closest("[data-start-date]").attr("data-start-date");
+                                var startDateAfter = moment(startDate, "YYYY-MM-DD").add(startDiff, "days");
+                                $dragged.attr("data-after-start", startDateAfter.format("YYYY-MM-DD"));
+
+                                var endDateAfter = moment(startDate, "YYYY-MM-DD").add(finishDiff, "days");
+                                $dragged.attr("data-after-finish", endDateAfter.format("YYYY-MM-DD"));
+
+                                console.log(maxLeft);
+                                console.log(startDate);
+                            }());
+
+                            (function () {
+                                isDettached = _.find(deletedPhase, {
+                                    Rig: $dragged.attr("data-rig"),
+                                    Well: $dragged.attr("data-well"),
+                                    UARigSequenceId: $dragged.attr("data-sequence-id"),
+                                    ActivityType: $dragged.attr("data-activity-type"),
+                                    PhaseNo: parseInt($dragged.attr("data-phase-no"), 10),
+                                });
+
+                                if (isDettached !== undefined) {
+                                    if (deletedPhase.indexOf(isDettached) > -1) {
+                                        deletedPhase.splice(deletedPhase.indexOf(isDettached), 1);
+                                    }
+                                }
+                            }());
+
+                            addedPhase.push({
+                                Rig: $dragged.attr("data-rig"),
+                                Well: $dragged.attr("data-well"),
+                                UARigSequenceId: $dragged.attr("data-sequence-id"),
+                                ActivityType: $dragged.attr("data-activity-type"),
+                                PhaseNo: parseInt($dragged.attr("data-phase-no"), 10),
+                                OriginalDateStart: $dragged.attr("data-original-start"),
+                                OriginalDateFinish: $dragged.attr("data-original-finish"),
+                                AfterDateStart: $dragged.attr("data-after-start"),
+                                AfterDateFinish: $dragged.attr("data-after-finish"),
+                                ToRig: $planningSeq.closest(".content-report").attr("data-rig")
+                            });
+                            ui.helper.data('dropped', true);
+                        },
+                    });
+                }, stop: function (ev, ui) {
+                    if (ui.helper.data("dropped") === undefined) {
+                        console.log(this);
+                        console.log(event);
+                        console.log(ui);
+                        $(ev.target).css("left", "auto");
+                        $(ev.target).css("top", "auto");
+                    }
+
+                    if ($planSecContainer.data("ui-droppable"))
+                        $planSecContainer.droppable('destroy');
+                }
+            });
+        }
+
+        function prepareOther() {
+            $('.report').on('click', '.each-ops-sequence .each, .each-planning-sequence .each, .each-current-week .each, .each-last-week .each', function (e) {
+                e.stopPropagation();
+                $('.report .configure-ops-modal').hide();
+                $('.tt').remove();
+
+                if ($(e.target).hasClass("glyphicon") || $(e.target).hasClass("configure")) {
+                    return;
+                }
+
+                $('<div />')
+                    .addClass('tt')
+                    .appendTo($(this).parent())
+                    .html($(this).attr('data-title'))
+                    .css('left', e.pageX - $(this).parent().offset().left)
+                    .show();
+            });
+
+            $('.report').on('click', '.configure', function (e) {
+                e.stopPropagation();
+                $('.tt').remove();
+                $('.report').find('.configure-ops-modal').remove();
+
+                var $parentEach = $(this).closest(".each");
+
+                var $configureModal = $(".configure-ops-modal.base").clone();
+                $configureModal.removeClass(".base")
+                $configureModal.attr("data-title", $parentEach.attr("data-title"));
+                $configureModal.remove();
+                $configureModal.appendTo($parentEach.closest(".content-report"));
+                $configureModal.show();
+                $configureModal.css("left", (function () {
+                    var leftPadding = parseInt($parentEach.css("left").replace(/px/g, "")) + 15;
+                    var width = $parentEach.width();
+
+                    return [leftPadding + width - 10, "px"].join("");
+                }()));
+            });
+
+            $('.report').on("click", ".configure-ops-modal button", function (e) {
+                e.stopPropagation();
+
+                var $currentReportContainer = $(this).closest(".content-report");
+                $currentReportContainer.find(".configure-ops-modal").hide();
+
+                var getLeftOffset = function ($e) {
+                    return parseInt($e.css("left").replace(/px/g, ""));
+                };
+
+                var changeDate = function ($which, d) {
+                    var startDateOriginal = moment($which.attr("data-original-start"), "YYYY-MM-DD");
+                    var startDateAfter = startDateOriginal.add(d, "days");
+                    $which.attr("data-after-start", startDateAfter.format("YYYY-MM-DD"));
+
+                    var endDateOriginal = moment($which.attr("data-original-finish"), "YYYY-MM-DD");
+                    var endDateAfter = endDateOriginal.add(d, "days");
+                    $which.attr("data-after-finish", endDateAfter.format("YYYY-MM-DD"));
+                };
+
+                var $currentTarget = $currentReportContainer.find([
+                    ".each-planning-sequence > .each[data-title='",
+                    $(".report .configure-ops-modal").attr("data-title"),
+                    "']"
+                ].join(""));
+
+                var startTargetPositionLeft = getLeftOffset($currentTarget);
+                var startTargetWidth = $currentTarget.outerWidth();
+                var eachWidth = parseInt($("[data-base-width]").attr("data-base-width")) / 7;
+
+                if ($(this).hasClass("btn-shift")) {
+                    $currentTarget.addClass("current-drag-target");
+                    $("body").addClass("drag-mode");
+                    $(".btn-drag-option").show();
+
+                    var $drags = prepareDrag($currentReportContainer, $currentTarget);
+
+                    var $rightBlocks = (function ($target, rightBlocks) {
+                        $currentReportContainer.find(".each-planning-sequence > .each").each(function (i, e) {
+                            if (getLeftOffset($(e)) >= (getLeftOffset($target) + startTargetWidth)) {
+                                rightBlocks.push($(e));
+                            }
+                        });
+
+                        return $(_.sortBy(rightBlocks, function (e) {
+                            return getLeftOffset($(e));
+                        }));
+                    }($currentTarget, []));
+
+                    var $leftBlocks = (function ($target, leftBlocks) {
+                        $currentReportContainer.find(".each-planning-sequence > .each").each(function (i, e) {
+                            if ((getLeftOffset($(e)) + $(e).outerWidth()) <= getLeftOffset($target)) {
+                                leftBlocks.push($(e));
+                            }
+                        });
+
+                        return $(_.sortBy(leftBlocks, function (e) {
+                            return getLeftOffset($(e));
+                        }));
+                    }($currentTarget, []));
+
+                    var rightBlockPositionLeft = $rightBlocks.map(function (i, e) {
+                        return getLeftOffset($(e));
+                    });
+
+                    var onDrag = function (callback) {
+                        return function (event, ui) {
+                            var $self = $currentTarget;
+                            $rightBlocks.each(function (i, e) {
+                                var $each = $(e);
+                                var leftOriginalOffset = rightBlockPositionLeft[i] + (getLeftOffset($self) - startTargetPositionLeft);
+                                var leftOffset = Math.floor(leftOriginalOffset / eachWidth) * eachWidth;
+                                $each.css("left", leftOffset + "px");
+                            });
+
+                            var diff = (getLeftOffset($self) - startTargetPositionLeft) / eachWidth;
+                            $drags[0].css("left", [getLeftOffset($self), "px"].join(""));
+                            $drags[0].html("<span>Start Date :</span> " + moment($self.attr("data-original-start"), "YYYY-MM-DD").add(diff, "days").format("YYYY-MM-DD"));
+                            $drags[1].css("left", [getLeftOffset($self) + startTargetWidth, "px"].join(""));
+                            $drags[1].html("<span>Finish Date :</span> " + moment($self.attr("data-original-finish"), "YYYY-MM-DD").add(diff, "days").format("YYYY-MM-DD"));
+
+                            if (callback !== undefined) callback(event, ui, $rightBlocks);
+                        };
+                    };
+
+                    $currentTarget.draggable({
+                        containment: (function () {
+                            var closestRightOffset = 0;
+                            if ($leftBlocks.size() > 0) {
+                                var $closestRight = $leftBlocks[$leftBlocks.size() - 1];
+                                closestRightOffset = getLeftOffset($closestRight) + $closestRight.outerWidth();
+                            }
+                            var minX = closestRightOffset + $currentTarget.parent().offset().left;
+                            var maxX = $currentTarget.parent().width() - minX;
+                            var yPos = 0;
+
+                            return [minX, yPos, maxX, yPos];
+                        }()),
+                        axis: "x",
+                        grid: [eachWidth, 0],
+                        drag: onDrag(),
+                        stop: onDrag(function (event, ui, $rightBlocks) {
+                            var diff = (getLeftOffset($currentTarget) - startTargetPositionLeft) / eachWidth;
+
+                            changeDate($currentTarget, diff);
+
+                            $rightBlocks.each(function (i, e) {
+                                changeDate($(e), diff);
+                            });
+                        })
+                    });
+                } else if ($(this).hasClass("btn-swap")) {
+                    $currentTarget.addClass("current-drag-target");
+                    $("body").addClass("drag-mode");
+                    $(".btn-drag-option").show();
+
+                    var $drags = prepareDrag($currentReportContainer, $currentTarget);
+
+                    var $allBlocks = [];
+                    var $rightBlocks = [];
+                    var $leftBlocks = [];
+
+                    $currentReportContainer.find(".each-planning-sequence > .each").each(function (i, e) {
+                        $allBlocks.push($(e));
+
+                        if (getLeftOffset($(e)) >= (getLeftOffset($currentTarget) + startTargetWidth)) {
+                            //if (e !== $currentTarget[0] && $(e).outerWidth() > 0) $rightBlocks.push($(e));
+                            if (e !== $currentTarget[0]) $rightBlocks.push($(e));
+                        } else {
+                            //if (e !== $currentTarget[0] && $(e).outerWidth() > 0) $leftBlocks.push($(e));
+                            if (e !== $currentTarget[0]) $leftBlocks.push($(e));
+                        }
+                    });
+
+                    $allBlocks = $(_.sortBy($allBlocks, function (e) {
+                        return getLeftOffset($(e));
+                    }));
+                    $rightBlocks = $(_.sortBy($rightBlocks, function (e) {
+                        return getLeftOffset($(e));
+                    }));
+                    $leftBlocks = $(_.sortBy($leftBlocks, function (e) {
+                        return getLeftOffset($(e));
+                    }));
+
+                    var allBlocksPosition = $allBlocks.map(function (i, e) {
+                        return getLeftOffset($(e));
+                    });
+                    var rightBlockPosition = $rightBlocks.map(function (i, e) {
+                        return getLeftOffset($(e));
+                    });
+                    var leftBlocksPosition = $leftBlocks.map(function (i, e) {
+                        return getLeftOffset($(e));
+                    });
+
+                    $currentTarget.draggable({
+                        containment: "parent",
+                        axis: "x",
+                        grid: [eachWidth, 0],
+                        drag: function (event, ui) {
+                            var $self = $currentTarget;
+                            var selfLeft = getLeftOffset($self) + (startTargetWidth / 2);
+
+                            $rightBlocks.each(function (i, e) {
+                                var currentLeft = (getLeftOffset($(e)) + ($(e).outerWidth() / 2));
+                                var padding = (currentLeft <= selfLeft) ? startTargetWidth : 0;
+                                $(e).css("left", [(rightBlockPosition[i] - padding), "px"].join(""));
+                            });
+
+                            $leftBlocks.each(function (i, e) {
+                                var currentLeft = (getLeftOffset($(e)) + ($(e).outerWidth() / 2));
+                                var padding = (currentLeft >= selfLeft) ? startTargetWidth : 0;
+                                $(e).css("left", [(leftBlocksPosition[i] + padding), "px"].join(""));
+                            });
+
+                            var diff = (getLeftOffset($self) - startTargetPositionLeft) / eachWidth;
+                            $drags[0].css("left", [getLeftOffset($self), "px"].join(""));
+                            $drags[0].html("<span>Start Date :</span> " + moment($self.attr("data-original-start"), "YYYY-MM-DD").add(diff, "days").format("YYYY-MM-DD"));
+                            $drags[1].css("left", [getLeftOffset($self) + startTargetWidth, "px"].join(""));
+                            $drags[1].html("<span>Finish Date :</span> " + moment($self.attr("data-original-finish"), "YYYY-MM-DD").add(diff, "days").format("YYYY-MM-DD"));
+                        },
+                        stop: function (event, ui) {
+                            var $self = $currentTarget;
+                            var selfLeft = getLeftOffset($self) + (startTargetWidth / 2);
+                            var increment = (getLeftOffset($self) - startTargetPositionLeft);
+                            var flag = -1;
+
+                            if (increment > 0) {
+                                $rightBlocks.each(function (i, e) {
+                                    var currentLeft = (getLeftOffset($(e)) + ($(e).outerWidth() / 2));
+
+                                    if (currentLeft <= selfLeft) {
+                                        flag = i;
+                                    }
+                                });
+
+                                if (flag > -1) {
+                                    $self.css("left", [rightBlockPosition[flag] + $($rightBlocks[flag]).outerWidth() - startTargetWidth, "px"].join(""));
+                                }
+                            } else if (increment < 0) {
+                                $leftBlocks.each(function (i, e) {
+                                    if (flag > -1) return;
+
+                                    var currentLeft = (getLeftOffset($(e)) + ($(e).outerWidth() / 2));
+
+                                    if (currentLeft >= selfLeft) {
+                                        flag = i;
+                                    }
+                                });
+
+                                if (flag > -1) {
+                                    $self.css("left", [leftBlocksPosition[flag], "px"].join(""));
+                                }
+                            }
+
+                            if (flag == -1) {
+                                $self.css("left", [startTargetPositionLeft, "px"].join(""));
+
+                                $rightBlocks.each(function (i, e) {
+                                    $(e).css("left", [rightBlockPosition[i], "px"].join(""));
+                                });
+
+                                $leftBlocks.each(function (i, e) {
+                                    $(e).css("left", [leftBlocksPosition[i], "px"].join(""));
+                                });
+                            }
+
+                            var startDate = $self.closest("[data-start-date]").attr("data-start-date");
+
+                            $allBlocks.each(function (i, e) {
+                                var originalLeft = allBlocksPosition[i];
+                                var afterLeft = getLeftOffset($(e));
+
+                                if (originalLeft != afterLeft) {
+                                    var $which = $(e);
+                                    var startDiff = afterLeft / eachWidth;
+                                    var finishDiff = (afterLeft + $which.outerWidth()) / eachWidth;
+
+                                    var startDateAfter = moment(startDate, "YYYY-MM-DD").add(startDiff, "days");
+                                    $which.attr("data-after-start", startDateAfter.format("YYYY-MM-DD"));
+
+                                    var endDateAfter = moment(startDate, "YYYY-MM-DD").add(finishDiff, "days");
+                                    $which.attr("data-after-finish", endDateAfter.format("YYYY-MM-DD"));
+                                }
+                            });
+
+                            var diff = (getLeftOffset($self) - startTargetPositionLeft) / eachWidth;
+                            changeDate($currentTarget, diff);
+
+                            $drags[0].css("left", [getLeftOffset($self), "px"].join(""));
+                            $drags[0].html("<span>Start Date :</span> " + moment($self.attr("data-original-start"), "YYYY-MM-DD").add(diff, "days").format("YYYY-MM-DD"));
+                            $drags[1].css("left", [getLeftOffset($self) + startTargetWidth, "px"].join(""));
+                            $drags[1].html("<span>Finish Date :</span> " + moment($self.attr("data-original-finish"), "YYYY-MM-DD").add(diff, "days").format("YYYY-MM-DD"));
+                        }
+                    });
+                } else if ($(this).hasClass("btn-resize")) {
+                    $currentTarget.addClass("current-drag-target");
+                    $("body").addClass("drag-mode");
+                    $(".btn-drag-option").show();
+
+                    var $drags = prepareDrag($currentReportContainer, $currentTarget);
+
+                    var $rightBlocks = (function ($target, rightBlocks) {
+                        $currentReportContainer.find(".each-planning-sequence > .each").each(function (i, e) {
+                            if (getLeftOffset($(e)) >= (getLeftOffset($target) + startTargetWidth)) {
+                                rightBlocks.push($(e));
+                            }
+                        });
+
+                        return $(_.sortBy(rightBlocks, function (e) {
+                            return getLeftOffset($(e));
+                        }));
+                    }($currentTarget, []));
+
+                    var rightBlockPositionLeft = $rightBlocks.map(function (i, e) {
+                        return getLeftOffset($(e));
+                    });
+
+                    var onResize = function (callback) {
+                        return function (event, ui) {
+                            var $self = $currentTarget;
+                            $rightBlocks.each(function (i, e) {
+                                var $each = $(e);
+                                var selfWidth = Math.floor($self.outerWidth() / eachWidth) * eachWidth;
+                                var leftOriginalOffset = rightBlockPositionLeft[i] + (selfWidth - startTargetWidth);
+                                var leftOffset = Math.floor(leftOriginalOffset / eachWidth) * eachWidth;
+                                $each.css("left", leftOffset + "px");
+                            });
+
+                            var diffFinish = ($self.outerWidth() - startTargetWidth) / eachWidth;
+                            var width = Math.floor($self.outerWidth() / eachWidth) * eachWidth;
+                            $drags[0].css("left", [getLeftOffset($self), "px"].join(""));
+                            $drags[0].html("<span>Start Date :</span> " + moment($self.attr("data-original-start"), "YYYY-MM-DD").format("YYYY-MM-DD"));
+                            $drags[1].css("left", [getLeftOffset($self) + width, "px"].join(""));
+                            $drags[1].html("<span>Finish Date :</span> " + moment($self.attr("data-original-finish"), "YYYY-MM-DD").add(diffFinish, "days").format("YYYY-MM-DD"));
+
+                            if (callback !== undefined) callback(event, ui);
+                        };
+                    };
+
+                    $currentTarget.resizable({
+                        handles: "e",
+                        grid: [eachWidth, 0],
+                        resize: onResize(function (event, ui) {
+                            var selfWidth = Math.floor($currentTarget.outerWidth() / eachWidth) * eachWidth;
+                            $currentTarget.outerWidth(selfWidth);
+                        }),
+                        stop: onResize(function (event, ui) {
+                            var selfWidth = Math.floor($currentTarget.outerWidth() / eachWidth) * eachWidth;
+                            $currentTarget.outerWidth(selfWidth);
+
+                            var diff = ($currentTarget.outerWidth() - startTargetWidth) / eachWidth;
+
+                            $rightBlocks.each(function (i, e) {
+                                changeDate($(e), diff);
+                            });
+
+                            var endDateOriginal = moment($currentTarget.attr("data-original-finish"), "YYYY-MM-DD");
+                            var endDateAfter = endDateOriginal.add(diff, "days");
+                            $currentTarget.attr("data-after-finish", endDateAfter.format("YYYY-MM-DD"));
+                        })
+                    });
+                } else if ($(this).hasClass("btn-dettach")) {
+                    //if (!confirm("Are you sure want to dettach this activity?"))
+                    //    return;
+
+                    $(".btn-drag-option").show();
+
+                    (function () {
+                        isAttached = _.find(addedPhase, {
+                            Rig: $currentTarget.attr("data-rig"),
+                            Well: $currentTarget.attr("data-well"),
+                            UARigSequenceId: $currentTarget.attr("data-sequence-id"),
+                            ActivityType: $currentTarget.attr("data-activity-type"),
+                            PhaseNo: parseInt($currentTarget.attr("data-phase-no"), 10),
+                        });
+
+                        if (isAttached !== undefined) {
+                            if (addedPhase.indexOf(isAttached) > -1) {
+                                addedPhase.splice(addedPhase.indexOf(isAttached), 1);
+                            }
+                        }
+                    }());
+
+                    deletedPhase.push({
+                        Rig: $currentTarget.attr("data-rig"),
+                        Well: $currentTarget.attr("data-well"),
+                        UARigSequenceId: $currentTarget.attr("data-sequence-id"),
+                        ActivityType: $currentTarget.attr("data-activity-type"),
+                        PhaseNo: parseInt($currentTarget.attr("data-phase-no"), 10),
+                        OriginalDateStart: $currentTarget.attr("data-original-start"),
+                        OriginalDateFinish: $currentTarget.attr("data-original-finish"),
+                        AfterDateStart: $currentTarget.attr("data-after-start"),
+                        AfterDateFinish: $currentTarget.attr("data-after-finish"),
+                    });
+
+                    dettach($currentTarget);
+
+                    //var attr = [
+                    //    "[data-rig='", r, "']",
+                    //    "[data-well='", w, "']",
+                    //    "[data-sequence-id='", s, "']",
+                    //    "[data-activity-type='", a, "']",
+                    //    "[data-phase-no='", p, "']"
+                    //].join("");
+
+                    //$([".each-current-week > .each" + attr].join("")).remove();
+                    //$([".each-last-week > .each" + attr].join("")).remove();
+                }
+            });
+
+            $(".btn-drag-discard").on('click', function () {
+                model.SequenceChart.ParseData(function () { });
+                $(".btn-drag-option").hide();
+                $(".current-drag-target").removeClass("current-drag-target");
+                $("body").removeClass("drag-mode");
+                endDrag();
+                deletedPhase = [];
+                addedPhase = [];
+            });
+
+            $(".btn-drag-save").on('click', function () {
+                $(".btn-drag-option").hide();
+                $("body").removeClass("drag-mode");
+                endDrag();
+
+                if ($('.do-toggle-dettach').find("span:eq(1)").html() === "Show") {
+                    $('.do-toggle-dettach').show();
+                    $('.do-toggle-dettach').find("span:eq(1)").html("Hide");
+                }
+
+                var $currentTarget = $(".current-drag-target");
+                if ($currentTarget.data("ui-draggable"))
+                    $currentTarget.draggable('destroy');
+                if ($currentTarget.data("ui-resizable"))
+                    $currentTarget.resizable('destroy');
+
+                $currentTarget.removeClass("current-drag-target");
+
+                var changes = window.changes = getDragChanges();
+                var deleted = window.deleted = getDragDeleted();
+                var added = window.added = getDragAdded();
+
+                var url = "@Url.Action("SaveDataForSimulation")";
+                var param = {
+                    wellPlanSimulationId: model.simulation().selectedSimulationId(),
+                    changes: changes,
+                    deleted: deleted,
+                    added: added
+                };
+
+                model.SequenceChart.IsSequenceProcessing(true);
+
+                ajaxPost(url, param, function (res) {
+                    model.SequenceChart.IsSequenceProcessing(false);
+                    model.SequenceChart.BackupData(res.Data.Items);
+                    model.SequenceChart.ParseData();
+                    detailSimulation(model.simulation().selectedSimulationId());
+                });
+            });
+
+            $(document).on('click', function () {
+                $('.tt').hide();
+                $('.report .configure-ops-modal').hide();
+            });
+
+            $(window).on('resize', function () {
+                if (!isCalendarModeSameMode()) return;
+
+                var paddingBottom = 20;
+                var totalHeight = $(window).height();
+                var paddingTop = $('.report').offset().top;
+                var $ch = $('.container-header');
+                var $cr = $('.container-report');
+                var $tab = $('#tab0');
+
+                $cr.css('overflow-x', 'visible');
+                $tab.height(totalHeight - paddingTop - paddingBottom)
+                    .css('overflow-y', 'scroll')
+                    .on('scroll', function () {
+                        $ch.css('left', $tab.scrollLeft());
+                    });
+            });
+        };
+
+        model.SequenceChart.BackupData = ko.observableArray([]);
+
+        model.SequenceChart.ParseData = function (callback) {
+            $('.nav-tabs').html('');
+            $('.report').html('');
+
+            var items = model.SequenceChart.BackupData();
+            if (getFilterValues().rigTypes.length > 0) {
+                items = _.sortBy(items, function (d) { return d.RigName; });
+            }
+
+            //if (getFilterValues().rigNames.length > 0) {
+            //    items = reorderItems(items, getFilterValues().rigNames);
+            //}
+
+            if (isCalendarModeSameMode()) {
+                getDateStartFinishFromAllRigs(items);
+            }
+
+            _.each(items, plotEachItem);
+
+            if (isCalendarModeSameMode()) {
+                $('.each.item.same-calendar:last').removeClass('same-calendar');
+            }
+
+            toggleSequenceVisibility();
+            writeLabels();
+
+            $(window).trigger('resize');
+
+            if (callback !== undefined) callback();
+        };
+
+        model.SequenceChart.reloadData = function () {
+            if (model.SequenceChart.IsSequenceProcessing()) return;
+            model.SequenceChart.IsSequenceProcessing(true);
+
+            var url = "@Url.Action("PrepareDataFromSimulation")";
+            var param = { wellPlanSimulationId: model.simulation().selectedSimulationId() };
+            console.log(param);
+
+            ajaxPost(url, param, function (res) {
+                $('.nav-tabs').html('');
+                $('.report').html('');
+
+                if (res.Data == null) {
+                    model.SequenceChart.IsSequenceProcessing(false);
+                    return;
+                }
+                model.SequenceChart.IsSequenceProcessing(false);
+
+                model.SequenceChart.BackupData(res.Data.Items);
+                model.SequenceChart.ParseData();
+            }, function (a, b, c) {
+                model.SequenceChart.IsSequenceProcessing(false);
+            });
+        }
+
+        prepareFilter();
+        $('[data-sequence-chart-model=opsSequence]').prop('checked', true);
+        $('[data-sequence-chart-model=planningSequence]').prop('checked', true);
+        $('[data-sequence-chart-model=previousWeek]').prop('checked', true);
+        //(function ($d, i) { $d.value([$d.dataSource.data()[1]]) }($("[data-sequence-chart-model='rigNames']").data("kendoMultiSelect"), 0)); // enable if for testing purpose
+        //model.SequenceChart.reloadData();
+        writeLabels();
+        prepareOther();
+        getLatestDateUploadedLS();
+    });
+</script>

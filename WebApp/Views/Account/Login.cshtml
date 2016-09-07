@@ -1,0 +1,191 @@
+﻿@using System.Web.Configuration;
+@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_bodyonly_v1.cshtml";
+}
+<style>
+    .border1 {
+        border: solid 1px #000;
+    }
+
+    .form-group label{
+        text-align:left;
+    }
+
+    .loginbg {
+        background-color:rgb(237,41,47);
+        _background-image: url('@Url.Content("~/Content/Images/login_bg1.jpg")');
+    }
+</style>
+
+<div class="container-fluid" id="loginForm" style="padding:0px">
+    <div style="width:200px;float:left;">
+        <div class="form form-horizontal fh"
+             style="margin-top:20px;margin-left:20px;"
+             data-bind="visible:Mode()==''">
+            <div class="form-group">
+                <label class="col-sm-12">Login ID</label>
+                <div class="col-sm-12">
+                    <input type="text" id="UserName" name="User Name" required="true" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-12">Password</label>
+                <div class="col-sm-12">
+                    <input type="password" id="Password" name="Password" required="true" />
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-sm-12">
+                    <button class="btn btn-primary" id="btnLogin">Login</button>
+                    <div style="margin-top:10px;">
+                        <a href="#" id="forgetPassword">Forget Password</a>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group" style="text-align:center;font-size:1.2em">
+                <label class="label label-danger" data-bind="visible:Message()!='',text:Message"></label>
+            </div>
+            <div class="form-group">
+                <div class="col-sm-12" style="font-size:0.8em">
+                    &copy; 2013 - 2017 EACIIT Pte Ltd<br />
+                    Licensed for XYZ Corporation - Valid throuh 23-June-2015
+                </div>
+            </div>
+        </div>
+        <div class="form form-horizontal fh" style="margin-top:20px;margin-right:20px;" data-bind="visible:Mode()=='Process'">
+            ... Please wait while processing ...
+        </div>
+    </div>
+
+    <div style="float:left">
+        <img src="@Url.Content("~/Content/Images/login_bg1.jpg")" />
+    </div>
+</div>
+
+    <!-- Modal Forget Password -->
+    <div class="modal fade myModal" id="modalForgetPassword" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                    <h4 class="modal-title" id="myModalLabel" data-bind="">Reset Password</h4>
+                </div>
+                <div class="modal-body">
+                    
+                    <div class="ec-panel" id="resetPasswordForm">
+                        <div class="col-md-12 row" style="margin-bottom:20px;" data-bind="visible:!model.modalProcessing()">
+                            <div class="col-md-4">
+                                <label>Your Registered Email:</label>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="col-md-12">
+                                    <input type="email" id="email" name="email" style="width:100%;" placeholder="e.g. myname@shell.com" required data-email-msg="Email format is not valid" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="clearfix"></div>
+                        <div data-bind="visible:model.modalProcessing()">
+                            @Html.Partial("_processing")
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="resetPassword();">Reset Password</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- End Modal Forget Password -->
+
+    @Html.Partial("_redirect")
+<script>
+
+
+    $(document).ready(function () {
+        resizeIt();
+        $('#forgetPassword').click(function () {
+            $("#email").val("");
+            $('#modalForgetPassword').modal("show");
+        });
+        $("#btnLogin").click(LoginDo);
+    });
+
+    $(window).resize(resizeIt);
+
+    function resizeIt() {
+        $(".fh").height($(window).innerHeight());
+    }
+
+</script>
+
+<script>
+    model.Mode=ko.observable("");
+    model.Status=ko.observable("");
+    model.Message=ko.observable("");
+    model.Processing = ko.observable(false);
+    model.modalProcessing = ko.observable(false);
+
+    function LoginDo() {
+        var validator = $("#loginForm").data("kendoValidator");
+        if(validator==undefined){
+           validator= $("#loginForm").kendoValidator().data("kendoValidator");
+        }
+        if (validator.validate()) {
+            model.Mode("Process");
+            ajaxPost("@Url.Action("LoginProcess","Account")", {
+                username: $("#UserName").val(),
+                password: $("#Password").val(),
+                rememberMe: false
+            },
+            function (data) {
+                model.Mode("");
+                model.Status(data.Result);
+                switch (data.Result) {
+                    case "OK":
+                        var url = "@ViewBag.ReturnUrl";
+                        if (url == "") {
+                            url = "@Url.Content(ECIS.Core.Config.GetConfigValue("LandingAction").ToString())";
+                        }
+                        if (!data.Data.HasChangePassword) {
+                            url = "@Url.Action("ChangePassword", "Shell/User")";
+                        }
+                        location.href = url;
+                        break;
+
+                    case "NOK":
+                        model.Message(data.Message);
+                        break;
+                }
+            });
+        }
+        else {
+            alert("Unable to validate process");
+        }
+    }
+
+    function resetPassword() {
+        var validator = coalesce($("#resetPasswordForm").data("kendoValidator"), $("#resetPasswordForm").kendoValidator().data("kendoValidator"));
+        if (validator.validate()) {
+            model.modalProcessing(true);
+            ajaxPost("@Url.Action("ForgetPassword", "Account")", {
+                UserEmail: $("#email").val()
+            },
+            function (data) {
+                model.modalProcessing(false);
+                console.log(data);
+                switch (data.Result) {
+                    case "OK":
+                        alert("Please kindly check your email!");
+                        $('#modalForgetPassword').modal("hide");
+                        break;
+                    case "NOK":
+                        alert(data.Message);
+                        break;
+                }
+            });
+        }
+    }
+</script>

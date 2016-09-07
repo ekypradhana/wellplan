@@ -1,0 +1,1686 @@
+﻿@{
+    ViewBag.Title = "Monthly LE Workflow";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+
+@{
+    var PerformanceUnits = new List<string>();
+    var elements = DataHelper.Populate("WEISPerformanceUnits").Select(x => BsonHelper.GetString(x, "_id"));
+        PerformanceUnits = elements.ToList(); //.Where(d => d.PerformanceUnit != null).GroupBy(d => d.PerformanceUnit).Select(d => d.Key).OrderBy(d => d).ToList();
+    
+    string[] arr1 = new string[] { "AFE", "Agreed Target", "Best In Class", "Operations Plan 2014", "P50", "Top Quartile", "Type 1 Baseline", "Type 2 Baseline", "Type 3 Baseline" };
+    var MetricDropDown = arr1.ToList();
+}
+
+<style>
+    .form-group {
+        margin-bottom: 2px;
+    }
+
+    .form-group > label {
+        margin-top: 6px !important;
+    }
+    .form-group > .col-md-4 > span[data-bind] {
+        padding-top: 6px !important;
+        display: block;
+    }
+
+    input[disabled] {
+        background-color: whitesmoke;
+        border: none;
+    }
+
+    .cgrid {
+        margin-bottom: 20px;
+    }
+
+    .grid {
+    }
+</style>
+
+<style>
+    .cell-date {
+        text-align: center;
+    }
+
+    .cell-number {
+        text-align: right;
+    }
+
+    #tableAllocation th {
+        text-align: center;
+    }
+
+    #tableAllocation td {
+        padding: 5px;
+    }
+
+    #tableAllocation tfoot td {
+        font-weight: bold;
+        text-align: right;
+        background-color: lightgrey;
+    }
+
+    #tableAllocation tbody td {
+        text-align: right;
+    }
+
+    .form-wrapper div {
+        padding-bottom: 3px;
+    }
+
+        .form-wrapper div label {
+            line-height: 23px;
+        }
+
+    .form-control {
+        font-size: 9pt;
+    }
+
+    input[type='text'] {
+        line-height: 20px;
+    }
+
+    .k-invalid-msg {
+        margin-left: 30px;
+    }
+
+    #modalPIP .modal-dialog {
+        width: 1000px;
+    }
+
+    .bg-positive {
+        background-color: #8CFF9D !important;
+    }
+
+    .bg-negative {
+        background-color: #FF8789 !important;
+    }
+
+    .update-note {
+        font-style: italic;
+        text-align: center;
+        padding: 15px 0px;
+    }
+</style>
+
+<script>
+
+
+    function validateEntry() {
+        if (
+            //$("#site").val().trim() == "" ||
+            //$("#company").val().trim() == "" ||
+            //$("#WellType").val().trim() == "" ||
+            //$("#Objective").val().trim() == "" ||
+            //$("#contractor").val().trim() == "" ||
+            //$("#rigsuperintendent").val().trim() == "" ||
+            //$("#project").val().trim() == "" ||
+            //$("#EventType").val().trim() == "" ||
+            $("#eventstartdate").val().trim() == "" ||
+            //$("#workunit").val().trim() == "" ||
+            $("#originalspuddate").val().trim() == ""
+          ) {
+            return "0";
+        }
+        else {
+            return "1";
+        }
+    }
+    model.PageId("Monthly LE");
+
+    model.IsProcessing = ko.observable(false);
+    model.NumberOfGrids = ko.observable();
+    model.Loaders = ko.observable();
+
+    @*var isAdmin = @ViewBag.isAdmin
+    alert(isAdmin);*@
+
+    model.wrmodel = ko.observable({
+        GrandTotal: ko.observable(0),
+        RigName: ko.observable(''),
+        isAdmin: ko.observable(@ViewBag.isAdmin),
+        isRO: ko.observable(@ViewBag.isRO),
+        WordCount: ko.observable(@ViewBag.WordCount),
+        NPTHours: ko.observable(),
+        DataGridWork: ko.observableArray([]),
+        StartDate: ko.observable("@String.Format("{0:MMM-yyyy}",ViewBag.StartDate)"),
+        StartComment: ko.observable(""),
+        SearchDate: ko.observable(),
+        SearchRigNames: ko.observableArray([]),
+        SearchWellNames: ko.observableArray([]),
+        WellSelected: ko.observable(""),
+        WellNameNew: ko.observable(""),
+        CostScale: ko.observable("million"),
+        record: ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellActivityUpdateMonthly())))),
+        CheckPIPAvailability: function () {		
+            var url = "@Url.Action("CheckPIPAvailability")";		
+            var data = { ActivityUpdateId: model.ActivityId() }		
+            ajaxPost(url, data, function (res) {		
+                if (!res.Success) {		
+                    // tidak ada dokumen PIP		
+                    // visible button		
+                    $("#createPIPbtn").show();		
+                    $("#createPIPElemnbtn").hide();		
+                } else {		
+                    // invisible button		
+                    $("#createPIPbtn").hide();		
+                    $("#createPIPElemnbtn").show();		
+                }		
+            });		
+        },
+        add: function () {
+            var t = this;
+            t.record(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellActivityUpdateMonthly()))));
+            model.CurrentWeekCostHolder(0);
+            t.record().UpdateVersion(jsonDateStr(t.record().UpdateVersion()));
+            t.mode("New");
+            initForm();
+        },
+        submit: function () {
+            var t = this;
+            model.IsProcessing(true);
+            var url = "@Url.Action("submit")";
+            ajaxPost(url, { id: t.record()._id() },
+                function (data) {
+                    model.IsProcessing(false);
+                    if (data.Result != "OK") {
+                        alert(data.Message);
+                        return;
+                    }
+                    refresh();
+                    //model.wrmodel().mode("");
+                })
+        },
+        cancel: function () {
+            model.ActivityId("");
+            var t = this;
+            refresh();
+            t.mode("");
+        },
+        refresh: function () {
+            refresh();
+        },
+        print: function () {
+            PrintDocument();
+        },
+        remove: function () {
+            ajaxPost("@Url.Action("Delete")",
+                function (data) {
+                    var t = this;
+                    t.mode("");
+                    model.refresh();
+                },
+                function (err) {
+                    alert(err.responseText);
+                })
+        },
+        save: function (ActionAfter) {
+            var x = this;
+            var t = model.wrmodel();
+
+            //var elems = JSON.parse(kendo.stringify($(".grid-well-pip").data("kendoGrid").dataSource.data()));
+            //ko.mapping.fromJS(elems, model.wrmodel().record().Elements);
+
+            var deltaCondition = CheckDelta();
+
+            if (deltaCondition == -2) {
+                alert("Cannot save because there is gap between delta days and total days of Realized PIPs & Additional Banked Savings");
+            } else if (deltaCondition == -1) {
+                alert("Cannot save because there is gap between delta cost and total cost of Realized PIPs & Additional Banked Savings");
+            } else {
+                if ($.trim(model.wrmodel().record().Comment()) == '') {
+                    $('[href="#comment"]').trigger("click");
+                    var comment = prompt("You didn't put any comments on Comment Tab. Please insert some comments");
+                    if ($.trim(comment) != '') {
+                        model.wrmodel().record().Comment(comment);
+                        console.log(comment);
+                        console.log(model.wrmodel().record().Comment());
+                    }
+                }
+
+                var validate = validateEntry();
+                var p = ko.mapping.toJS(model.wrmodel().record());
+                //_.each(p.Elements, function (e) {
+                //    e.Completion = (e.Completion <= 0 ? 0 : (e.Completion / 100));
+                //});
+                var cost_scale = $("#cost_scale").val();
+                switch (cost_scale) {
+                    case "million":
+                        p.CurrentWeek.Cost = p.CurrentWeek.Cost * 1000000;
+                        break;
+                    case "thousand":
+                        p.CurrentWeek.Cost = p.CurrentWeek.Cost * 1000;
+                        break;
+                    default:
+                        p.CurrentWeek.Cost = p.CurrentWeek.Cost;
+                        break;
+                }
+
+                var r = ko.mapping.fromJS(p);
+                console.log(r);
+                //r.Elements = JSON.parse(kendo.stringify($(".grid-well-pip").data("kendoGrid").dataSource.data()));
+
+                if (validate == validate) {
+                    if (model.IsProcessing()) return;
+                    model.IsProcessing(true);
+                    var url = "@Url.Action("Save")";
+                    r.UpdateVersion(jsonDateStr(r.UpdateVersion()));
+                    r.EventStartDate = $("#eventstartdate").val();
+                    r.OriginalSpudDate = $("#originalspuddate").val();
+                    ajaxPost(url, r, function (data) {
+                        //console.log(data);
+                        if (data.Result == "OK") {
+                            model.IsProcessing(false);
+                            switch (ActionAfter) {
+                                case "submit":
+                                    x.submit();
+                                    break;
+                                case "print":
+                                    x.print();
+                                    break;
+                                default:
+                                    refresh();
+                                    $(".grid-well-pip").data("kendoGrid").refresh();
+                                    model.WaterfallStacked.Refresh()
+                                    //t.mode("");
+                                    break;
+                            }
+                        }
+                        else {
+                            model.IsProcessing(false);
+                            alert(data.Message);
+                        }
+                    },
+                    function (err) {
+                        alert(err.responseText);
+                    })
+                }
+            }
+
+            
+
+            //console.log(t);
+            //if (t.record().NewWell() == true) {
+            //    t.record().WellName(t.WellNameNew());
+            //}
+            //else {
+            //    t.record().WellName(t.WellSelected());
+            //}
+
+        },
+        reopen: function () {
+            var t = this;
+            model.IsProcessing(true);
+            var url = "@Url.Action("Reopen")";
+            ajaxPost(url, { id: t.record()._id() },
+                function (data) {
+                    model.IsProcessing(false);
+                    if (data.Result != "OK") {
+                        alert(data.Message);
+                        return;
+                    }
+                    refresh();
+                    model.wrmodel().mode("");
+                })
+        },
+        Delete: function () {
+            var t = this;
+            if (t.record().Status() != "In-Progress") {
+                return;
+            }
+            var konf = confirm("Are you sure you want to delete this data?");
+            if (!konf) {
+                return;
+            }
+            model.IsProcessing(true);
+            ajaxPost("@Url.Action("Delete")", { id: model.ActivityId() },
+                function (data) {
+                    model.IsProcessing(false);
+                    if (data.Success != true) {
+                        alert(data.Message);
+                        return;
+                    }
+                    refresh();
+                    model.wrmodel().mode("");
+                },
+                function (err) {
+                    alert(err.responseText);
+                })
+        },
+        wfstart: function () {
+            if (model.IsProcessing()) return;
+
+            model.IsProcessing(true);
+            var gs = $("#gridwork").data().kendoGrid;
+            var cbphases = $("#gridwork").find("input.cb-phase:checked");
+            var ids = [];
+            $.each(cbphases, function (idx, obj) {
+
+                var cbObj = $(obj);
+                ids.push(cbObj.val());
+                //alert(cbObj.val());
+            });
+            console.log(ids);
+            //return;
+            //alert(ids);
+
+            var url = "@Url.Action("WFStart")";
+            ajaxPost(url,
+                {
+                    StartDate: "01-" + $("#dateWork").val(), StartComment: $("#CommentTxt").val(),
+                    WellActivityIds: ids
+                },
+                function (data) {
+                    model.IsProcessing(false);
+                    refresh();
+                    model.wrmodel().mode("");
+                });
+        },
+        wfdistribute: function () {
+            var ids = $("#grid-submitted").find("input.checkme:checked");
+            var idValues = $.map(ids, function (obj, idx) {
+                var $obj = $(obj);
+                return $obj.val();
+            });
+            if (idValues.length == 0) {
+                alert("Please select at least one submitted Monthly LE to be dsitributed");
+                return;
+            }
+            var url = "@Url.Action("Distribute")";
+            model.IsProcessing(true);
+            ajaxPost(url, { ids: idValues }, function (data) {
+                model.IsProcessing(false);
+                if (data.Result != "OK") {
+                    showErr(data.Message + data.Trace);
+                    return;
+                };
+                refresh();
+            },
+            showErr)
+        },
+        wfreminder: function () {
+            var ids = $("#grid-progress").find("input.checkme:checked");
+            var idValues = $.map(ids, function (obj, idx) {
+                var $obj = $(obj);
+                return $obj.val();
+            });
+            if (idValues.length == 0) {
+                alert("Please select at least one in-progress Monthly LE to be reminded");
+                return;
+            }
+            model.IsProcessing(true);
+            ajaxPost("@Url.Action("SendReminder")", { ids: idValues },
+                function (data) {
+                    model.IsProcessing(false);
+                    if (data.Result != "OK") {
+                        alert(data.Message + data.Trace);
+                        return;
+                    }
+                    alert("Reminder has been sent")
+                },
+                showErr)
+        },
+        wfinit: function () {
+            initGridWork();
+            model.wrmodel().mode("wf");
+        },
+        selectSequence: function () {
+            var t = model.wrmodel();
+            t.mode("Select");
+        },
+        selectCancel: function () {
+            var t = model.wrmodel();
+            t.mode("New");
+        },
+        processing: ko.observable(false),
+        mode: ko.observable(""),
+
+        CompletionTotal: ko.observable(0),
+        DaysPlanImprovementTotal: ko.observable(0),
+        DaysLastWeekImprovementTotal: ko.observable(0),
+        DaysActualImprovementTotal: ko.observable(0),
+        DaysCurrentWeekImprovementTotal: ko.observable(0),
+        DaysLastWeekRiskTotal: ko.observable(0),
+        DaysActualRiskTotal: ko.observable(0),
+        DaysCurrentWeekRiskTotal: ko.observable(0),
+        CostPlanImprovementTotal: ko.observable(0),
+        CostLastWeekImprovementTotal: ko.observable(0),
+        CostActualImprovementTotal: ko.observable(0),
+        CostCurrentWeekImprovementTotal: ko.observable(0),
+        CostLastWeekRiskTotal: ko.observable(0),
+        CostActualRiskTotal: ko.observable(0),
+        CostCurrentWeekRiskTotal: ko.observable(0),
+
+        CompletionTotal_CR: ko.observable(0),
+        DaysPlanImprovementTotal_CR: ko.observable(0),
+        DaysLastWeekImprovementTotal_CR: ko.observable(0),
+        DaysActualImprovementTotal_CR: ko.observable(0),
+        DaysCurrentWeekImprovementTotal_CR: ko.observable(0),
+        DaysLastWeekRiskTotal_CR: ko.observable(0),
+        DaysActualRiskTotal_CR: ko.observable(0),
+        DaysCurrentWeekRiskTotal_CR: ko.observable(0),
+        CostPlanImprovementTotal_CR: ko.observable(0),
+        CostLastWeekImprovementTotal_CR: ko.observable(0),
+        CostActualImprovementTotal_CR: ko.observable(0),
+        CostCurrentWeekImprovementTotal_CR: ko.observable(0),
+        CostLastWeekRiskTotal_CR: ko.observable(0),
+        CostActualRiskTotal_CR: ko.observable(0),
+        CostCurrentWeekRiskTotal_CR: ko.observable(0),
+
+        showPercentage: function (data) {
+            return kendo.toString(data, "p0");
+        },
+
+        MasterClassifications: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISPIPClassifications")
+                                .Select(d => d.GetString("Name"))))),
+        ClassificationCalc: ko.observableArray([{Name:"Classification Name",Days:0,Cost:0}])
+
+    });
+
+    model.AssetNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+        DataHelper.Populate("WEISAssetNames").Select(d=>d.GetString("_id")).OrderBy(d=>d)
+    )));
+
+    model.WellNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+        DataHelper.Populate("WEISWellNames", Query.NE("IsVirtualWell", true)).Select(d => d.GetString("_id")).OrderBy(d => d)
+    )));
+
+    model.RigNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+        DataHelper.Populate("WEISRigNames").Select(d=>d.GetString("_id")).OrderBy(d=>d)
+    )));
+
+    model.Activities = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(
+        DataHelper.Populate("WEISActivities").Select(d=>d.GetString("_id")).OrderBy(d=>d)
+    )));
+
+    model.ActivityId = ko.observable("");
+    model.SelectedWellName = ko.observable("");
+
+    ko.bindingHandlers.uniqueId = {
+        init: function (element, valueAccessor) {
+            var value = valueAccessor();
+            value.id = value.id || ko.bindingHandlers.uniqueId.prefix + (++ko.bindingHandlers.uniqueId.counter);
+
+            element.id = value.id;
+        },
+        counter: 0,
+        prefix: "gauge_"
+    };
+
+    function count_total() {
+        //alert(type);
+        var x = model.wrmodel().record().Elements();
+        var CompletionTotal = 0;
+        var DaysPlanImprovementTotal = 0;
+        var DaysLastWeekImprovementTotal = 0;
+        var DaysActualImprovementTotal = 0;
+        var DaysCurrentWeekImprovementTotal = 0;
+        var DaysLastWeekRiskTotal = 0;
+        var DaysActualRiskTotal = 0;
+        var DaysCurrentWeekRiskTotal = 0;
+        var CostPlanImprovementTotal = 0;
+        var CostLastWeekImprovementTotal = 0;
+        var CostActualImprovementTotal = 0;
+        var CostCurrentWeekImprovementTotal = 0;
+        var CostLastWeekRiskTotal = 0;
+        var CostActualRiskTotal = 0;
+        var CostCurrentWeekRiskTotal = 0;
+        var j = 0;
+        for (var i = 0; i < x.length; i++) {
+            j = i + 1;
+            //createGauges("gauge_" + j,parseFloat(x[i].CompletionPerc()));
+            CompletionTotal = parseFloat(CompletionTotal) + parseFloat(x[i].CompletionPerc());
+            DaysPlanImprovementTotal = parseFloat(DaysPlanImprovementTotal) + parseFloat(x[i].DaysPlanImprovement()) + parseFloat(x[i].DaysPlanRisk());
+            DaysLastWeekImprovementTotal = parseFloat(DaysLastWeekImprovementTotal) + parseFloat(x[i].DaysLastWeekImprovement());
+            DaysActualImprovementTotal = parseFloat(DaysActualImprovementTotal) + parseFloat(x[i].DaysActualImprovement());
+            DaysCurrentWeekImprovementTotal = parseFloat(DaysCurrentWeekImprovementTotal) + parseFloat(x[i].DaysCurrentWeekImprovement());
+            DaysLastWeekRiskTotal = parseFloat(DaysLastWeekRiskTotal) + parseFloat(x[i].DaysLastWeekRisk());
+            DaysActualRiskTotal = parseFloat(DaysActualRiskTotal) + parseFloat(x[i].DaysActualRisk());
+            DaysCurrentWeekRiskTotal = parseFloat(DaysCurrentWeekRiskTotal) + parseFloat(x[i].DaysCurrentWeekRisk());
+            CostPlanImprovementTotal = parseFloat(CostPlanImprovementTotal) + parseFloat(x[i].CostPlanImprovement()) + parseFloat(x[i].CostPlanRisk());
+            CostLastWeekImprovementTotal = parseFloat(CostLastWeekImprovementTotal) + parseFloat(x[i].CostLastWeekImprovement());
+            CostActualImprovementTotal = parseFloat(CostActualImprovementTotal) + parseFloat(x[i].CostActualImprovement());
+            CostCurrentWeekImprovementTotal = parseFloat(CostCurrentWeekImprovementTotal) + parseFloat(x[i].CostCurrentWeekImprovement());
+            CostLastWeekRiskTotal = parseFloat(CostLastWeekRiskTotal) + parseFloat(x[i].CostLastWeekRisk());
+            CostActualRiskTotal = parseFloat(CostActualRiskTotal) + parseFloat(x[i].CostActualRisk());
+            CostCurrentWeekRiskTotal = parseFloat(CostCurrentWeekRiskTotal) + parseFloat(x[i].CostCurrentWeekRisk());
+        }
+
+        model.wrmodel().CompletionTotal(number_format(CompletionTotal));
+        model.wrmodel().DaysPlanImprovementTotal(number_format(DaysPlanImprovementTotal));
+        model.wrmodel().DaysLastWeekImprovementTotal(number_format(DaysLastWeekImprovementTotal));
+        model.wrmodel().DaysActualImprovementTotal(number_format(DaysActualImprovementTotal));
+        model.wrmodel().DaysCurrentWeekImprovementTotal(number_format(DaysCurrentWeekImprovementTotal));
+        model.wrmodel().DaysLastWeekRiskTotal(number_format(DaysLastWeekRiskTotal));
+        model.wrmodel().DaysActualRiskTotal(number_format(DaysActualRiskTotal));
+        model.wrmodel().DaysCurrentWeekRiskTotal(number_format(DaysCurrentWeekRiskTotal));
+        model.wrmodel().CostPlanImprovementTotal(number_format(CostPlanImprovementTotal));
+        model.wrmodel().CostLastWeekImprovementTotal(number_format(CostLastWeekImprovementTotal));
+        model.wrmodel().CostActualImprovementTotal(number_format(CostActualImprovementTotal));
+        model.wrmodel().CostCurrentWeekImprovementTotal(number_format(CostCurrentWeekImprovementTotal));
+        model.wrmodel().CostLastWeekRiskTotal(number_format(CostLastWeekRiskTotal));
+        model.wrmodel().CostActualRiskTotal(number_format(CostActualRiskTotal));
+        model.wrmodel().CostCurrentWeekRiskTotal(number_format(CostCurrentWeekRiskTotal));
+
+        count_total_CR();
+    }
+
+    function count_total_CR() {
+        var x = model.wrmodel().record().CRElements();
+        var CompletionTotal = 0;
+        var DaysPlanImprovementTotal = 0;
+        var DaysLastWeekImprovementTotal = 0;
+        var DaysActualImprovementTotal = 0;
+        var DaysCurrentWeekImprovementTotal = 0;
+        var DaysLastWeekRiskTotal = 0;
+        var DaysActualRiskTotal = 0;
+        var DaysCurrentWeekRiskTotal = 0;
+        var CostPlanImprovementTotal = 0;
+        var CostLastWeekImprovementTotal = 0;
+        var CostActualImprovementTotal = 0;
+        var CostCurrentWeekImprovementTotal = 0;
+        var CostLastWeekRiskTotal = 0;
+        var CostActualRiskTotal = 0;
+        var CostCurrentWeekRiskTotal = 0;
+        var j = 0;
+        for (var i = 0; i < x.length; i++) {
+            j = i + 1;
+            //createGauges("gauge_" + j,parseFloat(x[i].CompletionPerc()));
+            CompletionTotal = parseFloat(CompletionTotal) + parseFloat(x[i].CompletionPerc());
+            DaysPlanImprovementTotal = parseFloat(DaysPlanImprovementTotal) + parseFloat(x[i].DaysPlanImprovement()) + parseFloat(x[i].DaysPlanRisk());
+            DaysLastWeekImprovementTotal = parseFloat(DaysLastWeekImprovementTotal) + parseFloat(x[i].DaysLastWeekImprovement());
+            DaysActualImprovementTotal = parseFloat(DaysActualImprovementTotal) + parseFloat(x[i].DaysActualImprovement());
+            DaysCurrentWeekImprovementTotal = parseFloat(DaysCurrentWeekImprovementTotal) + parseFloat(x[i].DaysCurrentWeekImprovement());
+            DaysLastWeekRiskTotal = parseFloat(DaysLastWeekRiskTotal) + parseFloat(x[i].DaysLastWeekRisk());
+            DaysActualRiskTotal = parseFloat(DaysActualRiskTotal) + parseFloat(x[i].DaysActualRisk());
+            DaysCurrentWeekRiskTotal = parseFloat(DaysCurrentWeekRiskTotal) + parseFloat(x[i].DaysCurrentWeekRisk());
+            CostPlanImprovementTotal = parseFloat(CostPlanImprovementTotal) + parseFloat(x[i].CostPlanImprovement()) + parseFloat(x[i].CostPlanRisk());
+            CostLastWeekImprovementTotal = parseFloat(CostLastWeekImprovementTotal) + parseFloat(x[i].CostLastWeekImprovement());
+            CostActualImprovementTotal = parseFloat(CostActualImprovementTotal) + parseFloat(x[i].CostActualImprovement());
+            CostCurrentWeekImprovementTotal = parseFloat(CostCurrentWeekImprovementTotal) + parseFloat(x[i].CostCurrentWeekImprovement());
+            CostLastWeekRiskTotal = parseFloat(CostLastWeekRiskTotal) + parseFloat(x[i].CostLastWeekRisk());
+            CostActualRiskTotal = parseFloat(CostActualRiskTotal) + parseFloat(x[i].CostActualRisk());
+            CostCurrentWeekRiskTotal = parseFloat(CostCurrentWeekRiskTotal) + parseFloat(x[i].CostCurrentWeekRisk());
+        }
+
+        model.wrmodel().CompletionTotal_CR(number_format(CompletionTotal));
+        model.wrmodel().DaysPlanImprovementTotal_CR(number_format(DaysPlanImprovementTotal));
+        model.wrmodel().DaysLastWeekImprovementTotal_CR(number_format(DaysLastWeekImprovementTotal));
+        model.wrmodel().DaysActualImprovementTotal_CR(number_format(DaysActualImprovementTotal));
+        model.wrmodel().DaysCurrentWeekImprovementTotal_CR(number_format(DaysCurrentWeekImprovementTotal));
+        model.wrmodel().DaysLastWeekRiskTotal_CR(number_format(DaysLastWeekRiskTotal));
+        model.wrmodel().DaysActualRiskTotal_CR(number_format(DaysActualRiskTotal));
+        model.wrmodel().DaysCurrentWeekRiskTotal_CR(number_format(DaysCurrentWeekRiskTotal));
+        model.wrmodel().CostPlanImprovementTotal_CR(number_format(CostPlanImprovementTotal));
+        model.wrmodel().CostLastWeekImprovementTotal_CR(number_format(CostLastWeekImprovementTotal));
+        model.wrmodel().CostActualImprovementTotal_CR(number_format(CostActualImprovementTotal));
+        model.wrmodel().CostCurrentWeekImprovementTotal_CR(number_format(CostCurrentWeekImprovementTotal));
+        model.wrmodel().CostLastWeekRiskTotal_CR(number_format(CostLastWeekRiskTotal));
+        model.wrmodel().CostActualRiskTotal_CR(number_format(CostActualRiskTotal));
+        model.wrmodel().CostCurrentWeekRiskTotal_CR(number_format(CostCurrentWeekRiskTotal));
+    }
+
+    function createGauges(div_id, value) {
+        //var value = $("#gauge-value").val();
+
+        $("#" + div_id).kendoLinearGauge({
+            pointer: {
+                value: value
+            },
+
+            scale: {
+                majorUnit: 50,
+                min: 0,
+                max: 100,
+                vertical: false
+            }
+        });
+    }
+
+    function number_format(number1) {
+        //alert("format:" + number1);
+        //var number = number1.replaceAll('.', '');
+        number = number1;
+        var decimals = 1;
+        var dec_point = ".";
+        var thousands_sep = ",";
+        number = (number + '')
+          .replace(/[^0-9+\-Ee.]/g, '');
+        var n = !isFinite(+number) ? 0 : +number,
+          prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
+          sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
+          dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
+          s = '',
+          toFixedFix = function (n, prec) {
+              var k = Math.pow(10, prec);
+              return '' + (Math.round(n * k) / k)
+                .toFixed(prec);
+          };
+        // Fix for IE parseFloat(0.55).toFixed(0) = 0;
+        s = (prec ? toFixedFix(n, prec) : '' + Math.round(n))
+          .split('.');
+        if (s[0].length > 3) {
+            s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, sep);
+        }
+        if ((s[1] || '')
+          .length < prec) {
+            s[1] = s[1] || '';
+            s[1] += new Array(prec - s[1].length + 1)
+              .join('0');
+        }
+        //alert (s.join(dec));
+        return s.join(dec);
+    }
+
+    function getFirstDayInMonth(id) {
+        var d = $(id).data("kendoDatePicker").value();
+        d = moment(d);
+        d.set("date", 1);
+        var ret = d.toDate();
+
+        $(id).data("kendoDatePicker").value(ret);
+
+        if (id == '#dateWork') {
+            ChangeList(document.getElementById('dateWork').value)
+        }
+
+        //alert(ret);
+    }
+    function calculateDelta() { }
+
+    model.Tolerant = ko.observable(0.005);
+
+    function CheckDelta() {
+        var deltaDays = model.CalculateDelta("Days")();
+        var deltaCost = model.CalculateDelta("Cost")();
+
+        var elementsDays = model.TotalAdditionalBankedSavings("Days")() + model.TotalOfRealizedClassification("Days")();
+        var elementsCost = model.TotalAdditionalBankedSavings("Cost")() + model.TotalOfRealizedClassification("Cost")();
+
+        if (Math.abs(deltaDays - elementsDays) > model.Tolerant()) {
+            return -2;
+        }
+        if (Math.abs(deltaCost - elementsCost) > model.Tolerant()) {
+            return -1;
+        }
+
+        return 1;
+    }
+    
+    model.wrmodel().UpdateNote = ko.computed(function () {
+        if (model.wrmodel().record().Phase.IsActualLE()) {
+            var date = moment(model.wrmodel().record().LastUpdate()).format("dddd, MMMM DD YYYY");
+            var by = "@ViewBag.FullName";
+            return "Last update on " + date + " by " + by;
+        } else {
+            return "This report has not been updated";
+        }
+    }, model);
+</script>
+
+<div style="text-align:center">
+    <b style="text-align:center;">All costs are in $US Million</b>
+</div>
+<div data-bind="with:wrmodel" class="col-md-12" style="margin-top: 10px;">
+    <div data-bind="visible:mode()==''">
+        <div style="margin-bottom:5px; display: none;" class="row">
+            @*<div class="col-sm-2">
+                Month&nbsp;<br />
+                <input type="text" class="entry-date" id="parmDate" onchange="getFirstDayInMonth('#parmDate');" />
+            </div>*@
+            <div class="col-sm-3">
+                Well&nbsp;<br />
+                <input id="parmWell" placeholder="select well" />
+            </div>
+            @*<div class="col-sm-2">
+                OP Type&nbsp;<br />
+                <input id="OPType" />
+            </div>*@
+            <div class="clearfix"></div>
+        </div>
+
+        <div class="col-md-4 filter-op-type" style="display: none;">
+            <div class="col-md-4">
+                <label>OP Type: </label>
+            </div>
+            <div class="col-md-8">
+                <input id="OPType" style="width: 100%;" />
+            </div>
+        </div>
+
+        <div class="col-md-4 filter-based-month" style="display: none;">
+            <div class="col-md-4">
+                <label>Month: </label>
+            </div>
+            <div class="col-md-8">
+                <input type="text" style="width: 100%;" class="entry-date" id="parmDate" onchange="getFirstDayInMonth('#parmDate');" />
+            </div>
+        </div>
+
+        <div class="col-md-4 filter-include-le" style="display: none;">
+            <div class="col-md-4">&nbsp;</div>
+            <div class="col-md-8" style="text-align: left;">
+                <input type="checkbox" class="includeDiffOfLEAndCalcLE" checked /> LE Entered But LE ≠ Calculated LE&nbsp;&nbsp;&nbsp;
+                <input type="checkbox" class="includeNotEnteredLE" checked /> LE Not Yet Entered
+            </div>
+        </div>
+
+        @Html.Partial("Filter")
+        <script>
+            model.FilterVisibility.Date(true);
+            model.FilterVisibility.Date2(true);
+            model.FilterVisibility.Activities(true);
+            model.FilterVisibility.PerformanceUnits(true);
+        </script>
+        <div style="margin-bottom: 10px; margin-top: 10px;">
+            <button class="btn btn-custom btn-primary btn-sm" data-bind="click:refresh">
+                <span class="glyphicon glyphicon-refresh"></span> Refresh
+            </button>
+            <button class="btn btn-custom btn-success btn-sm" data-bind="click:wfreminder,visible:!model.wrmodel().isRO()=='1'">
+                <span class="glyphicon glyphicon-envelope"></span> Send
+            </button>
+            @*&nbsp;*@
+            @*<button class="btn btn-custom btn-primary btn-sm" data-bind="click:wfinit,visible:isAdmin() == '1'&&!model.wrmodel().isRO()=='1'">Initiate Workflow</button>*@
+            @*<button class="btn btn-custom btn-primary btn-sm" data-bind="click:wfreminder,visible:isAdmin() == '1' && !model.wrmodel().isRO()=='1'">Send Reminder</button>
+            <button class="btn btn-custom btn-primary btn-sm" data-bind="click:wfdistribute,visible:!model.wrmodel().isRO()=='1'">Distribute</button>*@
+            @*&nbsp;
+            <button class="btn btn-custom btn-success btn-sm" onclick="model.wrmodel().openModelAddAct()">
+                <span class="glyphicon glyphicon-plus"></span> Add Other Phase to List
+            </button>*@
+            @*<button class="btn btn-primary btn-sm" data-bind="click:print">Print</button>*@
+        </div>
+
+        <div data-bind="visible: model.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div data-bind="visible: !model.IsProcessing()">
+            <div id="grid-progress" class="grid cgrid" data-parm=""></div>
+        </div>
+    </div>
+
+    <div data-bind="visible:mode()=='Select'">
+        <button class="btn btn-custom btn-primary btn-sm" data-bind="click:selectCancel">
+            <span class="glyphicon glyphicon-arrow-left"></span> Back to New Record
+        </button>
+        <h3></h3>
+        Please select an operation sequence
+        <div id="gridsequence"></div>
+    </div>
+
+    <div class="panel-wf-init" data-bind="visible:mode()=='wf'">
+
+        <div data-bind="visible: model.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div data-bind="visible: !model.IsProcessing()">
+
+            <h3>Data Entry &#8594;  Monthly LE &#8594;  Initiate Workflow</h3>
+            <div class="form-horizontal" style="width:90%" id="frmWFStart">
+                <p>
+                    Please enter the date of Workflow Base and place comment as neccessary. An email will be distributed to every rig engineers.
+                </p>
+                <div class="form-group">
+                    <label class="col-sm-3">Month:</label>
+                    <div class="col-sm-9"><input type="text" class="" data-bind="value: StartDate" id="dateWork" onchange="getFirstDayInMonth('#parmDate');" /></div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-3">Comment:</label>
+                    <div class="col-sm-9">
+                        <textarea style="height:80px;" class="full" id="CommentTxt" data-bind="value:StartComment"></textarea>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-sm-3"></label>
+                    <div class="col-sm-9">
+                        <button class="btn btn-custom btn-primary btn-sm" data-bind="click:wfstart">Start Workflow</button>
+                        <button class="btn btn-custom btn-warning btn-sm" data-bind="click:cancel">
+                            <span class="glyphicon glyphicon-arrow-left"></span> Back to List
+                        </button>
+                        <button class="btn btn-custom btn-success btn-sm" onclick="model.wrmodel().openModelAddAct()">Add Other Activities to List</button>
+                    </div>
+                </div>
+                <div class="form-group">
+
+                    <div class="col-sm-9">
+
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Activity Phase</label>
+                <div id="gridwork" style="margin-top:10px;">
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div data-bind="visible:('New|Edit').indexOf(mode())>-1 && mode()!=''">
+
+        <div data-bind="visible: model.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div data-bind="visible: !model.IsProcessing()">
+            <div style="margin-bottom:5px;">
+                <button class="btn btn-custom btn-warning btn-sm" data-bind="click:cancel">
+                    <span class="glyphicon glyphicon-arrow-left"></span> Back to Lists
+                </button>
+                &nbsp;
+                <button class="btn btn-custom btn-primary btn-sm" onclick="model.wrmodel().save()" data-bind="visible: record().Status() == 'In-Progress' && !model.wrmodel().isRO()=='1'">
+                    <span class="glyphicon glyphicon-save"></span> Save
+                </button>
+                <button class="btn btn-custom btn-primary btn-sm" onclick="model.wrmodel().save('submit')" data-bind=" visible: record().Status() == 'In-Progress' && !model.wrmodel().isRO()=='1'">
+                    <span class="glyphicon glyphicon-ok"></span> Submit
+                </button>
+                <button class="btn btn-custom btn-primary btn-sm" onclick="model.wrmodel().save('print')">
+                    <span class="glyphicon glyphicon-print"></span> Print
+                </button>
+                <button class="btn btn-custom btn-danger btn-sm" onclick="model.wrmodel().Delete()" data-bind="visible: record().Status() == 'In-Progress' && !model.wrmodel().isRO()=='1'">
+                    <span class="glyphicon glyphicon-remove-sign"></span> Delete
+                </button>
+                <button class="btn btn-custom btn-success btn-sm" data-bind="click:reopen, visible:record().Status()!='In-Progress' && !model.wrmodel().isRO()=='1'">
+                    <span class="glyphicon glyphicon-folder-open"></span>&nbsp;&nbsp;Re-Open
+                </button>
+                <button class="btn btn-custom btn-warning btn-sm" data-bind="click:selectSequence, visible:mode()=='New'&&!model.wrmodel().isRO()=='1'">
+                    Load from Existing OPS Sequence
+                </button>
+            </div>
+            <h3></h3>
+
+            <div data-bind="with:record">
+                <div class="form-horizontal" data-bind="">
+                    <div class="form-group">
+                        <label class="col-md-2">Rig Name</label>
+                        <div class="col-md-4">
+                            <span data-bind="text:$root.wrmodel().RigName()"></span>
+                        </div>
+                        <label class="col-md-2">Activities Start Date</label>
+                        <div class="col-md-4">
+                            <input type="text" id="eventstartdate" style="width:120px" data-bind="value: EventStartDate, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2">Well Name</label>
+                        <div class="col-md-4">
+                            <span data-bind="text:WellName"></span>
+                        </div>
+                        <label class="col-md-2">Original Spud Date</label>
+                        <div class="col-md-4">
+                            <input type="text" id="originalspuddate" style="width:120px" data-bind="value: OriginalSpudDate, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2">Activities</label>
+                        <div class="col-md-4">
+                            <span data-bind="text:Phase.ActivityType"></span>
+                        </div>
+                        <div class="col-md-offset-6"></div>
+                    </div>
+                    <div class="fotm-group update-note">
+                        <div class="col-md-12" data-bind="text: model.wrmodel().UpdateNote"></div>
+                    </div>
+                    @*<div class="form-group">
+                        <label class="col-md-2">Country</label>
+                        <div class="col-md-4">
+                            <span data-bind="text:Country"></span>
+                        </div>
+                        <label class="col-md-2">Asset</label>
+                        <div class="col-md-4">
+                            <span data-bind="text:AssetName"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2">Not OP-14 Well</label>
+                        <div class="col-md-4">
+                            <input type="checkbox" data-bind="checked:NewWell, enable: $parent.mode()=='New'" />&nbsp;Check if it is a new well
+                        </div>
+                        <label class="col-md-2">Well Name</label>
+                        <div class="col-md-4">
+                            <span data-bind="text:WellName"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2">Activities</label>
+                        <div class="col-md-4">
+                            <span data-bind="text:Phase.ActivityType"></span>
+                        </div>
+                        <label class="col-md-2">Activity Desc</label>
+                        <div class="col-md-4">
+                            <span data-bind="text: Phase.ActivityDesc" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2">Month Of</label>
+                        <div class="col-md-4">
+                            <input type="text" id="weekof" style="width:120px"
+                                   data-bind="value: UpdateVersion, enable: $parent.mode()=='New'" />
+                        </div>
+                        <label class="col-md-2">Company</label>
+                        <div class="col-md-4">
+                            <input type="text" id="company" style="width:120px" data-bind="value: Company, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2">Site</label>
+                        <div class="col-md-4">
+                            <input type="text" id="site" style="width:120px" data-bind="value: Site, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                        <label class="col-md-2">Project</label>
+                        <div class="col-md-4">
+                            <input type="text" id="project" style="width:120px" data-bind="value: Project, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2">WellType</label>
+                        <div class="col-md-4">
+                            <input type="text" id="WellType" style="width:120px" data-bind="value: WellType, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                        <label class="col-md-2">Event Type</label>
+                        <div class="col-md-4">
+                            <input type="text" id="EventType" style="width:120px" data-bind="value: EventType, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2">Objective</label>
+                        <div class="col-md-4">
+                            <input type="text" id="Objective" style="width:120px" data-bind="value: Objective, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                        <label class="col-md-2">Event Start Date</label>
+                        <div class="col-md-4">
+                            <input type="text" id="eventstartdate" style="width:120px" data-bind="value: EventStartDate, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2">Contractor</label>
+                        <div class="col-md-4">
+                            <input type="text" id="contractor" style="width:120px" data-bind="value: Contractor, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                        <label class="col-md-2">Work Unit</label>
+                        <div class="col-md-4">
+                            <input type="text" id="workunit" style="width:120px" data-bind="value: WorkUnit, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2">Rig Superintendent</label>
+                        <div class="col-md-4">
+                            <input type="text" id="rigsuperintendent" style="width:120px" data-bind="value: RigSuperintendent, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                        <label class="col-md-2">Original Spud Date</label>
+                        <div class="col-md-4">
+                            <input type="text" id="originalspuddate" style="width:120px" data-bind="value: OriginalSpudDate, enable:Status()=='In-Progress'&& !model.wrmodel().isRO()=='1'" required />
+                        </div>
+                    </div>*@
+                </div>
+
+
+                <div data-bind="visible:$parent.mode()=='Edit'" style="margin-top:5px;" class="c-wrapper">
+                    <ul class="nav nav-tabs">
+                        <li class="active"><a href="#commentary" data-toggle="tab">Data Entry</a></li>
+                        <li><a href="#waterfallStacked" data-toggle="tab">Waterfall Chart</a></li>
+                        <li><a href="#comment" data-toggle="tab">Comment</a></li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane active" id="commentary">
+                            @Html.Partial("_commentary")
+                        </div>
+                        <div class="tab-pane" id="waterfallStacked">
+                            @Html.Partial("_waterfall_chart_stacked")
+                        </div>
+                        <div class="tab-pane" id="comment">
+                            <div style="padding: 10px;">
+                                <div>Comments:</div>
+                                <textarea style="height:80px;" class="full" data-bind="value:Comment"></textarea>
+                            </div>
+                        </div>
+                        <div class="tab-pane" id="waterfall" data-bind="visible:false">
+                            @Html.Partial("../WeeklyReport/_waterfall")
+                        </div>
+                        <div class="tab-pane" id="waterfallByRealised" data-bind="visible:false">
+                            @Html.Partial("../WeeklyReport/_waterfall_by_realised")
+                        </div>
+                        <div class="tab-pane" id="files" data-bind="visible:false">
+                            @Html.Partial("../WeeklyReport/_documents")
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div>
+        @Html.Partial("_modalAddAct")
+    </div>
+
+</div>
+
+<script>
+    var cgrid = $(".cgrid");
+    var grid = $(".grid");
+
+    function ChangeList(t) {
+        //alert('begin initGridWork() : ' + t);
+        initGridWork(t);
+    }
+
+    function toggleCheck(sender) {
+        var s = $(sender);
+        var cbxs = s.closest(".grid.k-grid").find("input[type='checkbox'].checkme");
+        cbxs.prop("checked", s.prop("checked"));
+    }
+
+    function init() {
+        input2datePicker($("#frmWFStart").find(".entry-date"));
+        $.each(grid, function (idx, obj) {
+            var $obj = $(obj);
+            $obj.kendoGrid({
+                sortable: true,
+                pageable: true,
+                columns: [
+                    {
+                        width: 30,
+                        template: "<input type='checkbox' class='checkme' value='#: _id #'>",
+                        headerTemplate: "<input type='checkbox' class='check_toggle' onchange='javascript:toggleCheck(this)'>"
+                    },
+                    {
+                        field: "WellName", title: "Well Name",
+                        attributes: { style: "text-align:left" },
+                        template: "<a style='cursor:pointer' onclick='select(\"#: _id #\",\"#: WellName #\",\"#: Status #\")'>#: WellName #</a>"
+                    },
+                    { field: "Phase.ActivityType", title: "Activities" },
+                    { field: "OpsSchedule.Start", title: "LS Start", template: "#: jsonDateStr(OpsSchedule.Start) #", width: 100 },
+                    { field: "OpsSchedule.Finish", title: "LS Finish", template: "#: jsonDateStr(OpsSchedule.Finish) #", width: 100 },
+                    { field: "Plan.Days", title: "OP<br/>Days", format: "{0:N0}", attributes: { style: "text-align:right" }, width: 80 },
+                    { field: "CurrentWeek.Days", title: "LE<br/>Days", format: "{0:N0}", attributes: { style: "text-align:right" }, width: 80 },
+                    { field: "CalculatedLE.Days", title: "Calc. LE<br/>Days", format: "{0:N0}", attributes: { style: "text-align:right" }, width: 80 },
+                    { field: "Plan.Cost", title: "OP<br/>Cost", attributes: { style: "text-align:right" }, width: 80, template: "#: kendo.format('{0:N2}', Plan.Cost / 1000000) #" },
+                    { field: "CurrentWeek.Cost", title: "LE<br/>Cost", attributes: { style: "text-align:right" }, width: 80, template: "#: kendo.format('{0:N2}', CurrentWeek.Cost / 1000000) #" },
+                    { field: "CalculatedLE.Cost", title: "Calc. LE<br/>Cost", attributes: { style: "text-align:right" }, width: 80, template: "#: kendo.format('{0:N2}', CalculatedLE.Cost) #" },
+                    //{
+                    //    field: "Status", title: "Status", width: 100,
+                    //    template: "<label class='label #: Status=='Distributed' ? 'label-primary' : Status=='Submitted' ? 'label-success' : 'label-warning' #'>#: Status #</label>"
+                    //}
+                ],
+                dataBound: function (e) {
+                    this.dataSource.data().forEach(function (f) {
+                        var red = "#d14233";
+                        var white = "white";
+
+                        var $tdDays = $obj.find('tr[data-uid="' + f.uid + '"] td:eq(7)');
+                        var $tdCost = $obj.find('tr[data-uid="' + f.uid + '"] td:eq(10)');
+
+                        var isDay = Math.abs(f.CalculatedLE.Days - f.CurrentWeek.Days) > model.Tolerant();
+                        $tdDays.css("background-color", isDay ? red : "inherit");
+                        $tdDays.css("color", isDay ? white : "inherit");
+
+                        var isCost = Math.abs(f.CalculatedLE.Cost - (f.CurrentWeek.Cost / 1000000)) > model.Tolerant();
+                        $tdCost.css("background-color", isCost ? red : "inherit");
+                        $tdCost.css("color", isCost ? white : "inherit");
+                    });
+                }
+            });
+        });
+
+        $("#parmWell").kendoMultiSelect({ dataSource: model.WellNames() });
+        $("#parmRig").kendoMultiSelect({ dataSource: model.RigNames() });
+        //input2datePicker($("#parmDate"));
+        $("#parmDate").kendoDatePicker({
+            // defines the start view
+            start: "year",
+
+            // defines when the calendar should return date
+            depth: "year",
+
+            // display month and year in the input
+            format: "MMM-yyyy",
+            value: model.wrmodel().StartDate()
+        });
+        $("#parmDate").data("kendoDatePicker").enable(false);
+        $("#dateWork").kendoDatePicker({
+            // defines the start view
+            start: "year",
+
+            // defines when the calendar should return date
+            depth: "year",
+
+            // display month and year in the input
+            format: "MMM-yyyy"
+        });
+        refresh();
+        initGridSequence();
+        //getFirstDayInMonth('#dateWork');
+        initGridWork();
+    }
+
+    function initForm() {
+        input2datePicker($("#weekof"));
+        input2datePicker($("#eventstartdate"));
+        input2datePicker($("#originalspuddate"));
+    }
+    function gridSelect(id) {
+
+        ajaxPost("@Url.Action("SelectSequence")", { id: id }, function (data) {
+            console.log(data);
+            data.Data.Record.UpdateVersion = jsonDateStr(data.Data.Record.UpdateVersion);
+            data.Data.Record.OriginalSpudDate = jsonDateStr(data.Data.Record.OriginalSpudDate);
+            data.Data.Record.EventStartDate = jsonDateStr(data.Data.Record.OriginalSpudDate);
+            model.wrmodel().record(ko.mapping.fromJS(data.Data.Record));
+            model.CurrentWeekCostHolder(model.wrmodel().record().CurrentWeek.Cost() / 1000000);
+            model.wrmodel().mode("Edit");
+            initForm();
+        })
+    }
+
+    function refresh() {
+        if (model.IsProcessing()) return;
+
+        model.IsProcessing(true);
+        model.NumberOfGrids(cgrid.length);
+        model.Loaders(0);
+
+        var url = "@Url.Action("Search")";
+        var generateParam = function (status) {
+            return {
+                Date: (function () {
+                    var theDate = $("#parmDate").data("kendoDatePicker").value();
+                    if (theDate == null || theDate == undefined) {
+                        return "";
+                    }
+
+                    return moment(theDate).format("MMM-YYYY");
+                }()),
+                Regions: model.getFilterValues().regions,
+                OperatingUnits: model.getFilterValues().operatingUnits,
+                RigTypes: model.getFilterValues().rigTypes,
+                RigNames: model.getFilterValues().rigNames,
+                Projects: model.getFilterValues().projectNames,
+                WellNames: model.getFilterValues().wellNames,
+                Activities: model.getFilterValues().activities,
+                DateStart: model.getFilterValues().dateStart,
+                DateStart2: model.getFilterValues().dateStart2,
+                DateFinish: model.getFilterValues().dateFinish,
+                DateFinish2: model.getFilterValues().dateFinish2,
+                DateRelation: model.getFilterValues().dateRelation,
+                PerformanceUnits: model.getFilterValues().performanceUnits,
+                Status: status,
+                OPType: $("#OPType").data("kendoDropDownList").value(),
+                IncludeDiffOfLEAndCalcLE: $(".includeDiffOfLEAndCalcLE").is(":checked"),
+                IncludeNotEnteredLE: $(".includeNotEnteredLE").is(":checked")
+            };
+        };
+        $.each(cgrid, function (idx, obj) {
+            var $grid = $(obj);
+            var status = $grid.attr("data-parm");
+            ajaxPost(url, generateParam(status), function (data) {
+                var loader = model.Loaders() + 1;
+                model.Loaders(loader);
+                if (model.Loaders() == model.NumberOfGrids()) {
+                    model.IsProcessing(false);
+                }
+                if (data.Result == "OK") {
+                    var k = $grid.data("kendoGrid");
+                    if (k != undefined) {
+                        //var heightPerRow = 20;
+                        //if (data.Data.length > 5) {
+                        //    k.height = 50 + 5 * heightPerRow;
+                        //} else {
+                        //    k.height = 50 + data.Data.length * heightPerRow;
+                        //}
+                        //if (data.Data.length > 0) {
+                        //    $cgrid.show();
+                        //    k.setDataSource(new kendo.data.DataSource({ data: data.Data }));
+                        //} else {
+                        //    $cgrid.hide();
+                        //}
+
+                        k.setDataSource(new kendo.data.DataSource({ data: data.Data, pageSize: 10 }));
+                    }
+                    model.WaterfallStacked.Refresh();
+                }
+                else {
+                    alert(data.Message);
+                }
+
+            },
+            function (err) {
+
+                var loader = model.Loaders() + 1;
+                model.Loaders(loader);
+                if (model.Loaders() == model.NumberOfGrids()) {
+                    model.IsProcessing(false);
+                }
+                alert(err.responseText);
+            });
+        });
+    }
+
+
+    function initGridSequence() {
+        var gs = $("#gridsequence");
+        var kg = gs.kendoGrid({
+            pageable: true,
+            filterable: true,
+            sortable: true,
+            columns: [
+                {
+                    field: "WellName", title: "Well",
+                    template: "<a style='cursor:pointer' onclick='gridSelect(\"#: UARigSequenceId #\")'>#: WellName #</a>"
+                },
+                {
+                    field: "UARigSequenceId", title: "Rig Sequence", width: 50,
+                    attributes: { style: "text-align:right" }
+                },
+                { field: "RigName", title: "Rig" },
+                { field: "AssetName", title: "Asset" },
+                { field: "Phases[0].ActivityType", title: "Activity" },
+                {
+                    field: "Phases[0].AFESchedule.Start", title: "AFE Start", width: 90,
+                    template: "#: jsonDateStr(Phases[0].PhSchedule.Start) #"
+                },
+                {
+                    field: "Phases[0].AFESchedule.Finish", title: "AFE Finish", width: 90,
+                    template: "#: jsonDateStr(Phases[0].PhSchedule.Finish) #"
+                },
+                {
+                    field: "Phases[0].AFEDuration.Total",
+                    title: "AFE<br/>Duration", width: 70,
+                    format: "{0:N0}", attributes: { style: 'text-align:right;' }
+                },
+                {
+                    field: "Phases[0].AFECost.Total",
+                    title: "AFE<br/>Cost ($MM)", width: 90,
+                    format: "{0:N0}", attributes: { style: 'text-align:right;' }
+                }
+            ]
+        }).data("kendoGrid");
+
+        ajaxPost("@Url.Action("GetSequences")",
+            {},
+            function (data) {
+
+                kg.setDataSource(new kendo.data.DataSource({
+                    data: data.Data,
+                    pageSize: 10
+                }));
+            }
+        );
+    }
+
+    function checkVal(x) {
+        $(x).attr('value', x.checked ? 1 : 0);
+    }
+
+    function initGridWork() {
+        var t = "01-" + $("#dateWork").val();
+
+        $("#gridwork").replaceWith($("<div />").attr("id", "gridwork"));
+
+        var gs = $("#gridwork");
+        var kg = gs.kendoGrid({
+            pageable: false,
+            filterable: true,
+            sortable: true,
+            columns: [
+                {
+                    width: 30,
+                    field: "", title: "",
+                    template: "<input value='#: _id #'  type='checkbox' class='checkbox cb-phase' ></input>",
+                    headerTemplate: "<input value='#: _id #'  type='checkbox' class='checkall'  onchange='tooggleCheckbox($(this),$(\".cb-phase\"))' ></input>",
+                },
+                //{
+                //    field: "_id", title: "id",
+                //},
+                //{
+                //    field: "Phases[0].PhaseNo", title: "PhaseNo",
+                //},
+                {
+                    field: "WellName", title: "Well",
+                },
+                {
+                    field: "UARigSequenceId", title: "Rig Sequence", width: 50,
+                    attributes: { style: "text-align:right" }
+                },
+                { field: "RigName", title: "Rig" },
+                { field: "AssetName", title: "Asset" },
+                { field: "ActivityType", title: "Activity" },
+                {
+                    field: "PhSchedule.Start",
+                    title: "OP Start", width: 90,
+                    template: "#: jsonDateStr(PhSchedule.Start) #"
+                },
+                {
+                    field: "PhSchedule.Finish", title: "OP Finish", width: 90,
+                    template: "#: jsonDateStr(PhSchedule.Finish) #"
+                }
+            ]
+        }).data("kendoGrid");
+
+        ajaxPost("@Url.Action("GetWork")",
+            { SearchDate: t },
+            function (data) {
+                model.wrmodel().DataGridWork([]);
+                for (var i = 0; i < data.Data.length; i++) {
+                    model.wrmodel().DataGridWork.push(data.Data[i]);
+                }
+
+                kg.setDataSource(new kendo.data.DataSource({
+                    data: data.Data
+                }));
+            }
+        );
+    }
+</script>
+<script>
+    model.HasEDM = ko.observable(false);
+    function select(id, WellName, status) {
+        //alert("ok");
+        ko.bindingHandlers.uniqueId.counter = 0;
+        model.ActivityId(id);
+        model.SelectedWellName(WellName);
+        model.wrmodel().StatusAddPIP("");
+        if (status !== undefined) { model.wrmodel().DetailStatus(status); }
+        var url = "@Url.Action("select")";
+        ajaxPost(url, { id: id },
+            function (data) {
+                model.wrmodel().CheckPIPAvailability();
+                model.HasEDM(data.Data.HasEDM);
+                model.wrmodel().RigName(data.Data.RigName);
+
+                //model.wrmodel().totalRealizedDays(data.Data.totalRealizedDays);
+                //model.wrmodel().totalRealizedCost(data.Data.totalRealizedCost);
+
+
+                //_.each(data.Data.Record.Elements, function (e) {
+                //    e.CompletionOriginal = e.Completion;
+                //    e.Completion *= 100;
+                //});
+
+                model.wrmodel().CostScale("million");
+
+                //console.log(data.Data.Record.Elements);
+                model.wrmodel().record(ko.mapping.fromJS(data.Data.Record));
+                model.CurrentWeekCostHolder(model.wrmodel().record().CurrentWeek.Cost() / 1000000);
+                model.wrmodel().mode("Edit");
+                initForm();
+                var x = model.UploadDocument();
+                x.UploadDocumentWrapper(false);
+                x.ButtonShowUploadDoc(true);
+                model.UploadDocument().select();
+
+                //$(".input_number").each(function() {
+                //    if($(this).data("kendoNumericTextBox") == undefined)
+                //        $(this).kendoNumericTextBox();
+                //    var ck = $(this).attr("ip");
+                //    console.log(ck);
+                //    if (ck == true) {
+                //        $(this).data("kendoNumericTextBox").max(0);
+                //    }else if (ck == false) {
+                //        $(this).data("kendoNumericTextBox").min(0);
+                //    }
+                //});
+
+                //fill classifications data
+                //var newClassCalc = [];
+                //for (var ab = 0; ab < model.wrmodel().MasterClassifications().length; ab++) {
+                //    var clas = model.wrmodel().MasterClassifications()[ab];
+                //    var filterClass = _.where(data.Data.Record.Elements, { Classification: clas });
+                //    var TotalDaysByClass = _.reduce(filterClass, function (m, x) { return x.DaysCurrentWeekImprovement + x.DaysCurrentWeekRisk + m }, 0);
+                //    var TotalCostByClass = _.reduce(filterClass, function (m, x) { return x.CostCurrentWeekImprovement + x.CostCurrentWeekRisk + m }, 0);
+                //    newClassCalc.push({ Name: clas, Days: TotalDaysByClass.toFixed(2), Cost: TotalCostByClass.toFixed(2) });
+                //}
+                //model.wrmodel().ClassificationCalc(newClassCalc);
+
+                count_total();
+                wfdata = data.WFData;
+                refreshWaterfall();
+                refreshWaterfallByRealised();
+
+                var y = model.wrmodel().record();
+                ActualDays = parseFloat(y.Actual.Days());
+                NPTDays = parseFloat(y.NPT.Days());
+                if (ActualDays == 0 || NPTDays == 0) {
+                    var hour = 0;
+                } else {
+                    var hour = NPTDays * ActualDays * 24;
+                }
+                model.wrmodel().NPTHours(hour);
+                //alert(model.wrmodel().NPTHours());
+                $("#npt_hours").kendoNumericTextBox({
+                    value: hour
+                });
+
+
+                $(".input_number").kendoNumericTextBox();
+                $("input[name='topbot']").each(function () {
+                    var ck = $(this).attr("ip");
+                    if (ck == "true") {
+                        $(this).data("kendoNumericTextBox").min(-1000000000);
+                        $(this).data("kendoNumericTextBox").max(0);
+                    }
+                    else {
+                        $(this).data("kendoNumericTextBox").max(1000000000);
+                        $(this).data("kendoNumericTextBox").min(0);
+                    }
+                });
+
+                $("input[name='botbot']").each(function () {
+                    $(this).data("kendoNumericTextBox").max(0);
+                });
+
+                setTimeout(function () {
+                    ReadyState();
+                }, 200);
+                //model.wrmodel().countTotalWords("ExeSum");
+                //model.wrmodel().countTotalWords("OpsSum");
+                //model.wrmodel().countTotalWords("PlnOps");
+
+                var maxWidth = ($(window).width() - 40) / 12 * 4 - 20;
+                $(".text-areas textarea").css("max-width", maxWidth);
+
+                model.wrmodel().CheckPIPAvailability();
+
+                setTimeout(model.WaterfallStacked.Refresh, 1000);
+
+                //calculateDelta();
+            },
+            function (err) {
+                alert(err.responseText)
+            });
+    }
+
+    function ReadyState() {
+        $("#modalPIP").find("#isPositive").change(function () {
+            var x = model.wrmodel();
+            x.PIPNewPlanDaysOpp(0);
+            $("#modalPIP").find("#PlanDaysOpp").data("kendoNumericTextBox").value(0);
+            x.PIPNewPlanDaysRisk(0);
+            $("#modalPIP").find("#PlanDaysRisk").data("kendoNumericTextBox").value(0);
+            x.PIPNewPlanCostOpp(0);
+            $("#modalPIP").find("#PlanCostOpp").data("kendoNumericTextBox").value(0);
+            x.PIPNewPlanCostRisk(0);
+            $("#modalPIP").find("#PlanCostRisk").data("kendoNumericTextBox").value(0);
+            if ($(this).is(":checked")) {
+                $("#modalPIP").find("#PlanDaysOpp").data("kendoNumericTextBox").min(-1000000000);
+                $("#modalPIP").find("#PlanCostOpp").data("kendoNumericTextBox").min(-1000000000);
+
+                $("#modalPIP").find("#PlanDaysOpp").data("kendoNumericTextBox").max(0);
+                $("#modalPIP").find("#PlanCostOpp").data("kendoNumericTextBox").max(0);
+            } else {
+                $("#modalPIP").find("#PlanDaysOpp").data("kendoNumericTextBox").max(1000000000);
+                $("#modalPIP").find("#PlanCostOpp").data("kendoNumericTextBox").max(1000000000);
+
+                $("#modalPIP").find("#PlanDaysOpp").data("kendoNumericTextBox").min(0);
+                $("#modalPIP").find("#PlanCostOpp").data("kendoNumericTextBox").min(0);
+            }
+        });
+
+        $(".ecTableCommentary").on("change", "[name='isPositiveTable']", function (e) {
+            var ckd = $(this).is(":checked");
+            var allData = model.wrmodel().record().Elements(),
+                uniqueId = $(this).attr("uniqueId"),
+                fd = Enumerable.From(allData).FirstOrDefault(undefined, "$.ElementId() == " + uniqueId);
+            console.log($(this));
+            var cfm = confirm("If you change this field, it will reset Opportunity and Risk Value. Are you want to continue?");
+            if (cfm) {
+
+                $(this).parent().parent().find("input[name='topbot']").each(function () {
+                    var ck = $(this).attr("ip");
+                    console.log($(this).data("kendoNumericTextBox").value());
+                    if (ck == "true") {
+                        //$(this).next().html("(+)");
+                        if ($(this).data("kendoNumericTextBox").value() > 0)
+                            $(this).data("kendoNumericTextBox").value(0);
+                        $(this).data("kendoNumericTextBox").min(-1000000000);
+                        $(this).data("kendoNumericTextBox").max(0);
+                    }
+                    else {
+                        //$(this).next().html("(-)");
+                        if ($(this).data("kendoNumericTextBox").value() < 0)
+                            $(this).data("kendoNumericTextBox").value(0);
+                        $(this).data("kendoNumericTextBox").max(1000000000);
+                        $(this).data("kendoNumericTextBox").min(0);
+                    }
+                });
+                //if (ckd) {
+                //    $(this).parent().parent().removeClass("bg-negative");
+                //    $(this).parent().parent().addClass("bg-positive");
+                //} else {
+                //    $(this).parent().parent().removeClass("bg-positive");
+                //    $(this).parent().parent().addClass("bg-negative");
+                //}
+
+                //$(".input_number").each(function() {
+                //    if($(this).data("kendoNumericTextBox") == undefined)
+                //        $(this).kendoNumericTextBox();
+                //    var ck = $(this).attr("ip");
+                //    console.log(ck);
+                //    if (ck == true) {
+                //        $(this).data("kendoNumericTextBox").max(0);
+                //    }else if (ck == false) {
+                //        $(this).data("kendoNumericTextBox").min(0);
+                //    }
+                //});
+
+                //var plDaysOp = $(this).parent().next().next();
+                //var plDayRs = $(plDaysOp).next();
+                //var plCostOp = $(plDayRs).next();
+                //var plCostRs = $(plCostOp).next();
+
+                //var leDaysOp = $(plCostRs).next();
+                //var leDayRs = $(leDaysOp).next();
+                //var leCostOp = $(leDayRs).next();
+                //var leCostRs = $(leCostOp).next();
+
+                //fd.DaysPlanImprovement(0);
+                //fd.DaysPlanRisk(0);
+                //fd.CostPlanImprovement(0);
+                //fd.CostPlanRisk(0);
+
+                //fd.DaysCurrentWeekImprovement(0);
+                //fd.DaysCurrentWeekRisk(0);
+                //fd.CostCurrentWeekImprovement(0);
+                //fd.CostCurrentWeekRisk(0);
+
+
+                fd.DaysActualImprovement(0);
+                fd.DaysCurrentWeekImprovement(0);
+                fd.CostActualImprovement(0);
+                fd.CostCurrentWeekImprovement(0);
+
+
+                count_total();
+                //plDaysOp.html("0.00");
+                //plDayRs.html("0.00");
+                //plCostOp.html("0.00");
+                //plCostRs.html("0.00");
+
+                //leDaysOp.html("0.00");
+                //leDayRs.html("0.00");
+                //leCostOp.html("0.00");
+                //leCostRs.html("0.00");
+
+            } else {
+                if (ckd) {
+                    fd.isPositive(false);
+                    //this.checked = false;
+                }
+                else {
+                    fd.isPositive(true);
+                    //this.checked = true;
+                }
+                //setTimeout(function() {
+                //    if(!fd.dirty)
+                //        $(parent1.find(".k-dirty")).remove();
+                //}, 1000);
+            }
+        });
+    }
+
+</script>
+<script>
+    $(document).ready(function () {
+        $(".filter-based-month").show().remove().insertBefore($("[data-bind='visible: Date']:eq(0)"));
+        $(".filter-include-le").show().remove().insertBefore($("[data-bind='visible: Date2']:eq(0)"));
+        $(".filter-op-type").show().remove().insertAfter($("[data-bind='visible: PerformanceUnits']:eq(0)"));
+        $(".do-filter").parent().hide();
+
+        kendo.culture("en-US");
+
+
+        $("#WellNames").kendoMultiSelect({ placeholder: "Select Well Names ...", dataSource: { data: model.wrmodel().WellNames() } });
+        $("#Activities").kendoMultiSelect({ placeholder: "Select Well Activities ...", dataSource: { data: model.wrmodel().Activities() } });
+
+        $("#OPType").kendoDropDownList({
+            dataSource: [
+              { Name: "All", Id: "All" },
+              { Name: "Only OP-14", Id: "False" },
+              { Name: "NOT OP-14", Id: "True" }
+            ],
+            dataTextField: "Name",
+            dataValueField: "Id"
+        });
+
+
+
+        init();
+    });
+
+    function PrintDocument() {
+        //alert(model.ActivityId());
+        //alert(model.SelectedWellName());
+        //window.open('@Url.Action("Print2Pdf")' + "?id=" + model.ActivityId(), 'Print Activity', 'height=100%,width=100%,scrollbars=1');
+        var url = '@Url.Action("Print2Pdf")' + "?id=" + model.ActivityId() + "&WellName=" + model.SelectedWellName();
+        location.href = url;
+    }
+
+    function openwin(url, strWidth, strHeight) {
+        //if (popWin != "") { popWin.close() }
+        leftStr = (screen.width - strWidth) / 2;
+        topStr = (screen.height - strHeight) / 2 - 50;
+        windowProperties = "toolbar=no,menubar=no,scrollbars=yes,statusbar=no,height=" + strHeight + ",width=" + strWidth + ",left=" + leftStr + ",top=" + topStr + "";
+        var popWin = window.open(url, 'Print Activity', windowProperties);
+    }
+
+    function validate_number(type, e) {
+        e.value = 0;
+    }
+
+    function toggleCheckbox(cbClass) {
+        var checker = $("#" + cbClass);
+        if (checker.is(":checked")) {
+            //$("." + cbClass).addAttr('checked');   //removeAttr('checked');
+            $("." + cbClass).attr('checked', 'checked');
+        } else {
+            $("." + cbClass).removeAttr('checked');
+        }
+    }
+</script>

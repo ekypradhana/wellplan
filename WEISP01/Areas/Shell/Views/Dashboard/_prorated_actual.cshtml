@@ -1,0 +1,110 @@
+﻿<script>
+    model.ProratedActual = ko.observable({
+        IsProcessing: ko.observable(false),
+        DummyData: [
+            {
+                "WellName": "WellName", "ActivityType": "Abandonment",
+                "LSSchedule": { "Start": "01-Dec-2016", "Finish": "10-Mar-2017" },
+                "LE": { "Days": 100, "Cost": 150 },
+                "OP": { "Days": 90, "Cost": 120 },
+                "DetailsByYear": [
+                    { "Year": 2016, "OP": { "Days": 31, "Cost": 41.3 }, "LE": { "Days": 34.4, "Cost": 51.7 }, "Actual": { "Days": 34.4, "Cost": 51.7 }, "Performance": { "Days": -3.4, "Cost": -10.3 } },
+                    { "Year": 2017, "OP": { "Days": 59, "Cost": 78.7 }, "LE": { "Days": 65.6, "Cost": 98.3 }, "Actual": { "Days": 34.4, "Cost": 51.7 }, "Performance": { "Days": -6.6, "Cost": -19.7 } }
+                ]
+            }
+        ],
+        DummyYears: [2016, 2017]
+    });
+    $(function () {
+        $('[href=#prorated-actual]').on('click', function () {
+            setTimeout(function () {
+                $('#grid_prorate_actual').data('kendoGrid').refresh();
+            }, 500);
+        });
+        //model.ProratedActual().renderGrid(model.ProratedLE().DummyData, model.ProratedLE().DummyYears);
+    });
+    model.ProratedActual().renderGrid = function (data, years) {
+        var columns = [
+            { field: "WellName", title: "WellName", width: 150, locked: true, lockable: true },
+            { field: "ActivityType", title: "Activity Type", width: 170, locked: true, lockable: true },
+            { field: "LSSchedule", title: "LS Schedule", locked: true, lockable: true, columns: [{ field: "LSSchedule.Start", title: "Start", width: 100, template: "#:jsonDateStr(LSSchedule.Start)#" }, { field: "LSSchedule.Finish", title: "Finish", width: 100, template: "#:jsonDateStr(LSSchedule.Finish)#" }] },
+            //{ field: "LE", title: "LE", locked: true, lockable: true, columns: [{ field: "LE.Days", title: "Days", width: 100 }, { field: "LE.Cost", title: "Cost", width: 100 }] },
+            //{ field: "OP", title: "OP", locked: true, lockable: true, columns: [{ field: "OP.Days", title: "Days", width: 100 }, { field: "OP.Cost", title: "Cost", width: 100 }] },
+        ];
+        for (var i = 0; i < years.length; i++) {
+            columns.push({
+                field: "DetailsByYear", title: String(years[i]), columns: [
+                    { field: "DetailsByYear[" + i + "].OP.Days", title: "OP Days", width: 80, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                    { field: "DetailsByYear[" + i + "].OP.Cost", title: "OP Cost", width: 80, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                    { field: "DetailsByYear[" + i + "].LE.Days", title: "LE Days", width: 80, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                    { field: "DetailsByYear[" + i + "].LE.Cost", title: "LE Cost", width: 80, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                    { field: "DetailsByYear[" + i + "].Actual.Days", title: "Actual Days", width: 80, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                    { field: "DetailsByYear[" + i + "].Actual.Cost", title: "Actual Cost", width: 80, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                    { field: "DetailsByYear[" + i + "].Performance.Days", title: "Performance<br>Days", width: 85, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                    { field: "DetailsByYear[" + i + "].Performance.Cost", title: "Performance<br>Cost", width: 85, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                ]
+            });
+        }
+
+        $('#grid_prorate_actual').replaceWith($('<div />').attr('id', 'grid_prorate_actual'));
+        $('#grid_prorate_actual').kendoGrid({
+            //toolbar: ["pdf", "excel"],
+            //pdf: { fileName: "Operation Summary Score Card.pdf" },
+            //excel: { fileName: "Operation Summary Score Card.xlsx", allPages: true },
+            dataSource: {
+                //schema: {
+                //    model: {
+                //        LEStart: 'date',
+                //        LEFinish: 'date'
+                //    }
+                //},
+                data: data,
+                type: "json",
+                pageSize: 10,
+                //aggregate: [
+                //    { field: "OP", aggregate: "sum" },
+                //    { field: "AFE", aggregate: "sum" },
+                //    { field: "LE", aggregate: "sum" }
+                //]
+            },
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            height: 400,
+            columns: columns,
+            scrollable: true
+        });
+        setTimeout(function () {
+            $('#grid_prorate_actual').data('kendoGrid').refresh();
+        }, 500);
+    }
+</script>
+<div data-bind="visible: model.ProratedActual().IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+
+<div data-bind="visible: !model.ProratedActual().IsProcessing()">
+    <div class="col-md-12" style="margin-bottom:10px;margin-top:15px;">
+        <div class="col-md-4" data-bind="">
+            <div class="col-md-4">
+                <label>Year Start :</label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="YearStart" data-bind="kendoDropDownList:{value:model.ProratedLE().YearStart,dataSource: model.YearStart()}" style="width: 100%;"></select>
+            </div>
+        </div>
+        <div class="col-md-4" data-bind="">
+            <div class="col-md-4">
+                <label>Year Finish :</label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="YearFinish" data-bind="kendoDropDownList:{value:model.ProratedLE().YearFinish,dataSource: model.YearFinish()}" style="width: 100%;"></select>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-12 grids" style="margin-bottom:20px;">
+        <div style="color:red;">*) Still in testing phase</div>
+        <div id="grid_prorate_actual"></div>
+    </div>
+</div>
+<div class="clearfix"></div>

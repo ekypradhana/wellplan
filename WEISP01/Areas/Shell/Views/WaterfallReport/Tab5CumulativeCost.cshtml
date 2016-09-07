@@ -1,0 +1,146 @@
+﻿<script>
+    model.GenerateCumulative = function (key, data, columns) {
+        var className = 'grid-cumulative-' + key;
+        var title = key.replace(/le-/g, "Last Estimate ").replace(/\b\w+/g, function (s) {
+            return s.charAt(0).toUpperCase() + s.substr(1).toLowerCase();
+        });
+
+        $('.' + className).replaceWith($('<div />').addClass(className));
+        if (data.length > 0) {
+            $('.' + className).kendoGrid({
+                toolbar: ["pdf", "excel"],
+                pdf: {
+                    fileName: "Cumulative " + title + " of Improvement and risk-"+moment(new Date()).format("YYYY-MM-DD-HHmmss")+ ".pdf"
+                },
+                excel: {
+                    fileName: "Cumulative " + title + " of Improvement and risk-"+moment(new Date()).format("YYYY-MM-DD-HHmmss")+".xlsx",
+                    allPages: true,
+                    filterable: true
+                },
+                excelExport: function (e) {
+                    var MaxLength = [4, 8, 16, 3, 8];//Panjang huruf header
+                    e.workbook.sheets[0].rows.forEach(function (row, i) {
+                        if (i == 0) return;
+                        for (var j = 0; j < row.cells.length; j++) {
+                            if (j >= 5) {
+                                row.cells[j].value = parseFloat(row.cells[j].value).toFixed(2);
+                                row.cells[j].value = parseFloat(row.cells[j].value);
+                            }
+                            else {
+                                if (row.cells[j].value.length > MaxLength[j]) {
+                                    MaxLength[j] = row.cells[j].value.length;
+                                }
+                            }
+                            
+                        }
+                        
+                    });
+                    for (var i = 0; i < MaxLength.length; i++) {
+                        e.workbook.sheets[0].columns[i].width = MaxLength[i] * 8;
+                    }
+                    
+                },
+                dataSource: {
+                    data: data,
+                    type: "json"
+                },
+                //aggregate: aggregates,
+                height: 205,
+                scrollable: true,
+                sortable: true,
+                resizable: true,
+                columns: columns,
+                pageable:true
+            });
+            $(".cumulative-title").each(function (i, e) {
+                $(e).html(model.WaterfallFilter.CumulativeDataType().replace(/Total/g, "Improvement + Risk"));
+            });
+
+            var find = $("."+className+" > .k-pager-wrap.k-grid-pager.k-widget").find(".k-pager-info");
+            if (find.length > 0)
+                find.remove();
+
+            $('<span class="k-pager-info k-label total-rows">Total &nbsp; ' + data.length + ' items</span>').insertAfter('.'+className+' > .k-pager-wrap.k-grid-pager.k-widget > .k-link.k-pager-nav.k-pager-last');
+
+
+        } else {
+            $(".cumulative-title").each(function (i, e) {
+                $(e).html(model.WaterfallFilter.CumulativeDataType().replace(/Total/g, "Improvement + Risk") + "<br>No PIP Elements Found!");
+            });
+
+            var find = $("." + className + " > .k-pager-wrap.k-grid-pager.k-widget").find(".k-pager-info");
+            if (find.length > 0)
+                find.remove();
+
+            $('<span class="k-pager-info k-label total-rows">Total &nbsp; ' + data.length + ' items</span>').insertAfter('.' + className + ' > .k-pager-wrap.k-grid-pager.k-widget > .k-link.k-pager-nav.k-pager-last');
+
+
+        }
+    };
+</script>
+
+<div>
+    <div id="chart-cumulative-panel" style="width:1020px; margin: 0px auto; ">
+        <div class="mini-nav bordered-mini-nav" style="width: 800px; margin: 0px;">
+            <div class="each-nav">
+                Select Data Type:
+                <select data-bind="value:model.WaterfallFilter.CumulativeDataType">
+                    <option value="Total">Improvement + Risk</option>
+                    <option value="Improvement">Improvement</option>
+                    <option value="Risk">Risk</option>
+                </select>
+            </div>
+            <div class="each-nav">
+                View:
+                <select data-bind="options: model.YearOptions, value: model.WaterfallFilter.AllocationYear"></select>
+            </div>
+            <div class="each-nav">
+                Base OP:
+                <select data-bind="value:$root.WaterfallFilter.BaseOP,options:model.OPs()" style="margin-right: 5px;"></select>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:$root.WaterfallFilter.ShellShare" />
+                </div>
+                <div>Calc Shell Share</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:$root.WaterfallFilter.Firm" />
+                </div>
+                <div>Firm</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:$root.WaterfallFilter.Option" />
+                </div>
+                <div>Option</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:$root.WaterfallFilter.Blank" />
+                </div>
+                <div>Blank</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav no-border-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:$root.WaterfallFilter.ValidLSOnly" />
+                </div>
+                <div>Valid LS Only</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+</div>
+
+<div style="padding: 0px 30px 20px;" class="grid">
+    <h6>Cumulative Cost of <span class="cumulative-title"></span></h6>
+    <div class="grid-cumulative-cost"></div>
+    <h6>Cumulative Last Estimate Cost</h6>
+    <div class="grid-cumulative-le-cost"></div>
+</div>

@@ -1,0 +1,1734 @@
+﻿@{
+    ViewBag.Title = "Dashboard";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+
+<script>
+    model.PageId("Dashboard");
+    model.RigVarChartSelected = ko.observable('Well Name');
+    model.IsProcessing = ko.observable(false);
+    model.ProcessCounter = 0;
+    model.DismissIfProcessFinished = function () {
+        model.IsProcessing(model.ProcessCounter < 1);
+        model.ProcessCounter++;
+    };
+</script>
+
+<style>
+    .container {
+        margin-bottom: 15px;
+    }
+
+    .chart-header {
+        padding-left: 115px;
+    }
+
+        .chart-header h2, .chart-header h3 {
+            text-align: center;
+            font-weight: bold;
+            border: none;
+            padding: 0px;
+        }
+
+        .chart-header h2 {
+            font-size: 26px;
+            margin: 10px 0px 4px;
+        }
+
+        .chart-header h3 {
+            font-size: 14px;
+            margin: 4px 0px 15px;
+        }
+
+    .grids .grid, .charts .chart {
+        height: 100%;
+        width: 100%;
+    }
+
+    .grids, .charts {
+        margin-top: 15px;
+    }
+
+    .grids {
+        padding: 0px 15px 0px 0px !important;
+    }
+
+        .grids .cell-number {
+            text-align: right;
+        }
+
+        .grids .cell-date {
+            text-align: center;
+        }
+
+        .grids .k-grid .k-grid-content {
+            min-height: 100px;
+            max-height: 600px;
+        }
+
+
+
+        .grids .k-header.k-grid-toolbar {
+            background-color: #F9F9FB;
+        }
+
+        .grids .k-header[role=columnheader] {
+            vertical-align: middle;
+        }
+
+            .grids .k-header[role=columnheader][data-colspan] {
+                text-align: center;
+                font-weight: bold;
+                color: #a8a8a8;
+            }
+
+        .grids [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+            text-align: center;
+            vertical-align: top;
+        }
+
+        .grids [data-field=PhStart], .grids [data-field=PhFinish], .grids [data-field=EstimateFirstOilDate], .grids [data-field=FirstOilDate] {
+            /*pointer-events: none;*/
+        }
+
+    .charts .chart-content {
+        overflow-x: auto;
+        overflow-y: auto;
+        padding: 5px;
+        min-height: 100px;
+        max-height: 600px;
+    }
+
+    .charts {
+        padding: 0px !important;
+        border: 1px solid #e5e5e5;
+    }
+
+        .charts .shell-button span {
+            margin-right: 3px;
+        }
+
+        .charts .btn-shell {
+            position: absolute;
+            top: 9px;
+            left: 14px;
+        }
+
+        .charts .select-by-rig-var-op14, .charts .select-by-well-producing-day {
+            position: absolute;
+            left: 14px;
+            top: 44px;
+            width: 115px;
+            border: 1px solid rgb(242, 242, 242);
+        }
+
+        .charts .legend-by-rig-var-op14 {
+            position: absolute;
+            left: 207px;
+            top: 87px;
+            background-color: rgb(249, 249, 251);
+            height: 25px;
+            border: 1px solid rgb(240, 240, 240);
+            padding: 0px 10px;
+        }
+
+        .charts .legend-bullet {
+            float: left;
+            margin-top: 8px;
+            margin-right: 6px;
+            width: 8px;
+            height: 8px;
+        }
+
+        .charts .legend-label {
+            float: left;
+            border: none;
+            background-color: transparent;
+            font-size: 12px;
+            padding: 0px;
+            margin: 4px 0px 3px;
+        }
+
+    .tab-content .tab-pane.show-for-height {
+        position: absolute;
+        visibility: hidden;
+        display: block;
+    }
+
+    .by-rig {
+        margin-bottom: 10px;
+    }
+
+    .le-green {
+        background-color: green;
+        color: white;
+        font-weight: bold;
+    }
+
+    .le-red {
+        background-color: red;
+        color: white;
+        font-weight: bold;
+    }
+
+    .le-yellow {
+        background-color: yellow;
+        color: black;
+        font-weight: bold;
+    }
+
+    .k-footer-template td {
+        text-align: right;
+    }
+
+    @@media (max-width: 992px) {
+        .grids {
+            padding-right: 0px !important;
+        }
+    }
+
+    .k-detail-cell .k-grid-header {
+        padding-right: 0 !important;
+    }
+
+    .k-detail-cell .k-grid-content {
+        overflow-y: auto !important;
+    }
+</style>
+
+<div class="col-md-12">
+
+    <!-- filters -->
+    @Html.Partial("Filter")
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden'), height: (!model.IsProcessing() ? '' : '0px'), overflow: (!model.IsProcessing() ? '' : 'hidden') }">
+
+        <!-- Nav tabs -->
+        <ul class="nav nav-tabs" role="tablist">
+            <li role="presentation" class="active">
+                @*<a href="#eow-execution-variance" role="tab" data-toggle="tab">AFE Variance by Well<br /> in <span data-bind="text: moment(new Date()).format('YYYY')"></span> – Project View</a>*@
+                <a href="#eow-execution-variance" role="tab" data-toggle="tab">AFE Variance by Well<br /> – Project View</a>
+            </li>
+            <li role="presentation">
+                @*<a href="#cum-eow-by-rig" role="tab" data-toggle="tab">AFE Variance by Rig<br />in <span data-bind="text: moment(new Date()).format('YYYY')"></span> – Project View</a>*@
+                <a href="#cum-eow-by-rig" role="tab" data-toggle="tab">AFE Variance by Rig<br /> – Project View</a>
+            </li>
+
+            @*<li role="presentation">
+                <a href="#op-variance-by-well" role="tab" data-toggle="tab">OP Variance by Well<br /> – Project View</a>
+            </li>
+            <li role="presentation">
+                <a href="#op-variance-by-rig" role="tab" data-toggle="tab">OP Variance by Rig<br /> – Project View</a>
+            </li>
+
+            <li role="presentation">
+                <a href="#optoafe-variance-by-well" role="tab" data-toggle="tab">OP to AFE Variance by Well<br /> – Project View</a>
+            </li>
+            <li role="presentation">
+                <a href="#optoafe-variance-by-rig" role="tab" data-toggle="tab">OP to AFE Variance by Rig<br /> – Project View</a>
+            </li>
+
+            <li role="presentation" data-bind="visible:false">
+                <a href="#optoop-variance-by-well" role="tab" data-toggle="tab">OP to OP Variance by Well<br />in <span data-bind="text: moment(new Date()).format('YYYY')"></span> – Project View</a>
+
+            </li>
+            <li role="presentation" data-bind="visible:false">
+                <a href="#optoop-variance-by-rig" role="tab" data-toggle="tab">OP to OP Variance by Rig<br />in <span data-bind="text: moment(new Date()).format('YYYY')"></span> – Project View</a>
+
+            </li>
+
+            <li role="presentation">
+                <a href="#prorated-le" role="tab" data-toggle="tab">Prorating Performance<br />Fiscal View</a>
+            </li>
+            <li role="presentation" style="display:none">
+                <a href="#prorated-actual" role="tab" data-toggle="tab">Prorating for Actuals<br />Fiscal View</a>
+            </li>*@
+
+
+
+            @*<li role="presentation">
+                    <a href="#eow-execution-variance-by-activity" role="tab" data-toggle="tab">EOW Exec Var<br/>AFE vs LE. USD 100%</a>
+                </li>
+                <li role="presentation">
+                    <a href="#activity-by-OP" role="tab" data-toggle="tab">EOW Exec Var<br/>Plan vs LE. USD 100%</a>
+                </li>*@
+
+
+            @*<li role="presentation">
+                    <a href="#rig-var-op14" role="tab" data-toggle="tab" style="padding-top: 17px; padding-bottom: 18px;">Rig Variance vs OP-14</a>
+                </li>
+                <li role="presentation">
+                    <a href="#new-well" role="tab" data-toggle="tab">New Well Producing<br />Day Analysis</a>
+                </li>
+                <li role="presentation">
+                    <a href="#operations-summary-score-card" role="tab" data-toggle="tab">Operations Summary<br />Score Card</a>
+                </li>
+                <li role="presentation">
+                    <a href="#operations-summary-score-card-AllData" role="tab" data-toggle="tab">LE YE<br />Summary 2015</a>
+                </li>*@
+        </ul>
+
+        <!-- Tab panes -->
+        <div class="tab-content">
+
+            <div role="tabpanel" class="tab-pane active" id="eow-execution-variance">
+                <div class="col-md-6 grids by-well">
+                    <div class="grid"></div>
+                </div>
+                <div class="col-md-6 charts by-well">
+                    <div class="chart-header">
+                        <h2>AFE Variance by Well<br />Project View</h2>
+                        <h3 data-bind="visible:false">(Variance pre-spud Act/LE, US$ mm 100%)</h3>
+                        <button class="btn btn-sm btn-custom btn-shell" onclick="exportChartToPDF('#chart1', 'AFE Variance by Well Project View')">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                    </div>
+                    <div class="chart-content" data-row-height="25">
+                        <div class="chart" id="chart1"></div>
+                    </div>
+                </div>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="cum-eow-by-rig">
+                <div class="col-md-6 grids by-rig">
+                    <div class="grid"></div>
+                </div>
+                <div class="col-md-6 charts by-rig">
+                    <div class="chart-header">
+                        <h2>AFE Variance by Rig<br />Project View</h2>
+                        <h3 data-bind="visible:false">(Variance pre-spud Act/LE, US$ mm 100%)</h3>
+                        <button class="btn btn-sm btn-custom btn-shell" onclick="exportChartToPDF('#chart4', 'AFE Variance by Rig Project View')">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                    </div>
+                    <div class="chart-content" style="overflow-y: hidden !important; overflow-x: auto !important; ">
+                        <div class="chart" id="chart4"></div>
+                    </div>
+                </div>
+            </div>
+
+
+            @*<div role="tabpanel" class="tab-pane" id="op-variance-by-well">
+                <div class="col-md-6 grids op-variance-by-well">
+                    <div class="grid"></div>
+                </div>
+                <div class="col-md-6 charts op-variance-by-well">
+                    <div class="chart-header">
+                        <h2>OP Variance by Well<br />Project View</h2>
+                        <h3 data-bind="visible:false">(Variance pre-spud OP/LE, US$ mm 100%)</h3>
+                        <button class="btn btn-sm btn-custom btn-shell" onclick="exportChartToPDF('#chart_op_var_by_well', 'OP Variance by Well Project View')">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                    </div>
+                    <div class="chart-content" style="overflow-y: auto !important; overflow-x: auto !important; ">
+                        <div class="chart" id="chart_op_var_by_well"></div>
+                    </div>
+                </div>
+            </div>
+            <div role="tabpanel" class="tab-pane" id="op-variance-by-rig">
+                <div class="col-md-6 grids op-variance-by-rig">
+                    <div class="grid"></div>
+                </div>
+                <div class="col-md-6 charts op-variance-by-rig">
+                    <div class="chart-header">
+                        <h2>OP Variance by Rig<br />Project View</h2>
+                        <h3 data-bind="visible:false">(Variance pre-spud OP/LE, US$ mm 100%)</h3>
+                        <button class="btn btn-sm btn-custom btn-shell" onclick="exportChartToPDF('#chart-op-variance-by-rig', 'OP Variance by Rig Project View')">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                    </div>
+                    <div class="chart-content" style="overflow-y: hidden !important; overflow-x: auto !important; ">
+                        <div class="chart" id="chart-op-variance-by-rig"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div role="tabpanel" class="tab-pane" id="optoafe-variance-by-well">
+                <div class="col-md-6 grids optoafe-variance-by-well">
+                    <div class="grid"></div>
+                </div>
+                <div class="col-md-6 charts optoafe-variance-by-well">
+                    <div class="chart-header">
+                        <h2>OP to AFE Variance by Well<br />Project View</h2>
+                        <h3 data-bind="visible:false">(Variance pre-spud OP/AFE, US$ mm 100%)</h3>
+                        <button class="btn btn-sm btn-custom btn-shell" onclick="exportChartToPDF('#chart-optoafe-var-by-well', 'OP to AFE Variance by Well Project View')">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                    </div>
+                    <div class="chart-content" style="overflow-y: hidden !important; overflow-x: auto !important; ">
+                        <div class="chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div role="tabpanel" class="tab-pane" id="optoafe-variance-by-rig">
+                <div class="col-md-6 grids optoafe-variance-by-rig">
+                    <div class="grid"></div>
+                </div>
+                <div class="col-md-6 charts optoafe-variance-by-rig">
+                    <div class="chart-header">
+                        <h2>OP to AFE Variance by Rig<br />Project View</h2>
+                        <h3 data-bind="visible:false">(Variance pre-spud OP/AFE, US$ mm 100%)</h3>
+                        <button class="btn btn-sm btn-custom btn-shell" onclick="exportChartToPDF('#chart-optoafe-variance-by-rig', 'OP to AFE Variance by Rig Project View')">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                    </div>
+                    <div class="chart-content" style="overflow-y: hidden !important; overflow-x: auto !important; ">
+                        <div class="chart" id="chart-optoafe-variance-by-rig"></div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div role="tabpanel" class="tab-pane" id="optoop-variance-by-well" data-bind="visible:false">
+                <div class="col-md-6 grids optoop-variance-by-well">
+                    <div class="grid"></div>
+                </div>
+                <div class="col-md-6 charts optoop-variance-by-well">
+                    <div class="chart-header">
+                        <h2>OP to OP Variance by Well<br />Project View</h2>
+                        <h3 data-bind="visible:false">(Variance pre-spud OP/OP Var, US$ mm 100%)</h3>
+                        <button class="btn btn-sm btn-custom btn-shell" onclick="exportChartToPDF('#chart-optoop-variance-by-well', 'OP to OP Variance by Well Project View')">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                    </div>
+                    <div class="chart-content" style="overflow-y: hidden !important; overflow-x: auto !important; ">
+                        <div class="chart"></div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div role="tabpanel" class="tab-pane" id="optoop-variance-by-rig" data-bind="visible:false">
+                <div class="col-md-6 grids optoop-variance-by-rig">
+                    <div class="grid"></div>
+                </div>
+                <div class="col-md-6 charts optoop-variance-by-rig">
+                    <div class="chart-header">
+                        <h2>OP to OP Variance by Rig<br />Project View</h2>
+                        <h3 data-bind="visible:false">(Variance pre-spud OP/op, USD mm 100%)</h3>
+                        <button class="btn btn-sm btn-custom btn-shell" onclick="exportChartToPDF('#chart-optoop-variance-by-rig', 'OP to OP Variance by Rig Project View')">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                    </div>
+                    <div class="chart-content" style="overflow-y: hidden !important; overflow-x: auto !important; ">
+                        <div class="chart" id="chart-optoop-variance-by-rig"></div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div role="tabpanel" class="tab-pane" id="eow-execution-variance-by-activity">
+                <div class="col-md-6 grids by-activity">
+                    <div class="grid"></div>
+                </div>
+                <div class="col-md-6 charts by-activity">
+                    <div class="chart-header">
+                        <h2>EOW Execution Variance</h2>
+                        <h3 data-bind="visible:false">(Variance pre-spud Act/LE, USD 100%)</h3>
+                        <button class="btn btn-sm btn-custom btn-shell" onclick="exportChartToPDF('#chart2', 'EOW Execution Variance')">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                    </div>
+                    <div class="chart-content" data-row-height="25">
+                        <div class="chart" id="chart2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div role="tabpanel" class="tab-pane" id="activity-by-OP">
+                <div class="col-md-6 grids by-activityOP">
+                    <div class="grid"></div>
+                </div>
+                <div class="col-md-6 charts by-activityOP">
+                    <div class="chart-header">
+                        <h2>EOW Execution Variance</h2>
+                        <h3 data-bind="visible:false">(Variance OP-14 vs Act/LE, USD 100%)</h3>
+                        <button class="btn btn-sm btn-custom btn-shell" onclick="exportChartToPDF('#chart3', 'EOW Execution Variance')">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                    </div>
+                    <div class="chart-content" data-row-height="25">
+                        <div class="chart" id="chart3"></div>
+                    </div>
+                </div>
+            </div>
+
+
+
+
+            <div class="tab-pane" id="rig-var-op14">
+                <div class="col-md-6 grids by-rig-var-op14">
+                    <div class="grid"></div>
+                </div>
+                <div class="col-md-6 charts by-rig-var-op14">
+                    <div class="chart-header">
+                        <h2>Rig Variance vs OP-14</h2>
+                        <h3 data-bind="text: '(by ' + (RigVarChartSelected() == 'Activity' ? 'Activity' : 'Well Name') + ')'"></h3>
+                        <button class="btn btn-sm btn-custom btn-shell" onclick="exportChartToPDF('chartRigVar', 'Rig Variance vs OP-14')">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                        <div class="select-by-rig-var-op14">
+                            <select></select>
+                        </div>
+                        <div class="legend-by-rig-var-op14">
+                            <div class="legend-bullet" style="background-color: rgb(244, 179, 80);">&nbsp;</div>
+                            <button class="legend-label">Cost (US$ m)</button>
+                            <div class="legend-bullet" style="background-color: rgb(217, 30, 24);  margin-left: 7px;">&nbsp;</div>
+                            <button class="legend-label">Duration (Days)</button>
+                        </div>
+                    </div>
+                    <div class="chart-content" style="overflow-y: hidden !important; overflow-x: auto !important; margin-top: 65px;">
+                        <div class="chart chart-by-wellname" id="RigVarByWellName" data-bind="visible: (RigVarChartSelected() == 'Well Name')"></div>
+                        <div class="chart chart-by-activity" id="RigVarByActivity" data-bind="visible: (RigVarChartSelected() == 'Activity')"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane" id="new-well">
+                <div class="col-md-6 grids by-well-producing-day">
+                    <div class="grid"></div>
+                </div>
+                <div class="col-md-6 charts by-well-producing-day">
+                    <div class="chart-header">
+                        <h2>New Well Producing Analysis</h2>
+                        <h3>&nbsp;</h3>
+                        <button class="btn btn-sm btn-custom btn-shell" onclick="exportChartToPDF('#chart5')">
+                            <span class="k-icon k-i-pdf"></span> Export to PDF
+                        </button>
+                        <div class="select-by-well-producing-day" style="position: absolute;">
+                            <select></select>
+                        </div>
+                    </div>
+                    <div class="chart-content" style="overflow-y: hidden !important; overflow-x: auto !important;">
+                        <div class="chart" id="chart5"></div>
+                    </div>
+                </div>
+            </div>*@
+
+            <div class="tab-pane" id="operations-summary-score-card">
+                @Html.Partial("_operations_summary_score_card")
+            </div>
+
+            <div class="tab-pane" id="operations-summary-score-card-AllData">
+                @Html.Partial("_operations_summary_score_card_alldata")
+            </div>
+
+            <div class="tab-pane" id="prorated-le">
+                @Html.Partial("_prorated_LE")
+            </div>
+            <div class="tab-pane" id="prorated-actual" style="display:none">
+                @Html.Partial("_prorated_actual")
+            </div>
+        </div>
+
+        <div style="clear: both;"></div>
+
+    </div>
+</div>
+
+<script>
+    model.FilterVisibility.Date(true);
+    model.FilterVisibility.Date2(true);
+    model.FilterVisibility.ActiveWell(true);
+    model.FilterVisibility.PeriodBase(true);
+    model.FilterVisibility.ExType(true);
+    model.FilterVisibility.Activities(true);
+    model.FilterVisibility.OPs(true);
+    model.FilterVisibility.OpRelation(true);
+    model.DataBackup = {
+        ByWell: ko.observable({}),
+        ByActivity: ko.observable({}),
+        ByRig: ko.observable({}),
+        ByVarOP14: ko.observable({}),
+        ByWellProducingDay: ko.observable({}),
+        ByWellProrating: ko.observable({}),
+
+        OPVarianceByWell: ko.observable({}),
+        OPVarianceByRig: ko.observable({}),
+
+        OPtoAFEVarianceByWell: ko.observable({}),
+        OPtoAFEVarianceByRig: ko.observable({}),
+
+        OPtoOPVarianceByWell: ko.observable({}),
+        OPtoOPVarianceByRig: ko.observable({}),
+
+    };
+
+    function exportChartToPDF(chart,title) {
+        if (chart != "chartRigVar") {
+            $(chart).data("kendoChart").setOptions({
+                title:{text:title}
+            })
+            $(chart).getKendoChart().saveAsPDF();
+        } else {
+            var filter = $('div.select-by-rig-var-op14').data('kendoDropDownList').value();
+            if (filter == 'by Activity') {
+                
+                $('#RigVarByActivity').data("kendoChart").setOptions({
+                    title: { text: title }
+                })
+                $('#RigVarByActivity').getKendoChart().saveAsPDF();
+            } else {
+                $('#RigVarByActivity').data("kendoChart").setOptions({
+                    title: { text: title }
+                })
+                $('#RigVarByWellName').getKendoChart().saveAsPDF();
+            }
+        }
+    }
+
+    function columns(field, title, what, dataTotal) {
+        what = (typeof what === 'undefined' ? '' : what);
+        dataTotal = (typeof dataTotal === 'undefined' ? '' : dataTotal);
+        var c = [];
+
+        c.push({ field: field, title: title, width: 120 });
+        if (what == 'Activity' || what == 'ActivityOP') {
+            c.push({ field: "ActivityType", title: "Activities / Events", width: 150 });
+        }
+        c.push({
+            title: "Latest Sequence", columns: [
+                { field: "PhStart", title: "Start", width: 67},
+                { field: "PhFinish", title: "Finish", width: 67 }
+            ]
+        });
+        if (what == 'RigVariance' || what == 'ActivityOP' || what == 'OPVariance' ) {
+            c.push({
+                title: "OP", columns: [
+                    {
+                        field: "TotalOPDays", title: "Days", format: "{0:N0}", attributes: { class: "cell-number" }, width: 55,
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                        //footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + dataTotal.OPDaysTotal + ") #</div>"
+                    },
+                    {
+                        field: "TotalOPCost", title: "Cost (US$ mm)", format: "{0:N1}", attributes: { class: "cell-number" },
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                        //footerTemplate: "<div class='align_right'>#: kendo.format('{0:N1}'," + dataTotal.OPCostTotal + ") #</div>"
+                    },
+                ]
+            });
+        } else if (what == 'WellProducingDay') {
+            c.splice(c.length - 1, 1);
+
+            c.push({
+                title: "First Oil Date", columns: [
+                    { field: "EstimateFirstOilDate", title: "Estimate", width: 67 },
+                    { field: "FirstOilDate", title: "Actual", width: 67 }
+                ]
+            });
+
+            c.push({
+                title: "First Oil Days", columns: [
+                    { field: "EstimateTotalDays", title: "Estimate", format: "{0:N0}", template: "#: emptyZero(EstimateTotalDays) #", attributes: { class: "cell-number" }, width: 70 },
+                    { field: "ActualTotalDays", title: "Actual", format: "{0:N0}", template: "#: emptyZero(ActualTotalDays) #", attributes: { class: "cell-number" }, width: 70 },
+                ]
+            });
+
+            return c;
+        } else if (what != 'OPtoAFEVarianceRig' && what != 'OPtoAFEVariance' && what != 'OPtoOPVariance' && what != 'OPtoOPVarianceRig') {
+            c.push({
+                title: "AFE", columns: [
+                    {
+                        field: "TotalAFEDays", title: "Days", format: "{0:N0}", attributes: { class: "cell-number" }, width: 55,
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    },
+                    {
+                        field: "TotalAFECost", title: "Cost (US$ mm)", format: "{0:N1}", attributes: { class: "cell-number" },
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    },
+                ]
+            });
+        }
+
+      if ((what == 'OPtoAFEVarianceRig') || what == 'OPtoAFEVariance')
+        {
+            c.push({
+                title: "OP", columns: [
+                    {
+                        field: "TotalOPDays", title: "Days", format: "{0:N0}", attributes: { class: "cell-number" }, width: 55,
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    },
+                    {
+                        field: "TotalOPCost", title: "Cost (US$ mm)", format: "{0:N1}", attributes: { class: "cell-number" },
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    },
+                ]
+            });
+            c.push({
+                title: "AFE", columns: [
+                    {
+                        field: "TotalAFEDays", title: "Days", format: "{0:N0}", attributes: { class: "cell-number" }, width: 55,
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    },
+                    {
+                        field: "TotalAFECost", title: "Cost (US$ mm)", format: "{0:N1}", attributes: { class: "cell-number" },
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    },
+                ]
+            });
+      }
+      else if (what == 'OPtoOPVariance' || what == 'OPtoOPVarianceRig')
+      {
+          c.push({
+              title: "OP", columns: [
+                  {
+                      field: "TotalOPDays", title: "Days", format: "{0:N0}", attributes: { class: "cell-number" }, width: 55,
+                      aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                  },
+                  {
+                      field: "TotalOPCost", title: "Cost (US$ mm)", format: "{0:N1}", attributes: { class: "cell-number" },
+                      aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                  },
+              ]
+          });
+          c.push({
+              title: "OP to LE Var", columns: [
+                  {
+                      field: "TotalDuration", title: "Days", format: "{0:N0}", attributes: { class: "cell-number" }, width: 55,
+                      aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                  },
+                  {
+                      field: "TotalCost", title: "Cost (US$ mm)", format: "{0:N1}", attributes: { class: "cell-number" },
+                      aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                  },
+              ]
+          });
+      }
+        else
+        {
+            c.push({
+                title: "LE", columns: [
+                    {
+                        field: "TotalLEDays", title: "Days", format: "{0:N0}", attributes: { class: "cell-number" }, width: 55,
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    },
+                    {
+                        field: "TotalLECost", title: "Cost (US$ mm)", format: "{0:N1}", attributes: { class: "cell-number" },
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    },
+                ]
+            });
+        }
+
+
+        if (what == "ActivityOP" || what == 'OPVariance' ) {
+            c.push({
+                title: "OP to AFE<br>Var", columns: [
+                    {
+                        field: "TotalDuration", title: "Days", format: "{0:N0}", attributes: { class: "cell-number" }, width: 55,
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    },
+                    {
+                        field: "TotalCost", title: "Cost (US$ mm)", format: "{0:N1}", attributes: { class: "cell-number" },
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    },
+                ]
+            });
+        }
+        else if (what == 'OPtoOPVariance' || what == 'OPtoOPVarianceRig') {
+            //alert(what);
+            c.push({
+                title: "OP to AFE<br>Var", columns: [
+                    {
+                        field: "TotalDurationOPVar", title: "Days", format: "{0:N0}", attributes: { class: "cell-number" }, width: 55,
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    },
+                    {
+                        field: "TotalCostOPVar", title: "Cost (US$ mm)", format: "{0:N1}", attributes: { class: "cell-number" },
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    }
+                ]
+            });
+        }
+        else {
+            c.push({
+                title: "OP to AFE<br>Var", columns: [
+                    {
+                        field: "TotalDuration", title: "Days", format: "{0:N0}", attributes: { class: "cell-number" }, width: 55,
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    },
+                    {
+                        field: "TotalCost", title: "Cost (US$ mm)", format: "{0:N1}", attributes: { class: "cell-number" },
+                        aggregates: ["sum"], footerTemplate: "#=kendo.format('{0:N1}',sum)#"
+                    }
+                ]
+            });
+        }
+
+        return c;
+    }
+
+    function fetchData(url, group, callbackOK, callbackNOK) {
+        var param = model.getFilterValues(); param.group = group;
+        param.sortBy = $("#sortBy").val();
+        param.sortType = $("#sortType").val();
+
+        callbackNOK = (typeof callbackNOK === 'undefined' ? function () { } : callbackNOK);
+
+        ajaxPost(url, param, function (res) {
+            callbackOK(res);
+            model.DismissIfProcessFinished();
+        }, function (a, b, c) {
+            callbackNOK(res);
+            model.DismissIfProcessFinished();
+        });
+    }
+
+    function renderGrid($target, dataSource, c, exprt, what, $chart) {
+        what = (typeof what === 'undefined' ? '' : what);
+        $chart = (typeof $chart === 'undefined' ? '' : $chart);
+        config = {
+            toolbar: ["pdf", "excel"],
+            pdf: exprt.pdf,
+            excel: exprt.excel,
+            dataSource: dataSource,
+            columns: c,
+            pageable: false,
+            sortable: true,
+            resizable: true,
+            scrollable: true,
+            height: 640
+        };
+
+        // export hack
+        (function () {
+            var $gridParent = $target.parent();
+            var rowsTarget = [];
+
+            if ($gridParent.hasClass("by-well"))
+                rowsTarget = [3, 4, 5, 6, 7, 8];
+            else if ($gridParent.hasClass("by-activity"))
+                rowsTarget = [4, 5, 6, 7, 8, 9];
+            else if ($gridParent.hasClass("by-activityOP"))
+                rowsTarget = [4, 5, 6, 7, 8, 9];
+            else if ($gridParent.hasClass("by-rig"))
+                rowsTarget = [3, 4, 5, 6, 7, 8];
+            else if ($gridParent.hasClass("by-rig-var-op14"))
+                rowsTarget = [3, 4, 5, 6, 7, 8];
+            else if ($gridParent.hasClass("op-variance-by-well"))
+                rowsTarget = [3, 4, 5, 6, 7, 8];
+            else if ($gridParent.hasClass("op-variance-by-rig"))
+                rowsTarget = [3, 4, 5, 6, 7, 8];
+            else if ($gridParent.hasClass("optoafe-variance-by-rig"))
+                rowsTarget = [3, 4, 5, 6, 7, 8];
+            else if ($gridParent.hasClass("optoop-variance-by-well"))
+                rowsTarget = [3, 4, 5, 6, 7, 8];
+
+
+            if (rowsTarget.length > 0) {
+                config.excelExport = function (e) {
+                    var sheet = e.workbook.sheets[0];
+                    sheet.title = exprt.excel.fileName.replace(/_/gi, " ")
+                    var rows = sheet.rows[sheet.rows.length - 1];
+                    for (var i = 2; i < sheet.rows.length-1; i++) {
+                        for (var j in rowsTarget) {
+                            var col = rowsTarget[j];
+                            var value = parseFloat(sheet.rows[i].cells[col].value);
+                            sheet.rows[i].cells[col].value = value.toFixed(1);
+                            sheet.rows[i].cells[col].hAlign = "right";
+                        }
+                    }
+                    for (var i in rowsTarget) {
+                        var j = rowsTarget[i];
+                        rows.cells[j].value = parseFloat(rows.cells[j].value.replace(",", ""));
+                    }
+                };
+            }
+        }());
+        if (what == 'CUMEOWByRig') {
+            config.detailInit = function (e) {
+                var param = $.extend(true, {}, model.getFilterValues());
+                param.rigNames = [];
+                param.rigNames.push(e.data.RigName);
+                param.group = "Well";
+                var c = (function (c) {
+                    var k = "columns";
+                    var deletePropertyIfExists = function (d, w) { if (d.hasOwnProperty(w)) delete d[w]; };
+                    for (var i in c) {
+                        deletePropertyIfExists(c[i], "aggregates");
+
+                        if (c[i].hasOwnProperty(k)) {
+                            for (var j in c[i][k]) {
+                                deletePropertyIfExists(c[i][k][j], "aggregates");
+                                deletePropertyIfExists(c[i][k][j], "footerTemplate");
+                            }
+                        }
+                    }
+                    return c;
+                }(columns("WellName", "Well Name")));
+
+                ajaxPost("@Url.Action("GetSequenceInfoGroupedByWellName")", param, function (res) {
+
+                    $("<div/>").appendTo(e.detailCell).kendoGrid({
+                        dataSource: { data: res.Data.Data, pageSize: 10 },
+                        columns: c,
+                        pageable: true,
+                        sortable: true,
+                        resizable: true
+                    });
+                }, function (a, b, c) {
+                    console.log(a);
+                    console.log(b);
+                    console.log(c);
+                });
+            };
+        }
+
+        if (what == 'OPVariance') {
+            config.detailInit = function (e) {
+                var param = $.extend(true, {}, model.getFilterValues());
+                param.rigNames = [];
+                param.rigNames.push(e.data.RigName);
+                param.group = "Well";
+                var c = (function (c) {
+                    var k = "columns";
+                    var deletePropertyIfExists = function (d, w) { if (d.hasOwnProperty(w)) delete d[w]; };
+                    for (var i in c) {
+                        deletePropertyIfExists(c[i], "aggregates");
+
+                        if (c[i].hasOwnProperty(k)) {
+                            for (var j in c[i][k]) {
+                                deletePropertyIfExists(c[i][k][j], "aggregates");
+                                deletePropertyIfExists(c[i][k][j], "footerTemplate");
+                            }
+                        }
+                    }
+                    return c;
+                }(columns("WellName", "Well Name", 'OPVariance')));
+                ajaxPost("@Url.Action("GetDetailWellNameOPVarianceByRigName")", param, function (res) {
+
+                    $("<div/>").appendTo(e.detailCell).kendoGrid({
+                        dataSource: { data: res.Data.Data, pageSize: 10 },
+                        columns: c,
+                        pageable: true,
+                        sortable: true,
+                        resizable: true
+                    });
+                }, function (a, b, c) {
+                    console.log(a);
+                    console.log(b);
+                    console.log(c);
+                });
+            };
+        }
+
+        if (what == 'OPtoAFEVarianceRig') {
+            config.detailInit = function (e) {
+                var param = $.extend(true, {}, model.getFilterValues());
+                param.rigNames.push(e.data.RigName);
+                param.group = "Well";
+                var c = (function (c) {
+                    var k = "columns";
+                    var deletePropertyIfExists = function (d, w) { if (d.hasOwnProperty(w)) delete d[w]; };
+                    for (var i in c) {
+                        deletePropertyIfExists(c[i], "aggregates");
+
+                        if (c[i].hasOwnProperty(k)) {
+                            for (var j in c[i][k]) {
+                                deletePropertyIfExists(c[i][k][j], "aggregates");
+                                deletePropertyIfExists(c[i][k][j], "footerTemplate");
+                            }
+                        }
+                    }
+                    return c;
+                }(columns("WellName", "Well Name", 'OPtoAFEVarianceRig')));
+                ajaxPost("@Url.Action("GetDetailWellNameOPtoAFEVarianceByRigName")", param, function (res) {
+
+                    $("<div/>").appendTo(e.detailCell).kendoGrid({
+                        dataSource: { data: res.Data.Data, pageSize: 10 },
+                        columns: c,
+                        pageable: true,
+                        sortable: true,
+                        resizable: true
+                    });
+                }, function (a, b, c) {
+                    console.log(a);
+                    console.log(b);
+                    console.log(c);
+                });
+            };
+        }
+
+
+        if (what == 'OPtoOPVarianceRig') {
+            config.detailInit = function (e) {
+                var param = $.extend(true, {}, model.getFilterValues());
+                param.rigNames.push(e.data.RigName);
+                param.group = "Well";
+                var c = (function (c) {
+                    var k = "columns";
+                    var deletePropertyIfExists = function (d, w) { if (d.hasOwnProperty(w)) delete d[w]; };
+                    for (var i in c) {
+                        deletePropertyIfExists(c[i], "aggregates");
+
+                        if (c[i].hasOwnProperty(k)) {
+                            for (var j in c[i][k]) {
+                                deletePropertyIfExists(c[i][k][j], "aggregates");
+                                deletePropertyIfExists(c[i][k][j], "footerTemplate");
+                            }
+                        }
+                    }
+                    return c;
+                }(columns("WellName", "Well Name", 'OPtoOPVarianceRig')));
+                ajaxPost("@Url.Action("GetDetailWellNameOPtoOPVarianceByRigName")", param, function (res) {
+
+                    $("<div/>").appendTo(e.detailCell).kendoGrid({
+                        dataSource: { data: res.Data.Data, pageSize: 10 },
+                        columns: c,
+                        pageable: true,
+                        sortable: true,
+                        resizable: true
+                    });
+                }, function (a, b, c) {
+                    console.log(a);
+                    console.log(b);
+                    console.log(c);
+                });
+            };
+        }
+
+
+        $target.kendoGrid(config);
+    }
+
+    function shortLabels(value) {
+        return (value.length > 15 ? (value.substring(0, 15) + '...') : value);
+    }
+
+    function formatNumber(number) {
+        return kendo.format("{0:N1}", number);
+    }
+
+    function renderChart($grids, $charts, categoryAxis, data, what, minValue, chartExportConfig) {
+        //alert("minValue = " + minValue + " ,what = " + what);
+        what = (typeof what === 'undefined' ? '' : what);
+        minValue = (typeof minValue === 'undefined' ? '' : minValue);
+        chartExportConfig = (typeof chartExportConfig === 'undefined' ? { fileName: "Chart PDF Export" } : chartExportConfig)
+
+        //var isForWell = (categoryAxis.field == 'WellName' && (what == '' || what == 'bywell')) || what == "ActivityOP" || what == 'opvariancebywell';
+        isForWell = true;
+        var isCurrentTabHidden = !$grids.closest('.tab-pane').hasClass('active');
+        var minHeight = (isForWell ? 220 : 300);
+        //if (what == 'optoopvariancebywell')
+        //{
+        //    console.log('=============== CHART =============== ');
+        //    console.log('isForWell : ' + isForWell);
+        //    console.log('categoryAxis ==========' );
+        //    console.log(categoryAxis);
+        //    console.log('what : ' + what);
+        //    console.log('minVallue : ' + minValue);
+        //    console.log('chartExportConfig =========');
+        //    console.log(chartExportConfig);
+        //    console.log(data);
+        //}
+        if (isCurrentTabHidden) $grids.closest('.tab-pane').addClass('show-for-height');
+
+        $charts.height(($grids.height() < minHeight ? minHeight : $grids.height()) - 2);
+        var config = function (data, height) {
+            var field1 = what != "ActivityOP" ? "TotalCost" : "TotalOPVarCost";
+            var field2 = what != "ActivityOP" ? "TotalDuration" : "TotalOPVarDays";
+            var result = {
+                height: height,
+                seriesDefaults: { gap: 0.7, spacing: 0 },
+                dataSource: { data: data },
+                legend: { visible: true, position: 'top', border: { width: 1, color: '#f0f0f0', type: 'solid' }, background: '#F9F9FB', margin: { bottom: 20 }, padding: { top: 5, bottom: 5, left: 10, right: 10 } },
+                series: [{
+                    field: field1,
+                    name: "Cost (US$ mm)",
+                    color: "#f4b350",
+                    tooltip: { visible: true, template: '<div style="padding: 0px 4px;" >#: category # • Cost: #= formatNumber(value) # (in USD million)</div>' }
+                }, {
+                    field: field2,
+                    name: "Duration (Days)",
+                    color: "#d91e18",
+                    tooltip: { visible: true, template: '<div style="padding: 0px 4px;" >#: category # • Duration: #= formatNumber(value) # days</div>' }
+                }],
+                categoryAxis: {
+                    field: categoryAxis.field,
+                    title: categoryAxis.title,
+                    majorGridLines: { visible: false },
+                    labels: { font: '10px Tahoma', background: 'rgba(255,255,255,0.7)' }
+                },
+                valueAxis: { majorGridLines: { color: "#ccc" }, line: { color: "#ccc" } },
+                chartArea: { background: "transparent" },
+                pdf: chartExportConfig
+            };
+            //if (what == 'optoopvariancebywell') {
+            //    console.log('============================= result =================');
+            //    console.log(result);
+            //    console.log('============================= ');
+            //}
+            if (what == 'RigVariance') {
+                delete result.dataSource;
+                delete result.categoryAxis.field;
+                delete result.categoryAxis.title;
+                result.legend.visible = false;
+                result.series = data.Series;
+                result.categoryAxis.categories = data.Categories;
+                result.tooltip = { visible: true, template: "#= category # | #= series.name # | #= series.stack #: #= formatNumber(value) # #= series.suffix #" };
+            } else if (what == 'WellProducingDay') {
+                result.categoryAxis.labels.template = "#= shortLabels(value) #";
+                result.series = [{
+                    field: "EstimateTotalDays",
+                    name: "Estimate Total Days",
+                    color: "#f4b350",
+                    tooltip: { visible: true, template: '<div style="padding: 0px 4px;" >#: category # • Estimate Total Days: #= formatNumber(value) # days</div>' }
+                }, {
+                    field: "ActualTotalDays",
+                    name: "Actual Total Days",
+                    color: "#d91e18",
+                    tooltip: { visible: true, template: '<div style="padding: 0px 4px;" >#: category # • Actual Total Days: #= formatNumber(value) # days</div>' }
+                }];
+                result.legendItemClick = function (e) {
+                    e.preventDefault();
+                };
+            } else
+                if (what == 'optoopvariancebywell') {
+                    //alert(what);
+
+                    result.categoryAxis.labels.template = "#= shortLabels(value) #";
+                    result.series = [{
+                        field: "TotalDurationOPVar",
+                        name: "Total Days",
+                        color: "#f4b350",
+                        tooltip: { visible: true, template: '<div style="padding: 0px 4px;" >#: category # • Estimate Total Days: #= formatNumber(value) # days</div>' }
+                    }, {
+                        field: "TotalCostOPVar",
+                        name: "Total Cost",
+                        color: "#d91e18",
+                        tooltip: { visible: true, template: '<div style="padding: 0px 4px;" >#: category # • Actual Total Days: #= formatNumber(value) # days</div>' }
+                    }];
+                    result.legendItemClick = function (e) {
+                        e.preventDefault();
+                    };
+
+                    //delete result.dataSource;
+                    //delete result.categoryAxis.field;
+                    //delete result.categoryAxis.title;
+                    //result.legend.visible = false;
+                    //result.series = data.Series;
+                    //result.categoryAxis.categories = data.Categories;
+                    //result.tooltip = { visible: true, template: "#= category # | #= series.name # | #= series.stack #: #= formatNumber(value) # #= series.suffix #" };
+                }
+
+            if (isForWell) {
+                var padd = minValue - 50;
+                if (padd < 0) {
+                    padd = padd * (-1);
+                }
+                //alert("minValue = "+minValue+" ,Padd = "+padd);
+                result.seriesDefaults.type = 'bar';
+                result.categoryAxis.labels.padding = { right: padd };
+            } else {
+                result.categoryAxis.labels.visible = true;
+                result.categoryAxis.labels.padding = 2;
+                result.categoryAxis.labels.rotation = -45;
+            }
+
+            return result;
+        }
+
+        if (isForWell) {
+
+            if (what == 'bywell' || what == 'opvariancebywell' || what == 'optoafevariancebywell') {
+                //var width = ($grids.width() - 10);
+                //var chartWidth = (data.length * 50) < width ? width : (data.length * 50) + 20;
+                //console.log(chartWidth);
+                //var height = ($grids.height() < minHeight ? minHeight : $grids.height()) - 83;
+                //var chartHeight = height - 2;
+
+                //$charts.find('.chart-content').height(height);
+                //$charts.find('.chart').height(chartHeight);
+                $charts.find('.chart').width(750);
+                //$charts.find('.chart').kendoChart(config(data, chartHeight));
+
+                var height = ($grids.height() < minHeight ? minHeight : $grids.height()) - 83;
+                var chartHeight = (data.length * 25) < height ? (height - 2) : (data.length * 25);
+
+                $charts.find('.chart-content').height(height);
+                $charts.find('.chart').height(chartHeight);
+                $charts.find('.chart').kendoChart(config(data, chartHeight));
+
+                var $ul = $('<ul />').appendTo($charts.find('.chart.well-label'));
+
+                _.map(data, function (o) { $('<li />').html(o.WellName).appendTo($ul); });
+                //console.log("aaaaaa");
+            } else {
+
+                var height = ($grids.height() < minHeight ? minHeight : $grids.height()) - 83;
+                var chartHeight = (data.length * 25) < height ? (height - 2) : (data.length * 25);
+
+                $charts.find('.chart-content').height(height);
+                $charts.find('.chart').height(chartHeight);
+                $charts.find('.chart').kendoChart(config(data, chartHeight));
+
+                var $ul = $('<ul />').appendTo($charts.find('.chart.well-label'));
+
+                _.map(data, function (o) { $('<li />').html(o.WellName).appendTo($ul); });
+
+            }
+        } else {
+            if (what == 'RigVariance') {
+                var width = ($grids.width() - 10);
+                var chartWidth = (data.GridItems.length * 50) < width ? width : (data.GridItems.length * 50);
+                var height = ($grids.height() < minHeight ? minHeight : $grids.height()) - 83 - 50;
+                var chartHeight = height - 2;
+
+                $charts.find('.chart-content').height(height);
+                $charts.find('.chart-by-wellname').height(chartHeight);
+                $charts.find('.chart-by-wellname').width(chartWidth);
+                $charts.find('.chart-by-wellname').kendoChart(config(data.RigVarianceAndOP14ByWellName, chartHeight));
+                $charts.find('.chart-by-activity').height(chartHeight);
+                $charts.find('.chart-by-activity').width(chartWidth);
+                $charts.find('.chart-by-activity').kendoChart(config(data.RigVarianceAndOP14ByActivity, chartHeight));
+            } else {
+                var width = ($grids.width() - 10);
+                var chartWidth = (data.length * 50) < width ? width : (data.length * 50) + 20;
+                var height = ($grids.height() < minHeight ? minHeight : $grids.height()) - 83;
+                var chartHeight = height - 2;
+
+                $charts.find('.chart-content').height(height);
+                $charts.find('.chart').height(chartHeight);
+                $charts.find('.chart').width(chartWidth);
+                $charts.find('.chart').kendoChart(config(data, chartHeight));
+            }
+        }
+
+        if (isCurrentTabHidden) $grids.closest('.tab-pane').removeClass('show-for-height');
+    }
+
+
+    function dataSource(data, sortBy, aggregates) {
+
+        var sortBy = $("#sortBy").val();
+        var sortType = $("#sortType").val();
+        var sort = {};
+        if (sortBy == "days") {
+            sort.field = "TotalDuration";
+        } else {
+            sort.field = "TotalCost";
+        }
+        sort.dir = sortType;
+
+        return {
+            data: data,
+            type: "json",
+            pageSize: data.length,
+            aggregate: aggregates
+            //sort: sort
+            //sort: { field: sortBy, dir: "asc" }
+        };//, schema: { model: { fields: { PhStart: "date", PhFinish: "date" } } } };
+    }
+
+    function jsonDateStrH(date) {
+        if ($.trim(jsonDateStr(date)) == '') return '';
+        return moment(jsonDateStr(date), 'DD-MMM-YYYY').format("DD MMM YY");
+    }
+
+    function emptyZero(n) {
+        if (parseInt(n, 10) == 0) return "";
+        return n;
+    }
+
+    function exportConfig(fileName) {
+        return {
+            pdf: { fileName: fileName + ".pdf" },
+            excel: { fileName: fileName + ".xlsx", allPages: true, filterable: true }
+        };
+    }
+
+    function renderOPtoOPVarianceByWell() {
+
+        var $grids = $('.grids.optoop-variance-by-well');
+        var $charts = $('.optoop-variance-by-well');
+
+        $grids.find('.grid').replaceWith($('<div />').addClass('grid'));
+        $charts.find('.chart').replaceWith($('<div />').addClass('chart').attr("id", "chart-optoop-variance-by-well"));
+
+        var res = model.DataBackup.OPtoOPVarianceByWell();
+
+        var aggregates = [
+                            { field: "TotalOPDays", aggregate: "sum" },
+                            { field: "TotalOPCost", aggregate: "sum" },
+                            { field: "TotalDuration", aggregate: "sum" },
+                            { field: "TotalCost", aggregate: "sum" },
+                            { field: "TotalDurationOPVar", aggregate: "sum" },
+                            { field: "TotalCostOPVar", aggregate: "sum" }
+        ];
+
+        if (_.size(res)>0) {
+            renderGrid($grids.find('.grid'), dataSource(res.Data, "WellName", aggregates),
+                columns("WellName", "Well Name", 'OPtoOPVariance', res),
+                exportConfig("OP_to_OP_Variance_by_Well_in_Project_View"), '', $charts);
+            renderChart($grids, $charts, { field: "WellName", title: "Well Name" }, res.Data, 'optoopvariancebywell', res.Min,
+                { fileName: "OP_to_OP_Variance_by_Well_in_Project_View_Chart" });
+        }
+    }
+
+    function renderOPtoOPVarianceByRig() {
+        var $grids = $('.grids.optoop-variance-by-rig');
+        var $charts = $('.optoop-variance-by-rig');
+
+        $grids.find('.grid').replaceWith($('<div />').addClass('grid'));
+        $charts.find('.chart').replaceWith($('<div />').addClass('chart').attr("id", "chart-optoop-variance-by-rig"));
+
+        var res = model.DataBackup.OPtoOPVarianceByRig();
+
+        var aggregates = [
+                            { field: "TotalOPDays", aggregate: "sum" },
+                            { field: "TotalOPCost", aggregate: "sum" },
+                            { field: "TotalDuration", aggregate: "sum" },
+                            { field: "TotalCost", aggregate: "sum" },
+                            { field: "TotalDurationOPVar", aggregate: "sum" },
+                            { field: "TotalCostOPVar", aggregate: "sum" }
+        ];
+
+        if (_.size(res)) {
+
+            renderGrid($grids.find('.grid'), dataSource(res.Data, "RigName", aggregates),
+                columns("RigName", "Rig Name", 'OPtoOPVarianceRig', res),
+                exportConfig("OP_to_OP_Variance_by_Rig_in_Project_View"), "OPtoOPVarianceRig", $charts);
+            renderChart($grids, $charts, { field: "RigName", title: "Rig Name" },
+                res.Data, '', res.Min, { fileName: "OP_to_OP_Variance_by_Rig_in_Project_View_Chart" });
+        }
+    }
+
+    function renderOPtoAFEVarianceByWell() {
+
+        var $grids = $('.grids.optoafe-variance-by-well');
+        var $charts = $('.optoafe-variance-by-well');
+
+        $grids.find('.grid').replaceWith($('<div />').addClass('grid'));
+        $charts.find('.chart').replaceWith($('<div />').addClass('chart').attr("id", "chart-optoafe-var-by-well"));
+
+        var res = model.DataBackup.OPtoAFEVarianceByWell();
+
+        var aggregates = [
+                            { field: "TotalOPDays", aggregate: "sum" },
+                            { field: "TotalOPCost", aggregate: "sum" },
+                            { field: "TotalAFEDays", aggregate: "sum" },
+                            { field: "TotalAFECost", aggregate: "sum" },
+                            { field: "TotalDuration", aggregate: "sum" },
+                            { field: "TotalCost", aggregate: "sum" }
+        ];
+
+        if (_.size(res)>0) {
+            renderGrid($grids.find('.grid'), dataSource(res.Data, "WellName", aggregates),
+                columns("WellName", "Well Name", 'OPtoAFEVariance', res),
+                exportConfig("OP_to_AFE_Variance_by_Well_in_Project_View"), '', $charts);
+            renderChart($grids, $charts, { field: "WellName", title: "Well Name" }, res.Data, 'optoafevariancebywell', res.Min,
+                { fileName: "OP_to_AFE_Variance_by_Well_in_Project_View_Chart" });
+        }
+    }
+
+    function renderOPtoAFEVarianceByRig() {
+        var $grids = $('.grids.optoafe-variance-by-rig');
+        var $charts = $('.optoafe-variance-by-rig');
+
+        $grids.find('.grid').replaceWith($('<div />').addClass('grid'));
+        $charts.find('.chart').replaceWith($('<div />').addClass('chart').attr("id", "chart-optoafe-variance-by-rig"));
+
+        var res = model.DataBackup.OPtoAFEVarianceByRig();
+
+        var aggregates = [
+                          { field: "TotalOPDays", aggregate: "sum" },
+                          { field: "TotalOPCost", aggregate: "sum" },
+                          { field: "TotalAFEDays", aggregate: "sum" },
+                          { field: "TotalAFECost", aggregate: "sum" },
+                          { field: "TotalDuration", aggregate: "sum" },
+                          { field: "TotalCost", aggregate: "sum" }
+        ];
+
+        if (_.size(res)>0) {
+
+            renderGrid($grids.find('.grid'), dataSource(res.Data, "RigName", aggregates),
+                columns("RigName", "Rig Name", 'OPtoAFEVarianceRig', res),
+                exportConfig("OP_to_AFE_Variance_by_Rig_in_Project_View"), "OPtoAFEVarianceRig", $charts);
+            renderChart($grids, $charts, { field: "RigName", title: "Rig Name" },
+                res.Data, '', res.Min, { fileName: "OP_to_AFE_Variance_by_Rig_in_Project_View_Chart" });
+        }
+    }
+
+    function renderOPVarianceByWell() {
+
+        var $grids = $('.grids.op-variance-by-well');
+        var $charts = $('.op-variance-by-well');
+
+        $grids.find('.grid').replaceWith($('<div />').addClass('grid'));
+        $charts.find('.chart').replaceWith($('<div />').addClass('chart').attr('id', 'chart_op_var_by_well'));
+
+        var res = model.DataBackup.OPVarianceByWell();
+
+        var aggregates = [
+                            { field: "TotalOPDays", aggregate: "sum" },
+                            { field: "TotalOPCost", aggregate: "sum" },
+                            { field: "TotalLEDays", aggregate: "sum" },
+                            { field: "TotalLECost", aggregate: "sum" },
+                            { field: "TotalDuration", aggregate: "sum" },
+                            { field: "TotalCost", aggregate: "sum" }
+        ];
+
+        if (_.size(res)>0) {
+            renderGrid($grids.find('.grid'), dataSource(res.Data, "WellName", aggregates),
+                columns("WellName", "Well Name", 'OPVariance', res),
+                exportConfig("OP_Variance_by_Well_in_Project_View"), '', $charts);
+            renderChart($grids, $charts, { field: "WellName", title: "Well Name" }, res.Data, 'opvariancebywell', res.Min, { fileName: "OP_Variance_by_Well_in_Project_View_Chart" });
+        }
+    }
+
+    function renderOPVarianceByRig() {
+        var $grids = $('.grids.op-variance-by-rig');
+        var $charts = $('.op-variance-by-rig');
+
+        $grids.find('.grid').replaceWith($('<div />').addClass('grid'));
+        $charts.find('.chart').replaceWith($('<div />').addClass('chart').attr("id", "chart-op-variance-by-rig"));
+
+        var res = model.DataBackup.OPVarianceByRig();
+
+        var aggregates = [
+                    { field: "TotalOPDays", aggregate: "sum" },
+                    { field: "TotalOPCost", aggregate: "sum" },
+                    { field: "TotalLEDays", aggregate: "sum" },
+                    { field: "TotalLECost", aggregate: "sum" },
+                    { field: "TotalDuration", aggregate: "sum" },
+                    { field: "TotalCost", aggregate: "sum" }
+        ];
+
+        if (_.size(res)>0) {
+
+            renderGrid($grids.find('.grid'), dataSource(res.Data, "RigName", aggregates),
+                columns("RigName", "Rig Name", 'OPVariance', res),
+                exportConfig("OP_Variance_by_Rig_in_Project_View"), "OPVariance", $charts);
+            renderChart($grids, $charts, { field: "RigName", title: "Rig Name" },
+                res.Data, '', res.Min, { fileName: "OP_Variance_by_Rig_in_Project_View_Chart" });
+        }
+    }
+
+    function renderEOWExecutionVariance() {
+        var $grids = $('.grids.by-well');
+        var $charts = $('.charts.by-well');
+
+
+        $grids.find('.grid').replaceWith($('<div />').addClass('grid'));
+        $charts.find('.chart').replaceWith($('<div />').addClass('chart').attr("id", "chart1"));
+
+        var res = model.DataBackup.ByWell();
+
+        var aggregates = [
+                            { field: "TotalAFEDays", aggregate: "sum" },
+                            { field: "TotalAFECost", aggregate: "sum" },
+                            { field: "TotalLEDays", aggregate: "sum" },
+                            { field: "TotalLECost", aggregate: "sum" },
+                            { field: "TotalDuration", aggregate: "sum" },
+                            { field: "TotalCost", aggregate: "sum" }
+        ];
+
+        if (_.size(res)>0) {
+            renderGrid($grids.find('.grid'), dataSource(res.Data, "WellName", aggregates), columns("WellName", "Well Name", '', res), exportConfig("AFE_Variance_by_Well_in_Project_View"), '', $charts);
+            renderChart($grids, $charts, { field: "WellName", title: "Well Name" }, res.Data, 'bywell', res.Min, { fileName: "AFE_Variance_by_Well_in_Project_View_Chart" });
+        }
+    }
+
+    function renderEOWExecutionVarianceByActivity() {
+        var $grids = $('.grids.by-activity');
+        var $charts = $('.charts.by-activity');
+        var $gridsOP = $('.grids.by-activityOP');
+        var $chartsOP = $('.charts.by-activityOP');
+
+        $grids.find('.grid').replaceWith($('<div />').addClass('grid'));
+        $charts.find('.chart').replaceWith($('<div />').addClass('chart').attr("id", "chart2"));
+        $gridsOP.find('.grid').replaceWith($('<div />').addClass('grid'));
+        $chartsOP.find('.chart').replaceWith($('<div />').addClass('chart').attr("id", "chart3"));
+
+        var res = model.DataBackup.ByActivity();
+        if (_.size(res)>0) {
+
+            var aggregates = [
+                    { field: "TotalAFEDays", aggregate: "sum" },
+                    { field: "TotalAFECost", aggregate: "sum" },
+                    { field: "TotalLEDays", aggregate: "sum" },
+                    { field: "TotalLECost", aggregate: "sum" },
+                    { field: "TotalDuration", aggregate: "sum" },
+                    { field: "TotalCost", aggregate: "sum" }
+            ];
+
+            renderGrid($grids.find('.grid'), dataSource(res.Data, "ActivityType", aggregates), columns("WellName", "Well Name", "Activities / Events", res), exportConfig("EOW Execution Variance Grid"), '', $charts);
+            renderChart($grids, $charts, { field: "WellName", title: "Well Name" }, res.Data, '', '', { fileName: "EOW Exec Var AFE vs LE USD 100% Chart" });
+
+            var $gridsOP = $('.grids.by-activityOP');
+            var $chartsOP = $('.charts.by-activityOP');
+            var dataOP = res.Data;
+
+            var sortBy = $("#sortBy").val();
+            var sortDir = $("#sortType").val();
+
+            var sortByDays = function (arr, dir) {
+                var sort = _.sortBy(arr, "TotalOPVarDays");
+                if (dir == "desc") {
+                    return sort.reverse();
+                } else {
+                    return sort;
+                }
+            }
+            var sortByCost = function (arr, dir) {
+                var sort = _.sortBy(arr, "TotalOPVarCost");
+                if (dir == "desc") {
+                    return sort.reverse();
+                } else {
+                    return sort;
+                }
+            }
+
+            var data;
+
+            if (sortBy == "days") {
+                data = sortByDays(dataOP, sortDir);
+            } else {
+                data = sortByCost(dataOP, sortDir);
+            }
+
+            var aggregatesOP = [
+                    { field: "TotalOPDays", aggregate: "sum" },
+                    { field: "TotalOPCost", aggregate: "sum" },
+                    { field: "TotalLEDays", aggregate: "sum" },
+                    { field: "TotalLECost", aggregate: "sum" },
+                    { field: "TotalOPVarDays", aggregate: "sum" },
+                    { field: "TotalOPVarCost", aggregate: "sum" }
+            ];
+
+            renderGrid($gridsOP.find('.grid'), dataSource(data, "ActivityType", aggregatesOP), columns("WellName", "Well Name", "ActivityOP", res), exportConfig("EOW Execution Variance Grid"), '', $chartsOP);
+            renderChart($gridsOP, $chartsOP, { field: "WellName", title: "Well Name" }, data, 'ActivityOP', res.Min, { fileName: "EOW Exec Var AFE vs Plan USD 100% Chart" });
+        }
+
+    }
+
+    function renderCUMEOWbyRig() {
+        var $grids = $('.grids.by-rig');
+        var $charts = $('.charts.by-rig');
+
+        $grids.find('.grid').replaceWith($('<div />').addClass('grid'));
+        $charts.find('.chart').replaceWith($('<div />').addClass('chart').attr("id", "chart4"));
+
+        var res = model.DataBackup.ByRig();
+
+        var aggregates = [
+                    { field: "TotalAFEDays", aggregate: "sum" },
+                    { field: "TotalAFECost", aggregate: "sum" },
+                    { field: "TotalLEDays", aggregate: "sum" },
+                    { field: "TotalLECost", aggregate: "sum" },
+                    { field: "TotalDuration", aggregate: "sum" },
+                    { field: "TotalCost", aggregate: "sum" }
+        ];
+
+        if (_.size(res)>0) {
+            renderGrid($grids.find('.grid'), dataSource(res.Data, "RigName", aggregates), columns("RigName", "Rig Name", '', res), exportConfig("AFE_Variance_by_Rig_in_Project_View"), "CUMEOWByRig", $charts);
+            renderChart($grids, $charts, { field: "RigName", title: "Rig Name" }, res.Data, '', res.Min, { fileName: "AFE_Variance_by_Rig_in_Project_View_Chart" });
+        }
+    }
+
+    function renderRigVarianceAndOP14() {
+        var $grids = $('.grids.by-rig-var-op14');
+        var $charts = $('.charts.by-rig-var-op14');
+
+        $grids.find('.grid').replaceWith($('<div />').addClass('grid'));
+        $charts.find('.chart').each(function (i, e) {
+            if (typeof $(e).data('kendoChart') === 'undefined') return;
+            $(e).data('kendoChart').destroy();
+            $(e).empty();
+            $(e).removeClass('k-chart');
+            $(e).removeAttr('data-role style');
+        });
+
+        var res = model.DataBackup.ByVarOP14();
+        var aggregates = [
+                    { field: "TotalOPDays", aggregate: "sum" },
+                    { field: "TotalOPCost", aggregate: "sum" },
+                    { field: "TotalLEDays", aggregate: "sum" },
+                    { field: "TotalLECost", aggregate: "sum" },
+                    { field: "TotalDuration", aggregate: "sum" },
+                    { field: "TotalCost", aggregate: "sum" }
+        ];
+        renderGrid($grids.find('.grid'), dataSource(res.Data.GridItems, "RigName", aggregates), columns("RigName", "Rig Name", "RigVariance", res.Data), exportConfig("Rig Variance vs OP-14"), $charts);
+        renderChart($grids, $charts, { field: "RigName", title: "Rig Name" }, res.Data, 'RigVariance', '', { fileName: "Rig Variance vs OP-14 Chart" });
+
+        model.RigVarChartSelected("Well Name");
+        $('div.select-by-rig-var-op14').data('kendoDropDownList').value('by Well Name');
+    }
+
+    function renderWellProducingDay() {
+        var $grids = $('.grids.by-well-producing-day');
+        var $charts = $('.charts.by-well-producing-day');
+
+        $grids.find('.grid').replaceWith($('<div />').addClass('grid'));
+        $charts.find('.chart').replaceWith($('<div />').addClass('chart').attr("id", "chart5"));
+
+        var res = model.DataBackup.ByWellProducingDay();
+
+        var aggregates = [];
+
+        renderGrid($grids.find('.grid'), dataSource(res.Data, "WellName", aggregates), columns("WellName", "Well Name", "WellProducingDay"), exportConfig("New Well Producing Day Analysis"), $charts);
+        renderChart($grids, $charts, { field: "WellName", title: "Well Name" }, res.Data, "WellProducingDay", '', { fileName: "New Well Producing Analysis Chart" });
+
+        $('div.select-by-well-producing-day').data('kendoDropDownList').value('All');
+    }
+
+    model.reloadData = function () {
+        model.DataBackup.ByWell({});
+        model.DataBackup.ByActivity({});
+        model.DataBackup.ByRig({});
+        model.DataBackup.ByVarOP14({});
+        model.DataBackup.ByWellProducingDay({});
+        model.DataBackup.ByWellProrating({});
+
+        model.DataBackup.OPVarianceByWell({});
+        model.DataBackup.OPtoAFEVarianceByWell({});
+        model.DataBackup.OPtoAFEVarianceByRig({});
+
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+        model.ProcessCounter = 0;
+
+        fetchData("@Url.Action("GetSequenceInfoGroupedByWellName")", "Well", function (res) {
+            model.DataBackup.ByWell(res.Data);
+            renderEOWExecutionVariance();
+
+        });
+
+        fetchData("@Url.Action("GetSequenceInfoGroupedByRigName")", "Rig", function (res) {
+            model.DataBackup.ByRig(res.Data);
+            renderCUMEOWbyRig();
+        });
+
+        @*fetchData("@Url.Action("GetOPVarianceByWellName")", "Well", function (res) {
+            model.DataBackup.OPVarianceByWell(res.Data);
+            renderOPVarianceByWell();
+        });
+
+        fetchData("@Url.Action("GetOPVarianceByRigName")", "Rig", function (res) {
+            model.DataBackup.OPVarianceByRig(res.Data);
+            renderOPVarianceByRig();
+        });
+
+        model.ProratedLE().generateData();
+        fetchData("@Url.Action("GetOPtoAFEVarianceByWellName")", "Well", function (res) {
+            model.DataBackup.OPtoAFEVarianceByWell(res.Data);
+            renderOPtoAFEVarianceByWell();
+        });
+
+        fetchData("@Url.Action("GetOPtoAFEVarianceByRigName")", "Well", function (res) {
+            model.DataBackup.OPtoAFEVarianceByRig(res.Data);
+            renderOPtoAFEVarianceByRig();
+        });*@
+
+
+
+
+
+
+
+
+
+        @*fetchData("@Url.Action("GetOPtoOPVarianceByWellName")", "Well", function (res) {
+            model.DataBackup.OPtoOPVarianceByWell(res.Data);
+            renderOPtoOPVarianceByWell();
+        });
+
+
+        fetchData("@Url.Action("GetOPtoOPVarianceByRigName")", "Rig", function (res) {
+            model.DataBackup.OPtoOPVarianceByRig(res.Data);
+            renderOPtoOPVarianceByRig();
+        });*@
+
+        @*fetchData("@Url.Action("GetSequenceInfoProrationgGroupedByWellName")", "Well", function (res) {
+            model.DataBackup.ByWellProrating(res.ResultWellByFiscalYear);
+            console.log("res.ResultWellByFiscalYear=====================");
+            console.log(res.Data.ResultWellByFiscalYear);
+        });*@
+
+        @*fetchData("@Url.Action("GetSequenceInfoGroupedByActivity")", "Well", function (res) {
+            model.DataBackup.ByActivity(res.Data);
+            renderEOWExecutionVarianceByActivity();
+        });*@
+
+
+
+        @*fetchData("@Url.Action("GetSequenceInfoGroupedByRigVarianceAndOP14")", "", function (res) {
+            model.DataBackup.ByVarOP14(res);
+            renderRigVarianceAndOP14();
+        });
+
+        fetchData("@Url.Action("GetSequenceInfoGroupedByWellProducingDay")", "", function (res) {
+            model.DataBackup.ByWellProducingDay(res);
+            renderWellProducingDay();
+        });*@
+
+        //get_score_card();
+        //get_score_card_AllData();
+    }
+
+    function registerOtherThings() {
+        $('.charts .button-chart-export-pdf').on('click', function () {
+            var $this = $(this);
+
+            kendo.drawing.drawDOM($this.closest('.charts').find("[data-role=chart]")).then(function (group) {
+                return kendo.drawing.exportPDF(group, { paperSize: "auto", margin: { left: "1cm", top: "1cm", right: "1cm", bottom: "1cm" } });
+            }).done(function (data) {
+                kendo.saveAs({ dataURI: data, fileName: $this.closest('.chart-header').find('h2').html() + ' Chart.pdf' });
+            });
+        });
+
+        $('.select-by-rig-var-op14').kendoDropDownList({
+            dataSource: ["by Well Name", "by Activity"],
+            value: ["by Well Name"],
+            change: function () {
+                model.RigVarChartSelected(this.value().replace(/by /g, ''));
+            }
+        });
+
+        $('.select-by-well-producing-day').kendoDropDownList({
+            dataSource: ["All", "Estimate", "Actual"],
+            value: ["All"],
+            change: function () {
+                var $chart = $('.charts.by-well-producing-day').find('.chart').data('kendoChart');
+                var options = $chart.options.series;
+
+                if (this.value() == 'All') {
+                    options[0].visible = true;
+                    options[1].visible = true;
+                } else {
+                    options[0].visible = (this.value() == 'Estimate');
+                    options[1].visible = (this.value() == 'Actual');
+                }
+
+                $chart.redraw();
+            }
+        });
+
+        $("#threshold").kendoNumericTextBox({
+            format: "N0"
+        });
+        $("#thresholdAllData").kendoNumericTextBox({
+            format: "N0"
+        });
+
+        $('<div />')
+            .addClass('col-md-4')
+            .html('<div class="col-md-4"><label>Sort By:</label></div>'
+                    + '<div class="col-md-4" style="text-align:left;padding-left:10px;"><select id="sortBy" data-model="sortBy"><option value="days" selected="selected">Days</option><option value="cost">Cost</option></select>&nbsp;&nbsp;&nbsp;'
+                    + '<select id="sortType" data-model="sortType"><option value="asc" selected="selected">Asc</option><option value="desc">Desc</option></select></div>')
+            .insertAfter($('#active-well-showactive'));
+
+    }
+
+    $(document).ready(function () {
+        registerOtherThings();
+        model.reloadData();
+    });
+</script>

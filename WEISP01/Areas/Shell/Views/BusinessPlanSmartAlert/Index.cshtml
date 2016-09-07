@@ -1,0 +1,420 @@
+﻿@{
+    ViewBag.Title = "Activity Gap Analysis";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<script>
+    model.PageId("Business Plan");
+    model.IsProcessing = ko.observable(false);
+</script>
+
+<style>
+    #grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+        #grid .k-header[role=columnheader][data-field=_id] {
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-field=OpsDuration], #grid .k-header[role=columnheader][data-field=PhRiskDuration] {
+            vertical-align: bottom;
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-colspan] {
+            text-align: center;
+            font-weight: bold;
+            color: #a8a8a8;
+        }
+
+    #grid [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #grid [data-field=PhStart], #grid [data-field=PhFinish], #grid [data-field=OpsStart], #grid [data-field=OpsFinish] {
+        pointer-events: none;
+    }
+
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+
+    .customClass {
+        background-color: red;
+    }
+
+    tr.k-footer-template td {
+        text-align: right;
+    }
+</style>
+
+<div style="padding: 0px 15px 15px;">
+
+    @Html.Partial("Filter")
+    <div data-bind="visible:model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+    <div data-bind="visible: !model.IsProcessing()">
+        <div class="col-md-12 no-padding">
+            @*<ul class="nav nav-tabs" role="tablist">
+                    <li role="presentation" class="active">
+                        <a href="#tab1" aria-controls="home" role="tab" data-toggle="tab">GAP</a>
+                    </li>
+                    <li role="presentation">
+                        <a href="#tab2" aria-controls="profile" role="tab" data-toggle="tab">Improvement</a>
+                    </li>
+                </ul>*@
+            @*<div class="tab-content">
+                    <div role="tabpanel" class="tab-pane active" id="tab1">
+
+                    </div>
+                    <div role="tabpanel" class="tab-pane" id="tab2">
+                        <div id="grid2" class="grid grid2"></div>
+                    </div>
+                </div>*@
+            <div id="grid" class="grid grid1"></div>
+        </div>
+        <div style="clear: both;"></div>
+    </div>
+
+</div>
+
+<script>
+    model.FilterVisibility.DateStart(true);
+    model.FilterVisibility.WellNames(true);
+    model.FilterVisibility.OPs(true);
+    model.FilterVisibility.OpRelation(true);
+    model.FilterVisibility.Regions(false);
+    model.FilterVisibility.OperatingUnits(false);
+    model.FilterVisibility.RigTypes(false);
+    model.FilterVisibility.RigNames(true);
+    model.FilterVisibility.ProjectNames(false);
+    model.FilterVisibility.riskcheck(true);
+    model.FilterVisibility.inlastuploadls(false);
+
+    model.setButton = function (isEnabled) {
+        $(".btn.btn-custom.btn-sm.btn-primary.do-filter").prop('disabled', isEnabled);
+    }
+    model.RenderGrid = function (data,minDate,maxDate) {
+        //console.log(data);
+        var MaxDate = null;
+        var MinDate = null;
+        for (var i in data) {
+            if (MinDate == null || MaxDate == null) {
+                MinDate = new Date(data[i].PhScheduleStart);
+                MaxDate = new Date(data[i].PhScheduleFinish);
+            }
+            if (MinDate > new Date(data[i].PhScheduleStart)) {
+                MinDate = new Date(data[i].PhScheduleStart);
+            }
+            if (MaxDate < new Date(data[i].PhScheduleFinish)) {
+                MaxDate = new Date(data[i].PhScheduleFinish);
+            }
+        }
+        $('#grid').replaceWith($('<div />').attr('id', 'grid'));
+        $('#grid').kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "Activity Gap Analyst-" +moment(new Date()).format("YYYY-MM-DD-HHmmss")+".pdf" },
+            excel: { fileName: "Activity Gap Analyst-" + moment(new Date()).format("YYYY-MM-DD-HHmmss") + ".xlsx", allPages: true, filterable: true },
+            dataSource: {
+                data: data, type: "json", pageSize: 10,
+                aggregate: [
+                            { field: "PhScheduleStart", aggregate: "min" },
+                            { field: "PhScheduleFinish", aggregate: "max" },
+                            { field: "GAP", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "Overlapping", aggregate: "sum", format: "{0:0.00}" },
+                ],
+            },
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            excelExport: function (e) {
+                var sheet = e.workbook.sheets[0];
+                var row = sheet.rows[1];
+                for (var i = 0; i < row.cells.length; i++) {
+                    
+                    row.cells[i].value = row.cells[i].value.replace("<br />", " ");
+                    row.cells[i].value = row.cells[i].value.replace("<br/>", " ");
+                    row.cells[i].value = row.cells[i].value.replace("<b>", "");
+                    row.cells[i].value = row.cells[i].value.replace("</b>", "");
+                    
+                }
+            },
+            detailInit: detailInit,
+            //dataBound: function () {
+            //    this.expandRow(this.tbody.find("tr.k-master-row").first());
+            //},
+
+            columns: [
+                { field: "RigName", title: "Rig Name", width: 230 },
+                {
+                   title: "LS Schedule", columns: [
+                     { field: "PhScheduleStart", title: "Start", attributes: { style: "text-align: center" }, width: 90, },// footerTemplate: jsonDateStr(minDate) },
+                     { field: "PhScheduleFinish", title: "Finish", attributes: { style: "text-align: center" }, width: 90, },//footerTemplate: jsonDateStr(maxDate) },
+                         { field: "OPDays", title: "Duration<br />(Days)", format: "{0:N0}", width: 80, attributes: { style: "text-align: right" }, }, //footerTemplate: "<div style='text-align:right'>#: sum #</div>" },
+                         { field: "OPCost", title: "Cost<br />(US$ mm)", format: "{0:N2}", width: 80, attributes: { style: "text-align: right" }, }, //footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N1') #</div>" },
+                   ]
+                },
+                {
+                    title: "OP Schedule", columns: [
+                      { field: "PlanStart", title: "Start", attributes: { style: "text-align: center" }, width: 90 },
+                      { field: "PlanFinish", title: "Finish", attributes: { style: "text-align: center" }, width: 90 },
+                    ]
+                },
+                {
+                    field: "GAP", title: "GAP (days)",
+                    format: "{0:N1}", width: 80,
+                    attributes: { style: "text-align: right" },
+                    footerTemplate: "#: sum #"
+                },
+                {
+                    field: "Overlapping", title: "Overlap (days)",
+                    format: "{0:N1}", width: 100,
+                    attributes: { style: "text-align: right" },
+                    footerTemplate: "<div style='text-align:right'>#: sum #</div>"
+                },
+                {
+                    field: "Seq", title: "Sequence Id",
+                    attributes: { style: "text-align: center" }
+                }
+
+
+    //{ field: "UARigSequenceId", title: "Seq ID", width: 90 },
+            ]
+        });
+
+        //setTimeout(function () {
+        //    $("#resultMinDate").html(jsonDateStr(minDate));
+        //    $("#resultMaxDate").html(jsonDateStr(maxDate));
+        //}, 300)
+
+    }
+
+    function InitCurrentLS() {
+        var htm = $('<div class="col-md-4" style="text-align:right">' +
+               '<label class="col-md-4" style="padding-top:6px">In Latest Sequence:</label>' +
+               '<div class="col-md-8">' +
+               '<input style="width: 100%;text-align:left" id="inlastuploadls"></span>' +
+               '</div>' +
+               '</div>');
+        htm.insertAfter($("[data-bind='visible: WellNames']"));
+        $("#inlastuploadls").kendoDropDownList({
+            dataSource: [
+                     { value: true, name: "Yes" },
+                     { value: false, name: "No" },
+                     { value: "", name: "Both" }
+            ],
+            dataTextField: "name",
+            dataValueField: "value",
+            value: model.inlastuploadls().length == 0 ? [] : [model.inlastuploadls()[0]]
+        });
+    }
+
+    $(document).ready(
+
+        function () {
+            $("#riskcheck").prop("checked", false);
+            InitCurrentLS();
+            model.reloadData();
+            $("[data-model=dateStart]").closest(".col-md-8").prev().find("label").html("LS Schedule:");
+        });
+
+
+
+
+    function detailInit(e) {
+        var withRisk;
+        if ($('#riskcheck').is(':checked')) {
+            withRisk = "1";
+        } else {
+            withRisk = "0";
+        }
+
+        var param = model.getFilterValues();
+        param.inlastuploadls = $('#inlastuploadls').data("kendoDropDownList").value();
+        //console.log(param);
+        //console.log(param.RigName);
+        //console.log(param.wellNames);
+        //console.log(e.data.RigName);
+        //console.log(e.data.WellName);
+        //alert(param.wellNames);
+        //alert(param.wellNames.length);
+        //alert(e.data.WellName);
+        //var data = detilByRigName(e.data.RigName, e.data.WellName);
+        var url = "";
+        if (e.data.WellName == 'undefined' || param.wellNames.length < 1) {
+            //alert(param.wellNames.length);
+            url = "@Url.Action("DetilByRigName")" + "?RigName=" + e.data.RigName + "&planstart=" + param.dateStart + "&planfinish=" + param.dateFinish + "&risk=" + withRisk;
+        }
+        else
+            url = "@Url.Action("DetilByRigName")" + "?RigName=" + e.data.RigName + "&WellName=" + param.wellNames + "&planstart=" + param.dateStart + "&planfinish=" + param.dateFinish + "&risk=" + withRisk;
+
+        //console.log(e);
+        ajaxPost(url, "", function (res) {
+            //console.log(e.detailCell);
+            $("<div/>").appendTo(e.detailCell).kendoGrid({
+                dataSource: {
+
+                    data: res.Data,
+                    aggregate: [
+                            {
+                                field: "GAP", aggregate: "sum", format: "{0:0.00}"
+                            },
+                            {
+                                field: "Overlapping", aggregate: "sum", format: "{0:0.00}"
+                            },
+                            { field: "PhScheduleStart", aggregate: "min" },
+                            { field: "PhScheduleFinish", aggregate: "max" },
+                            { field: "PlanStart", aggregate: "min" },
+                            { field: "PlanFinish", aggregate: "max" },
+                            { field: "ActualDays", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "ActualCost", aggregate: "sum" },
+                            { field: "OPDays", aggregate: "sum", format: "{0:0.00}" },
+                            { field: "OPCost", aggregate: "sum" }
+
+                    ],
+                    //rowTemplate: '<tr class="#:GAP==\"More\"? \"red\" : \"white\"#" data-uid="#= uid #"><td>#: name #</td><td>#:GAP#</td></tr>',
+                    type: "json",
+                    //serverPaging: true,
+                    //serverSorting: true,
+                    //serverFiltering: true,
+                    pageSize: 10,
+                    //filter: { field: "RigName", operator: "eq", value: e.data.RigName }
+                },
+                scrollable: false,
+                sortable: true,
+                pageable: true,
+                columns: [
+                     { field: "WellName", title: "Well Name", width: 100 },
+                    { field: "UARigSequenceId", title: "Seq ID", width: 50 },
+                    { field: "ActivityType", title: "Activity Type" },
+                    //{ field: "PhaseNo", title: "Phase No", width: 65 },
+                    //{
+                    //    title: "Actual", columns: [
+                    //      { field: "ActualDays", title: "Duration<br />(Days)", format: "{0:N0}", width: 80, attributes: { style: "text-align: right" }, footerTemplate: "<div style='text-align:right'>#: sum #</div>" },
+                    //      { field: "ActualCost", title: "Cost<br />(US$ m)", format: "{0:N1}", width: 80, attributes: { style: "text-align: right" }, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N1') #</div>" },
+                    //    ]
+                    //},
+                    {
+                        title: "LS Schedule", columns: [
+                          { field: "PhScheduleStart", title: "Start", width: 80, attributes: { style: "text-align: center" }, template: "#: DateTimeParse(PhScheduleStart) #", footerTemplate: "<div style='text-align:center'>" + res.MinDate + "</div>" },
+                          { field: "PhScheduleFinish", title: "Finish", width: 80, attributes: { style: "text-align: center" }, template: "#: DateTimeParse(PhScheduleFinish) #", footerTemplate: "<div style='text-align:center'>" + res.MaxDate + "</div>" },
+                          { field: "OPDays", title: "Duration<br />(Days)", format: "{0:N0}", width: 80, attributes: { style: "text-align: right" }, footerTemplate: "<div style='text-align:right'>#: sum #</div>" },
+                          { field: "OPCost", title: "Cost<br />(US$ mm)", format: "{0:N2}", width: 80, attributes: { style: "text-align: right" }, footerTemplate: "<div style='text-align:right'>#: kendo.toString(sum,'N1') #</div>" },
+                        ]
+                    },
+                    //{
+                    //    title: "LE", columns: [
+                    //      { field: "PhScheduleStart", title: "Start", width: 80, attributes: { style: "text-align: center" }, template: "#: DateTimeParse(PhScheduleStart) #", footerTemplate: "<div style='text-align:center'>" + res.MinDate + "</div>" },
+                    //      { field: "PhScheduleFinish", title: "Finish", width: 80, attributes: { style: "text-align: center" }, template: "#: DateTimeParse(PhScheduleFinish) #", footerTemplate: "<div style='text-align:center'>" + res.MaxDate + "</div>" },
+                    //    ]
+                    //},
+                    { field: "Type", title: "Type", width: 80 },
+                    {
+                        field: "GAP", title: "GAP", attributes: { style: "text-align: right" }, width: 90,
+                        template: "<div style='width:100%;height:100%;text-align:right; font-weight: bold; color:#: GAP==0?\"\\#444\":\"red\" #'>#: kendo.toString(GAP,'N1')  #</div>",
+                        footerTemplate: "<div style='text-align:right'>#: sum #</div>"
+                    },
+                    {
+                        field: "GAPWith", title: "GAP With", format: "{0:N1}", width: 110,
+                        attributes: { style: "text-align: left" },
+                    },
+                    {
+                        field: "Overlapping", title: "Overlapping", format: "{0:N1}", width: 80,
+                        template: "<div style='width:100%;height:100%;text-align:right; font-weight: bold; color:#: Overlapping==0?\"\\#444\":\"red\" #'>#: kendo.toString(Overlapping,'N1')  #</div>",
+                        attributes: { style: "text-align: right" },
+                        footerTemplate: "<div style='text-align:right'>#: sum #</div>"
+                    },
+                    {
+                        field: "OverLapWith", title: "OverLapping With", format: "{0:N1}", width: 110,
+                        attributes: { style: "text-align: left" }
+                    },
+
+                ],
+
+                dataBound: onDataBound
+
+            });
+
+
+
+        }, function (a, b, c) {
+            //console.log(a);
+            //console.log(b);
+            //console.log(c);
+        });
+    }
+
+
+    function DateTimeParse(date) {
+        return moment(jsonDateStr(date), 'DD-MMM-YYYY').format("DD-MMM-YY");
+    }
+
+    function detilByRigName(RigName, WellName) {
+
+        var withRisk;
+        if ($('#riskcheck').is(':checked')) {
+            withRisk = "1";
+        } else {
+            withRisk = "0";
+        }
+
+        var url = "@Url.Action("DetilByRigName")" + "?RigName=" + RigName + "&WellName=" + WellName + "&risk=" + withRisk;
+        //console.log(e);
+        ajaxPost(url, "", function (res) {
+            //console.log(res.Data);
+            //alert(res.Data);
+            //alert("ok");
+            //console.log(data);
+        }, function (a, b, c) {
+            //console.log(a);
+            //console.log(b);
+            //console.log(c);
+        });
+        return data;
+    }
+
+    model.reloadData = function () {
+        var url = "@Url.Action("GetData")";
+        var param = model.getFilterValues();
+        param.inlastuploadls = $('#inlastuploadls').data("kendoDropDownList").value();
+        param.inlastuploadlsBoth = $('#inlastuploadls').data("kendoDropDownList").value();
+        model.IsProcessing(true); model.setButton(true);
+
+        ajaxPost(url, param, function (res) {
+            //console.log(res.Data);
+            model.RenderGrid(res.Data,res.MinDate,res.MaxDate);
+            model.IsProcessing(false); model.setButton(false);
+            if ($('#inlastuploadls').data("kendoDropDownList").value() === "false") {
+                alert("These results will include items that are not in the latest LS. To limit your results to the latest LS, please check the Current Latest Sequence Only box and click refresh.");
+            }
+        }, function (a, b, c) {
+            model.IsProcessing(false); model.setButton(false);
+        });
+    }
+
+</script>
+
+<script>
+    function onDataBound(e) {
+        var grid = $("#grid").data("kendoGrid");
+        var gridData = grid.dataSource.view();
+        //console.log(e);
+
+        for (var i = 0; i < gridData.length; i++) {
+            //get the item uid
+            var currentUid = gridData[i].uid;
+            //console.log(gridData[i]);
+
+            //if the record fits the custom condition
+            if (gridData[i].EmployeeId % 2 == 0) {
+                //find the row based on the uid and the custom class
+                var currenRow = grid.table.find("tr[data-uid='" + currentUid + "']");
+                $(currenRow).addClass("customClass");
+            }
+        }
+    }
+</script>

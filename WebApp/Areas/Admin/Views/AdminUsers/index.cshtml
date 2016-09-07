@@ -1,0 +1,870 @@
+﻿@{
+    ViewBag.Title = "Manager Users";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using Newtonsoft.Json
+@using ECIS.Core
+@using ECIS.Client.WEIS
+@using ECIS.Identity
+
+<style>
+    .form_container .col-md-3 {
+        padding-top: 0px !important;
+        padding-left: 0px !important;
+    }
+    
+    .form_container .col-md-9 {
+        padding-left: 0px !important;
+    }
+
+    .toolbar > .col-md-4 {
+        margin-bottom: 5px;
+    }
+
+    .toolbar .col-md-4 .col-md-4 {
+        padding-right: 0px !important;
+        padding-top: 4px;
+        text-align: right;
+    }
+
+    .toolbar .col-md-8 {
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+    }
+
+    .toolbar label {
+        margin-right: 4px;
+    }
+
+    .toolbar input {
+        height: auto !important;
+        padding: 0px 4px !important;
+        width: 100%;
+    }
+
+    .grid {
+        margin-bottom: 20px;
+    }
+
+    #form-add-role .col-md-9 {
+        padding-left: 0px;
+    }
+
+    #form-add-role .col-md-3 {
+        text-align: right;
+        padding-right: 0px !important;
+        padding-top: 5px;
+    }
+
+    #form-add-role .row {
+        margin-bottom: 5px;
+    }
+</style>
+
+<script>
+    model.PageId("Administration");
+    var adminusermodel = {
+        Processing: ko.observable(false),
+        Mode: ko.observable(""),
+        UserName: ko.observable(),
+        FullName: ko.observable(),
+        ADUser: ko.observable(false),
+        Enable: ko.observable(true),
+        Email: ko.observable(),
+        Password: ko.observable(),
+        ConfirmPassword: ko.observable(),
+        IsAddMode: ko.observable(false),
+        Keyword: ko.observable(""),
+        WellNames: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISWellNames")
+            .Select(d=>d.GetString("_id")).OrderBy(d=>d)))),
+        Activities: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate<WellActivity>("WEISWellActivities")
+        .SelectMany(d => d.Phases).GroupBy(d => d.ActivityType).Select(d => d.Key).OrderBy(d => (d.Equals("n/a") ? "" : d))))),
+        Roles: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISRoles")
+            .Select(d=>d.GetString("RoleName")).OrderBy(d=>d)))),
+        WellName: ko.observableArray([]),
+        Activity: ko.observableArray([]),
+        Role: ko.observableArray([])
+    }
+
+    adminusermodel.WellNames.unshift("*");
+    adminusermodel.Activities.unshift("*");
+</script>
+
+<div id="adminusers_container" data-bind="with:adminusers_model" class="col-md-12">
+    <div data-bind="visible: adminusermodel.Processing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible: !adminusermodel.Processing()">
+        <div id="adminusers_grid_panel" data-bind="visible:Mode()==''">
+            <div class="toolbar col-md-12 row" style="margin-bottom: 20px;">
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Search:</label>
+                    </div>
+                    <div class="col-md-8">
+                        <input type="text" class="keyword" data-bind="value: Keyword" placeholder="Type keyword here ..." />
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Well Name:</label>
+                    </div>
+                    <div class="col-md-8">
+                        <select data-bind="kendoMultiSelect: { dataSource: WellNames, value: WellName }"></select>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Activity:</label>
+                    </div>
+                    <div class="col-md-8">
+                        <select data-bind="kendoMultiSelect: { dataSource: Activities, value: Activity }"></select>
+                    </div>
+                </div>
+
+                <div class="clearfix"></div>
+
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Role:</label>
+                    </div>
+                    <div class="col-md-8">
+                        <select data-bind="kendoMultiSelect: { dataSource: Roles, value: Role }"></select>
+                    </div>
+                </div>
+
+                <div class="col-md-8">&nbsp;</div>
+
+                <div class="clearfix" style="margin-bottom: 20px;"></div>
+
+                <div class="col-md-12" style="text-align: right;">
+                    <button class="btn btn-success btn-custom btn-sm" data-bind="click:add">
+                        <span class="glyphicon glyphicon-plus"></span> Add User
+                    </button>
+                    <button class="btn btn-success btn-danger btn-sm" data-bind="click:Export">
+                        @*onclick="Export()">*@
+                        <span class="glyphicon glyphicon-export"></span> Import
+                    </button>
+                    <button class="btn btn-primary btn-custom btn-sm" data-bind="click:refresh">
+                        <span class="glyphicon glyphicon-refresh"></span> Refresh
+                    </button>
+                    <button class="btn btn-primary btn-warning btn-sm" data-bind="click:download">
+                        <span class="glyphicon glyphicon-download"></span> Download
+                    </button>
+                </div>
+
+                <div class="clearfix"></div>
+            </div>
+            <div class="clearfix"></div>
+
+            <div class="grid" id="grid-user"></div>
+        </div>
+
+        <div id="adminusers_form_panel" data-bind="visible:Mode()=='Edit' || Mode()=='Insert'">
+            <div class="toolbar">
+                <button class="btn btn-custom btn-warning btn-sm" data-bind="click:cancel">
+                    <span class="glyphicon glyphicon-arrow-left"></span> Back to List
+                </button>
+                <!--button class="btn btn-primary btn-custom btn-sm" data-bind="click:refreshRole">
+                    <span class="glyphicon glyphicon-refresh"></span> Refresh
+                </button-->
+                <button class="btn btn-custom btn-success btn-sm" data-bind="click:addRole">
+                    <span class="glyphicon glyphicon-plus"></span> Add Role
+                </button>
+                <button class="btn btn-custom btn-primary btn-sm" data-bind="click:save">
+                    <span class="glyphicon glyphicon-ok"></span> Save
+                </button>
+            </div>
+
+            <!-- Nav tabs -->
+            <ul class="nav nav-tabs" role="tablist" style="margin-top: 10px">
+                <li role="presentation" class="active">
+                    <a href="#general" role="tab" data-toggle="tab">General Info</a>
+                </li>
+                <li role="presentation">
+                    <a href="#role" role="tab" data-toggle="tab">Role</a>
+                </li>
+            </ul>
+
+            <!-- Tab panes -->
+            <div class="tab-content" style="padding-top: 10px;">
+                <div role="tabpanel" class="tab-pane active" id="general">
+                    <div class="form_container form-horizontal" style="margin-top:20px;width:600px">
+                        <div class="form-group">
+                            <label class="col-md-3 control-label">User Name:</label>
+                            <div class="col-md-9">
+                                <input style="width:100%" type="text" name="User Name" required data-bind="value: UserName, visible: Mode()=='Insert'" />
+                                <label class="label_entry" data-bind="text: UserName, visible: Mode()=='Edit'"></label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-3 control-label">Full Name:</label>
+                            <div class="col-md-9">
+                                <input style="width:100%" type="text" data-type="text" name="FullName"
+                                       required data-bind="value: FullName" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-3 control-label">Email:</label>
+                            <div class="col-md-9">
+                                <input style="width: 100%; text-transform: lowercase;" type="text" data-type="email" name="Email" required data-bind="value: Email" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-3 control-label">AD User:</label>
+                            <div class="col-md-3">
+                                <input type="checkbox" data-bind="checked: ADUser" />
+                            </div>
+                            <label class="col-md-3 control-label">Enable:</label>
+                            <div class="col-md-3">
+                                <input type="checkbox" data-bind="checked: Enable" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-3 control-label">Password:</label>
+                            <div class="col-md-3">
+                                <input style="width:100%" type="password" name="Password"
+                                       data-bind="value: Password"
+                                       id="adminusers_password"
+                                       pattern=".{5,}"
+                                       data-passwordvalid-msg="Password is not valid" />
+                            </div>
+                            <label class="col-md-3 control-label">Confirm Password:</label>
+                            <div class="col-md-3">
+                                <input style="width:100%" type="password" name="Confirm Password"
+                                       id="adminusers_confirmpassword" data-bind="value: ConfirmPassword"
+                                       data-confirmvalid-msg="Password confirmation is not valid" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="role">
+                    <div class="grid" id="grid-role"></div>
+                </div>
+            </div>
+        </div>
+        <div id="myModal" data-bind="visible:Mode()=='Export'">
+            <div class="box">
+                <b>This module is use to import user simultaneously, from excel datas. </b>
+                <ul type="circle">
+                    <li>Download the WEIS User Import Template</li>
+                    <li>Fill wtih user datas that you want to import to WEIS, save it.</li>
+                    <li>Select the WEIS User Import File and Upload. </li>
+                </ul>
+            </div>
+            <div class="modal-header">
+                <button class="btn btn-custom btn-warning btn-sm" data-bind="click:cancel">
+                    <span class="glyphicon glyphicon-arrow-left"></span> Back to List
+                </button>
+                <button type="button" class="btn btn-success btn-custom btn-sm" data-dismiss="modal" onclick="DownloadTemplate()">
+                    <span class="glyphicon glyphicon-download"></span> Download Template
+                </button>
+                <button type="button" class="btn btn-custom btn-sm btn-danger" onclick="alert('Under development');" style="visibility:hidden">
+                    <span class="glyphicon glyphicon-export"></span> Import
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="form_new_phase" class="k-content">
+                    <div class="form-group">
+                        <div class="col-md-9">
+                            Import method :
+                            <select id="ExportMethod" name="ExportMethod" style="width: 220px;"
+                                    data-bind="kendoDropDownList: { dataSource: ['Setup new users','Replace current access for existing user','Add access for existing user']  }"></select>
+                            <span class="k-invalid-msg" data-for="role"></span>
+                        </div>
+                        <br />
+                        <div class="clearfix">&nbsp;</div>
+                        <div class="clearfix">&nbsp;</div>
+                        <div>
+                            <div class="demo-section k-header">
+                                <input name="files" id="files" type="file" />
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="clearfix">&nbsp;</div>
+                </form>
+            </div>
+            <div class="form-group" style="margin-top:20px;">
+                <div class="col-sm-12">
+                    <div id="grid"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade myModal" id="modal-add-role" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                    <h4 class="modal-title">New Phase</h4>
+                </div>
+
+                <div class="modal-body" data-bind="visible: adminusermodel.Processing()">
+                    @Html.Partial("_processing")
+                </div>
+                <div class="modal-body" data-bind="visible: !adminusermodel.Processing()">
+                    <form id="form-add-role" class="k-content">
+                        <div class="form-group">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Role Name:</label>
+                                </div>
+                                <div class="col-md-9">
+                                    <select required data-required-msg="Role cannot be empty" name="role" style="width: 220px;"
+                                            data-bind="kendoDropDownList: { dataSource: model.roles(), value: model.SelectedRole, optionLabel: 'Select Role' }"></select>
+                                    <span class="k-invalid-msg" data-for="role"></span>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Well Name:</label>
+                                </div>
+                                <div class="col-md-9">
+                                    <select required data-required-msg="Well name cannot be empty" name="wellname" style="width: 220px; "
+                                            data-bind="kendoDropDownList: { dataSource: model.wellNames(), value: model.SelectedWell, optionLabel: 'Select Well Name' }"></select>
+                                    <span class="k-invalid-msg" data-for="wellname"></span>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label style="text-align:right; font-weight:bold;" for="recipient-name" class="control-label">Activity:</label>
+                                </div>
+                                <div class="col-md-9">
+                                    <select required data-required-msg="Well name cannot be empty" name="wellname" style="width: 220px;"
+                                            data-bind="kendoDropDownList: { dataSource: model.activities(), value: model.SelectedActivity, optionLabel: 'Select Activity' }"></select>
+                                    <span class="k-invalid-msg" data-for="wellname"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-custom btn-sm btn-shell" data-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-custom btn-sm btn-primary" onclick="adminusermodel.saveNewRole();">
+                        <span class="glyphicon glyphicon-ok"></span> Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+    model.SelectedUserRow = ko.observable("");
+    model.SelectedRole = ko.observable('');
+    model.SelectedWell = ko.observable('');
+    model.SelectedActivity = ko.observable('');
+
+    function getChangedData($grid, type) {
+        var updatedRecords = [];
+
+        $grid.data("kendoGrid").dataSource._data.forEach(function (f) {
+            if (type == "dirty") {
+                if (f.dirty) updatedRecords.push(f);
+            } else {
+                updatedRecords.push(f);
+            }
+        });
+
+        var updated = updatedRecords;
+
+        for (var a = 0; a < updated.length; a++) {
+            var b = updated[a];
+            for (i in b) if (b.hasOwnProperty(i)) {
+                if (i.indexOf(".") > -1) {
+                    delete updated[a][i];
+                }
+            }
+        }
+
+        return updated;
+    }
+
+    var container = $("#adminusers_container")[0];
+
+
+    function DownloadTemplate() {
+        var url = "@Url.Action("DonwloadTemplate", "adminusers")";
+        location.href = url;
+    }
+
+    adminusermodel.Export = function () {
+        adminusermodel.Mode("Export");
+        //RenderGrid();
+    }
+
+    adminusermodel.add = function () {
+        adminusermodel.Mode("Insert");
+        adminusermodel.UserName("");
+        adminusermodel.Password("");
+        adminusermodel.ConfirmPassword("");
+        adminusermodel.Email("");
+        adminusermodel.FullName("");
+        adminusermodel.Enable(true);
+        adminusermodel.ADUser(false);
+        adminusermodel.IsAddMode(true);
+        $("#grid-role").data('kendoGrid').setDataSource(new kendo.data.DataSource({ data: [] }));
+        $("[href='#general']").trigger('click');
+    }
+
+    Export = function () {
+        //adminusermodel.Mode("Export");
+        //alert('export');
+        $("#myModal").modal('show');
+    }
+
+    adminusermodel.save = function () {
+        var form = $("#adminusers_form_panel");
+        var validate = form.data("kendoValidator") == undefined ?
+            form.kendoValidator({
+                rules: {
+                    passwordvalid: function (input) {
+                        return true;
+                    },
+                    confirmvalid: function (input) {
+                        if (input.is("[name='Confirm Password']")) {
+                            if (input.val() != $("input[name='Password'][type='password']").val()) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }
+                }
+            }).data("kendoValidator") : form.data("kendoValidator");
+
+        if (validate.validate()) {
+            adminusermodel.Processing(true);
+            var url = "@Url.Action("save","adminusers")";
+            var param = {
+                userinfo: model.adminusers_model(),
+                roles: getChangedData($("#grid-role"))
+            };
+            ajaxPost(url, param, function (data) {
+                adminusermodel.Processing(false);
+                adminusermodel.Password("");
+                adminusermodel.ConfirmPassword("");
+
+                if (data.Result == "NOK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                if (typeof data.Data !== 'undefined') {
+                    model.SelectedUserRow(data.Data);
+                }
+
+                adminusermodel.refresh();
+                adminusermodel.refreshRole();
+                adminusermodel.IsAddMode(false);
+            }, function (err) {
+                adminusermodel.Processing(false);
+                adminusermodel.Password("");
+                adminusermodel.ConfirmPassword("");
+                alert(err.responseText());
+            });
+        }
+    }
+
+    adminusermodel.saveNewRole = function () {
+        var validator = $("#form-add-role").kendoValidator().data("kendoValidator");
+
+        if (!validator.validate()) {
+            return;
+        }
+
+        var url = "@Url.Action("SaveNewRole", "adminusers")";
+        var param = {
+            FullName: adminusermodel.FullName(),
+            Email: adminusermodel.Email(),
+            WellName: model.SelectedWell(),
+            ActivityType: model.SelectedActivity(),
+            RoleName: model.SelectedRole()
+        };
+        adminusermodel.Processing(true);
+
+        ajaxPost(url, param, function (data) {
+            adminusermodel.Processing(false);
+
+            if (data.Result == "NOK") {
+                alert('Error: ' + data.Message);
+                return;
+            }
+
+            alert("Role Saved!");
+
+            $("#modal-add-role").modal("hide");
+            model.SelectedActivity("");
+            model.SelectedRole("");
+            model.SelectedWell("");
+            adminusermodel.refreshRole();
+        }, function () {
+            alert('Error occured when fetching data from server');
+            adminusermodel.Processing(false);
+        });
+    }
+
+    adminusermodel.cancel = function () {
+        adminusermodel.Mode("");
+        adminusermodel.UserName("");
+        adminusermodel.Password("");
+        adminusermodel.ConfirmPassword("");
+        adminusermodel.Email("");
+        adminusermodel.FullName("");
+        adminusermodel.Enable(true);
+        adminusermodel.ADUser(false);
+        adminusermodel.IsAddMode(false);
+    }
+
+    adminusermodel.refresh = function () {
+        model.PopulateGridUser();
+    }
+
+    adminusermodel.download = function () {
+        //alert('Donwload');
+        var url = "@Url.Action("Donwload", "adminusers")";
+        location.href = url;
+        //model.PopulateGridUser();
+    }
+
+    adminusermodel.refreshRole = function () {
+        model.SelectUser(model.SelectedUserRow());
+    };
+
+    adminusermodel.addRole = function () {
+        $("[href='#role']").trigger('click');
+        if (adminusermodel.IsAddMode()) {
+            alert("You need to save first before adding role");
+            $("#modal-add-role").modal("hide");
+            return;
+        }
+
+        $("#modal-add-role").modal("show");
+    };
+
+    model.PopulateGridUser = function () {
+        var url = "@Url.Action("PopulateUsers", "adminusers")";
+        var param = {
+            Keyword: adminusermodel.Keyword(),
+            WellName: adminusermodel.WellName(),
+            Activity: adminusermodel.Activity(),
+            Role: adminusermodel.Role(),
+        };
+
+        adminusermodel.Processing(true);
+
+        ajaxPost(url, param, function (data) {
+            adminusermodel.Processing(false);
+
+            if (data.Result == "NOK") {
+                alert('Error: ' + data.Message);
+                return;
+            }
+
+            var dataSource = new kendo.data.DataSource({
+                data: data.Data,
+                pageSize: 10,
+                schema: { model: { id: "_id", fields: { ADUser: { type: "boolean" } } } }
+            });
+            $("#grid-user").data("kendoGrid").setDataSource(dataSource);
+        }, function () {
+            alert('Error occured when fetching data from server');
+            adminusermodel.Processing(false);
+        });
+    }
+
+    model.SelectUserFromGrid = function (sender) {
+        $("[href='#general']").trigger('click');
+        model.SelectUser(sender);
+    };
+
+    model.SelectUser = function (sender) {
+        model.SelectedUserRow(sender instanceof Object ? $(sender).text() : sender);
+
+        var url = "@Url.Action("GetUser", "adminusers")";
+        var param = { userid: model.SelectedUserRow() };
+
+        adminusermodel.Processing(true);
+
+        ajaxPost(url, param, function (data) {
+            adminusermodel.Processing(false);
+
+            if (data.Result == "NOK") {
+                alert('Error: ' + data.Message);
+                return;
+            }
+
+            if (data.Data == null) {
+                $("#grid-role").data("kendoGrid").setDataSource(new kendo.data.DataSource({ data: [] }));
+                return;
+            }
+
+            model.adminusers_model().Mode("Edit");
+            model.adminusers_model().UserName(data.Data[0].UserName);
+            model.adminusers_model().FullName(data.Data[0].FullName);
+            model.adminusers_model().ADUser(data.Data[0].ADUser);
+            model.adminusers_model().Enable(data.Data[0].Enable);
+            model.adminusers_model().Email(data.Data[0].Email);
+
+            var dataSource = new kendo.data.DataSource({
+                schema: { model: { fields: { SequenceId: { editable: false }, PhaseNo: { editable: false } } } },
+                data: data.Data[0].Roles
+            });
+
+            $("#grid-role").data("kendoGrid").setDataSource(dataSource);
+        }, function () {
+            adminusermodel.Processing(false);
+        });
+    }
+
+    model.DeleteRole = function (personId, roleId, email) {
+        if (!confirm("Are you sure want to delete this role?"))
+            return;
+
+        var url = "@Url.Action("DeleteRole", "adminusers")";
+        var param = { _id: personId, RoleId: roleId, Email: email };
+
+        adminusermodel.Processing(true);
+
+        ajaxPost(url, param, function (data) {
+            adminusermodel.Processing(false);
+
+            if (data.Result == "NOK") {
+                alert('Error: ' + data.Message);
+                return;
+            }
+
+            adminusermodel.refreshRole();
+            alert("Role deleted!");
+        }, function () {
+            adminusermodel.Processing(false);
+        });
+    }
+
+    model.adminusers_rows = ko.observableArray([]);
+    model.adminusers_model = ko.observable(adminusermodel);
+
+    model.wellNames = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISWellNames")
+        .Select(d=>d.GetString("_id")).OrderBy(d=>d))));
+    model.wellNames.unshift("*");
+    model.activities = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate<WellActivity>("WEISWellActivities")
+        .SelectMany(d => d.Phases).GroupBy(d => d.ActivityType).Select(d => d.Key).OrderBy(d => (d.Equals("n/a") ? "" : d)))));
+    model.activities.unshift("*");
+    model.roles = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate<WEISRole>("WEISRoles").Select(d=>d.RoleName))));
+
+    function RenderGrid(Data) {
+        //$("#grid")
+        $('#grid').replaceWith($('<div />').attr('id', 'grid'));
+        var columnPhases = [];
+        columnPhases.push(
+              { field: "User_Name", title: "User Name" },
+                { field: "Full_Name", title: "Full Name" },
+                { field: "Email", title: "Email" },
+                { field: "ADuser", title: "ADUser" },
+                { field: "Enable", title: "Enable" },
+                { field: "Password", title: "Pass" },
+                { field: "Confirm_Password", title: "Confirm Pass" },
+                { field: "Role_Name", title: "Role Name" },
+                { field: "Well_Name", title: "Well Name" },
+                { field: "Activity", title: "Activity" },
+                { field: "Sequence_ID", title: "Seq ID", width: 50 },
+                { field: "ErrorMessage", title: "Error Message", width: 350 }
+               );
+
+        var aa = Data;//[{ "User_Name": "adam.behrman", "Full_Name": "Adam  Behrman", "Email": "Adam.Behrman@shell.com", "Password": "", "Confirm_Password": "", "Role_Name": "Read Only Users", "Well_Name": "*", "Activity": "ABANDONMENT", "Sequence_ID": "", "ADuser": "False", "Enable": "True", "ErrorMessage": "ADUser or Enable contains invaild value, change value to (TRUE/FALSE);Role ID not exist in WEIS, type * for all data, or (na) for no one;" }, { "User_Name": "adam.behrman", "Full_Name": "Adam  Behrman", "Email": "Adam.Behrman@shell.com", "Password": "", "Confirm_Password": "", "Role_Name": "Read Only Users", "Well_Name": "*", "Activity": "WHOLE COMPLETION EVENT", "Sequence_ID": "", "ADuser": "False", "Enable": "True", "ErrorMessage": "ADUser or Enable contains invaild value, change value to (TRUE/FALSE);Role ID not exist in WEIS, type * for all data, or (na) for no one;" }, { "User_Name": "adam.behrman", "Full_Name": "Adam  Behrman", "Email": "Adam.Behrman@shell.com", "Password": "", "Confirm_Password": "", "Role_Name": "Read Only Users", "Well_Name": "*", "Activity": "COM - DE-COMPLETION", "Sequence_ID": "", "ADuser": "False", "Enable": "True", "ErrorMessage": "ADUser or Enable contains invaild value, change value to (TRUE/FALSE);Role ID not exist in WEIS, type * for all data, or (na) for no one;" }, { "User_Name": "adam.behrman", "Full_Name": "Adam  Behrman", "Email": "Adam.Behrman@shell.com", "Password": "", "Confirm_Password": "", "Role_Name": "Read Only Users", "Well_Name": "*", "Activity": "WELL INTERVENTION", "Sequence_ID": "", "ADuser": "False", "Enable": "True", "ErrorMessage": "ADUser or Enable contains invaild value, change value to (TRUE/FALSE);Activities not exist in WEIS, type * for all data, or (na) for no one;Role ID not exist in WEIS, type * for all data, or (na) for no one;" }, { "User_Name": "adam.behrman", "Full_Name": "Adam  Behrman", "Email": "Adam.Behrman@shell.com", "Password": "", "Confirm_Password": "", "Role_Name": "Read Only Users", "Well_Name": "*", "Activity": "WORKOVER", "Sequence_ID": "", "ADuser": "False", "Enable": "True", "ErrorMessage": "ADUser or Enable contains invaild value, change value to (TRUE/FALSE);Role ID not exist in WEIS, type * for all data, or (na) for no one;" }, { "User_Name": "adam.behrman", "Full_Name": "Adam  Behrman", "Email": "Adam.Behrman@shell.com", "Password": "", "Confirm_Password": "", "Role_Name": "Read Only Users", "Well_Name": "*", "Activity": "WELL TEST", "Sequence_ID": "", "ADuser": "False", "Enable": "True", "ErrorMessage": "ADUser or Enable contains invaild value, change value to (TRUE/FALSE);Activities not exist in WEIS, type * for all data, or (na) for no one;Role ID not exist in WEIS, type * for all data, or (na) for no one;" }, { "User_Name": "adam.behrman", "Full_Name": "Adam  Behrman", "Email": "Adam.Behrman@shell.com", "Password": "", "Confirm_Password": "", "Role_Name": "Read Only Users", "Well_Name": "*", "Activity": "WRFM/RST - RESERVOIR WELLBORE CLEANOUTS", "Sequence_ID": "", "ADuser": "False", "Enable": "True", "ErrorMessage": "ADUser or Enable contains invaild value, change value to (TRUE/FALSE);Role ID not exist in WEIS, type * for all data, or (na) for no one;" }];
+        //console.log(aa);
+        var dataSource = new kendo.data.DataSource({
+            data: aa,
+            pageSize: 10,
+            //schema: { model: { id: "_id", fields: { ADUser: { type: "boolean" } } } }
+        });
+
+        $("#grid").kendoGrid({
+            columns: columnPhases,
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            scrollable: true,
+            dataSource: dataSource
+        });
+        //$("#grid").data("kendoGrid").setDataSource(dataSource);
+    };
+
+
+
+    function DeleteUser(Email,UserName) {
+        if (confirm("Are you sure to delete this person?")) {
+            //alert(UserName);
+            var url = "@Url.Action("DeleteUser", "adminusers")";
+            var param = {
+                Email: Email, UserName: UserName
+            };
+            ajaxPost(url, param, function (data) {
+                if (data.Success == true) {
+                    adminusermodel.refresh();
+                } else {
+                    alert(data.Message);
+                    return;
+                }
+            }, function (err) {
+                alert(err.responseText());
+            });
+        } else {
+            return;
+        }
+    }
+
+    $(function () {
+        ClearDataUpload();
+        $("#files").kendoUpload({
+            async: {
+                saveUrl: '@Url.Action("Upload", "AdminUsers")',
+                removeUrl: "remove",
+                autoUpload: false
+            },
+            upload: function (e) {
+                e.data = { ExportMethod: $("#ExportMethod").val() };
+            },
+            complete: onComplete,
+            select: onSelect,
+            success: onSuccess,
+            //upload : onUpload,
+            multiple: false
+        });
+
+        function onSuccess(e) {
+            var data = e.response.Data;
+            RenderGrid(data);
+            //alert('SendAsynEmail - 1');
+            if (e.response.Result == "OK") {    
+                var url = "@Url.Action("SendAsynEmail", "adminusers")";
+                var param = {
+                    Datas: data, ExportMethod: $("#ExportMethod").val()
+                };
+                ajaxPost(url, param, function (data) {
+                    if (data.Result == "NOK") {
+                        alert(data.Message);
+                        return;
+                    }
+                    if (typeof data.Data !== 'undefined') {
+                        model.SelectedUserRow(data.Data);
+                    }
+                    console.log(data.Data);
+                    console.log("Done Sending Emails");
+                }, function (err) {
+
+                    alert(err.responseText());
+                });
+
+
+            }
+
+        }
+
+        function onComplete(e) {
+
+
+            if (e.Result == 'NOK') {
+                alert("Found error in your datas, please check the result info");
+            }
+            else {
+                alert("Data have been verified, please check the messages \n WEIS will prevent updating regarding one or any incorrect value");
+            }
+            $(".k-upload-files.k-reset").find("li").remove();
+        }
+
+        function onUpload(e) {
+            //alert('OnUpload');
+            var url = '@Url.Action("UploadAndVerified", "AdminUsers")';
+            ajaxPost(url, "", function (data) {
+                alert('');
+                console.log(data.Data);
+                console.log(data.Message);
+                console.log(data.Result);
+                alert('');
+
+                if (data.Result == "NOK") {
+                    //alert(data.Message);
+                    return;
+                }
+
+                if (typeof data.Data !== 'undefined') {
+                    model.SelectedUserRow(data.Data);
+                }
+
+            }, function (err) {
+                alert(err.responseText());
+            });
+
+        }
+
+        function onSelect(e) {
+
+        }
+        function ClearDataUpload() {
+            //alert('ClearDataUpload');
+            var up = $('#files').data().kendoUpload;
+            console.log(up);
+            if (up != undefined) {
+                var allLiElementsToBeRemoved = up.wrapper.find('.k-file');
+                up._removeFileEntry(allLiElementsToBeRemoved);
+            }
+        }
+        $("#grid-user").kendoGrid({
+            pageable: true,
+            columns: [
+                { field: "UserName", title: "User Name", width: 200, template: "<div style='width:100%;height:100%;cursor:pointer'><a onclick='model.SelectUserFromGrid(this)'>#: UserName #</a></div>" },
+                { field: "FullName", title: "Full Name" },
+                { field: "Email", title: "Email" },
+                { field: "ConfirmedAtUtc", title: "Created", width: 120, template: "#: kendo.format('{0:dd-MMM-yyyy hh:mm}',jsonDate(ConfirmedAtUtc)) #" },
+                { field: "ADUser", title: "AD User", width: 80, attributes: { style: "text-align:center" }, template: "<input disabled='disabled' type='checkbox' class='check-aduser' #: ADUser==true ? 'checked' : '' #>" },
+                { field: "Enable", title: "Enable", attributes: { style: "text-align:center" }, template: "<input type='checkbox' disabled='disabled' class='check-enable' #: Enable==true ? 'checked' : '' #>", width: 80 },
+                { field: "Id", title: "Delete", attributes: { style: "text-align:center" }, template: "<button type='button' class='btn btn-danger btn-xs' onclick='DeleteUser(\"#: Email #\",\"#: UserName #\")'>Delete</button>", width: 80 }
+            ]
+        });
+
+        function editorDropdown(data, dataTextField, dataValueField) {
+            return function (container, option) {
+                var config = { dataSource: new kendo.data.DataSource({ data: data }) };
+                if (typeof dataTextField !== 'undefined') { config.dataTextField = dataTextField; }
+                if (typeof dataValueField !== 'undefined') { config.dataValueField = dataValueField; }
+
+                var input = $("<input data-bind=\"value:" + option.field + "\"></input>");
+                input.appendTo(container);
+                input.kendoDropDownList(config);
+            }
+        }
+
+        $("#grid-role").kendoGrid({
+            editable: true,
+            columns: [
+                { field: "RoleName", title: "Role Name", editor: editorDropdown(model.roles()) },
+                { field: "WellName", title: "Well Name", editor: editorDropdown(model.wellNames()) },
+                { field: "ActivityType", title: "Activity Type", editor: editorDropdown(model.activities()) },
+                { field: "SequenceId", title: "Sequence Id", width: 90, template: "<div style='text-align: right'>#: SequenceId #</div>" },
+                { field: "PhaseNo", title: "PhaseNo", width: 90, template: "<div style='text-align: right'>#: PhaseNo #</div>" },
+                { field: "SequenceId", title: "Action", width: 90, template: "<div style='text-align: center'><button onclick='model.DeleteRole(\"#= _id #\", \"#= RoleId #\", \"#= Email #\")' class='btn btn-custom btn-danger btn-xs'><span class='glyphicon glyphicon-remove-circle'></span> Delete</button></div>" },
+            ]
+        });
+
+        adminusermodel.refresh();
+
+        $(".keyword").on("keyup", function (e) {
+            if (e.keyCode != 13) return;
+
+            model.PopulateGridUser();
+        });
+    });
+</script>

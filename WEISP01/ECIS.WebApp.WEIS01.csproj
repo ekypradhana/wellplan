@@ -1,0 +1,660 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>
+    </ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{DCAB873E-2A49-48B1-A984-60F16ED1F8B9}</ProjectGuid>
+    <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}</ProjectTypeGuids>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>ECIS.AppServer</RootNamespace>
+    <AssemblyName>ECIS.AppServer</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <MvcBuildViews>false</MvcBuildViews>
+    <UseIISExpress>false</UseIISExpress>
+    <IISExpressSSLPort />
+    <IISExpressAnonymousAuthentication />
+    <IISExpressWindowsAuthentication />
+    <IISExpressUseClassicPipelineMode />
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\..\</SolutionDir>
+    <RestorePackages>true</RestorePackages>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Aspose.Cells, Version=8.3.2.1, Culture=neutral, PublicKeyToken=716fcc553a201e56, processorArchitecture=MSIL">
+      <HintPath>packages\Aspose.Cells.8.3.2.1\lib\net40\Aspose.Cells.dll</HintPath>
+    </Reference>
+    <Reference Include="Aspose.Pdf, Version=10.1.0.0, Culture=neutral, PublicKeyToken=6947866647e416ec, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>packages\Aspose.Pdf.10.1.0\lib\net40-client\Aspose.Pdf.dll</HintPath>
+    </Reference>
+    <Reference Include="ECIS.Biz.Common, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\ECIS.Biz.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="ECIS.Core, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\Library\Debug\ECIS.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="ECIS.Core.DataSerializer, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\ECIS.Core.DataSerializer.dll</HintPath>
+    </Reference>
+    <Reference Include="ECIS.CoreExtender.MVC">
+      <HintPath>..\..\..\Core\ECIS.CoreExtender.MVC\bin\Debug\ECIS.CoreExtender.MVC.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.AspNet.Identity.Core">
+      <HintPath>..\packages\Microsoft.AspNet.Identity.Core.2.0.0\lib\net45\Microsoft.AspNet.Identity.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.AspNet.Identity.Owin">
+      <HintPath>..\packages\Microsoft.AspNet.Identity.Owin.2.0.0\lib\net45\Microsoft.AspNet.Identity.Owin.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="Microsoft.Owin">
+      <HintPath>..\packages\Microsoft.Owin.2.1.0\lib\net45\Microsoft.Owin.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Security">
+      <HintPath>..\packages\Microsoft.Owin.Security.2.1.0\lib\net45\Microsoft.Owin.Security.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Security.Cookies">
+      <HintPath>..\packages\Microsoft.Owin.Security.Cookies.2.1.0\lib\net45\Microsoft.Owin.Security.Cookies.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Security.OAuth">
+      <HintPath>..\packages\Microsoft.Owin.Security.OAuth.2.1.0\lib\net45\Microsoft.Owin.Security.OAuth.dll</HintPath>
+    </Reference>
+    <Reference Include="MongoDB.Bson, Version=1.10.0.62, Culture=neutral, PublicKeyToken=f686731cfb9cc103, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>packages\mongocsharpdriver.1.10.0\lib\net35\MongoDB.Bson.dll</HintPath>
+    </Reference>
+    <Reference Include="MongoDB.Driver, Version=1.10.0.62, Culture=neutral, PublicKeyToken=f686731cfb9cc103, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>packages\mongocsharpdriver.1.10.0\lib\net35\MongoDB.Driver.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\packages\Newtonsoft.Json.6.0.7\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Oracle.ManagedDataAccess, Version=4.121.1.0, Culture=neutral, PublicKeyToken=89b483f429c47342, processorArchitecture=MSIL">
+      <Private>True</Private>
+      <HintPath>..\..\..\packages\odp.net.managed.121.1.2\lib\net40\Oracle.ManagedDataAccess.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.DirectoryServices" />
+    <Reference Include="System.DirectoryServices.AccountManagement" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Web.DynamicData" />
+    <Reference Include="System.Web.Entity" />
+    <Reference Include="System.Web.ApplicationServices" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Web.Abstractions" />
+    <Reference Include="System.Web.Routing" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Web.Services" />
+    <Reference Include="System.EnterpriseServices" />
+    <Reference Include="Microsoft.Web.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <Private>True</Private>
+      <HintPath>..\packages\Microsoft.Web.Infrastructure.1.0.0.0\lib\net40\Microsoft.Web.Infrastructure.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Net.Http">
+    </Reference>
+    <Reference Include="System.Net.Http.WebRequest">
+    </Reference>
+    <Reference Include="System.Web.Helpers, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <Private>True</Private>
+      <HintPath>..\packages\Microsoft.AspNet.WebPages.3.0.0\lib\net45\System.Web.Helpers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Mvc, Version=5.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <Private>True</Private>
+      <HintPath>..\packages\Microsoft.AspNet.Mvc.5.0.0\lib\net45\System.Web.Mvc.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Optimization">
+      <HintPath>..\packages\Microsoft.AspNet.Web.Optimization.1.1.1\lib\net40\System.Web.Optimization.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Razor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <Private>True</Private>
+      <HintPath>..\packages\Microsoft.AspNet.Razor.3.0.0\lib\net45\System.Web.Razor.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.WebPages, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <Private>True</Private>
+      <HintPath>..\packages\Microsoft.AspNet.WebPages.3.0.0\lib\net45\System.Web.WebPages.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.WebPages.Deployment, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <Private>True</Private>
+      <HintPath>..\packages\Microsoft.AspNet.WebPages.3.0.0\lib\net45\System.Web.WebPages.Deployment.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.WebPages.Razor, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <Private>True</Private>
+      <HintPath>..\packages\Microsoft.AspNet.WebPages.3.0.0\lib\net45\System.Web.WebPages.Razor.dll</HintPath>
+    </Reference>
+    <Reference Include="WebGrease">
+      <Private>True</Private>
+      <HintPath>..\packages\WebGrease.1.5.2\lib\WebGrease.dll</HintPath>
+    </Reference>
+    <Reference Include="Antlr3.Runtime">
+      <Private>True</Private>
+      <HintPath>..\packages\Antlr.3.4.1.9004\lib\Antlr3.Runtime.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Owin">
+      <HintPath>..\packages\Owin.1.0\lib\net40\Owin.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Host.SystemWeb">
+      <HintPath>..\packages\Microsoft.Owin.Host.SystemWeb.2.0.0\lib\net45\Microsoft.Owin.Host.SystemWeb.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Security.Facebook">
+      <HintPath>..\packages\Microsoft.Owin.Security.Facebook.2.0.0\lib\net45\Microsoft.Owin.Security.Facebook.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Security.Google">
+      <HintPath>..\packages\Microsoft.Owin.Security.Google.2.0.0\lib\net45\Microsoft.Owin.Security.Google.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Security.Twitter">
+      <HintPath>..\packages\Microsoft.Owin.Security.Twitter.2.0.0\lib\net45\Microsoft.Owin.Security.Twitter.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Security.MicrosoftAccount">
+      <HintPath>..\packages\Microsoft.Owin.Security.MicrosoftAccount.2.0.0\lib\net45\Microsoft.Owin.Security.MicrosoftAccount.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="App_Start\BundleConfig.cs" />
+    <Compile Include="App_Start\FilterConfig.cs" />
+    <Compile Include="App_Start\RouteConfig.cs" />
+    <Compile Include="App_Start\Startup.Auth.cs" />
+    <Compile Include="Areas\Admin\AdminAreaRegistration.cs" />
+    <Compile Include="Areas\Admin\Controllers\AdminStartController.cs" />
+    <Compile Include="Areas\Admin\Controllers\AdminUsersController.cs" />
+    <Compile Include="Areas\Issue\Controllers\AppIssueController.cs" />
+    <Compile Include="Areas\Issue\IssueAreaRegistration.cs" />
+    <Compile Include="Areas\Shell\Controllers\ActivityActualController.cs" />
+    <Compile Include="Areas\Shell\Controllers\ActualController.cs" />
+    <Compile Include="Areas\Shell\Controllers\AdministrationInputController.cs" />
+    <Compile Include="Areas\Shell\Controllers\AdminWellController.cs" />
+    <Compile Include="Areas\Shell\Controllers\AppsConfigController.cs" />
+    <Compile Include="Areas\Shell\Controllers\BackupRestoreController.cs" />
+    <Compile Include="Areas\Shell\Controllers\BizPlanSettingController.cs" />
+    <Compile Include="Areas\Shell\Controllers\BusinessPlanController.cs" />
+    <Compile Include="Areas\Shell\Controllers\BusinessPlannerController.cs" />
+    <Compile Include="Areas\Shell\Controllers\BusplanController.cs" />
+    <Compile Include="Areas\Shell\Controllers\CommentController.cs" />
+    <Compile Include="Areas\Shell\Controllers\ComparisonController.cs" />
+    <Compile Include="Areas\Shell\Controllers\DocumentController.cs" />
+    <Compile Include="Areas\Shell\Controllers\EmailController.cs" />
+    <Compile Include="Areas\Shell\Controllers\ExchangeRateController.cs" />
+    <Compile Include="Areas\Shell\Controllers\ExportController.cs" />
+    <Compile Include="Areas\Shell\Controllers\HealthCheckController.cs" />
+    <Compile Include="Areas\Shell\Controllers\HistoricalDataModelController.cs" />
+    <Compile Include="Areas\Shell\Controllers\HistoricalDataMonthlyController.cs" />
+    <Compile Include="Areas\Shell\Controllers\HistoricalPIPModelController.cs" />
+    <Compile Include="Areas\Shell\Controllers\HomeController.cs" />
+    <Compile Include="Areas\Shell\Controllers\LogBrowserController.cs" />
+    <Compile Include="Areas\Shell\Controllers\MacroInformationController.cs" />
+    <Compile Include="Areas\Shell\Controllers\MasterActivityController.cs" />
+    <Compile Include="Areas\Shell\Controllers\MasterAssetNameController.cs" />
+    <Compile Include="Areas\Shell\Controllers\MasterClassificationController.cs" />
+    <Compile Include="Areas\Shell\Controllers\MasterOperatingUnitController.cs" />
+    <Compile Include="Areas\Shell\Controllers\MasterProjectController.cs" />
+    <Compile Include="Areas\Shell\Controllers\MasterRegionController.cs" />
+    <Compile Include="Areas\Shell\Controllers\MasterRigNameController.cs" />
+    <Compile Include="Areas\Shell\Controllers\MasterRigTypeController.cs" />
+    <Compile Include="Areas\Shell\Controllers\MasterThemeController.cs" />
+    <Compile Include="Areas\Shell\Controllers\MonthlyReportController.cs" />
+    <Compile Include="Areas\Shell\Controllers\PersonController.cs" />
+    <Compile Include="Areas\Shell\Controllers\PlanSimulationController.cs" />
+    <Compile Include="Areas\Shell\Controllers\RenameToolsController.cs" />
+    <Compile Include="Areas\Shell\Controllers\ReportController.cs" />
+    <Compile Include="Areas\Shell\Controllers\RSVPController.cs" />
+    <Compile Include="Areas\Shell\Controllers\SmartAlertController.cs" />
+    <Compile Include="Areas\Shell\Controllers\UploadLSController.cs" />
+    <Compile Include="Areas\Shell\Controllers\UploadOPController.cs" />
+    <Compile Include="Areas\Shell\Controllers\UploadPIPController.cs" />
+    <Compile Include="Areas\Shell\Controllers\UserController.cs" />
+    <Compile Include="Areas\Shell\Controllers\UserLogController.cs" />
+    <Compile Include="Areas\Shell\Controllers\WaterfallController.cs" />
+    <Compile Include="Areas\Shell\Controllers\WeisConfigController.cs" />
+    <Compile Include="Areas\Shell\Controllers\WellMatchController.cs" />
+    <Compile Include="Areas\Shell\Controllers\WellPIPController.cs" />
+    <Compile Include="Areas\Shell\Controllers\DashboardController.cs" />
+    <Compile Include="Areas\Shell\Controllers\DataModelController.cs" />
+    <Compile Include="Areas\Shell\Controllers\SequenceChartsController.cs" />
+    <Compile Include="Areas\Shell\Controllers\TestController.cs" />
+    <Compile Include="Areas\Shell\Controllers\WeeklyReportController.cs" />
+    <Compile Include="Areas\Shell\ShellAreaRegistration.cs" />
+    <Compile Include="Areas\WebMenu\Controllers\MenuController.cs" />
+    <Compile Include="Areas\WebMenu\Models\Menu.cs" />
+    <Compile Include="Areas\WebMenu\WebMenuAreaRegistration.cs" />
+    <Compile Include="Classes\Core\ExcelHelper.cs" />
+    <Compile Include="Classes\Core\MongoHelper.cs" />
+    <Compile Include="Classes\Identity\ECAuth.cs" />
+    <Compile Include="Controllers\AccountController.cs" />
+    <Compile Include="Controllers\HomeController.cs" />
+    <Compile Include="Controllers\JobController.cs" />
+    <Compile Include="Controllers\TestController.cs" />
+    <Compile Include="Global.asax.cs">
+      <DependentUpon>Global.asax</DependentUpon>
+    </Compile>
+    <Compile Include="Models\ECUser.cs" />
+    <Compile Include="Classes\Identity\Claim.cs" />
+    <Compile Include="Classes\Identity\Context.cs" />
+    <Compile Include="Classes\Identity\Store.cs" />
+    <Compile Include="Classes\Identity\User.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+    <Compile Include="Startup.cs" />
+    <Compile Include="Classes\WebTools.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="ActualQuery\Query.txt" />
+    <Content Include="ActualQuery\WellQuery.txt" />
+    <Content Include="App_Data\SQLFiles\Customer.sql" />
+    <Content Include="App_Data\SQLFiles\FTADataModelGetStep1.sql" />
+    <Content Include="App_Data\SQLFiles\FTADataModelGetStep2.sql" />
+    <Content Include="App_Data\SQLFiles\GIS.sql" />
+    <Content Include="App_Data\SQLFiles\MCDRCallCodes.sql" />
+    <Content Include="App_Data\SQLFiles\test.sql" />
+    <Content Include="App_Data\SQLFiles\UsageDataModelStep1 - Copy.sql" />
+    <Content Include="App_Data\SQLFiles\UsageDataModelStep1.sql" />
+    <Content Include="App_Data\SQLFiles\UsageDataModelStep2 - Copy.sql" />
+    <Content Include="App_Data\SQLFiles\UsageDataModelStep2.sql" />
+    <Content Include="Content\bootstrap-theme.css" />
+    <Content Include="Content\bootstrap-theme.min.css" />
+    <Content Include="Content\bootstrap.css" />
+    <Content Include="Content\bootstrap.min.css" />
+    <Content Include="Content\css\select2-spinner.gif" />
+    <Content Include="Content\css\select2.css" />
+    <Content Include="Content\css\select2.png" />
+    <Content Include="Content\css\select2x2.png" />
+    <Content Include="Content\custom.css" />
+    <Content Include="Content\Images\CircularProgressAnimation.gif" />
+    <Content Include="Content\Images\header-logo.png" />
+    <Content Include="Content\Images\login_bg1.jpg" />
+    <Content Include="Content\Js\ecis_config.js" />
+    <Content Include="Content\Js\ecis_start.js" />
+    <Content Include="Content\Js\linq.js" />
+    <Content Include="App_Data\BQLFiles\FTADynamic.json" />
+    <Content Include="App_Data\BQLFiles\UsageDynamic.json" />
+    <Content Include="App_Data\BQLFiles\DB.json" />
+    <Content Include="App_Data\BQLFiles\SM1.json" />
+    <Content Include="Content\bootstrap-theme.css.map" />
+    <Content Include="Content\bootstrap.css.map" />
+    <Content Include="App_Data\License\config.ecis" />
+    <Content Include="App_Data\License\key.ecis" />
+    <Content Include="Areas\WebMenu\Views\Menu\Index.cshtml" />
+    <Content Include="Areas\WebMenu\Views\web.config" />
+    <Content Include="Areas\WebMenu\Views\Menu\_Main.cshtml" />
+    <Content Include="favicon.ico" />
+    <Content Include="fonts\glyphicons-halflings-regular.svg" />
+    <Content Include="Global.asax" />
+    <Content Include="Content\Site.css" />
+    <Content Include="App_Data\License\Aspose.Total.lic" />
+    <Content Include="Areas\Admin\Views\web.config" />
+    <Content Include="Areas\Admin\Views\AdminStart\_default.cshtml" />
+    <Content Include="Areas\Admin\Views\AdminUsers\index.cshtml" />
+    <Content Include="fonts\glyphicons-halflings-regular.woff" />
+    <Content Include="fonts\glyphicons-halflings-regular.ttf" />
+    <Content Include="fonts\glyphicons-halflings-regular.eot" />
+    <Content Include="Areas\Shell\Views\web.config" />
+    <Content Include="Areas\Shell\Views\Dashboard\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\DataModel\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\DataModel\Browser.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\_commentary.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\_performance.cshtml" />
+    <Content Include="Areas\Shell\Views\SequenceCharts\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Shared\Filter.cshtml" />
+    <Content Include="Content\Images\shell-logo.png" />
+    <Content Include="Areas\Shell\Views\AdminWell\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\WellPIP\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Report\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Report\Waterfall.cshtml" />
+    <Content Include="Areas\Shell\Views\WellMatch\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\DataModel\EditWellSequenceInfo.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\PrintDocument.cshtml" />
+    <Content Include="Areas\Shell\Views\Shared\Filter2.cshtml" />
+    <Content Include="Areas\Shell\Views\Test\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Report\_cumulative_2.cshtml" />
+    <Content Include="Areas\Shell\Views\Report\_cumulative.cshtml" />
+    <Content Include="Areas\Shell\Views\WellPIP\_waterfall.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\_documents.cshtml" />
+    <Content Include="Areas\Shell\Views\Document\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Test\Validation.cshtml" />
+    <Content Include="Areas\Shell\Views\Email\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\Archive.cshtml" />
+    <Content Include="Areas\Shell\Views\Export\CreateDefinition.cshtml" />
+    <Content Include="Areas\Shell\Views\Export\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Person\Role.cshtml" />
+    <Content Include="Areas\Shell\Views\Person\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\ActivityActual\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Actual\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\DataModel\_Edit.cshtml" />
+    <Content Include="Areas\Shell\Views\MasterClassification\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\MasterTheme\Index.cshtml" />
+    <Content Include="App_Data\Temp\wrtemplate.xlsx" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\_waterfall.cshtml" />
+    <Content Include="Areas\Shell\Views\WellPIP\_modals.cshtml" />
+    <Content Include="Areas\Shell\Views\DataModel\_InsertActivity.cshtml" />
+    <Content Include="Areas\Shell\Views\WellPIP\_comments.cshtml" />
+    <Content Include="Areas\Shell\Views\MasterRigName\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\SmartAlert\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Test\Email.cshtml" />
+    <Content Include="Areas\Shell\Views\Actual\SqlQuery.cshtml" />
+    <Content Include="Areas\Shell\Views\RenameTools\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\RenameTools\Sequence.cshtml" />
+    <Content Include="Areas\Issue\Views\AppIssue\Index.cshtml" />
+    <Content Include="Areas\Issue\Views\web.config" />
+    <Content Include="Areas\Shell\Views\WeisConfig\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Dashboard\_operations_summary_score_card.cshtml" />
+    <Content Include="Areas\Shell\Views\Dashboard\_operations_summary_score_card_alldata.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\_modalAddAct.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\_modalAllocation.cshtml" />
+    <Content Include="Areas\Shell\Views\UploadOP\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\User\ChangePassword.cshtml" />
+    <Content Include="Areas\Shell\Views\HistoricalDataModel\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\BackupRestore\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\UploadLS\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\WellPIP\_allocation.cshtml" />
+    <Content Include="Areas\Shell\Views\Report\_waterfall2.cshtml" />
+    <Content Include="Areas\Shell\Views\UploadPIP\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Report\_waterfall3.cshtml" />
+    <Content Include="Areas\Shell\Views\Report\_cumulative_data.cshtml" />
+    <Content Include="Areas\Shell\Views\Report\_cumulative_data_cost.cshtml" />
+    <Content Include="Areas\Shell\Views\Report\_cumulative_data_days.cshtml" />
+    <Content Include="Areas\Shell\Views\Report\_waterfall_data.cshtml" />
+    <Content Include="Areas\Shell\Views\Report\_waterfall2 - old.cshtml" />
+    <Content Include="Areas\Shell\Views\Comparison\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\MasterActivity\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Shared\Comparison.cshtml" />
+    <Content Include="Areas\Shell\Views\AppsConfig\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\_comment.cshtml" />
+    <Content Include="Web.config">
+      <SubType>Designer</SubType>
+    </Content>
+    <Content Include="Areas\Shell\Views\Comment\GetCommentsGap.cshtml" />
+    <Content Include="Areas\Shell\Views\Comment\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Comment\_commentDetail.cshtml" />
+    <Content Include="Areas\Shell\Views\HealthCheck\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\HistoricalDataMonthly\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\HistoricalPIPModel\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\LogBrowser\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\Archive.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\DashboardLE.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\DownloadDocument.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\PrintDocument.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\Report.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\_comment.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\_commentary.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\_documents.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\_modalAddAct.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\_modalAllocation.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\_performance.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\_pipmodals.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\_rigpip.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\_waterfall.cshtml" />
+    <Content Include="Areas\Shell\Views\MonthlyReport\_waterfall_by_realised.cshtml" />
+    <Content Include="Areas\Shell\Views\PlanSimulation\EditWellSequenceInfo.cshtml" />
+    <Content Include="Areas\Shell\Views\PlanSimulation\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\PlanSimulation\_Browser.cshtml" />
+    <Content Include="Areas\Shell\Views\PlanSimulation\_Edit.cshtml" />
+    <Content Include="Areas\Shell\Views\PlanSimulation\_InsertActivity.cshtml" />
+    <Content Include="Areas\Shell\Views\PlanSimulation\_SequenceCharts.cshtml" />
+    <Content Include="Areas\Shell\Views\RSVP\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\RSVP\_LeftSelect.cshtml" />
+    <Content Include="Areas\Shell\Views\UserLog\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlan\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlan\_addSimulation.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlan\_byWellTab.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlan\_detail.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlan\_detailByWell.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\AdministrationInput.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\PlanRollUp.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\TopLevelAdjustment.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_menuBusPlan.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_expenseProfile.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_comparisonTable.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_statisticComparison.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_economicInflation.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_marketEscalation.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_maturityRisk.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_marketEscalationTab.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_globalMarketEscalationTab.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_tableSpreadrate.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_tableTangibles.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_viewCapital.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_viewEcon.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_viewItem.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_viewMarket.cshtml">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_viewMatur.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_viewRig.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_ActivityManager_FYExpenseProfile.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_ActivityManager_Summary.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_ActivityManager_Well.cshtml" />
+    <Content Include="Areas\Shell\Views\BusinessPlanner\_ActivityManager_ActivitiesEstimates.cshtml" />
+    <Content Include="Areas\Shell\Views\MacroInformation\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\_pipmodals.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\_rigpip.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\_summarypip.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\DownloadDocument.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\_waterfall_by_realised.cshtml" />
+    <Content Include="Areas\Shell\Views\WeeklyReport\_wellpip.cshtml" />
+    <Content Include="Areas\Shell\Views\BizPlanSetting\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\AdministrationInput\CapitalizedStaffOverhead.cshtml" />
+    <Content Include="Areas\Shell\Views\AdministrationInput\EconomicInflation.cshtml" />
+    <Content Include="Areas\Shell\Views\AdministrationInput\LongLeadItems.cshtml" />
+    <Content Include="Areas\Shell\Views\AdministrationInput\MarketEscalationFactor.cshtml" />
+    <Content Include="Areas\Shell\Views\AdministrationInput\MaturityRiskMatrix.cshtml" />
+    <Content Include="Areas\Shell\Views\Busplan\EditWellSequenceInfo.cshtml" />
+    <Content Include="Areas\Shell\Views\Busplan\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\Busplan\Index_.cshtml" />
+    <Content Include="Areas\Shell\Views\Busplan\_Edit.cshtml" />
+    <Content Include="Areas\Shell\Views\Busplan\_InsertActivity.cshtml" />
+    <Content Include="Areas\Shell\Views\Busplan\_onePageEstimate.cshtml" />
+    <Content Include="Areas\Shell\Views\AdministrationInput\_Country.cshtml" />
+    <Content Include="Areas\Shell\Views\ExchangeRate\Index.cshtml" />
+    <Content Include="Areas\Shell\Views\ExchangeRate\_Country.cshtml" />
+    <Content Include="Areas\Shell\Views\AdministrationInput2\CapitalizedStaffOverhead.cshtml" />
+    <Content Include="Areas\Shell\Views\AdministrationInput2\EconomicInflation.cshtml" />
+    <Content Include="Areas\Shell\Views\AdministrationInput2\LongLeadItems.cshtml" />
+    <Content Include="Areas\Shell\Views\AdministrationInput2\MarketEscalationFactor.cshtml" />
+    <Content Include="Areas\Shell\Views\AdministrationInput2\MaturityRiskMatrix.cshtml" />
+    <Content Include="Areas\Shell\Views\AdministrationInput2\RigRates.cshtml" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="Scripts\jquery-2.1.0.intellisense.js" />
+    <Content Include="Scripts\bootstrap.js" />
+    <Content Include="Scripts\bootstrap.min.js" />
+    <Content Include="Scripts\color.js" />
+    <Content Include="Scripts\jquery-2.1.0.js" />
+    <Content Include="Scripts\jquery-2.1.0.min.js" />
+    <Content Include="Scripts\jquery-2.1.0.min.map" />
+    <None Include="Scripts\jquery.validate-vsdoc.js" />
+    <Content Include="Scripts\jquery-ui.min.js" />
+    <Content Include="Scripts\jquery.validate.js" />
+    <Content Include="Scripts\jquery.validate.min.js" />
+    <Content Include="Scripts\jquery.validate.unobtrusive.js" />
+    <Content Include="Scripts\jquery.validate.unobtrusive.min.js" />
+    <Content Include="Scripts\jszip.min.js" />
+    <Content Include="Scripts\knockout-3.1.0.debug.js" />
+    <Content Include="Scripts\knockout-3.1.0.js" />
+    <Content Include="Scripts\knockout-kendo.js" />
+    <Content Include="Scripts\knockout-kendo.min.js" />
+    <Content Include="Scripts\knockout.mapping-latest.debug.js" />
+    <Content Include="Scripts\knockout.mapping-latest.js" />
+    <Content Include="Scripts\knockout.validation.debug.js" />
+    <Content Include="Scripts\knockout.validation.js" />
+    <Content Include="Scripts\modernizr-2.6.2.js" />
+    <Content Include="Scripts\moment.min.js" />
+    <Content Include="Scripts\respond.js" />
+    <Content Include="Scripts\respond.min.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_ar.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_bg.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_ca.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_cs.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_da.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_de.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_el.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_es.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_et.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_eu.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_fa.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_fi.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_fr.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_gl.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_he.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_hr.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_hu.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_id.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_is.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_it.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_ja.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_ka.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_ko.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_lt.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_lv.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_mk.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_ms.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_nl.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_no.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_pl.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_pt-BR.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_pt-PT.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_ro.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_rs.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_ru.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_sk.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_sv.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_th.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_tr.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_ua.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_uk.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_vi.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_zh-CN.js" />
+    <Content Include="Scripts\Select2-locales\select2_locale_zh-TW.js" />
+    <Content Include="Scripts\select2.js" />
+    <Content Include="Scripts\select2.min.js" />
+    <Content Include="Scripts\tools.js" />
+    <Content Include="Scripts\underscore.min.js" />
+    <Content Include="Scripts\_references.js" />
+    <Content Include="Views\Shared\_common_v1.cshtml">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="Views\Web.config" />
+    <Content Include="Views\_ViewStart.cshtml" />
+    <Content Include="Views\Shared\Error.cshtml" />
+    <Content Include="Views\Account\Login.cshtml" />
+    <Content Include="Views\Home\Index.cshtml" />
+    <Content Include="Views\Shared\_processing.cshtml" />
+    <Content Include="Views\Shared\_bodyonly_v1.cshtml" />
+    <Content Include="Views\Shared\_redirect.cshtml">
+      <SubType>Code</SubType>
+    </Content>
+    <None Include="Web.Debug.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+    <None Include="Web.Release.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="App_Data\Loader\Draft\" />
+    <Folder Include="Areas\Admin\Models\" />
+    <Folder Include="Areas\Admin\Views\Shared\" />
+    <Folder Include="Areas\Issue\Models\" />
+    <Folder Include="Areas\Issue\Views\Shared\" />
+    <Folder Include="Areas\Shell\Models\" />
+    <Folder Include="Areas\Shell\Views\Home\" />
+    <Folder Include="Areas\Shell\Views\MasterRegion\" />
+    <Folder Include="Areas\Shell\Views\Waterfall\" />
+    <Folder Include="Areas\Shell\Views\WeisConfigMonthlyLE\" />
+    <Folder Include="Views\Context\" />
+    <Folder Include="Views\GeneralView\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="packages.config" />
+    <None Include="Project_Readme.html" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DataModel\WEIS\ECIS.Client.WEIS.csproj">
+      <Project>{5ede262b-21f7-4b1c-ba36-c4380c3bf52b}</Project>
+      <Name>ECIS.Client.WEIS</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(VSToolsPath)\WebApplications\Microsoft.WebApplication.targets" Condition="'$(VSToolsPath)' != ''" />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications\Microsoft.WebApplication.targets" Condition="false" />
+  <Target Name="MvcBuildViews" AfterTargets="AfterBuild" Condition="'$(MvcBuildViews)'=='true'">
+    <AspNetCompiler VirtualPath="temp" PhysicalPath="$(WebProjectOutputDir)" />
+  </Target>
+  <ProjectExtensions>
+    <VisualStudio>
+      <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}">
+        <WebProjectProperties>
+          <UseIIS>True</UseIIS>
+          <AutoAssignPort>True</AutoAssignPort>
+          <DevelopmentServerPort>1940</DevelopmentServerPort>
+          <DevelopmentServerVPath>/</DevelopmentServerVPath>
+          <IISUrl>http://localhost/weis</IISUrl>
+          <NTLMAuthentication>False</NTLMAuthentication>
+          <UseCustomServer>False</UseCustomServer>
+          <CustomServerUrl>
+          </CustomServerUrl>
+          <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
+        </WebProjectProperties>
+      </FlavorProperties>
+    </VisualStudio>
+  </ProjectExtensions>
+  <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(SolutionDir)\.nuget\NuGet.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\.nuget\NuGet.targets'))" />
+  </Target>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target> -->
+</Project>

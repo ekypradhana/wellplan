@@ -1,0 +1,414 @@
+﻿<script>
+    model.waterfall = ko.observable({
+        GroupBy: ko.observable("GroupBy"),
+        Layout: ko.observable("OP2TQ"),
+        IncludeZero: ko.observable(true),
+        IncludeGaps: ko.observable(true),
+        DayOrCost: ko.observable("Day")
+    });
+</script>
+
+
+<style>
+    .bordered-mini-nav {
+        padding: 10px 0px 6px;
+        border-bottom: 1px solid rgb(224, 224, 224);
+        margin-bottom: 10px !important;
+    }
+    .bordered-mini-nav .each-nav {
+        float: left;
+        border-right: 1px solid rgb(236, 236, 236);
+        padding-right: 3px;
+        margin-right: 5px;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav {
+        padding-right: 5px;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav div {
+        float: left;
+    }
+    .bordered-mini-nav .each-nav.checkbox-nav input {
+        margin: 1px 3px 1px 2px;
+    }
+    .bordered-mini-nav .each-nav.no-border-nav {
+        border-right: none !important;
+        margin-right: 0px !important;
+        padding-right: 0px !important;
+    }
+    .nav-filter-space {
+        margin-right: 3px;
+        border-left: 1px solid rgb(236, 236, 236);
+    }
+
+    #chart-waterfall > svg > g > path[fill="#ce0f0f"] {
+        display: none;
+    }
+
+    #chart-waterfall > svg > g > path[fill="#27ae60"] {
+        display: none;
+    }
+
+    #chart-waterfall > svg > g > path[fill="#919191"] {
+        display: none;
+    }
+    
+</style>
+
+
+<div class="ec-panel" style="width:1000px;margin:0px auto;">
+    <div style="width:1020px;margin:0px auto;margin-top:0px;" data-bind="with:$root.waterfall">
+        <div class="mini-nav bordered-mini-nav" style="width: 615px; margin: 0px auto;">
+            <div class="each-nav">
+                Show:
+                <select data-bind="value:DayOrCost" style="margin-right: 5px;">
+                    <option value="Day">Days</option>
+                    <option value="Cost">Cost</option>
+                </select>
+            </div>
+            <div class="each-nav">
+                Breakdown by:
+                <select data-bind="value:GroupBy" style="margin-right: 5px;">
+                    <option value="Classification">Classification</option>
+                    <option value="Theme">Theme</option>
+                    <option value="Title">Idea</option>
+                    <option value="PerformanceUnit">Performance Unit</option>
+                    <option value="ActionParty">Action Party (PIC)</option>
+                </select>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeZero" />
+                </div>
+                <div>Include 0 value data point</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav">
+                <div>
+                    <input type="checkbox" data-bind="checked:IncludeGaps" />
+                </div>
+                <div>Include Gaps</div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav no-border-nav">
+                <button class="btn btn-primary btn-xs" onclick="refreshWaterfall()" style="margin-top: -2px;">Refresh</button>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+
+        <div style="text-align: center; font-weight: bold; font-size: 14px;" id="wtitle"></div>
+
+        <div id="chart-waterfall" style="width:1020px;height:400px;"></div>
+    </div>
+</div>
+
+<script>
+   function ExportPDFStack(){
+       $('#chartAll').find('.k-chart').each(function (i, e) {
+           var name = e.id;
+            $(e).getKendoChart().exportPDF({ paperSize: "auto", margin: { left: "1cm", top: "1cm", right: "1cm", bottom: "1cm" } }).done(function (data) {
+                kendo.saveAs({
+                    dataURI: data,
+                    fileName: name+".pdf"
+                });
+            });;
+        })
+   }
+
+   function ExportIMGStack() {
+       $('#chartAll').find('.k-chart').each(function (i, e) {
+           var name = e.id;
+           $(e).getKendoChart().exportImage().done(function (data) {
+               kendo.saveAs({
+                   dataURI: data,
+                   fileName: name + ".jpeg"
+               });
+           });;
+       })
+   }
+
+
+   var cols = ['#ce0f0f', '#FFFFFF', '#ce0f0f', '#FFFFFF', '#27ae60', '#53d5f6', '#ffd700', '#27ae60', '#ccc'];
+
+    function Chart(id ,data,title) {
+
+
+        var donutcolor = cols;
+        //$("#" + id).height(200);
+        //$("#" + id).width(screen.width *0.46);
+      // alert(screen.width);
+        $("#"+id).kendoChart({
+            dataSource: {
+            data:data,
+            group: {
+               field : "BreakDown"     
+            }
+        },
+            seriesColors:donutcolor,
+        title: {
+            position: "bottom",
+            text: title,
+            visible: true
+        },
+        legend: {
+                visible: false,
+                position: "bottom",
+                labels: {
+                font: "8px Calibri"
+                },
+                labels: {
+                    //template: "Name: #: text #"
+                }
+        },
+        height:'200px',
+        chartArea: {
+                background: ""
+        },
+        seriesDefaults: {
+                type: "column",
+                stack: true,
+                labels: {
+                visible: false,
+                background: "transparent",
+                template: "#= dataItem.BreakDown # on #= dataItem.Period #",
+                font: "8px Calibri"
+                },
+            overlay: {
+                    gradient: "none"
+            }
+        },
+        series: [{
+            field: "Value",
+            categoryField: "Title",
+            visibleInLegendField: "VisibleInLegend",
+            padding: 10,
+            border: {
+                opacity: 0
+            }
+        }],
+        categoryAxis: {
+            labels: {
+                    visible: true,
+                    font: "8px Calibri"
+            },
+            majorGridLines: { visible: false }
+        },
+        valueAxis: {
+            labels : {
+                visible:true,
+                //template: "#if(value>=10000000){# #= (value/10000000)# Cr #} else if(value>0) {# #= (value/100000)# L #}  # ",
+                font: "8px Calibri"
+            },
+            min: 0,
+            max: 140,
+            majorGridLines: { visible: false }
+        },
+        tooltip: {
+                visible: true,
+                font: "12px Calibri",
+                //template: "#= dataItem.BreakDown # on #= dataItem.Period # : #= formatnum(kendo.parseFloat(dataItem.Value)) #"
+        }
+    });
+    }
+
+    function RefreshStacked() {
+        //model.stackProcessing(true);
+        //var filter = getFilter();
+        //var Breakdown = $('#Breakdown').val();
+        loadDataWaterfall();
+        //var data = [
+	    //        { "Title": "StatusQuoPerformance", "BreakDown": "1StatusQuoPerformance", "Value": 130,"VisibleInLegend":false },
+	    //        { "Title": "StatusQuoPerformance", "BreakDown": "2IncludedInOP", "Value": 0, "VisibleInLegend": false },
+	    //        { "Title": "StatusQuoPerformance", "BreakDown": "3OP15", "Value": 0, "VisibleInLegend": false },
+	    //        { "Title": "StatusQuoPerformance", "BreakDown": "4Opportunities", "Value": 0, "VisibleInLegend": false },
+	    //        { "Title": "StatusQuoPerformance", "BreakDown": "5LE", "Value": 0, "VisibleInLegend": false },
+	    //        { "Title": "StatusQuoPerformance", "BreakDown": "6Technology", "Value": 0 },
+	    //        { "Title": "StatusQuoPerformance", "BreakDown": "7Design", "Value": 0 },
+	    //        { "Title": "StatusQuoPerformance", "BreakDown": "8Operation", "Value": 0 },
+	    //        { "Title": "StatusQuoPerformance", "BreakDown": "9SupplyChain", "Value": 0 },
+
+        //        { "Title": "IncludedInOP", "BreakDown": "1StatusQuoPerformance", "Value": 0 },
+	    //        { "Title": "IncludedInOP", "BreakDown": "2IncludedInOP", "Value": 110 },
+	    //        { "Title": "IncludedInOP", "BreakDown": "3OP15", "Value": 0 },
+	    //        { "Title": "IncludedInOP", "BreakDown": "4Opportunities", "Value": 0 },
+	    //        { "Title": "IncludedInOP", "BreakDown": "5LE", "Value": 0 },
+	    //        { "Title": "IncludedInOP", "BreakDown": "6Technology", "Value": 5 },
+	    //        { "Title": "IncludedInOP", "BreakDown": "7Design", "Value": 5 },
+	    //        { "Title": "IncludedInOP", "BreakDown": "8Operation", "Value": 5 },
+	    //        { "Title": "IncludedInOP", "BreakDown": "9SupplyChain", "Value": 5 },
+
+	    //        { "Title": "OP15", "BreakDown": "1StatusQuoPerformance", "Value": 0 },
+	    //        { "Title": "OP15", "BreakDown": "2IncludedInOP", "Value": 0 },
+	    //        { "Title": "OP15", "BreakDown": "3OP15", "Value": 110 },
+	    //        { "Title": "OP15", "BreakDown": "4Opportunities", "Value": 0 },
+	    //        { "Title": "OP15", "BreakDown": "5LE", "Value": 0 },
+	    //        { "Title": "OP15", "BreakDown": "6Technology", "Value": 0 },
+	    //        { "Title": "OP15", "BreakDown": "7Design", "Value": 0 },
+	    //        { "Title": "OP15", "BreakDown": "8Operation", "Value": 0 },
+	    //        { "Title": "OP15", "BreakDown": "9SupplyChain", "Value": 0 },
+
+	    //        { "Title": "Opportunities", "BreakDown": "1StatusQuoPerformance", "Value": 0 },
+	    //        { "Title": "Opportunities", "BreakDown": "2IncludedInOP", "Value": 0 },
+	    //        { "Title": "Opportunities", "BreakDown": "3OP15", "Value": 0 },
+	    //        { "Title": "Opportunities", "BreakDown": "4Opportunities", "Value": 95 },
+	    //        { "Title": "Opportunities", "BreakDown": "5LE", "Value": 0 },
+	    //        { "Title": "Opportunities", "BreakDown": "6Technology", "Value": 1 },
+	    //        { "Title": "Opportunities", "BreakDown": "7Design", "Value": 3 },
+	    //        { "Title": "Opportunities", "BreakDown": "8Operation", "Value": 9 },
+	    //        { "Title": "Opportunities", "BreakDown": "9SupplyChain", "Value": 2 },
+
+	    //        { "Title": "LE", "BreakDown": "1StatusQuoPerformance", "Value": 0 },
+	    //        { "Title": "LE", "BreakDown": "2IncludedInOP", "Value": 0 },
+	    //        { "Title": "LE", "BreakDown": "3OP15", "Value": 0 },
+	    //        { "Title": "LE", "BreakDown": "4Opportunities", "Value": 0 },
+	    //        { "Title": "LE", "BreakDown": "5LE", "Value": 110 },
+	    //        { "Title": "LE", "BreakDown": "6Technology", "Value": 0 },
+	    //        { "Title": "LE", "BreakDown": "7Design", "Value": 0 },
+	    //        { "Title": "LE", "BreakDown": "8Operation", "Value": 0 },
+	    //        { "Title": "LE", "BreakDown": "9SupplyChain", "Value": 0 }
+
+        //    ];
+
+        //Chart("chart-waterfall", data, "Lv 0 Estimate - Days");
+    }
+
+    function restructuredDataChartLvl0(data) {
+        console.log(data);
+        var newData = [];
+        var mustHaveBreakDowns = ["1-StatusQuoPerformance", "2-IncludedInOP", "3-OP15", "4-Opportunities", "5-LE"];
+        //for classifications
+        var classifications = model.uimodel().Classifications();
+
+        var breakdowns = [];
+
+        for (var i = 0; i < mustHaveBreakDowns.length; i++) {
+            breakdowns.push(mustHaveBreakDowns[i]);
+        }
+
+        for (var a = 1; a < classifications.length; a++) {
+            breakdowns.push(mustHaveBreakDowns.length + a + "-" + classifications[a]);
+        }
+
+        //console.log(breakdowns);
+
+        var title = "StatusQuoPerformance";
+        newData.push({ "Title": title, "BreakDown": breakdowns[0], "Value": data.Performance });
+        for (var i = 1; i < breakdowns.length; i++) {
+            newData.push({ "Title": title, "BreakDown": breakdowns[i], "Value": 0 });
+        }
+
+        var title = "IncludedInOP";
+        newData.push({ "Title": title, "BreakDown": breakdowns[0], "Value": 0 });
+        newData.push({ "Title": title, "BreakDown": breakdowns[1], "Value": data.OPLine });
+        for (var i = 2; i < mustHaveBreakDowns.length; i++) {
+            newData.push({ "Title": title, "BreakDown": mustHaveBreakDowns[i], "Value": 0 });
+        }
+        var a = mustHaveBreakDowns.length - 1;
+        var b = breakdowns.length;
+        var IncludedInOps = data.IncludedInOPs;
+        //console.log(IncludedInOps);
+        for (var i = a; i < b; i++) {
+            //console.log(i); 
+            //console.log(breakdowns[i]);
+            var originalName = getBreakdownName(breakdowns[i]);
+            //console.log(originalName);
+            var param = { Title: originalName };
+            //console.log(param);
+            var findValues = _.where(IncludedInOps, param);
+            //console.log(findValues);
+            if (findValues.length > 0) {
+                console.log(findValues.Value);
+                var v = parseFloat(findValues.Value);
+                var value = v >= 0 ? v : v * -1;
+                console.log(value);
+                newData.push({ "Title": title, "BreakDown": breakdowns[i], "Value": value });
+            }
+        }
+
+        var title = "OP15";
+        for (var i = 0; i < breakdowns.length; i++) {
+            var value = 0;
+            if (i == 2) {
+                value = data.OPLine;
+            }
+            newData.push({ "Title": title, "BreakDown": breakdowns[i], "Value": value });
+        }
+
+        var title = "Opportunities";
+        for (var i = 0; i < mustHaveBreakDowns.length; i++) {
+            var value = 0;
+            if (i == 3) {
+                var value = Enumerable.From(data.Opportunities)
+                        .Select("$.Value")
+                        .Sum();
+                //value = data.OPLine;
+            }
+            newData.push({ "Title": title, "BreakDown": mustHaveBreakDowns[i], "Value": value });
+        }
+        for (var i = mustHaveBreakDowns.length - 1; i < breakdowns.length; i++) {
+            var originalName = getBreakdownName(breakdowns[i]);
+            var Opportunities = data.Opportunities;
+            var findValues = _.where(Opportunities, { Title: originalName });
+            if (findValues.length > 0) {
+                var value = findValues.value >= 0 ? findValues.value : findValues.value * -1;
+                newData.push({ "Title": title, "BreakDown": breakdowns[i], "Value": value });
+            }
+        }
+
+        var title = "LE";
+        for (var i = 0; i < breakdowns.length; i++) {
+            var value = 0;
+            if (i == 4) {
+                value = data.LE;
+            }
+            newData.push({ "Title": title, "BreakDown": breakdowns[i], "Value": value });
+        }
+
+        return newData;
+    }
+
+    function getBreakdownName(name) {
+        var split = name.split("-");
+        return split[1];
+    }
+
+    function getFieldName(title,breakdown) {
+        var fieldName = "";
+        switch (breakdown) {
+            case "StatusQuoPerformance":
+                fieldName = "Performance";
+                break;
+            
+        }
+    }
+
+    function getRandomColor() {
+        var letters = '0123456789ABCDEF'.split('');
+        var color = '#';
+        for (var i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+    }
+    $("#Breakdown").kendoDropDownList({
+        filter: "contains",
+
+    });
+
+    function loadDataWaterfall() {
+        var datas = { WellName: model.uimodel().WellName(), ActivityType: model.uimodel().ActivityType() }
+        //console.log(datas);
+        ajaxPost("@Url.Action("GetWaterfallChartLevel0")", datas, function (data) {
+            //console.log(data);
+            var newData = restructuredDataChartLvl0(data.Data);
+            //console.log(newData);
+            Chart("chart-waterfall", newData, "Lv 0 Estimate - Days");
+        });
+    }
+
+
+    $(document).ready(function () {
+        //RefreshStacked();
+    });
+
+
+</script>

@@ -1,0 +1,243 @@
+<style>
+    .cell-checkbox {
+        text-align: center;
+    }
+
+    .wr-el-grid {
+        margin-bottom: 20px;
+    }
+
+    .ecTableCommentary {
+        font-weight: bold;
+        font-size: 16px;
+        text-align: center;
+        margin-bottom: 0px;
+    }
+
+    .k-grid-header tr th.k-header {
+        position: relative;
+    }
+
+    .k-grid-header .k-unit {
+        display: block;
+        text-align: right;
+        margin-bottom: 5px;
+    }
+</style>
+
+<script>
+    function registerWeeklyEditable() {
+        var currentActiveCell = undefined;
+
+        $(".ecTableCommentary").off("click").on("click", ".live-editable", function () {
+            currentActiveCell = this;
+
+            $(this).find("span").hide();
+            $(this).find("div:eq(0)").show();
+            $(this).find("div:eq(0)").find(":not(:visible):not([name='botbot'])").show();
+        });
+
+        $(document).off("mouseup").on("mouseup", function (e) {
+            var container = $(currentActiveCell);
+
+            if (!container.is(e.target) && container.has(e.target).length === 0) {
+                container.find("span").show();
+                container.find("div:eq(0)").hide();
+            }
+        });
+    }
+
+    model.constRealized = { YES: "Realized", NO: "Not Yet Realized" };
+
+    var numberEditor = function (decimal, is, what) {
+        var config = { format: "{0:N" + decimal + "}" };
+        config[is] = 0;
+
+        return function (container, option) {
+            var $grid = $(container).closest(".k-grid").data("kendoGrid");
+            var $tr = $(container).closest("[data-uid]");
+            var rowData = $grid.dataItem($tr);
+            var rowIndex = $grid.dataSource.data().indexOf(rowData);
+
+            config.change = function () {
+                model.wrmodel().record()[what]()[rowIndex][option.field](rowData[option.field]);
+                model.wrmodel().GridWellDataBound($(container).closest(".k-grid"))();
+            };
+
+            $("<input data-bind=\"value:" + option.field + "\"></input>")
+                .appendTo(container)
+                .kendoNumericTextBox(config);
+        }
+    };
+
+    function changeRealizedOrNot(self, what) {
+        var $target = $(self);
+        var dataUID = $target.closest('[data-uid]').attr('data-uid');
+        var $grid = $(self).closest(".k-grid").data('kendoGrid');
+        var index = $grid.dataSource.data().indexOf(_.find($grid.dataSource.data(), { uid: dataUID }));
+        var targetData = $grid.dataSource.data()[index];
+
+        model.wrmodel().record()[what]()[index].Completion(self.checked ? "Realized" : "Not Yet Realized");
+
+        targetData.dirty = true;
+        changeBackgroundOfRealizedOrNot(self.checked, targetData, $target);
+    }
+
+    function changeCostAvoidance(self, what) {
+        var $target = $(self);
+        var dataUID = $target.closest('[data-uid]').attr('data-uid');
+        var $grid = $(self).closest(".k-grid").data('kendoGrid');
+        var index = $grid.dataSource.data().indexOf(_.find($grid.dataSource.data(), { uid: dataUID }));
+        var targetData = $grid.dataSource.data()[index];
+
+        model.wrmodel().record()[what]()[index].CostAvoidance(self.checked);
+
+        targetData.dirty = true;
+        targetData.CostAvoidance = self.checked;
+    }
+
+    function changeBackgroundOfRealizedOrNot(checked, targetData, $target) {
+        if (checked) {
+            targetData.Completion = model.constRealized.YES;
+            $target.closest("td").removeClass("bg-td-red");
+            $target.closest("td").addClass("bg-td-green");
+        } else {
+            targetData.Completion = model.constRealized.NO;
+            $target.closest("td").removeClass("bg-td-green");
+            $target.closest("td").addClass("bg-td-red");
+        }
+    }
+
+    function gridAllocate(className, elementId) {
+        var data = $('.' + className).data("kendoGrid").dataSource.data();
+        var row = _.find(data, { ElementId: elementId });
+        var m = ko.mapping.fromJS(row);
+
+        model.wrmodel().openAllocationModal(m);
+    }
+
+    model.wrmodel().GridWellDataSource = {
+        schema: {
+            model: {
+                fields: {
+                    _id: { editable: false },
+                    Title: { type: "string" },
+                    Completion: { editable: false },
+
+                    DaysPlanImprovement: { editable: false },
+                    DaysLastWeekImprovement: { editable: false },
+                    DaysPlanRisk: { editable: false },
+                    DaysLastWeekRisk: { editable: false },
+
+                    CostPlanImprovement: { editable: false },
+                    CostLastWeekImprovement: { editable: false },
+                    CostPlanRisk: { editable: false },
+                    CostLastWeekRisk: { editable: false },
+
+                    DaysActualImprovement: { type: "number" },
+                    DaysCurrentWeekImprovement: { type: "number" },
+                    DaysActualRisk: { type: "number" },
+                    DaysCurrentWeekRisk: { type: "number" },
+
+                    CostActualImprovement: { type: "number" },
+                    CostCurrentWeekImprovement: { type: "number" },
+                    CostActualRisk: { type: "number" },
+                    CostCurrentWeekRisk: { type: "number" },
+                }
+            }
+        },
+        sort: {
+            field: "Title",
+            dir: "asc"
+        }
+    };
+
+    model.wrmodel().GridWellDataBound = function ($grid) {
+        return function () {
+            model.wrmodel().UpdateCommentCounter();
+
+            if ($grid === undefined) $grid = $(this.element);
+
+            $grid.find("tr[data-uid]").each(function (i, e) {
+                var data = $grid.data("kendoGrid").dataSource.getByUid($(e).attr("data-uid"));
+
+                $(e).find(".cell-number").each(function (j, f) {
+                    if ($(f).children().size() === 0 && parseFloat($.trim($(f).html())) === 0) {
+                        $(f).css("color", "transparent");
+                    } else {
+                        $(f).css("color", "inherit");
+                    }
+                });
+
+                changeBackgroundOfRealizedOrNot(data.Completion == model.constRealized.YES, data, $(e).find(".cell-checkbox"));
+
+                var eid = $(e).find("[data-eid]").attr("data-eid");
+                if (typeof eid === String(undefined)) return;
+                model.wrmodel().UpdateCommentCounter(eid);
+            });
+        };
+    };
+
+    function footerTemplate(field) {
+        return "<div class='cell-number' data-bind='text:parseFloat(model.wrmodel()." + field + "()).toFixed(2)'></div>";
+    }
+
+    function headerTemplate(title, unit) {
+        return "<span class='k-unit'>(" + unit + ")</span><a class='k-link'>" + title + "</a>";
+    };
+
+    model.wrmodel().GridWellColumns = [
+        { field: "Title", title: "Idea", width: 200 },
+        { field: "Completion", title: "Realized", width: 67, template: '<input type="checkbox" #= Completion == "' + model.constRealized.YES + '" ? "checked=checked" : "" # onclick="changeRealizedOrNot(this, \'Elements\')" />', attributes: { class: "cell-checkbox" } },
+
+        { field: "DaysPlanImprovement", title: "Original Estimate Days", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, template: "#: DaysPlanImprovement + DaysPlanRisk #", headerTemplate: headerTemplate("<br />Plan Days", "days"), footerTemplate: footerTemplate("DaysPlanImprovementTotal") },
+        { field: "DaysLastWeekImprovement", title: "Prev. Current Estimate Days<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("Prev. LE Days<br />Improvement", "days"), footerTemplate: footerTemplate("DaysLastWeekImprovementTotal") },
+        { field: "DaysActualImprovement", title: "Actual Days<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(0, "max", "Elements"), headerTemplate: headerTemplate("Actual Days<br />Improvement", "days"), footerTemplate: footerTemplate("DaysActualImprovementTotal") },
+        { field: "DaysCurrentWeekImprovement", title: "Current Estimate Days<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(0, "max", "Elements"), headerTemplate: headerTemplate("LE Days<br />Improvement", "days"), footerTemplate: footerTemplate("DaysCurrentWeekImprovementTotal") },
+
+        { field: "DaysLastWeekRisk", title: "Prev. Current Estimate Days<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("Prev. LE Days<br />Risk", "days"), footerTemplate: footerTemplate("DaysLastWeekRiskTotal") },
+        { field: "DaysActualRisk", title: "Actual Days<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(0, "min", "Elements"), headerTemplate: headerTemplate("Actual Days<br />Risk", "days"), footerTemplate: footerTemplate("DaysActualRiskTotal") },
+        { field: "DaysCurrentWeekRisk", title: "Current Estimate Days<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(0, "min", "Elements"), headerTemplate: headerTemplate("LE Days<br />Risk", "days"), footerTemplate: footerTemplate("DaysCurrentWeekRiskTotal") },
+
+        { field: "CostPlanImprovement", title: "Original Estimate Cost", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, template: "#: CostPlanImprovement + CostPlanRisk #", headerTemplate: headerTemplate("<br />Plan Cost", "$ mln"), footerTemplate: footerTemplate("CostPlanImprovementTotal") },
+        { field: "CostLastWeekImprovement", title: "Prev. Current Estimate Cost<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("Prev. LE Cost<br />Improvement", "$ mln"), footerTemplate: footerTemplate("CostLastWeekImprovementTotal") },
+        { field: "CostActualImprovement", title: "Actual Cost<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "max", "Elements"), headerTemplate: headerTemplate("Actual Cost<br />Improvement", "$ mln"), footerTemplate: footerTemplate("CostActualImprovementTotal") },
+        { field: "CostCurrentWeekImprovement", title: "Current Estimate Cost<br />Improvement", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "max", "Elements"), headerTemplate: headerTemplate("LE Cost<br />Improvement", "$ mln"), footerTemplate: footerTemplate("CostCurrentWeekImprovementTotal") },
+
+        { field: "CostLastWeekRisk", title: "Prev. Current Estimate Cost<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, headerTemplate: headerTemplate("Prev. LE Cost<br />Risk", "$ mln"), footerTemplate: footerTemplate("CostLastWeekRiskTotal") },
+        { field: "CostActualRisk", title: "Actual Cost<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "min", "Elements"), headerTemplate: headerTemplate("Actual Cost<br />Risk", "$ mln"), footerTemplate: footerTemplate("CostActualRiskTotal") },
+        { field: "CostCurrentWeekRisk", title: "Current Estimate Cost<br />Risk", width: 90, format: "{0:N2}", attributes: { class: "cell-number" }, editor: numberEditor(2, "min", "Elements"), headerTemplate: headerTemplate("LE Cost<br />Risk", "$ mln"), footerTemplate: footerTemplate("CostCurrentWeekRiskTotal") },
+
+        { field: "CostAvoidance", title: "Cost<br />Avoidance", width: 90, format: "{0:N2}", attributes: { class: "cell-checkbox", style: "background-color: white !important;" }, template: '<input type="checkbox" #= CostAvoidance ? checked="checked" : "" # onclick="changeCostAvoidance(this, \'Elements\')" />' },
+        {
+            field: "_id", headerTemplate: "", filterable: false, width: 90, attributes: { style: "text-align: center;" }, template: function (dataItem) {
+                return '<span style="cursor:pointer;" class="glyphicon glyphicon-time" title="Click To Allocate" onclick="gridAllocate(\'grid-well-pip\', ' + dataItem.ElementId + ')"></span>&nbsp;<span style="cursor:pointer;" class="glyphicon glyphicon-comment" title="Click to Add Comments" onclick="model.wrmodel().Comments(model.wrmodel().record()._id(), ' + dataItem.ElementId + ')()" data-auid="' + model.wrmodel().record()._id() + '" data-eid="' + dataItem.ElementId + '"><b class="comment-counter">0</b></span>';
+            }
+        }
+    ];
+
+    
+//    <td>
+//        <input type="checkbox" data-bind="enable:model.wrmodel().record().Status() == 'In-Progress', checked: CostAvoidance">
+//    </td>
+//    <td>
+//        <span style="cursor:pointer;" class="glyphicon glyphicon-time" title="Click To Allocate" data-bind="click:model.wrmodel().openAllocationModal"></span>
+//        &nbsp;
+//    <span style="cursor:pointer" class="glyphicon glyphicon-trash" title="Click To Delete" data-bind="click: model.wrmodel().DeleteElement($parent._id(), ElementId()),visible:model.wrmodel().DetailStatus() == 'In-Progress'"></span>
+//    &nbsp;
+//    <span style="cursor:pointer;" class="glyphicon glyphicon-comment" title="Click to Add Comments"
+//    data-bind="click: model.wrmodel().Comments($parent._id(), ElementId()), attr: { 'data-auid': $parent._id(), 'data-eid': ElementId() }">
+//  <b class="comment-counter">0</b>
+//</span>
+//</td>
+</script>
+
+<table class="table pip-data ecTableCommentary">
+    <thead>
+        <tr>
+            <td colspan="18">Performance Improvement Plan (WELL)</td>
+        </tr>
+    </thead>
+</table>
+
+<div class="wr-el-grid grid-well-pip" data-bind="kendoGrid: { data:model.wrmodel().record().Elements,dataSource:model.wrmodel().GridWellDataSource,columns:model.wrmodel().GridWellColumns,pageable:false,sortable:true,filterable:false,editable:true,dataBound:model.wrmodel().GridWellDataBound() }"></div>

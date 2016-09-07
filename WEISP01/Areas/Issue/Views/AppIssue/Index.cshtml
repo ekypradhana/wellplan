@@ -1,0 +1,663 @@
+﻿@{
+    ViewBag.Title = "App Issue";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@using ECIS.AppServer.Areas.WebMenu.Models;
+
+@{
+    var allMenu = new List<String>();
+    foreach (Menu menu in DataHelper.Populate<Menu>("Main_Menu"))
+    {
+        if (menu.Submenus.Count == 0)
+        {
+            allMenu.Add(menu.Title);
+        }
+        else
+        {
+            foreach (Menu childMenu in menu.Submenus)
+            {
+                allMenu.Add(menu.Title + " - " + childMenu.Title);
+            }
+        }
+    }
+    allMenu.Add("Other");
+}
+
+<style>
+    .text {
+        height: auto !important;
+        padding: 0px 4px !important;
+        margin: 0px 12px 0px 3px;
+    }
+    #form .row {
+        margin-bottom: 10px;
+    }
+    #form .row input {
+        height: auto !important;
+        padding: 1px 6px;
+    }
+    #form .row .col-md-3 {
+        padding-right: 0px;
+        padding-top: 5px;
+    }
+    #form .row .col-md-9 {
+        padding-left: 8px;
+    }
+
+    .data {
+        position: relative;
+    }
+    .data h3 {
+        border: none;
+        text-align: left;
+        font-size: 28px;
+    }
+    .data h5 {
+        border: none;
+        text-align: left;
+        margin-bottom: 2px;
+        position: relative;
+    }
+    .data:after {
+        position: absolute;
+        z-index: 1;
+        content: " ";
+        right: 0px;
+        top: 0px;
+        bottom: 0px;
+        background-color: rgb(232, 232, 232);
+        width: 2px;
+    }
+    .data.no-border:after {
+        display: none;
+    }
+    .data h5 span {
+        display: block;
+        position: absolute;
+        z-index: 1;
+        background-color: #DBDBDB;
+        height: 1px;
+        left: 60px;
+        width: 400px;
+        top: 14px;
+    }
+    .data .col-md-12.detail {
+        width: 400px;
+        margin-bottom: 10px;
+    }
+    .data .col-md-12.detail .row {
+        min-height: 27px;
+        margin-bottom: 4px;
+    }
+    .data .col-md-12.detail .col-md-4 {
+        text-align: right;
+        font-weight: bold;
+        padding-top: 5px;
+    }
+    .data .col-md-12.detail .col-md-8 {
+        padding-left: 10px !important;
+    }
+    .data .col-md-12.detail .col-md-8 input {
+        padding: 1px 8px;
+        height: auto !important;
+    }
+    .add-update {
+        margin-bottom: 20px;
+    }
+    .add-update label {
+        font-size: 14px;
+    }
+    .no-padding {
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+    }
+    .comments label {
+        font-weight: normal !important;
+    }
+    .comments section {
+        border-bottom: 1px solid #F2F2F2;
+        margin-right: 15px;
+        margin-bottom: 15px;
+    }
+    .comments div label {
+        font-size: 15px;
+    }
+
+    .filter .col-md-4 .col-md-4 {
+        padding-right: 0px !important;
+        text-align: right;
+    }
+
+    .filter .col-md-4 .col-md-8 {
+        padding-left: 4px !important;
+    }
+</style>
+
+<script>
+    model.PageId("App Info");
+    model.IsProcessing = ko.observable(false);
+    model.MiniIsProcessing = ko.observable(false);
+    model.Mode = ko.observable("Master");
+    model.IsAdministrator = ko.observable("@ViewBag.IsAdministrator" == "True");
+    model.IsAppSupport = ko.observable("@ViewBag.IsAppSupport" == "True");
+    model.IsRequestorOfIssue = ko.observable(false);
+
+    model.Master = {
+        Title: ko.observable(""),
+        Module: ko.observable(""),
+        Type: ko.observable(""),
+        Priority: ko.observable(""),
+        Status: ko.observable(""),
+        Description: ko.observable(""),
+        Types: ko.observableArray(["Bug", "Request for Feature", "Request for Logic Change"]),
+        Statuses: ko.observableArray(["Draft", "Submit", "In-Progress", "In-Review", "Closed"]),
+        Modules: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(allMenu))),
+        Priorities: ko.observable(["Low", "Medium", "High", "Urgent"]),
+        Filter: {
+            SearchKeyword: ko.observable(""),
+            Module: ko.observableArray([]),
+            Type: ko.observableArray([]),
+            Priority: ko.observableArray([]),
+            Status: ko.observableArray([])
+        },
+        Add: function () {
+            model.Master.Title("");
+            model.Master.Module("");
+            model.Master.Status("");
+            model.Master.Type("");
+            model.Master.Priority("");
+            model.Master.Description("");
+            $("#modal").modal("show");
+        },
+        Save: function () {
+            var form = $("#form").kendoValidator().data("kendoValidator");
+
+            if (!form.validate())
+                return;
+
+            model.MiniIsProcessing(true);
+
+            var url = "@Url.Action("Save")";
+            var param = {
+                Title: model.Master.Title(),
+                Module: model.Master.Module(),
+                Type: model.Master.Type(),
+                Priority: model.Master.Priority(),
+                Status: model.Master.Status(),
+                Description: model.Master.Description(),
+            };
+
+            ajaxPost(url, param, function (data) {
+                model.MiniIsProcessing(false);
+
+                if (data.Result == "OK") {
+                    $("#modal").modal("hide");
+                    model.Master.Refresh();
+                } else {
+                    alert(data.Message);
+                }
+            }, function () {
+                model.MiniIsProcessing(false);
+            });
+        },
+        Refresh: function () {
+            model.IsProcessing(true);
+
+            var url = "@Url.Action("Populate")";
+            var param = (function () {
+                var r = {};
+
+                for (var i in model.Master.Filter) {
+                    if (model.Master.Filter.hasOwnProperty(i)) {
+                        r[i] = model.Master.Filter[i]();
+                    }
+                }
+
+                return r;
+            }());
+
+            ajaxPost(url, param, function (data) {
+                model.IsProcessing(false);
+
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                var dataSource = new kendo.data.DataSource({
+                    data: data.Data,
+                    pageSize: 10,
+                    schema: { model: { id: "_id", fields: { "StringId": { type: "string" }, "_id": { editable: false } } } },
+                    batch: true
+                });
+
+                $("#grid").data("kendoGrid").setDataSource(dataSource);
+            }, function () {
+                model.IsProcessing(false);
+            });
+        },
+        Column: function () {
+            return [
+                { field: "_id", title: "Issue No.", width: 70, attributes: { style: "text-align: right;" } },
+                { field: "Title", title: "Issue Name", template: "<a style='cursor: pointer;' onClick='model.Detail.GetIssue(#: _id #);'>#: Title #</a>" },
+                { field: "Module", title: "Module" },
+                { field: "Type", title: "Type", width: 150 },
+                { field: "UserId", title: "User", width: 100 },
+                { field: "Status", title: "Status", width: 100 }
+            ];
+        },
+        ColumnStatus: function (status) {
+            return status;
+        }
+    };
+
+    model.Detail = {
+        Log: {
+            Comment: ko.observable("")
+        },
+        Data: ko.mapping.fromJS({
+            _id: "",
+            Title: "",
+            Module: "",
+            Type: "",
+            Status: "",
+            UserId: "",
+            Priority: "",
+            LogDescription: "",
+            Logs: []
+        }),
+        EditEnable: function () {
+            var enable = model.Detail.Data.Status() !== 'Closed';
+
+            if (model.IsAppSupport())
+                return;
+
+            if (!(model.IsAdministrator() || model.IsRequestorOfIssue()))
+                enable = false;
+
+            $('.detail input[name="name"]').prop('disabled', !enable);
+            $('.detail select[name="status"]').getKendoDropDownList().enable(enable);
+            $('.detail select[name="type"]').getKendoDropDownList().enable(enable);
+            $('.detail select[name="module"]').getKendoDropDownList().enable(enable);
+            $('.detail select[name="priority"]').getKendoDropDownList().enable(enable);
+            $('.detail textarea[name="description"]').prop('disabled', !enable);
+            $('button[name="button-update"]').css('visibility', enable ? 'visible' : 'hidden');
+        },
+        GetIssue: function (id) {
+            model.IsRequestorOfIssue(false);
+            model.IsProcessing(true);
+
+            ajaxPost("@Url.Action("GetIssue")", { id: id }, function (res) {
+                model.IsProcessing(false);
+
+                if (res.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                ko.mapping.fromJS(res.Data.Issue, model.Detail.Data);
+                model.IsRequestorOfIssue(res.Data.IsRequestorOfIssue);
+                model.Detail.EditEnable();
+
+                model.Mode("Detail");
+            }, function () {
+                model.IsProcessing(false);
+            });
+        },
+        AddUpdate: function () {
+            var form = $("#update").kendoValidator().data("kendoValidator");
+
+            if (!form.validate())
+                return;
+
+            if (!model.IsAppSupport()) {
+                if (model.Detail.Data.Status() === 'Closed') {
+                    alert('Only user with role "App Support" can change status to closed!');
+                    return;
+                }
+            }
+
+            model.IsProcessing(true);
+
+            var url = "@Url.Action("AddUpdate")";
+            var param = { newIssue: model.Detail.Data };
+
+            ajaxPost(url, param, function (res) {
+                model.IsProcessing(false);
+
+                if (res.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                ko.mapping.fromJS(res.Data, model.Detail.Data);
+                model.Detail.EditEnable();
+            }, function () {
+                model.IsProcessing(false);
+            });
+        },
+        AddComment: function () {
+            if (model.Detail.Log.Comment().replace(/ /g, "").length == 0) {
+                alert('Comment cannot be empty');
+                return;
+            }
+
+            model.IsProcessing(true);
+
+            var url = "@Url.Action("AddComment")";
+            var param = { newIssue: model.Detail.Data, Comment: model.Detail.Log.Comment() };
+
+            ajaxPost(url, param, function (res) {
+                model.IsProcessing(false);
+
+                if (res.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                ko.mapping.fromJS(res.Data, model.Detail.Data);
+                model.Detail.Log.Comment("");
+            }, function () {
+                model.IsProcessing(false);
+            });
+        }
+    };
+
+    ko.mapping.fromJS(model.Detail.Data);
+</script>
+
+<script>
+    $(document).ready(function () {
+        $('.search').on('keyup', function (e) {
+            if (e.keyCode != 13) return;
+            model.Master.Refresh();
+        });
+
+        model.Master.Refresh();
+    });
+</script>
+
+<div style="padding: 0px 15px 15px;">
+    <div data-bind="with: Master, visible: (model.Mode() == 'Master')">
+        <div data-bind="visible: $root.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div class="ec-panel" data-bind="visible: !$root.IsProcessing()">
+            <div class="ec-toolbar filter" style="margin-left:15px" data-bind="with: Filter">
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Search :</label>
+                    </div>
+                    <div class="col-md-8">
+                        <input type="text" class="text" placeholder="Type keyword here ..." data-bind="value: SearchKeyword" />
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Type :</label>
+                    </div>
+                    <div class="col-md-8">
+                        <select data-bind="kendoMultiSelect: { dataSource: $root.Master.Types, value: Type, optionLabels: 'Select one' }"></select>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Priority :</label>
+                    </div>
+                    <div class="col-md-8">
+                        <select data-bind="kendoMultiSelect: { dataSource: $root.Master.Priorities, value: Priority, optionLabels: 'Select one' }"></select>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Module :</label>
+                    </div>
+                    <div class="col-md-8">
+                        <select data-bind="kendoMultiSelect: { dataSource: $root.Master.Modules, value: Module, optionLabels: 'Select one' }"></select>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="col-md-4">
+                    <div class="col-md-4">
+                        <label>Status :</label>
+                    </div>
+                    <div class="col-md-8">
+                        <select data-bind="kendoMultiSelect: { dataSource: $root.Master.Statuses, value: Status, optionLabels: 'Select one' }"></select>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="clearfix"></div>
+                <div class="col-md-12 row" style="text-align: right;">
+                    <button class="btn btn-success btn-sm btn-custom" onclick="model.Master.Add()">
+                        <span class="glyphicon glyphicon-plus"></span> Add New Issue
+                    </button>
+                    <button class="btn btn-primary btn-sm btn-custom" data-bind="click: $root.Master.Refresh">
+                        <span class="glyphicon glyphicon-refresh"></span> Refresh
+                    </button>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-12 no-padding">
+                <div class="grid" id="grid" data-bind="kendoGrid: { data: [], columns: Column(), pageable: true, sortable: true, filterable: false }"></div>
+            </div>
+        </div>
+    </div>
+
+    <div data-bind="with: Detail, visible: (model.Mode() != 'Master')">
+        <div data-bind="visible: $root.IsProcessing()">
+            @Html.Partial("_processing")
+        </div>
+
+        <div class="ec-panel" data-bind="visible: !$root.IsProcessing()">
+            <div class="ec-toolbar" style="margin-left:15px">
+                <div class="col-md-4 row">
+                    <button class="btn btn-warning btn-sm btn-custom" data-bind="click: function () { $root.Mode('Master'); }">
+                        <span class="glyphicon glyphicon-arrow-left"></span> Back to Issue
+                    </button>
+                    &nbsp;
+                    <button class="btn btn-success btn-sm btn-custom" name="button-update" data-bind="click: $root.Detail.AddUpdate">
+                        <span class="glyphicon glyphicon-ok"></span> Save Details
+                    </button>
+                </div>
+                <div class="col-md-8"></div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="col-md-6 no-padding data" data-bind="with: Data">
+                <header class="col-md-12">
+                    <h3 data-bind="text: 'Issue #' + _id() + ': ' + Title() + (Status() == 'Closed' ? ' (Closed)' : '')"></h3>
+                    <h5>Details<span></span></h5>
+                </header>
+                <div class="col-md-12 no-padding detail">
+                    <form id="update">
+                        <div class="col-md-12 no-padding row">
+                            <div class="col-md-4 no-padding">Issue No:</div>
+                            <div class="col-md-8 no-padding">
+                                <input style="width: 320px;" type="text" data-bind="value: _id(), enable: false" />
+                            </div>
+                        </div>
+                        <div class="col-md-12 no-padding row">
+                            <div class="col-md-4 no-padding">Issue Name:</div>
+                            <div class="col-md-8 no-padding">
+                                <input style="width: 320px;" type="text" required data-required-msg="Issue Name cannot be empty" name="name"
+                                       data-bind="value: Title" />
+                                <span class="k-invalid-msg" data-for="name"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-12 no-padding row">
+                            <div class="col-md-4 no-padding">Module:</div>
+                            <div class="col-md-8 no-padding">
+                                <select style="width: 320px;" required data-required-msg="Module cannot be empty" name="module"
+                                        data-bind="kendoDropDownList: { dataSource: $root.Master.Modules, value: Module }"></select>
+                                <span class="k-invalid-msg" data-for="module"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-12 no-padding row">
+                            <div class="col-md-4 no-padding">Type:</div>
+                            <div class="col-md-8 no-padding">
+                                <select style="width: 320px;" required data-required-msg="Type cannot be empty" name="type"
+                                        data-bind="kendoDropDownList: { dataSource: $root.Master.Types, value: Type }"></select>
+                                <span class="k-invalid-msg" data-for="type"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-12 no-padding row">
+                            <div class="col-md-4 no-padding">User:</div>
+                            <div class="col-md-8 no-padding">
+                                <input style="width: 320px;" type="text" data-bind="value: UserId(), enable: false" />
+                            </div>
+                        </div>
+                        <div class="col-md-12 no-padding row">
+                            <div class="col-md-4 no-padding">Priority:</div>
+                            <div class="col-md-8 no-padding">
+                                <select style="width: 320px;" required data-required-msg="Priority cannot be empty" name="priority"
+                                        data-bind="kendoDropDownList: { dataSource: $root.Master.Priorities, value: Priority }"></select>
+                                <span class="k-invalid-msg" data-for="priority"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-12 no-padding row">
+                            <div class="col-md-4 no-padding">Status:</div>
+                            <div class="col-md-8 no-padding">
+                                <select style="width: 320px;" required data-required-msg="Status cannot be empty" name="status"
+                                        data-bind="kendoDropDownList: { dataSource: $root.Master.Statuses, value: Status }"></select>
+                                <span class="k-invalid-msg" data-for="status"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-12 no-padding row">
+                            <div class="col-md-4 no-padding">Description:</div>
+                            <div class="col-md-8 no-padding">
+                                <textarea style="width: 320px; height: 50px; padding: 4px;"
+                                          required data-required-msg="Description cannot be empty" name="description"
+                                          data-bind="value: LogDescription"></textarea>
+                                <span class="k-invalid-msg" data-for="description"></span>
+                            </div>
+                        </div>
+                        <div class="clearfix"></div>
+                    </form>
+                </div>
+            </div>
+            <div class="col-md-6 no-padding data no-border" data-bind="with: Data">
+                <header class="col-md-12">
+                    <h5>Add Comment<span style="left: 114px; width: 347px;"></span></h5>
+                </header>
+                <div class="col-md-12 add-update">
+                    <div class="col-md-12">
+                        <label>Comment:</label>
+                    </div>
+                    <div class="col-md-12">
+                        <textarea style="width: 90%; height: 50px;" data-bind="value: $root.Detail.Log.Comment"></textarea>
+                    </div>
+                    <div class="col-md-12">
+                        <button class="btn btn-success btn-sm btn-custom" data-bind="click: model.Detail.AddComment">
+                            <span class="glyphicon glyphicon-ok"></span> Submit Comment
+                        </button>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+
+                <div class="col-md-12">
+                    <header style="margin-bottom: 5px;">
+                        <h5>Updates<span style="left: 70px;"></span></h5>
+                    </header>
+                    <div data-bind="foreach: Logs" style="max-height: 300px; overflow-y: scroll;" class="comments">
+                        <section class="col-md-12">
+                            <header>
+                                <label data-bind="text: moment(LastUpdate()).format('MMM DD, YYYY HH:mm:ss')"></label>
+                                |
+                                <label data-bind="text: UserId"></label>
+                            </header>
+                            <div>
+                                <label data-bind="text: Comment"></label>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+
+    <div data-bind="with: Master" class="modal fade myModal" id="modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div data-bind="visible: model.MiniIsProcessing()">
+                    @Html.Partial("_processing")
+                </div>
+                <div data-bind="visible: !model.MiniIsProcessing()">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title" id="myModalLabel">Add New Issue</h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group form-group-sm form-wrapper" id="form">
+                            <div class="row">
+                                <label class="col-md-3">Issue Name:</label>
+                                <div class="col-md-9">
+                                    <input type="text" style="width: 340px;" name="name" required data-required-msg="Name cannot be empty"
+                                           placeholder="Type issue name here ..." data-bind="value: Title" />
+                                    <span class="k-invalid-msg" data-for="name"></span>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <label class="col-md-3">Type:</label>
+                                <div class="col-md-9">
+                                    <select style="width: 340px;" required data-required-msg="Type cannot be empty&nbsp;" name="type"
+                                            data-bind="kendoDropDownList: { dataSource: Types, value: Type, optionLabel: 'Select one' }"></select>
+                                    <span class="k-invalid-msg" data-for="type"></span>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <label class="col-md-3">Module:</label>
+                                <div class="col-md-9">
+                                    <select style="width: 340px;" required data-required-msg="Module cannot be empty" name="module"
+                                            data-bind="kendoDropDownList: { dataSource: Modules, value: Module, optionLabel: 'Select one' }"></select>
+                                    <span class="k-invalid-msg" data-for="module"></span>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <label class="col-md-3">Priority:</label>
+                                <div class="col-md-9">
+                                    <select style="width: 340px;" required data-required-msg="Priority cannot be empty" name="priority"
+                                            data-bind="kendoDropDownList: { dataSource: Priorities, value: Priority, optionLabel: 'Select one' }"></select>
+                                    <span class="k-invalid-msg" data-for="priority"></span>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <label class="col-md-3">Status:</label>
+                                <div class="col-md-9">
+                                    <select style="width: 340px;" required data-required-msg="Status cannot be empty" name="status"
+                                            data-bind="kendoDropDownList: { dataSource: Statuses, value: Status, optionLabel: 'Select one' }"></select>
+                                    <span class="k-invalid-msg" data-for="status"></span>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <label class="col-md-3">Description:</label>
+                                <div class="col-md-9">
+                                    <textarea style="width: 340px; height: 100px;" required data-required-msg="Description cannot be empty" name="description"
+                                              data-bind="value: Description"></textarea>
+                                    <span class="k-invalid-msg" data-for="description"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-custom btn-warning" data-dismiss="modal">
+                            <span class="glyphicon glyphicon-remove-circle"></span> Close
+                        </button>
+                        <button type="button" class="btn btn-custom btn-primary" onclick="model.Master.Save()">
+                            <span class="glyphicon glyphicon-ok"></span> Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,679 @@
+﻿@{
+    ViewBag.Title = "Spotfire Report";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+@{
+    var PerformanceUnits = new List<string>();
+    var elements = DataHelper.Populate("WEISPerformanceUnits").Select(x => BsonHelper.GetString(x, "_id"));
+    PerformanceUnits = elements.ToList();
+}
+
+<script>
+    model.DefaultOP = ko.observable("@ViewBag.DefaultOP");
+    model.SelectedActivityTemplate = { "_id": null, "Region": null, "RigType": null, "RigName": null, "OperatingUnit": null, "ProjectName": null, "AssetName": null, "WellName": null, "NonOP":false, "WorkingInterest": 0, "FirmOrOption": null, "UARigSequenceId": null, "UARigDescription": null, "Targets": { "M0": { "Identifier": null, "Days": 0, "Cost": 0 }, "M1": { "Identifier": null, "Days": 0, "Cost": 0 }, "M2": { "Identifier": null, "Days": 0, "Cost": 0 }, "M3": { "Identifier": null, "Days": 0, "Cost": 0 }, "M4": { "Identifier": null, "Days": 0, "Cost": 0 } }, "OpsDuration": 0, "OpsSchedule": { "Start": null, "Finish": null }, "PsSchedule": { "Start": null, "Finish": null },
+        "PerformanceUnit": null, "EXType":null, "Activity" : null, "VirtualPhase" : null, "ShiftFutureEventDate" : null,"AssignTOOPs" :null,"FundingType":null};
+    model.PageId("Administration");
+    model.ShowBrowser = ko.observable(true);
+    model.ShowEditForm = ko.observable(false);
+    model.ShowPhaseInfo = ko.observable(false);
+    model.ShowInsertActivityForm = ko.observable(false);
+    model.selectedWellId = ko.observable();
+    model.selectedWellName = ko.observable();
+    model.selectedRigName = ko.observable();
+    model.IsProcessing = ko.observable(false);
+    model.SelectedActivity = ko.mapping.fromJS(model.SelectedActivityTemplate);
+    model.IsEditMode = ko.observable(false);
+    model.DataCompareOP = ko.observable(false);
+    model.PhaseData = ko.observableArray([])
+    model.SetActivity = function (activityUnparsed) {
+        var template = ko.mapping.toJS(model.SelectedActivityTemplate),
+            activity = {};
+        console.log(template);
+        for (var i in template) if (template.hasOwnProperty(i)) activity[i] = activityUnparsed[i];
+        ko.mapping.fromJS(activity, model.SelectedActivity);
+    };
+    model.DetailOP = ko.observable(ko.mapping.fromJS(@MvcHtmlString.Create(JsonConvert.SerializeObject(new WellActivityPhaseInfo()))));
+</script>
+
+<style>
+    #grid .k-header.k-grid-toolbar {
+        background-color: #F9F9FB;
+    }
+
+    #grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+        #grid .k-header[role=columnheader][data-field=_id] {
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-field=OpsDuration],
+        #grid .k-header[role=columnheader][data-field=PlanDuration],
+        #grid .k-header[role=columnheader][data-field=PhRiskDuration] {
+            vertical-align: bottom;
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-colspan] {
+            text-align: center;
+            font-weight: bold;
+            color: #a8a8a8;
+        }
+
+    #grid [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    #grid .k-grid-content-locked {
+        height: auto !important;
+    }
+
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+
+    tr.k-footer-template td {
+        text-align: right;
+    }
+</style>
+
+<div class="col-md-12" style="margin-bottom: 10px;" data-bind="visible:ShowBrowser">
+    <!-- filters -->
+    @*@Html.Partial("Filter")*@
+    @Html.Partial("FilterForWaterfall")
+
+    <script>
+        model.FilterVisibility.ExType(true);
+        model.FilterVisibility.Activities(true);
+        model.FilterVisibility.PerformanceUnits(false);
+        model.FilterVisibility.Date(true);
+        model.FilterVisibility.Date2(true);
+        model.FilterVisibility.PeriodBase(false);
+        model.FilterVisibility.PeriodView(true);
+        model.FilterVisibility.PeriodRelation(true);
+        model.FilterVisibility.OPs(true);
+        model.FilterVisibility.OpRelation(true);
+        model.FilterVisibility.firmoption(false);
+        model.FilterVisibility.isInPlan(true);
+        model.FilterVisibility.lsresource(false);
+        model.FilterVisibility.Status(true);
+        model.FilterVisibility.inlastuploadls(true);
+        model.FilterVisibility.showLabelLSFilter(true);
+        model.FilterVisibility.LineOfBusiness(true);
+
+
+        model.options = {
+            regions: model.regions(),
+            operatingUnits: model.operatingUnits(),
+            rigTypes: model.rigTypes(),
+            rigNames: model.rigNames(),
+            projectNames: model.projectNames(),
+            wellNames: model.wellNames(),
+            assetNames: @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISAssetNames").Select(d=>d.GetString("_id")).OrderBy(d=>d))),
+            performanceUnits: @MvcHtmlString.Create(JsonConvert.SerializeObject(PerformanceUnits)),
+            firmOrOptions: ["Firm", "Option"],
+            EXType: @MvcHtmlString.Create(JsonConvert.SerializeObject(DataHelper.Populate("WEISFundingTypes").Select(d => d.GetString("_id")).OrderBy(d => d))),
+            AlreadyAssignTo :model.AlreadyAssignTo(),
+            lsresource:model.lsresource(),
+        };
+        model.sement = ko.observableArray([]);
+        model.workbook = ko.observable();
+        model.ShowNoticeProrate = ko.observable("");
+    </script>
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible: !model.IsProcessing()">
+        <!-- Nav tabs -->
+        <ul class="nav nav-tabs" role="tablist" style="margin-bottom:20px;">
+            <li role="presentation" class="active">
+                <a href="#spotfire_grid" id="tab_spotfire_grid" aria-controls="home" role="tab" data-toggle="tab">Spotfire Grid</a>
+            </li>
+            @*<li role="presentation" class="" data-bind="">
+                <a href="#pivot_wrapper" id="tab_pivot" onclick="refresh_pivot()" aria-controls="home" role="tab" data-toggle="tab">Pivot</a>
+            </li>*@
+        </ul>
+
+        <div class="tab-content">
+            <div role="tabpanel" class="tab-pane active" id="spotfire_grid" data-bind="">
+                <div data-bind="style: { visibility: (!model.IsProcessing() ? 'visible' : 'hidden') }">
+                    <div class="clearfix"></div>
+                    <div class="clearfix"></div>
+                    <div class="col-md-12 no-padding">
+                        <div id="grid"></div>
+                    </div>
+                    <div style="clear: both;"></div>
+                </div>
+            </div>
+
+            @*<div role="tabpanel" class="tab-pane" id="pivot_wrapper" data-bind="">
+                @Html.Partial("_pivot")
+            </div>*@
+        </div>
+    </div>
+
+</div>
+
+<div class="col-md-12" data-bind="visible:ShowInsertActivityForm">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+
+</div>
+
+
+
+<script>
+    model.TotalGroup = ko.observable(0);
+    model.totalUniqueActivities = ko.observable(0);
+    model.DataSpotFire = ko.observableArray([]);
+    model.setButton = function(isEnabled){
+        $(".do-filter").prop('disabled', isEnabled);
+    }
+    model.reloadData = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);model.setButton(true);
+        var param = model.getFilterValues();
+        delete param.BaseOP;
+        if(param.periodview == "Fiscal View"){
+            var start = jsonDateStr($("[data-model=dateStart]:eq(1)").data("kendoDatePicker").value());
+            var finish = jsonDateStr($("[data-model=dateFinish]:eq(1)").data("kendoDatePicker").value());
+            model.ShowNoticeProrate("Value is prorated by "+start+" to "+finish);
+        }else{
+            model.ShowNoticeProrate("");
+        }
+
+        ajaxPost("@Url.Action("GetDataFiscalYear2")",param , function (res) {
+            model.IsProcessing(false);model.setButton(false);
+            if(res.Result != "OK"){
+                alert(res.Message);
+                return;
+            }
+            if(model.getFilterValues().inlastuploadls==="false"){
+                alert("These results will include items that are not in the latest LS. To limit your results to the latest LS, please check the Current Latest Sequence Only box and click refresh.");
+            }
+            model.DataSpotFire(res.Data.Data);
+            model.TotalGroup(res.Data.TotalGroup);
+            model.totalUniqueActivities(res.Data.totalUniqueActivities);
+            renderGridUsingData(res.Data.Data);
+            //render_pivot(res.Data.Data);
+            var checker = $("#column_toggle");
+            checker.prop("checked",true);
+        }, function (res) {
+            model.IsProcessing(false);model.setButton(false);
+            alert(res);
+        });
+    }
+    $('<button />')
+            .addClass('btn btn-warning btn-sm do-excel-export')
+            .css('margin-right', '5px')
+            .html('<span class="fa fa-file-excel-o"></span> Export to Excel')
+            .insertBefore($('.do-filter'))
+
+            .on('click', function () {
+                ExportToExcel();
+            });
+    // prepare everything
+    $(document).ready(function () {
+        var isRO = "@ViewBag.isRO";
+        var isAdmin = "@ViewBag.isAdmin";
+
+        $('[data-model="OPs"]').data("kendoMultiSelect").value(["OP16"]);
+        var setStatus = ['Complete', 'Draft','Modified'];
+        $('[data-model="Status"]').data("kendoMultiSelect").value(setStatus);
+        model.reloadData();
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            var target = $(e.target).attr("href") // activated tab
+            if(target=="#tab2"){
+                $("#grid_CompareInfo").data("kendoGrid").refresh();
+            }
+        });
+    });
+    var exportFlag = false;
+    // generate the grid
+    function renderGridUsingData(data) {
+        data = jsonObjsConvDate(data);
+        model.sement(data);
+        var gridColumns = [];
+        gridColumns.push(
+                { field: "BaseOP", title: "Base OP", width: 80 },
+                { field: "LoB", title: "Line Of <br> Business", width: 100 },
+                { field: "Region", title: "Region", width: 80 },
+                { field: "OperatingUnit", title: "Operating Unit", width: 120 },
+                { field: "Asset", title: "Asset", width: 120 },
+                { field: "Project", title: "Project", width: 120 },
+                { field: "WellName", title: "Well Name", width: 200 },
+                { field: "ActivityCategory", title: "Activity<br>Category", width: 120 },
+                { field: "ActivityType", title: "Activity Type", width: 200 },
+                { field: "ScopeDesc", title: "Scope Description", width: 150 },
+                { field: "WellType", title: "Well Type", width: 80 },
+                { field: "DrillingOfCasing", title: "Drilling <br> [# of Casings]", width: 100 },
+                { field: "SpreadRateUSDDay", title: "OP Spread <br> Rate [$k/Day]", width: 100,
+                    format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                { field: "BurnRateUSDDay", title: "OP Burn <br> Rate [$k/Day]", width: 80,
+                    format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                { field: "MRI",  title: "MRI", width: 80,
+                    format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+
+                // { title: "Completion", columns: [
+                        { field: "CompletionType", title: "Completion <br> Type", width: 120 },
+                { field: "CompletionZone",  title: "# of Completion <br> Zones", width: 120,
+                    format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                // ]},
+
+                 { field: "BrineDensity",  title: "Brine Density<br>[ppg]", width: 80,
+                     format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                { field: "EstRangeType", title: "Estimating <br>Range Type", width: 80 },
+
+                // { title: "Deterministic", columns: [
+               { field: "DeterminLowRange", title: "Deterministic <br> Low Range", width: 80,
+                   format: "{0:P3}", attributes: { style: 'text-align:right;' } },
+               { field: "DeterminHigh", title: "Deterministic <br> High", width: 80,
+                   format: "{0:P3}", attributes: { style: 'text-align:right;' } },
+                // ]},
+
+               //{ title: "Probabilistic", columns: [
+                   { field: "ProbP10", title: "Probabilistic <br> P10", width: 90,
+                       format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                { field: "ProbP90", title: "Probabilistic <br> P90", width: 90,
+                    format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+               //]},
+
+                { field: "WaterDepth",  title: "Water Depth MD<br>[ft]", width: 120,
+                    format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                { field: "TotalWaterDepth", title: "Total Well Depth MD<br>[ft]", width: 120,
+                    format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                { field: "LCFactor", title: "Learning<br>Curve Factor", width: 120,
+                    format: "{0:P2}", attributes: { style: 'text-align:right;' } },
+                { field: "WorkingInterest", title: "Shell<br>Working <br> Interest", width: 120,
+                    format: "{0:P2}", attributes: { style: 'text-align:right;' } },
+                { field: "PlanningClassification", title: "Planning<br>Classification", width: 120 },
+                { field: "MaturityRisk", title: "Estimate<br>Maturity", width: 120 },
+                { field: "FundingType", title: "Funding Type", width: 80 },
+                { field: "RFM", title: "Reference Factor Model", width: 170 },
+                { field: "RigName", title: "Rig Name", width: 80 },
+                { field: "RigType", title: "Rig Type", width: 80 },
+
+                 { field: "SequenceOnRig",  title: "Sequence #<br>on Rig", width: 120,
+                     format: "{0:N0}", attributes: { style: 'text-align:right;' } },
+
+
+                // { title: "Activity", columns: [
+                    { field: "Start", title: "Activity Start",
+                        //template:"#: jsonDateStr(PlanSchedule.Start,'yyyy/MM/dd HH:mm:ss') #",
+                        width: 90, attributes: { style: 'text-align: center;' } },
+                        { field: "PlanYear", title: "Plan Year", width: 80 },
+                  { field: "Finish", title: "Activity End",
+                      //template:"#: jsonDateStr(PlanSchedule.Finish,'yyyy/MM/dd HH:mm:ss') #",
+                      width: 90, attributes: { style: 'text-align: center;' } },
+                 //] },
+
+                 { field: "TroubleFree.Days",  title: "Trouble <br> Free <br> Time", width: 80,
+                     format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+
+                 { field: "NPT.PercentDays",  title: "NPT Time %", width: 120,
+                     format: "{0:P2}", attributes: { style: 'text-align:right;' } },
+                 { field: "TECOP.PercentDays", title: "TECOP Time %", width: 120,
+                     format: "{0:P2}", attributes: { style: 'text-align:right;' } },
+
+                 { field: "TimeOverrideFactors", title: "Time Override<br>Factors", width: 120 },
+
+
+                 { field: "NPT.Days", title: "NPT Time", width: 80,
+                     format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                 { field: "TECOP.Days", title: "TECOP Time", width: 80,
+                     format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+
+                 { field: "MeanTime", title: "Mean Time", width: 80,
+                     format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+
+                     { field: "TroubleFree.Cost",  title: "Trouble <br> Free Cost<br>(Original Currency)<br>[Millions]", width: 120,
+                         format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+
+                 { field: "Currency", title: "Currency", width: 80 },
+
+
+                 { field: "NPT.PercentCost", title: "NPT Cost %", width: 100,
+                     format: "{0:P2}", attributes: { style: 'text-align:right;' } },
+
+                 { field: "TECOP.PercentCost",title: "TECOP Cost %", width: 100,
+                     format: "{0:P2}", attributes: { style: 'text-align:right;' } },
+
+
+                  { field: "CostOverrideFactors",  title: "Cost Override <br> Factors", width: 100,
+                  },
+
+                     //  { title: "Original Currency", columns: [
+
+                    { field: "NPT.Cost",title: "NPT Cost <br> (Original Currency) <br> [Millions]", width: 120,
+                        format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+
+                 { field: "TECOP.Cost", title: "TECOP Cost <br> (Original Currency) <br> [Millions]", width: 120,
+                     format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+
+                      { field: "MeanCostEDM", title: "Mean Cost EDM <br>  (Original Currency) <br> [Millions]", width: 120,
+                          format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                     //  ]},
+
+                        //{ title: "USD", columns: [
+                      { field: "TroubleFreeUSD", title: "Trouble Free <br> Cost USD [Millions]", width: 120,
+                          format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                       { field: "NPTUSD",  title: "NPT Cost <br> USD [Millions]", width: 120,
+                           format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                        { field: "TECOPUSD", title: "TECOP Cost <br> USD [Millions]", width: 120,
+                            format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                            { field: "MeanCostEDMUSD",  title: "Mean Cost <br> EDM USD [Millions]", width: 120,
+                                format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+
+
+                        { field: "EscCostUSD",  title: "Escalation Cost <br> USD [Millions]", width: 100,
+                            format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                    { field: "CSOCostUSD", title: "CSO Cost <br> USD [Millions]", width: 100,
+                        format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                    { field: "InflationCostUSD",  title: "Inflation Cost <br> USD [Millions]", width: 100,
+                        format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                    { field: "MeanCostMODUSD", title: "Mean Cost MOD <br> USD [Millions]", width: 100,
+                        format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                     { field: "ProjectValueDriver", title: "Project Value <br> Driver", width: 80 },
+
+
+                       // { title: "Threshold", columns: [
+                   { field: "TQ.Threshold",  title: "TQ Threshold", width: 100,
+                       format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                   { field: "BIC.Threshold",  title: "BIC Threshold", width: 100,
+                       format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                        //] },
+
+                         // { title: "Gap", columns: [
+                   { field: "TQ.Gap",  title: "TQ Gap", width: 100,
+                       format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                   { field: "BIC.Gap", title: "BIC Gap", width: 100,
+                       format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                       //   ] },
+
+                     { field: "PerfScore", title: "Performance Score", width: 120 },
+                     { field: "ActivityCount", title: "Activity Count", width: 120 },
+                     { field: "ScheduleID", title: "Schedule ID", width: 300 },
+
+
+
+
+    //    { title: "Shell Share (USD)", columns: [
+
+                      { field: "SSTroubleFreeUSD",  title: "SS Trouble <br> Free Cost USD <br> [Millions]", width: 100,
+                          format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                       { field: "SSNPTUSD", title: "SS NPT <br> Cost USD <br> [Millions]", width: 100,
+                           format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                        { field: "SSTECOPUSD", title: "SS TECOP <br> Cost USD <br> [Millions]", width: 100,
+                            format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                            { field: "SSMeanCostEDMUSD",  title: "SS Mean <br> Cost EDM USD <br>[Millions]", width: 100,
+                                format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                        { field: "SSEscCostUSD", title: "SS Escalation <br> Cost USD <br>[Millions]", width: 100,
+                            format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                    { field: "SSCSOCostUSD", title: "SS CSO <br> Cost USD <br> [Millions]", width: 100,
+                        format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                    { field: "SSInflationCostUSD",  title: "SS Inflation <br> Cost USD <br> [Millions]", width: 100,
+                        format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                    { field: "SSMeanCostMODUSD", title: "SS Mean  <br> Cost MOD USD <br> [Millions]", width: 100,
+                        format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                         { field: "MeanCostRTUSD", title: "Mean Cost <br> RT USD <br> [Millions]", width: 100,
+                             format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+       // ] },
+
+
+                         { field: "SSMeanCostRTUSD", title: "SS Mean <br> Cost RT USD <br> [Millions]", width: 100,
+                             format: "{0:N2}", attributes: { style: 'text-align:right;' } },
+                        //]},
+
+
+
+
+
+
+                     { field: "OPScope", title: "OP Scope", width: 80 }
+
+                );
+
+
+        //var aggs = [
+        //                    { field: "SpreadRateUSDDay", aggregate: "sum", format: "{0:0.00}" },
+        //                    { field: "BurnRateUSDDay", aggregate: "sum", format: "{0:0.00}" }
+
+
+
+        //];
+
+
+
+        $('#grid').replaceWith($('<div />').attr('id', 'grid'));
+        $('#grid').kendoGrid({
+            //toolbar: [ "excel"],
+            //pdf: { fileName: "Data Browser.pdf" },
+            excel: { fileName: getExportedFileName(),allPages: true },
+            dataSource: {
+
+                // aggregate: aggs,
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+
+            pageable: {change:function(e){
+                    //var data = e.sender.dataSource._view;
+                    //console.log(e);
+                    //var maxPro ="Project".length ;
+                    //var maxWell="Well Name".length;
+                    //var maxLob = "Business".length;
+                    //var maxAsset = "Asset".length;
+                    //var maxActCategory = "ActCategory".length;
+
+                    //var maxRefFactMod = "Reference Factor Model".length;
+                    //var maxRigName = "Rig Name".length;
+                    //var maxRigType = "Rig Type".length;
+                    //data.forEach
+                    //(
+                    //    function(item,index)
+                    //    {
+                    //        if(maxPro<item.Project.length)maxPro=item.Project.length;
+                    //        if(maxWell<item.WellName.length)maxWell=item.WellName.length;
+                    //        if(maxLob<item.LoB.length)maxLob=item.LoB.length;
+                    //        if(maxAsset<item.Asset.length)maxAsset=item.Asset.length;
+                    //        if(maxActCategory<item.ActivityCategory.length)maxActCategory=item.ActivityCategory.length;
+
+                    //        if(maxRefFactMod<item.RFM.length)maxRefFactMod=item.RFM.length;
+                    //        if(maxRigName<item.RigName.length)maxRigName=item.RigName.length;
+                    //        if(maxRigType<item.RigType.length)maxRigType=item.RigType.length;
+                    //    }
+                    //)
+                    //var arr = [{idx:1,width:maxLob},{idx:4,width:maxAsset},{idx:5,width:maxPro},{idx:6,width:maxWell},{idx:7,width:maxActCategory},{idx:30,width:maxRefFactMod},{idx:31,width:maxRigName},{idx:32,width:maxRigType}];//,{idx:6,width:maxWell}
+                    //arr.forEach(
+                    //  function(item,index){
+                    //      resize(item.idx,item.width * 10)
+                    //  }
+                    //)
+                    
+
+                    if($('.k-pager-info.k-label.total-group').length > 0 ){
+                        $('.k-pager-info.k-label.total-group').remove();
+                    }
+                    $('<span class="k-pager-info k-label total-group">'+ model.totalUniqueActivities() +'  Unique Activities</span>').insertAfter('.k-pager-info.k-label')
+                }
+            },
+            sortable: true,
+            resizable: true,
+            columns: gridColumns,
+            excelExport: function (e) {
+                e.preventDefault();
+                var param = model.getFilterValues();
+                delete param.BaseOP;
+                if(param.periodview == "Fiscal View"){
+                    var start = jsonDateStr($("[data-model=dateStart]:eq(1)").data("kendoDatePicker").value());
+                    var finish = jsonDateStr($("[data-model=dateFinish]:eq(1)").data("kendoDatePicker").value());
+                    model.ShowNoticeProrate("Value is prorated by "+start+" to "+finish);
+                }else{
+                    model.ShowNoticeProrate("");
+                }
+                model.IsProcessing(true);
+                ajaxPost("@Url.Action("DownloadData")", param,
+                    function(res) {
+                        if (res.Result != "OK") {
+                            model.IsProcessing(false);
+                            alert(res.Message);
+                            return;
+                        }
+
+                        if (res.Data.RFMChecking.length > 0) {
+                            alert("This data set contains activities with no RFM assigned.  Cost columns are not accurate under these circumstances");
+                            renderRFMNotice(res.Data.RFMChecking);
+                        }
+
+                        model.IsProcessing(false);
+                        var splitName = res.Data.nm.split(" ");
+                        var fileNameReturn0 = splitName[0];
+                        
+                        var fileNameReturn = fileNameReturn0 + " " + moment(new Date()).format("HHmmss") + ".xlsx";
+
+                        window.location.href = "@Url.Action("Download")?file=" + res.Data.nm + "&fileReturn=" + fileNameReturn;
+                        return;
+                        
+                    }
+                );
+                //    var a = e.workbook.sheets;
+
+                //    var regex = /<br\s*[\/]?>/gi;
+                //    a.forEach(function(c) {
+                //        c.columns.forEach(function(col,ind){
+                //            if(ind == 7 || ind==29){
+                //                col.width = 200;
+                //            }else if(ind == 66){
+                //                col.width = 400;
+                //            }
+                //        })
+                //        c.rows.forEach(function(d) {
+                //            if(d.type == "header"){
+                //                d.cells.forEach(function(i,j){
+
+                //                    i.value = i.value.replace("<br/>"," ");
+                //                    i.value = i.value.replace("<br />"," ");
+                //                    i.value = i.value.replace("<br>"," ");
+                //                    i.value = i.value.replace(regex," ");
+                //                })
+                //            }else{
+                //                var i = 0;
+
+                //                d.cells.forEach(function(i,j){
+
+                //                    if(j==33)
+                //                    {
+                //                        //    alert('asdasdadsasdad');
+                //                        //console.log(typeof i.value);
+                //                        i.value = jsonDateStr(i.value,'yyyy/MM/dd HH:mm:ss');
+                //                        //i.format = "yyyy/MM/dd HH:mm:ss"
+                //                        //    console.log(i.type);
+
+                //                    }
+                //                    if(j==35)
+                //                    {
+                //                        //    alert('asdasdadsasdad');
+                //                        //console.log("asdasdadsasdad");
+                //                        i.value = jsonDateStr(i.value,'yyyy/MM/dd HH:mm:ss');
+                //                        //    console.log(i.type);
+
+                //                    }
+                //                    //if(i.value instanceof Date){
+                //                    //    console.log("aaaaaa");
+                //                    //    console.log(i.value);
+                //                    //    i.value = jsonDateStr(i.value,'yyyy/MM/dd HH:mm:ss');
+                //                    //    console.log(i.value);
+                //                    //    console.log("-------------------------");
+
+                //                    //    //i.format = "yyyy/MM/dd HH:mm:ss"
+                //                    //}
+
+                //                })
+                //            }
+                //        });
+                //    });
+                //    if (!exportFlag) {
+                //        e.sender.hideColumn(0);
+                //        e.preventDefault();
+                //        exportFlag = true;
+                //        setTimeout(function () {
+                //            e.sender.saveAsExcel();
+                //        });
+                //    } else {
+                //        e.sender.showColumn(0);
+                //        exportFlag = false;
+                //    }
+
+
+            },
+        });
+        $('<span class="k-pager-info k-label total-group">'+ model.totalUniqueActivities() +'  Unique Activities</span>').insertAfter('.k-pager-info.k-label');
+    }
+
+
+    function ExportToExcel (){
+        //e.preventDefault();
+        var param = model.getFilterValues();
+        delete param.BaseOP;
+        if(param.periodview == "Fiscal View"){
+            var start = jsonDateStr($("[data-model=dateStart]:eq(1)").data("kendoDatePicker").value());
+            var finish = jsonDateStr($("[data-model=dateFinish]:eq(1)").data("kendoDatePicker").value());
+            model.ShowNoticeProrate("Value is prorated by "+start+" to "+finish);
+        }else{
+            model.ShowNoticeProrate("");
+        }
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("DownloadData")", param,
+        function(res) {
+            if (res.Result != "OK") {
+                model.IsProcessing(false);
+                alert(res.Message);
+                return;
+            }
+
+            if (res.Data.RFMChecking.length > 0) {
+                alert("This data set contains activities with no RFM assigned.  Cost columns are not accurate under these circumstances");
+                renderRFMNotice(res.Data.RFMChecking);
+            }
+
+            model.IsProcessing(false);
+            var splitName = res.Data.nm.split(" ");
+            var fileNameReturn0 = splitName[0];
+                        
+            var fileNameReturn = fileNameReturn0 + " " + moment(new Date()).format("HHmmss") + ".xlsx";
+
+            window.location.href = "@Url.Action("Download")?file=" + res.Data.nm + "&fileReturn=" + fileNameReturn;
+            return;
+                        
+        }
+                );
+    }
+
+    function getExportedFileName(){
+        return "SpotfireReport-"+moment().format('YYYY-MM-DD HHmmss')+".xlsx";
+    }
+
+    function resize(idx, width) {
+        $("#grid .k-grid-header-wrap") //header
+           .find("colgroup col")
+           .eq(idx)
+           .css({width: width});
+           
+        $("#grid .k-grid-content") //content
+           .find("colgroup col")
+           .eq(idx)
+           .css({width: width});
+    }
+</script>
+@Html.Partial("NoRFMNotice")

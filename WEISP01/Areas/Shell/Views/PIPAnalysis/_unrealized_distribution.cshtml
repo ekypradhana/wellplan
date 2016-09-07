@@ -1,0 +1,480 @@
+﻿<style>
+    .ScatterYAxisLabel {
+        position: absolute;
+        top: 200px;
+        z-index: 1000;
+        transform: rotate(270deg);
+        font-size: 14px;
+        text-transform: capitalize;
+    }
+    .ScatterXAxisLabel {
+        position: absolute;
+        top: 390px;
+        z-index: 1000;
+        font-size: 14px;
+        text-transform: capitalize;
+        left:550px;
+    }
+</style>
+
+<script>
+    var buildHeaderTemplate2 = function (title, unit) {
+        return "<a class='k-link'>" + title + "</a><span class='k-unit'>(" + unit + ")</a>";
+    };
+    var headerUnitWith2 = 80;
+
+
+    model.modalDetail = ko.observable({
+        title: ko.observable(""),
+        dateStart: ko.observable(""),
+        dateFinish: ko.observable(""),
+        type: ko.observable(""),
+        isProcessing: ko.observable(false)
+    });
+</script>
+
+<div class="row">
+    <div class="col-md-12" data-bind="visible:false">
+        <input type="checkbox" data-bind="checked: model.DataScatterPlot().IncludeRealized" onclick="regenerateDistributionChart()" /> Include Realized Event
+        &nbsp;&nbsp;&nbsp;&nbsp;
+        <input type="checkbox" data-bind="checked:model.DataScatterPlot().IncludeUnRealized" onclick="regenerateDistributionChart()" /> Include UnRealized Event
+    </div>
+
+    <div class="col-md-4" id="scatterRealized">
+        <div class="chart"></div>
+    </div>
+    <div class="col-md-4" id="scatterUnRealizedCompleted">
+        <div class="chart"></div>
+    </div>
+    <div class="col-md-4" id="scatterUnRealizedInProgress">
+        <div class="chart"></div>
+    </div>
+    <div class="col-md-12" id="scatterPlot" style="margin-bottom:50px;display:none;">
+        <div class="ScatterYAxisLabel" data-bind="text:model.DataScatterPlot().yAxisLabel(),attr:{'style':model.DataScatterPlot().yAxisLabel() == 'Cost Per Day' ? 'left:-25px;' : 'left:-5px'}"></div>
+        <div class="chart"></div>
+        <div class="ScatterXAxisLabel">Days Now (@DateTime.Now.ToString("dd-MMM-yyyy"))</div>
+    </div>
+    <div style="text-align:center;display:none;">
+        <label style="background-color:green; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Realized Event</label>
+        &nbsp;|&nbsp;
+        <label style="background-color: red; width: 20px;">&nbsp;</label>
+        <label style="font-weight:normal">Unrealized Completed Event</label>
+        &nbsp;|&nbsp;
+        <label style="background-color: blue; width: 20px; ">&nbsp;</label>
+        <label style="font-weight:normal">Unrealized InComplete Event</label>
+    </div>
+</div>
+
+<div class="row" style="margin-top:20px;">
+    <div class="col-md-4" id="movingChartRealized">
+        <div class="chart"></div>
+    </div>
+    <div class="col-md-4" id="movingChartUnRealizedCompleted">
+        <div class="chart"></div>
+    </div>
+    <div class="col-md-4" id="movingChartUnRealizedInProgress">
+        <div class="chart"></div>
+    </div>
+</div>
+
+
+<div class="modal fade myModal" data-bind="with:modalDetail" id="modalDetail" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog" style="width:1200px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                <h4 class="modal-title" id="myModalLabel" data-bind="text:title"></h4>
+            </div>
+            <div class="modal-body">
+                <div data-bind="visible:isProcessing()==true">
+                    @Html.Partial("_processing")
+                </div>
+
+                <div data-bind="visible:!isProcessing()==true" class="" id="form_add_pip">
+                    <div class="row col-md-12" style="margin-bottom:5px;">
+                        <div class="col-md-4">
+                            <label class="col-md-5">Activity Start</label>
+                            <div class="col-md-7">
+                                <input type="text" style="width:120px;" id="ActivityStart" name="ActivityStart" data-bind="value:dateStart" required="required">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="col-md-5">Activity End</label>
+                            <div class="col-md-7">
+                                <input type="text" style="width:120px;" id="ActivityEnd" name="ActivityEnd" data-bind="value:dateFinish" required="required">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-warning" onclick="getDataDetails()">Refresh</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+
+                @*<div id="gridDetails" data-bind="kendoGrid:{data:[],columns:gridColumns,pageable:true,sortable:true,filterable:true}"></div>*@
+                <div id="gridDetails"></div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+    
+
+    var gridColumns = [
+        { field: "WellName", title: "WellName", filterable: false, width: 120 },
+        { field: "ActivityType", title: "ActivityType", filterable: false, width: 150 },
+        { field: "Title", title: "Idea", filterable: false, width: 170 },
+        { field: "PeriodStart", width: 80, title: "Activity Start", filterable: false, template: "#: jsonDateStr(PeriodStart) #", attributes: { class: "cell-date" } },
+        { field: "PeriodFinish", width: 80, title: "Activity End", filterable: false, template: "#: jsonDateStr(PeriodFinish) #", attributes: { class: "cell-date" } },
+        { field: "Classification", title: "Classification", filterable: false, width: 110 },
+        {
+            title: "Current Estimate", columns: [
+                    {
+                        field: "LEDays", title: "Days", filterable: false, width: headerUnitWith2, format: "{0:N2}", attributes: { class: "cell-number" },
+                        headerTemplate: buildHeaderTemplate2("Days", "days") , footerTemplate: "#: kendo.toString(sum,'n2') #"
+                    },
+                    {
+                        field: "LECost", title: "Cost", filterable: false, width: headerUnitWith2, format: "{0:N2}", attributes: { class: "cell-number" },
+                        headerTemplate: buildHeaderTemplate2("Cost", "$ mln") , footerTemplate: "#: kendo.toString(sum,'n2') #"
+                    },
+            ]
+        },
+
+
+         {
+             title: "Opportunity", columns: [
+                    {
+                        field: "DaysPlanImprovement", title: "Days", filterable: false, width: headerUnitWith2, format: "{0:N2}", attributes: { class: "cell-number" },
+                        headerTemplate: buildHeaderTemplate2("Days", "days"), footerTemplate: "#: kendo.toString(sum,'n2') #"
+                    },
+                    {
+                        field: "CostPlanImprovement", title: "Cost", filterable: false, width: headerUnitWith2, format: "{0:N2}", attributes: { class: "cell-number" },
+                        headerTemplate: buildHeaderTemplate2("Cost", "$ mln"), footerTemplate: "#: kendo.toString(sum,'n2') #"
+                    },
+             ]
+         },
+
+          {
+              title: "Risk", columns: [
+                {
+                    field: "DaysPlanRisk", title: "Days", filterable: false, width: headerUnitWith2, format: "{0:N2}", attributes: { class: "cell-number" },
+                    headerTemplate: buildHeaderTemplate2("Days", "days"), footerTemplate: "#: kendo.toString(sum,'n2') #"
+                },
+                {
+                    field: "CostPlanRisk", title: "Cost", filterable: false, width: headerUnitWith2, format: "{0:N2}", attributes: { class: "cell-number" },
+                    headerTemplate: buildHeaderTemplate2("Cost", "$ mln"), footerTemplate: "#: kendo.toString(sum,'n2') #"
+                }
+              ]
+          },
+    ];
+    model.TemplateWaterfallColor = function (point) {
+        if (point.dataItem.Completion != "Realized") {
+            switch (point.dataItem.Status) {
+                case "Completed Event":
+                    return "red";
+                    break;
+                default:
+                    return "blue";
+                    break;
+            }
+        } else {
+            return "green";
+        }
+        
+    };
+
+    model.SetScatterXLabel = function (v) {
+        //console.log(v);
+        //console.log(typeof v);
+        return moment(new Date()).add(v, "days").format("DD-MMM-YYYY");
+    }
+
+    function regenerateDistributionChart() {
+        setTimeout(function () {
+            var datas;
+            if (model.DataScatterPlot().IncludeRealized() && model.DataScatterPlot().IncludeUnRealized()) {
+                 datas = model.DataScatterPlot().Data();
+            } else if (model.DataScatterPlot().IncludeRealized()) {
+                //only realized
+                datas = _.where(model.DataScatterPlot().Data(), { Completion: "Realized" });
+            } else if (model.DataScatterPlot().IncludeUnRealized()) {
+                //only unrealized
+                datas = _.filter(model.DataScatterPlot().Data(), function (e) { return e.Completion != "Realized"; });
+            }else{
+                datas = [];
+            }
+            generateDistributionChart(datas);
+        },100);
+        
+    }
+
+    function generateDistributionChart(datas,divid,title) {
+
+        var minX = model.DataScatterPlot().minX();
+        var maxX = model.DataScatterPlot().maxX();
+        var minY = model.DataScatterPlot().minY();
+        var maxY = model.DataScatterPlot().maxY();
+
+        if (maxY < 25) maxY = 25;
+        if (minY > -25) minY = -25;
+        if (maxX < 25) maxX = 25;
+        if (minX > -25) minX = -25;
+
+        $("#"+divid).find($(".chart")).kendoChart({
+            title: {
+                text: title
+            },
+            legend: {
+                visible: false
+            },
+            dataSource: {
+                data: jsonObjsConvDate(datas),
+                schema: {
+                    model: {
+                        fields: {
+                            "Period.Finish": {
+                                type: "date"
+                            }
+                        }
+                    }
+                }
+            },
+            seriesDefaults: {
+                type: "scatter"
+            },
+            series: [{
+                xField: "ValueX",
+                yField: "ValueY",
+                color: model.TemplateWaterfallColor
+            }],
+            xAxis: {
+                max: maxX, //+ (maxX * 0.5),
+                min: minX,// + (minX * 0.5),
+                labels: {
+                    font: "12px sans-serif",
+                    template: "#: model.SetScatterXLabel(value) #",
+                    rotation: 45
+                },
+                title: {
+                    text: ""
+                },
+            },
+            yAxis: {
+                max: maxY + (maxY * 0.2),
+                min: minY + (minY * 0.2),
+                labels: {
+                    font: "12px sans-serif",
+                    template: "#: kendo.toString(value, 'n3') #",
+                    //rotation: 45
+                },
+                title: {
+                    text: ""//model.DataPoint()
+                }
+            },
+            tooltip: {
+                visible: true,
+                template: "#= '<b>' + dataItem.Element + '<br>'+ jsonDateStr(dataItem.Period.Finish) + '<br>'+ dataItem.RigName + '<br>'+dataItem.WellName + '<br>'+dataItem.ActivityType + '<br>' + valueTooltip(value.y)  +'</b>' #"
+            },
+            chartArea: {
+                height: 300
+            },
+            seriesClick: onSeriesClick
+        });
+    }
+
+    function valueTooltip(v) {
+        return v > 1 || v < -1 ? kendo.toString(v, 'n0') : kendo.toString(v, 'n1');
+    }
+
+
+    function onSeriesClick(e) {
+        console.log(e);
+        var title = e.sender.options.title.text;
+        var completion = e.dataItem.Completion;
+        var type = "realized";
+        if (completion != "Realized") {
+            if (e.dataItem.Status == "Completed Event") {
+                type = "unrealized-completed";
+            } else {
+                type = "unrealized-inprogress";
+            }
+        }
+
+        var dateStart = e.dataItem.Period.Start;
+        var dateFinish = e.dataItem.Period.Finish;
+        console.log(dateStart);
+        var x = model.modalDetail();
+        x.title(title);
+        $("#ActivityStart").data("kendoDatePicker").value(moment(dateStart).format("DD-MMM-YYYY"));
+        $("#ActivityEnd").data("kendoDatePicker").value(moment(dateFinish).format("DD-MMM-YYYY"));
+
+        x.dateStart(moment(dateStart).format("DD-MMM-YYYY"));
+        x.dateFinish(moment(dateFinish).format("DD-MMM-YYYY"));
+        x.type(type);
+
+        $("#modalDetail").modal("show");
+        getDataDetails();
+    }
+
+    function getDataDetails() {
+        var getFilter = model.getFilterValues();
+        var x = model.modalDetail();
+        var PIPType = getFilter.PIPType;
+        var param = {};
+        param.dateStart = x.dateStart;
+        param.dateFinish = x.dateFinish;
+        param.type = x.type;
+        param.isCR = true;
+        if (PIPType == "Project PIP") {
+            param.isCR = false
+        }
+
+        x.isProcessing(true);
+        ajaxPost("@Url.Action("GetElementsDetail", "PIPAnalysis")", param, function (data) {
+
+            x.isProcessing(false);
+
+            var ds = new kendo.data.DataSource({
+                data: data.Data,
+                aggregate: [
+                    { field: "DaysPlanImprovement", aggregate: "sum", format: "{0:0.00}" },
+                    { field: "DaysPlanRisk", aggregate: "sum", format: "{0:0.00}" },
+                    { field: "CostPlanImprovement", aggregate: "sum", format: "{0:0.00}" },
+                    { field: "CostPlanRisk", aggregate: "sum", format: "{0:0.00}" },
+                    { field: "DaysCurrentWeekImprovement", aggregate: "sum", format: "{0:0.00}" },
+                    { field: "DaysCurrentWeekRisk", aggregate: "sum", format: "{0:0.00}" },
+                    { field: "CostCurrentWeekImprovement", aggregate: "sum", format: "{0:0.00}" },
+                    { field: "CostCurrentWeekRisk", aggregate: "sum", format: "{0:0.00}" },
+                    { field: "LEDays", aggregate: "sum", format: "{0:0.00}" },
+                    { field: "LECost", aggregate: "sum", format: "{0:0.00}" }
+                ],
+                schema: {
+                    //data: "Phases",
+                    model: {
+                        //id: "ElementId",
+                        fields: {
+                            "Title": { type: "string" },
+                            "PeriodStart": { type: "date" },
+                            "PeriodFinish": { type: "date" },
+                            "DaysPlanImprovement": { type: "number" },
+                            "DaysPlanRisk": { type: "number" },
+                            "CostPlanImprovement": { type: "number" },
+                            "CostPlanRisk": { type: "number" },
+                            "ElementId": { type: "number", editable: false },
+                            "ActionParties": { editable: false },
+                            "DaysCurrentWeekImprovement": { editable: false },
+                            "CostCurrentWeekImprovement": { editable: false },
+                            "DaysCurrentWeekRisk": { editable: false },
+                            "CostCurrentWeekRisk": { editable: false },
+                            "Completion": { editable: false },
+                            "LEDays": { editable: false },
+                            "LECost": { editable: false }
+                        }
+                    },
+                },
+                sort: {
+                    field: "RigName",
+                    dir: "asc"
+                },
+                pageSize: 10
+            });
+            //$("#gridDetails").data("kendoGrid").setDataSource(ds);
+
+            $("#gridDetails").kendoGrid({
+                columns: gridColumns,
+                pageable: true,
+                sortable: true,
+                dataSource: ds
+            });
+
+
+
+        },
+        function (err) {
+            alert(err.responseText);
+            x.isProcessing(false);
+        });
+    }
+
+    function generateMovingChart(divid, datas, title, min, max) {
+        var color;
+        if (divid == "movingChartRealized") {
+            color = "green";
+        } else if (divid == "movingChartUnRealizedCompleted") {
+            color = "red";
+        } else {
+            color = "blue";
+        }
+        $("#"+divid).find($(".chart")).kendoChart({
+            dataSource: {
+                data: datas
+            },
+            title: {
+                align: "center",
+                text: ""
+            },
+            legend: {
+                visible: false
+            },
+            seriesDefaults: {
+                type: "column",
+                labels: {
+                    visible: false,
+                    background: "transparent"
+                }
+            },
+            series: [{
+                field: "value",
+                tooltip: {
+                    visible: true,
+                    //background: "green"
+                    template: "#= category  #: #= kendo.toString(value, 'n2') #",
+                    font: "10px sans-serif"
+                },
+                color: color,
+                labels: {
+                    visible: true,
+                    template: "#: kendo.toString(value,'n2') #",
+                    rotation: -45,
+                    font: "9px sans-serif"
+                }
+            }],
+            valueAxis: {
+                //max: max,
+                //max: min,
+                majorGridLines: {
+                    visible: false
+                },
+                visible: false,
+                max: max < 0 ? max - (0.2 * max) : max + (0.2 * max),
+                min: min < 0 ? min + (0.2 * min) : min - (0.2 * min)
+            },
+            categoryAxis: {
+                field: "category",
+                majorGridLines: {
+                    visible: false
+                },
+                line: {
+                    visible: true
+                },
+                labels: {
+                    visible: true,
+                    rotation: 90,
+                    font: "9px sans-serif"
+                }
+            },
+            chartArea: {
+                width: 0.9 * $("#wd2").width(),
+                height: 300
+            },
+        });
+    }
+</script>

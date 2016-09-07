@@ -1,0 +1,242 @@
+﻿<style>
+    .k-grid tr th {
+        border: 0.1px solid #DDDDDD;
+    }
+    .k-grid-header th.k-header:first-child {    
+        border-left-width: 0.1px;
+    }
+    
+</style>
+<script>
+    var arr = [];
+    for (var i = 2014; i < 2040; i++) {
+        arr.push(i);
+    }
+
+    model.YearStart = ko.observableArray(arr);
+    model.YearFinish = ko.observableArray(arr);
+
+    model.ProratedLE = ko.observable({
+        IsProcessing: ko.observable(false),
+        DummyData: [
+            {
+                "WellName": "WellName", "ActivityType": "Abandonment",
+                "LSSchedule": { "Start": "01-Dec-2016", "Finish": "10-Mar-2017" },
+                "LE": { "Days": 100, "Cost": 150 },
+                "OP": { "Days": 90, "Cost": 120 },
+                "DetailsByYear": [
+                    { "Year": 2016, "OP": { "Days": 31, "Cost": 41.3 }, "LE": { "Days": 34.4, "Cost": 51.7 }, "Performance": { "Days": -3.4, "Cost": -10.3 } },
+                    { "Year": 2017, "OP": { "Days": 59, "Cost": 78.7 }, "LE": { "Days": 65.6, "Cost": 98.3 }, "Performance": { "Days": -6.6, "Cost": -19.7 } }
+                ]
+            }
+        ],
+        DummyYears: [2016, 2017],
+        YearStart: ko.observable(model.YearStart()[0]),
+        YearFinish: ko.observable(model.YearFinish()[0]),
+    });
+    $(function () {
+        $('[href=#prorated-le]').on('click', function () {
+            setTimeout(function () {
+                $('#grid_prorate_le').data('kendoGrid').refresh();
+            }, 300);
+        });
+
+        //$('[data-model="YearStart"]').kendoDropDownList({
+        //    dataSource: model.YearStart(),
+        //    //value: model.YearStart()[0]
+        //});
+        //$('[data-model="YearFinish"]').kendoDropDownList({
+        //    dataSource: model.YearFinish(),
+        //    //value: model.YearFinish()[0]
+        //});
+
+        //model.ProratedLE().generateData();
+        //model.ProratedLE().renderGrid(model.ProratedLE().DummyData, model.ProratedLE().DummyYears);
+    });
+
+    model.ProratedLE().generateData = function () {
+        var param = model.getFilterValues();
+        //var dateStart = moment(new Date(param.FiscalYearStart, 1, 1)).startOf('year').toDate();
+        //var dateFinish = moment(new Date(param.FiscalYearFinish, 1, 1)).endOf('year').toDate();
+        param.FiscalYearStart = $('[data-model="YearStart"]').data('kendoDropDownList').value();
+        param.FiscalYearFinish = $('[data-model="YearFinish"]').data('kendoDropDownList').value();
+        var dateStart = param.FiscalYearStart + "-01-01";//moment(new Date(param.FiscalYearStart, 1, 1)).startOf('year').toDate();
+        var dateFinish = param.FiscalYearFinish + "-12-31"; //moment(new Date(param.FiscalYearFinish, 1, 1)).endOf('year').toDate();
+
+        param.dateRelation = "OR";
+        param.periodview = "Fiscal View";
+        param.dateStart = dateStart;
+        param.dateStart2 = dateStart;
+        param.dateFinish = dateFinish;
+        param.dateFinish2 = dateFinish;
+        param.firmoption = "All";
+
+        model.ProratedLE().IsProcessing(true);
+
+        ajaxPost("@Url.Action("TestProratingLEDashboard","test")", param, function (res) {
+            //console.log(res);
+            model.ProratedLE().renderGrid(res.Data.result, res.Data.Years);
+            model.ProratedLE().IsProcessing(false);
+        }, function (a, b, c) {
+            alert("Error when processing prorated LE Datas!")
+        });
+
+        @*
+        model.ProratedActual().IsProcessing(true);
+        ajaxPost("@Url.Action("TestProratingActualDashboard", "test")", param, function (res) {
+            //console.log(res);
+            model.ProratedActual().renderGrid(res.Data.result, res.Data.Years);
+            model.ProratedActual().IsProcessing(false);
+        }, function (a, b, c) {
+            alert("Error when processing prorated Actual Datas!")
+        });*@
+    }
+
+    model.ProratedLE().renderGrid = function (data, years) {
+        console.log(years);
+        var columns = [
+            {
+                field: "WellName", title: "WellName", width: 150,locked: true,
+                lockable: false, headerAttributes: {
+                    style: "height:94px;",
+                }
+            },
+            {
+                field: "ActivityType", title: "Activity Type", width: 170, locked: true, headerAttributes: {
+                    style: "height:94px;",
+                }
+            },
+            {
+                field: "LSSchedule", title: "Latest Sequence",
+                columns: [
+                    {
+                        field: "LSSchedule.Start", title: "Start", width: 100, template: "#:jsonDateStr(LSSchedule.Start)#", locked: true,
+                    },
+                    {
+                        field: "LSSchedule.Finish", template: "#:jsonDateStr(LSSchedule.Finish)#", title: "Finish", width: 100, locked: true, 
+                    }
+                ]
+            },
+            //{ field: "LE", title: "LE", locked: true, lockable: true, columns: [{ field: "LE.Days", title: "Days", width: 100 }, { field: "LE.Cost", title: "Cost", width: 100 }] },
+            //{ field: "OP", title: "OP", locked: true, lockable: true, columns: [{ field: "OP.Days", title: "Days", width: 100 }, { field: "OP.Cost", title: "Cost", width: 100 }] },
+        ];
+        for (var i = 0; i < years.length; i++) {
+            columns.push({
+                field: "DetailsByYear", title: String(years[i]), columns: [
+                    {
+                        title: "OP",
+                        columns: [
+                            { field: "DetailsByYear[" + i + "].OP.Days", title: "Days", width: 80, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                            {
+                                field: "DetailsByYear[" + i + "].OP.Cost", title: "Cost<br>(US$ mm)", width: 80, attributes: { style: "text-align:right;" }, format: "{0:N1}",
+                            },
+                        ]
+                    },
+                    {
+                        title:"LE",
+                        columns:[
+                            { field: "DetailsByYear[" + i + "].LE.Days", title: "Days", width: 80, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                            { field: "DetailsByYear[" + i + "].LE.Cost", title: "Cost<br>(US$ mm)", width: 80, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                        ]
+                    },
+                    {
+                        title: "Actual",
+                        columns: [
+                            { field: "DetailsByYear[" + i + "].Actual.Days", title: "Days", width: 80, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                            { field: "DetailsByYear[" + i + "].Actual.Cost", title: "Cost<br>(US$ mm)", width: 80, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                        ]
+                    },
+                    {
+                        title: "Performance",
+                        columns: [
+                            { field: "DetailsByYear[" + i + "].Performance.Days", title: "Days", width: 85, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                            { field: "DetailsByYear[" + i + "].Performance.Cost", title: "Cost<br>(US$ mm)", width: 85, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                        ]
+                    },
+                    {
+                        title:"Actual Performance",
+                        columns:[
+                            { field: "DetailsByYear[" + i + "].ActualPerformance.Days", title: "Days", width: 85, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                            { field: "DetailsByYear[" + i + "].ActualPerformance.Cost", title: "Cost<br>(US$ mm)", width: 85, attributes: { style: "text-align:right" }, format: "{0:N1}" },
+                        ]
+                    }
+                    
+                ]
+            });
+        }
+
+        $('#grid_prorate_le').replaceWith($('<div />').attr('id', 'grid_prorate_le'));
+        $('#grid_prorate_le').kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "Prorating_Performance_Fiscal_View.pdf" , allPages: true },
+            excel: { fileName: "Prorating_Performance_Fiscal_View.xlsx", allPages: true },
+            dataSource: {
+                schema: {
+                    model: {
+                        LSSchedule: 'date'
+                    }
+                },
+                data: data,
+                type: "json",
+                pageSize: 10,
+                //aggregate: [
+                //    { field: "OP", aggregate: "sum" },
+                //    { field: "AFE", aggregate: "sum" },
+                //    { field: "LE", aggregate: "sum" }
+                //]
+            },
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            height: 400,
+            columns: columns,
+            scrollable: true,
+            excelExport: function (e) {
+                var sheet = e.workbook.sheets[0];
+                //var row = sheet.rows[4];
+                rowsTarget = [2, 3];
+                var rows = sheet.rows[sheet.rows.length-1];
+                for (var i = 2; i < sheet.rows.length; i++) {
+                    for (var j in rowsTarget) {
+                        var col = rowsTarget[j];
+                        var value = sheet.rows[i].cells[col].value;
+                        sheet.rows[i].cells[col].value = moment(value).format("DD MMM YYYY");
+                    }
+                }
+            },
+        });
+
+      
+        setTimeout(function () {
+            $('#grid_prorate_le').data('kendoGrid').refresh();
+        }, 300);
+    }
+</script>
+<div data-bind="visible: model.ProratedLE().IsProcessing()">
+    @Html.Partial("_processing")
+</div>
+<div data-bind="visible: !model.ProratedLE().IsProcessing()">
+    <div class="col-md-12" style="margin-bottom:10px;margin-top:15px;">
+        <div class="col-md-4" data-bind="">
+            <div class="col-md-4">
+                <label>Year Start :</label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="YearStart" data-bind="kendoDropDownList:{value:model.ProratedLE().YearStart,dataSource: model.YearStart()}" style="width: 100%;"></select>
+            </div>
+        </div>
+        <div class="col-md-4" data-bind="">
+            <div class="col-md-4">
+                <label>Year Finish :</label>
+            </div>
+            <div class="col-md-8">
+                <select data-model="YearFinish" data-bind="kendoDropDownList:{value:model.ProratedLE().YearFinish,dataSource: model.YearFinish()}" style="width: 100%;"></select>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-12 grids" style="margin-bottom:20px;">
+        <div style="color:red;"></div>
+        <div id="grid_prorate_le"></div>
+    </div>
+</div>
+<div class="clearfix"></div>

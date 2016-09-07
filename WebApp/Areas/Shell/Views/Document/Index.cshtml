@@ -1,0 +1,172 @@
+﻿@{
+    ViewBag.Title = "Well Activity Document";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Client.WEIS
+@using Newtonsoft.Json
+@using ECIS.Core
+
+<script>
+    model.PageId("Weekly Report");
+    model.IsProcessing = ko.observable(false);
+    model.ShowBrowser = ko.observable(true);
+    model.ShowEditForm = ko.observable(false);
+    model.selectedWellId = ko.observable();
+
+</script>
+
+<style>
+    #grid .k-header.k-grid-toolbar {
+        background-color: #F9F9FB;
+    }
+
+        #grid .k-header.k-grid-toolbar .k-button {
+            background-color: #f4b350;
+            border-color: #E2A952;
+        }
+
+    #grid .k-header[role=columnheader] {
+        vertical-align: middle;
+    }
+
+        #grid .k-header[role=columnheader][data-field=_id] {
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-field=OpsDuration],
+        #grid .k-header[role=columnheader][data-field=PhRiskDuration] {
+            vertical-align: bottom;
+            text-align: center;
+        }
+
+        #grid .k-header[role=columnheader][data-colspan] {
+            text-align: center;
+            font-weight: bold;
+            color: #a8a8a8;
+        }
+
+    #grid [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] {
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+</style>
+
+<div style="padding: 0px 15px 15px;" data-bind="visible:ShowBrowser">
+    <!-- filters -->
+    @Html.Partial("Filter")
+
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <!-- grid -->
+    <div class="col-md-12 no-padding" data-bind="visible: !model.IsProcessing()">
+        <div id="grid"></div>
+    </div>
+    <div style="clear: both;"></div>
+
+</div>
+
+<div data-bind="visible:ShowEditForm">
+    @*@Html.Partial("_Edit")*@
+</div>
+
+
+
+<script>
+    model.FilterVisibility.Date(true);
+    model.FilterVisibility.Date2(true);
+
+    function jsonDateStrH(date) {
+        return moment(jsonDateStr(date), 'DD-MMM-YYYY').format("DD MMM YY");
+    }
+
+    // generate the grid
+    function renderGridUsingData(data) {
+
+        $('#grid').replaceWith($('<div />').attr('id', 'grid'));
+        $('#grid').kendoGrid({
+            //toolbar: ["pdf"],
+            //pdf: { fileName: "EOW Execution Variance Grid.pdf" },
+            dataSource: {
+                data: data,
+                type: "json",
+                pageSize: 10
+            },
+            pageable: true,
+            sortable: true,
+            resizable: true,
+            columns: [
+                { field: "WellName", title: "Well Name", width:200 },
+                { field: "ActivityType", title: "Activity Type", width: 250 },
+                { field: "UpdateVersion", title: "Update Version", width: 100, template: "#: jsonDateStr(UpdateVersion) #" },
+                //{ field: "FileName", title: "File Name" },
+                {
+                    field: "_id", title: "File Info", filterable: false,
+                    template: function (dataItem) {
+                        if (dataItem.Type == "File") {
+                            var info = "<div><strong>Type: </strong>File Upload (" + dataItem.ContentType + ")<br><strong>File Name: </strong>" + dataItem.FileName + "<br><strong>Size: </strong>" + dataItem.FileSize + " bytes</div>";
+                        } else {
+                            var info = "<div><strong>Type: </strong>Share Point Link<br><strong>Link: </strong>" + dataItem.Link + "</div>";
+                        }
+                        return info;
+                    }
+                },
+                {
+                    field: "FileNo", title: "Action", filterable: false, width: 100,
+                    template: function (dataItem) {
+                        //console.log(dataItem);
+                        if (dataItem.Type == "File") {
+                            return "<button class='btn btn-warning btn-xs' onclick='DownloadDocument(\"" + dataItem.FileNo + "\",\"" + dataItem.ActivityUpdateId + "\")'>Download</button>"
+                        } else {
+                            if (typeof dataItem.Link === 'string') {
+                                return "<a target='_blank' class='btn btn-primary btn-xs' href='" + dataItem.Link + "'>Go To Link</a>";
+                            } else {
+                                return "Link is not set";
+                            }
+                        }
+                    }
+                },
+                //{ field: "Download", title: "Download", width:100, template: "<button class='btn btn-danger btn-xs' onclick='DownloadDocument(#=FileNo#,\"#=ActivityUpdateId#\")'>Download</button>" },
+                //{ field: "RigName", title: "Rig", width: 120, template: "<a style='cursor:pointer' onclick='editWellInfo(#: _id #)'>#: RigName #</a>" },
+                //{ field: "WellName", title: "Well" },
+            ]
+        });
+    }
+
+    // load data within filter supported
+    model.reloadData = function () {
+        if (model.IsProcessing()) return;
+        model.IsProcessing(true);
+        ajaxPost("@Url.Action("GetWellForDocument", "Dashboard")", model.getFilterValues(), function (res) {
+            model.IsProcessing(false);
+            renderGridUsingData(res.Data);
+            console.log(res);
+        });
+    }
+
+    // prepare everything
+    $(document).ready(function () {
+
+        model.reloadData();
+
+    });
+    function DownloadDocument(FileNo, ActivityUpdateId) {
+        var url = '@Url.Action("DownloadDocument","WeeklyReport")' + "?ActivityUpdateId=" + ActivityUpdateId + "&FileNo=" + FileNo;
+        document.location.href = url;
+    }
+
+    function editWellInfo(id) {
+        model.ShowBrowser(false);
+        model.ShowEditForm(true);
+        model.selectedWellId(id);
+        //alert(model.selectedWellId());
+        select();
+    }
+
+</script>

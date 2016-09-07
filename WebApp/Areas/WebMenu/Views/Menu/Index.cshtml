@@ -1,0 +1,53 @@
+﻿
+@{
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+<div class="col-lg-12">
+    <!--tab nav start-->
+    <section class="panel">
+        <h4><span class="glyphicon glyphicon-cog"></span> Menu Configuration</h4>
+        <input type="hidden" id="collection_name" value="Main_Menu"/>
+        <header class="panel-heading">
+            <ul class="nav nav-tabs">
+                <li class="active">
+                    <a data-toggle="tab" href="#tab_menu" name="Main_Menu">
+                        <span class="glyphicon glyphicon-th-large"></span>
+                        Main Menu
+                    </a>
+                </li>
+                <li>
+                    <a data-toggle="tab" href="#tab_menu" name="User_Menu">
+                        <span class="glyphicon glyphicon-user"></span>
+                        User Menu
+                    </a>
+                </li>
+                <li>
+                    <a data-toggle="tab" href="#tab_menu" name="Context_Menu">
+                        <span class="glyphicon glyphicon-qrcode"></span>
+                        Context Menu
+                    </a>
+                </li>
+            </ul>
+        </header>
+        <div class="panel-body">
+            <div class="tab-content">
+                <div id="tab_menu" class="tab-pane active">
+                    @Html.Partial("_Main")
+                </div>
+            </div>
+        </div>
+    </section>
+    <!--tab nav start-->
+</div>
+<script type="text/javascript">
+    $('.nav-tabs a').click(function (e) {
+        var href = $(this).attr("href");
+        if (href[0] == "#") {
+            var name = $(this).attr("name");
+            $("#collection_name").val(name);
+            menu_model.collection_name(name);
+            menu_model.reset(); 
+        }
+    })
+</script>

@@ -1,0 +1,155 @@
+﻿<div style="padding: 0px 30px 20px; margin-top: 10px;" class="grid">
+    <div class="grid-waterfall-data"></div>
+</div>
+
+<style>
+    .grid-waterfall-data .k-header.k-grid-toolbar { background-color: #F9F9FB; }
+    .grid-waterfall-data .k-header.k-grid-toolbar .k-button { background-color: #f4b350; border-color: #E2A952; }
+    .grid-waterfall-data .k-header[role=columnheader] { vertical-align: middle; }
+    .grid-waterfall-data .k-header[role=columnheader][data-colspan] { text-align: center; font-weight: bold; color: #a8a8a8; }
+    .grid-waterfall-data [role=rowgroup] [role=row]:nth-child(n+2) [role=columnheader] { text-align: center; vertical-align: top; }
+</style>
+
+<script>
+    function createWaterfallData(wfmodel) {
+        var url = "@Url.Action("GetWaterfallDataForGrid")";
+        ajaxPost(url, wfmodel,
+            function (data) {
+                if (data.Result != "OK") {
+                    showErr(data.Message + data.Trace);
+                    return;
+                }
+
+                renderGrid(data.Data);
+            },
+            showErr)
+    }
+
+    function renderGrid(data) {
+        var columns = (function () {
+            var buildColumn = function (field, title) {
+                title = (typeof title === 'undefined' ? field : title);
+
+                return {
+                    field: field + (model.waterfall().DayOrCost() === 'Day' ? 'Days' : 'Cost'),
+                    title: "<b>" + title + "</b><br />" + (model.waterfall().DayOrCost() === 'Day' ? 'Days' : 'Cost (US$ m)'),
+                    width: 90,
+                    format: ("{0:N" + (model.waterfall().DayOrCost() === 'Day' ? 0 : 1) + "}"),
+                    attributes: { style: 'text-align:right;' },
+                    aggregates: ["sum"],
+                    //footerTemplate: "<div style='text-align: right;'>#= kendo.toString(parseFloat(sum).toFixed(2), 'n2') #</div>"
+                    footerTemplate: "<div style='text-align: right;'>#=kendo.format('{0:N1}',sum)#</div>" //"<div style='text-align: right;'>#= kendo.toString(parseFloat(sum).toFixed(2), 'n2') #</div>"
+                    
+                };
+            };
+
+            var c = [
+                { field: "WellName", title: "Well" },
+                { field: "ActivityType", title: "Activity" },
+                { field: "RigName", title: "Rig" },
+                { field: "Type", title: "Type", width:100 },
+            ];
+
+            var selectedLayout = model.waterfall().Layout();
+
+            //if (selectedLayout.indexOf("OP") > -1)
+                c.push(buildColumn("OP"));
+
+            c.push(buildColumn("PlanPIPOpp", "Plan PIP Opp"));
+            c.push(buildColumn("PlanPIPRisk", "Plan PIP Risk"));
+            
+            if (model.waterfall().IncludeGaps())
+                c.push(buildColumn("Gaps", "Gaps"));
+
+            if (selectedLayout.indexOf("TQ") > -1)
+                c.push(buildColumn("TQ"));
+
+            if (selectedLayout.indexOf("LE") > -1)
+                c.push(buildColumn("LE"));
+
+            return c;
+        }());
+
+        $('.grid-waterfall-data').replaceWith($('<div />').addClass('grid-waterfall-data'));
+        $('.grid-waterfall-data').kendoGrid({
+            toolbar: ["pdf", "excel"],
+            pdf: { fileName: "Waterfall Data.pdf" },
+            excel: { fileName: "Waterfall Data.xlsx", allPages: true, filterable: true },
+            dataSource: {
+                data: data,
+                type: "json",
+                aggregate: [
+                    { field: "GapsDays", aggregate: "sum" },
+                    { field: "OPDays", aggregate: "sum" },
+                    { field: "LEDays", aggregate: "sum" },
+                    { field: "TQDays", aggregate: "sum" },
+                    { field: "PlanPIPOppDays", aggregate: "sum" },
+                    { field: "PlanPIPRiskDays", aggregate: "sum" },
+
+                    { field: "GapsCost", aggregate: "sum" },
+                    { field: "OPCost", aggregate: "sum" },
+                    { field: "LECost", aggregate: "sum" },
+                    { field: "TQCost", aggregate: "sum" },
+                    { field: "PlanPIPOppCost", aggregate: "sum" },
+                    { field: "PlanPIPRiskCost", aggregate: "sum" },
+                ]
+            },
+            excelExport: function (e) {
+                //alert('asd');
+                var sheet = e.workbook.sheets[0];
+                var row = sheet.rows[0];
+                //console.log(row.cells.length);
+                //console.log(row.cells);
+                for (var i = 0; i < row.cells.length; i++) {
+                    //console.log(row.cells[i]);
+                    if (i == 2 || i == 3 || i == 4 || i == 5 || i == 6 || i == 7) {
+                        row.cells[i].value = row.cells[i].value.replace("<br />", " ");;
+                        row.cells[i].value = row.cells[i].value.replace("<b>", "");;
+                        row.cells[i].value = row.cells[i].value.replace("</b>", "");;
+                       // console.log(row.cells[2].value);
+                    }
+                }
+
+                var maxlength = sheet.rows.length;
+                //console.log(maxlength);
+                //console.log(maxlength - 1);
+                //console.log(sheet.rows[maxlength - 1]);
+                for (var i = 0; i < sheet.rows[maxlength - 1].cells.length; i++) {
+                  console.log(  sheet.rows[maxlength - 1].cells[i]);
+
+                  if (i == 2 || i == 3 || i == 4 || i == 5 || i == 6 || i == 7) {
+                      sheet.rows[maxlength - 1].cells[i].value = sheet.rows[maxlength - 1].cells[i].value.replace("<div style='text-align: right;'>", "");
+                      sheet.rows[maxlength - 1].cells[i].value = sheet.rows[maxlength - 1].cells[i].value.replace("</div>", "");
+                      console.log(sheet.rows[maxlength - 1].cells[i].value);
+                      sheet.rows[maxlength - 1].cells[i].value = parseFloat(sheet.rows[maxlength - 1].cells[i].value.replace(",",""));
+                      // console.log(row.cells[2].value);
+                  }
+                }
+                //for (var i = 1; i < sheet.rows.length; i++) {
+                //    var row = sheet.rows[i];
+
+                //    var dataItem = {
+                //        UnitPrice: row.cells[1].value
+                //    };
+
+                //    row.cells[1].value = template(dataItem);
+                //}
+
+            },
+            height: 245,
+            scrollable: true,
+            sortable: true,
+            resizable: true,
+            columns: columns
+        });
+
+        $(function () {
+            $('[href=#waterfall-data]').on('click', function () {
+                setTimeout(function () {
+                    $('.grid-waterfall-data').data('kendoGrid').refresh();
+                }, 500);
+            });
+        });
+    }
+
+</script>

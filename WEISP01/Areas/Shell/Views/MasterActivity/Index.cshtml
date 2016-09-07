@@ -1,0 +1,270 @@
+﻿@{
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using MongoDB.Bson;
+@using Newtonsoft.Json;
+@{
+
+    var ActivityCategories = DataHelper.Populate("WEISActivityCategory").Select(x => BsonHelper.GetString(x, "Title")).Distinct().ToList<string>();
+    var Activities = MasterActivity.Populate<MasterActivity>().Select(x => x._id.ToString()).Distinct().ToList<string>();
+}
+<style>
+    .text {
+        height: auto !important;
+        padding: 0px 4px !important;
+        margin: 0px 12px 0px 3px;
+    }
+</style>
+
+<script>
+    model.PageId("Administration");
+    model.IsProcessing = ko.observable(false);
+    model.MiniIsProcessing = ko.observable(false);
+
+    function OpenForm(id,edm,ActivityCategory)
+    {
+        $("#modal").modal('show');
+        $("#WEISName").val(id);
+        $("#EDMName").val(edm);
+        $("#isUpdate").val("1");
+        $("#WEISName").attr('readonly', true);
+        model.Master.ActivityCategory(ActivityCategory);
+    }
+
+    model.Master = {
+        Activities: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(Activities))),
+        ActivityCategories: ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(ActivityCategories))),
+        Title: ko.observable(""),
+        ActivityCategory: ko.observable(""),
+        FilterActivities: ko.observableArray([]),
+        Name: ko.observable(""),
+        SearchKeyword: ko.observable(""),
+        Add: function () {
+            model.Master.Name("");
+            $("#WEISName").val('');
+            $("#EDMName").val('');
+            $("#isUpdate").val('');
+            model.Master.ActivityCategory(model.Master.ActivityCategories()[0]);
+
+            $("#WEISName").attr('readonly', false);
+            $("#modal").modal("show");
+        },
+        Save: function () {
+            var form = $("#form").kendoValidator().data("kendoValidator");
+
+            isUpdate = $("#isUpdate").val();
+            EDMName = $("#EDMName").val();
+            WEISName = $("#WEISName ").val();
+
+
+
+
+            console.log("EDMName : " + EDMName);
+            console.log("WEISName : " + WEISName);
+            console.log("isUpdate : " + isUpdate);
+
+            if (!form.validate())
+                return;
+
+            model.MiniIsProcessing(true);
+            if (WEISName.trim() == "")
+            {
+                alert("WEIS Activity Name cannot be empty");
+            }
+            else
+            {
+                ajaxPost("@Url.Action("Save")", { _id: WEISName, EDMActivityId: EDMName, isupdate: isUpdate, ActivityCategory: model.Master.ActivityCategory() }, function (data) {
+                    model.MiniIsProcessing(false);
+
+                    if (data.Success == true) {
+                        $("#modal").modal("hide");
+                        model.Master.Refresh();
+                    } else {
+                        alert(data.Message);
+                    }
+                }, function () {
+                    model.MiniIsProcessing(false);
+                });
+                $("#WEISName").val('');
+                $("#EDMName").val('');
+                $("#isUpdate").val('');
+            }
+        },
+        Delete: function (id) {
+            if (confirm("Are you sure you want to delete this data ?") == true) {
+                model.IsProcessing(true);
+                //alert(id);
+                ajaxPost("@Url.Action("Delete")", { _id: id }, function (data) {
+                    model.IsProcessing(false);
+
+                    if (data.Success == true) {
+                        model.Master.Refresh();
+                        alert('Data deleted');
+                    } else {
+                        alert(data.Message);
+                    }
+                }, function () {
+                    model.IsProcessing(false);
+                });
+            }
+        },
+        Refresh: function () {
+            model.IsProcessing(true);
+            ajaxPost("@Url.Action("Populate")", { Activities:model.Master.FilterActivities() }, function (data) {
+                model.IsProcessing(false);
+                if (data.Result != "OK") {
+                    alert(data.Message);
+                    return;
+                }
+
+                var dataSource = new kendo.data.DataSource({
+                    data: data.Data,
+                    pageSize: 10,
+                    // schema: { model: { id: "_id", fields: { "StringId": { type: "string" }, "_id": { editable: false } } } },
+                    batch: true
+                });
+
+                $("#grid").data("kendoGrid").setDataSource(dataSource);
+            }, function () {
+                model.IsProcessing(false);
+            });
+        },
+        Column: function () {
+            return [
+                { field: "_id", title: "Activity Name", filterable: false, editable: false, template: "<div style='width:100%;height:100%;cursor:pointer'><a onclick='OpenForm(\"#: _id #\", \"#: EDMActivityId #\", \"#: ActivityCategory #\")'>#: _id #</a></div>" },
+                { field: "EDMActivityId", title: "EDM Activity Id", filterable: false },
+                { field: "ActivityCategory", title: "Activity Category", filterable: false },
+                { field: "_id", title: "Delete", editable: false, filterable: false, attributes: { class: "cell-date" }, width: 70, template: "<button type='button' class='btn btn-danger btn-custom btn-xs' onclick='model.Master.Delete(\"#: _id #\")'><span class='glyphicon glyphicon-remove-circle'></span> Delete</button>" }
+            ];
+        },
+        GetUpdatedData: function () {
+            var grid = $("#grid");
+            var updatedRecords = [];
+
+            grid.data("kendoGrid").dataSource._data.forEach(function (f) {
+                if (f.dirty) updatedRecords.push(f);
+            });
+
+            var updated = updatedRecords;
+            console.log(updated);
+            for (var a = 0; a < updated.length; a++) {
+                var b = updated[a];
+                for (i in b) if (b.hasOwnProperty(i)) {
+                    if (i.indexOf(".") > -1) {
+                        delete updated[a][i];
+                    }
+                }
+            }
+
+            return updated;
+        }
+    };
+</script>
+
+<script>
+    model.Master.Title("@ViewBag.Title".replace(/Master /g, ""));
+
+    model.Master.ActivityCategories.unshift(" ");
+    $(document).ready(function () {
+        $('.search').on('keyup', function (e) {
+            if (e.keyCode != 13) return;
+            model.Master.Refresh();
+        });
+        model.Master.Refresh();
+    });
+</script>
+
+<div style="padding: 0px 15px 15px;">
+    <div data-bind="visible: model.IsProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div class="ec-panel" data-bind="visible: !model.IsProcessing()">
+        <div class="ec-toolbar" style="margin-left:15px">
+            <div class="col-md-4 row">
+                <button class="btn btn-success btn-sm btn-custom" onclick="model.Master.Add()">
+                    <span class="glyphicon glyphicon-plus"></span> Add New
+                </button>
+                <div style="visibility:hidden" class="col-md-1 row">
+                    <button class="btn btn-primary btn-sm btn-custom" onclick="model.Master.Update()">
+                        <span class="glyphicon glyphicon-ok"></span> Save Changes
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="col-md-6">
+                    <label>Search :</label>
+                    <input type="text" class="text" style="" data-bind="kendoMultiSelect:{data:model.Master.Activities(),value:model.Master.FilterActivities}" />
+                </div>
+                <div class="col-md-6">
+                    <br />
+                    <button class="btn btn-primary btn-sm btn-custom" data-bind="click: model.Master.Refresh">
+                        <span class="glyphicon glyphicon-refresh"></span> Refresh
+                    </button>
+                </div>
+                
+            </div>
+            <div class="clearfix"></div>
+        </div>
+        <div class="col-md-12 no-padding">
+            <div class="grid" id="grid" data-bind="kendoGrid: { data: [], columns: model.Master.Column(), pageable: true, sortable: true, filterable: true }"></div>
+        </div>
+    </div>
+
+    <div data-bind="with: Master" class="modal fade myModal" id="modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div data-bind="visible: model.MiniIsProcessing()">
+                    @Html.Partial("_processing")
+                </div>
+                <div data-bind="visible: !model.MiniIsProcessing()">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title" id="myModalLabel" data-bind="text: 'Add New ' + Title()"></h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group form-group-sm form-wrapper" id="form">
+                            <div class="row">
+                                <label class="col-md-3">WEIS Activity Name</label>
+                                <div class="col-md-8">
+                                    <input type="text" style="width:100%;" id="WEISName" name="WEISName" required="required" data-bind=" attr: { placeholder: 'Type ' + Title() + ' here ...' }" /><input type="hidden" id="isUpdate" value="" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group form-group-sm form-wrapper" id="form">
+                            <div class="row">
+                                <label class="col-md-3">EDM Activity Name  </label>
+                                <div class="col-md-8">
+                                    <input type="text" style="width:100%;" id="EDMName" name="EDMName" required="required" data-bind="attr: { placeholder: 'Type ' + Title() + ' here ...' }" /> (seperate with comma, if value more than 1)
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group form-group-sm form-wrapper" id="form">
+                            <div class="row">
+                                <label class="col-md-3">Activity Category  </label>
+                                <div class="col-md-8">
+                                    <input type="text" style="width:100%;" id="ActivityCategory" name="ActivityCategory" required="required" data-bind="kendoDropDownList:{data:model.Master.ActivityCategories(),value:ActivityCategory}" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="clearfix"></div>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-custom btn-warning" data-dismiss="modal">
+                            <span class="glyphicon glyphicon-remove-circle"></span> Close
+                        </button>
+                        <button type="button" class="btn btn-custom btn-primary" onclick="model.Master.Save()">
+                            <span class="glyphicon glyphicon-ok"></span> Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,76 @@
+D:\Work\PROJECT\Shell\HealthCheck\bin\Debug\License\Aspose.Total.lic
+D:\Work\PROJECT\Shell\HealthCheck\bin\Debug\License\config.ecis
+D:\Work\PROJECT\Shell\HealthCheck\bin\Debug\License\key.ecis
+D:\Work\PROJECT\Shell\HealthCheck\bin\Debug\HealthCheck.exe.config
+D:\Work\PROJECT\Shell\HealthCheck\bin\Debug\HealthCheck.exe
+D:\Work\PROJECT\Shell\HealthCheck\bin\Debug\HealthCheck.pdb
+D:\Work\PROJECT\Shell\HealthCheck\bin\Debug\ECIS.Core.dll
+D:\Work\PROJECT\Shell\HealthCheck\bin\Debug\MongoDB.Bson.dll
+D:\Work\PROJECT\Shell\HealthCheck\bin\Debug\MongoDB.Driver.dll
+D:\Work\PROJECT\Shell\HealthCheck\bin\Debug\Newtonsoft.Json.dll
+D:\Work\PROJECT\Shell\HealthCheck\bin\Debug\MongoDB.Bson.xml
+D:\Work\PROJECT\Shell\HealthCheck\bin\Debug\MongoDB.Driver.xml
+D:\Work\PROJECT\Shell\HealthCheck\obj\Debug\HealthCheck.csprojResolveAssemblyReference.cache
+D:\Work\PROJECT\Shell\HealthCheck\obj\Debug\HealthCheck.exe
+D:\Work\PROJECT\Shell\HealthCheck\obj\Debug\HealthCheck.pdb
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\License\Aspose.Total.lic
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\License\config.ecis
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\License\key.ecis
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\HealthCheck.exe.config
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\HealthCheck.exe
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\HealthCheck.pdb
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\ECIS.Client.WEIS.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\ECIS.Core.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\MongoDB.Bson.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\MongoDB.Driver.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\Newtonsoft.Json.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\ECIS.Biz.Common.dll
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\ECIS.Client.WEIS.pdb
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\MongoDB.Bson.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\MongoDB.Driver.xml
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\obj\Debug\HealthCheck.csprojResolveAssemblyReference.cache
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\obj\Debug\HealthCheck.exe
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\obj\Debug\HealthCheck.pdb
+C:\Users\Yoga\Documents\EACIIT Project\Shell\Web\HealthCheck\bin\Debug\Oracle.ManagedDataAccessDTC.dll
+F:\WEIS\HealthCheck\bin\Debug\License\Aspose.Total.lic
+F:\WEIS\HealthCheck\bin\Debug\License\config.ecis
+F:\WEIS\HealthCheck\bin\Debug\License\key.ecis
+F:\WEIS\HealthCheck\bin\Debug\HealthCheck.exe.config
+F:\WEIS\HealthCheck\bin\Debug\HealthCheck.exe
+F:\WEIS\HealthCheck\bin\Debug\HealthCheck.pdb
+F:\WEIS\HealthCheck\bin\Debug\ECIS.Client.WEIS.dll
+F:\WEIS\HealthCheck\bin\Debug\ECIS.Core.dll
+F:\WEIS\HealthCheck\bin\Debug\MongoDB.Bson.dll
+F:\WEIS\HealthCheck\bin\Debug\MongoDB.Driver.dll
+F:\WEIS\HealthCheck\bin\Debug\Newtonsoft.Json.dll
+F:\WEIS\HealthCheck\bin\Debug\ECIS.Biz.Common.dll
+F:\WEIS\HealthCheck\bin\Debug\Aspose.Cells.dll
+F:\WEIS\HealthCheck\bin\Debug\ECIS.Client.WEIS.pdb
+F:\WEIS\HealthCheck\bin\Debug\MongoDB.Bson.xml
+F:\WEIS\HealthCheck\bin\Debug\MongoDB.Driver.xml
+F:\WEIS\HealthCheck\bin\Debug\Newtonsoft.Json.xml
+F:\WEIS\HealthCheck\obj\Debug\HealthCheck.csprojResolveAssemblyReference.cache
+F:\WEIS\HealthCheck\obj\Debug\HealthCheck.exe
+F:\WEIS\HealthCheck\obj\Debug\HealthCheck.pdb
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\License\Aspose.Total.lic
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\License\config.ecis
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\License\key.ecis
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\HealthCheck.exe.config
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\HealthCheck.exe
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\HealthCheck.pdb
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\ECIS.Client.WEIS.dll
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\ECIS.Core.dll
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\MongoDB.Bson.dll
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\MongoDB.Driver.dll
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\Newtonsoft.Json.dll
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\Oracle.ManagedDataAccess.dll
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\ECIS.Biz.Common.dll
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\Aspose.Cells.dll
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\Oracle.ManagedDataAccessDTC.dll
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\ECIS.Client.WEIS.pdb
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\MongoDB.Bson.xml
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\MongoDB.Driver.xml
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\bin\Debug\Newtonsoft.Json.xml
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\obj\Debug\HealthCheck.csprojResolveAssemblyReference.cache
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\obj\Debug\HealthCheck.exe
+D:\PROJECT EACIIT\SHELL WEIS\Web App\HealthCheck\obj\Debug\HealthCheck.pdb

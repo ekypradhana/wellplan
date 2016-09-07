@@ -1,0 +1,467 @@
+﻿<style>
+    .legend .col-md-6 {
+        height: 27px;
+        padding-top: 6px;
+    }
+    .legend .col-md-3 {
+        padding: 6px 2px;
+        text-align: center;
+        color: black;
+    }
+    .legend .clearfix {
+        height: 1px;
+        clear: both;
+    }
+    .legend {
+        margin-top: 120px;
+        margin-left: 10px;
+        width: 360px;
+        opacity: 0.8;
+        display: none;
+    }
+    .legend, .chart2, .chart3 {
+        float: left;
+    }
+    .chart2, .chart3 {
+        margin-bottom: 20px;
+    }
+    .waterfall-legend {
+        margin: 0px auto;
+        width: 960px;
+        margin-bottom: 20px;
+    }
+    .waterfall-legend .each {
+        float: left;
+        margin-right: 10px;
+    }
+    .waterfall-legend .each .color {
+        width: 40px;
+        height: 16px;
+        margin-right: 4px;
+    }
+    .waterfall-legend .each div {
+        float: left;
+    }
+    .waterfall-legend .each div.clearfix {
+        float: none;
+    }
+    .waterfall-legend .clearfix {
+        clear: both;
+    }
+</style>
+<script>
+    model.WaterfallStacked = {};
+    model.WaterfallStacked.ShowBy = ko.observable("Days");
+    model.WaterfallStacked.Colors = {
+        Negative: ["#92D050", "#00B050", "#00B0F0", "#92CDDC"],
+        Positive: ["#FF0000", "#FFC000", "#C00000", "#E26B0A"],
+    };
+    model.WaterfallStacked.GetColor = function (which, key) {
+        var colors = model.WaterfallStacked.Colors[which];
+        try {
+            var index = model.wrmodel().MasterClassifications().indexOf(key);
+            return colors[index];
+        } catch (err) {
+            return colors[0];
+        }
+    };
+
+    model.WaterfallStacked.GenerateChartConfigMeta = function () {
+        var base = ko.mapping.toJS(model.wrmodel().record());
+        var showBy = model.WaterfallStacked.ShowBy();
+        var running = 0;
+
+        var OP = base.Plan[showBy];
+        var LE = model.CalculatedLEof(showBy)();
+
+        if (showBy == "Cost") {
+            OP /= 1000000;
+        }
+
+        var putItemOnIndex = function (item, i) {
+            var template = [0, 0, 0, 0, 0, 0, 0, 0];
+            template[i] = item;
+            return template;
+        }
+
+        var categories = [];
+        var series = [];
+        var index = 0;
+
+        // =========================== OP
+
+        series.push({
+            type: "column",
+            color: "#002060",
+            data: putItemOnIndex(OP, index),
+            width: 1,
+            markers: { visible: false },
+            tooltip: {
+                visible: true,
+                template: "OP-14: #: kendo.format('{0:N2}', value) #"
+            },
+        });
+
+        running += OP;
+        index++;
+        categories.push("OP-14");
+
+        // =========================== Classifications
+
+        var groupedElements = _(base.Elements).groupBy(function (d) {
+            var currentWeek = d[showBy + "CurrentWeekImprovement"] + d[showBy + "CurrentWeekRisk"];
+            var key = (d.Completion == "Realized" ? "Realized" : "Not Yet Realized") + " " + (currentWeek < 0 ? "Negative" : "Positive");
+            return key;
+        });
+
+        function GetClassificationBy(realized, positive, indexPlacement) {
+            var series = [];
+            var seriesTotal = 0;
+
+            model.wrmodel().MasterClassifications().forEach(function (m, i) {
+                var elements = _.filter(groupedElements[realized + " " + positive], { Classification: m });
+                var value = 0;
+
+                if (elements.length > 0) {
+                    value = _.reduce(elements, function (m, n) {
+                        return m + n[showBy + "CurrentWeekImprovement"] + n[showBy + "CurrentWeekRisk"];
+                    }, 0);
+                }
+
+                var data = putItemOnIndex(Math.abs(value), indexPlacement);
+
+                series.push({
+                    type: "column",
+                    color: model.WaterfallStacked.GetColor(positive, m),
+                    data: data,
+                    width: 1,
+                    markers: { visible: false },
+                    tooltip: {
+                        visible: true,
+                        template: m + ": #: kendo.format('{0:N2}', " + value + ") #"
+                    },
+                });
+
+                seriesTotal += value;
+            });
+
+            return {
+                data: series,
+                total: seriesTotal
+            };
+        }
+
+        // =========================== Classifications Realized Negative (-)
+
+        var seriesRealizedNegative = GetClassificationBy("Realized", "Negative", index);
+
+        running += seriesRealizedNegative.total;
+
+        if (seriesRealizedNegative.total != 0) {
+            series.push({
+                type: "column",
+                color: "transparent",
+                data: putItemOnIndex(running, index),
+                width: 1,
+                border: { opacity: 0 },
+            });
+
+            series = series.concat(seriesRealizedNegative.data);
+            index++;
+            categories.push("Realized\nPIPs Opp");
+        }
+
+        // =========================== Classifications Realized Positive (+)
+
+        var seriesRealizedPositive = GetClassificationBy("Realized", "Positive", index);
+
+        if (seriesRealizedPositive.total != 0) {
+            series.push({
+                type: "column",
+                color: "transparent",
+                data: putItemOnIndex(running, index),
+                width: 1,
+                border: { opacity: 0 },
+            });
+
+            series = series.concat(seriesRealizedPositive.data);
+            index++;
+            categories.push("Realized\nPIPs Risk");
+        }
+
+        running += seriesRealizedPositive.total;
+
+        // =========================== Banked Savings
+
+        var bankedSavingsData = _(model.wrmodel().MasterClassifications()).map(function (c) {
+            var key = c.split(" ").map(function (e) { return e[0].toUpperCase() + e.substr(1) }).join("");
+            return {
+                title: c,
+                value: parseFloat(base["BankedSavings" + key][showBy])
+            };
+        });
+
+        var groupedBankedSavingsData = _.groupBy(bankedSavingsData, function (d) {
+            return (d.value < 0 ? "Negative" : "Positive")
+        });
+
+        ["Negative", "Positive"].forEach(function (d) {
+            if (!groupedBankedSavingsData.hasOwnProperty(d)) {
+                groupedBankedSavingsData[d] = [];
+            }
+        });
+
+        // =========================== Banked Savings Negative (-)
+
+        var seriesBankedSavingNegative = [];
+        var seriesBankedSavingNegativeTotal = 0;
+
+        groupedBankedSavingsData.Negative.forEach(function (d, i) {
+            seriesBankedSavingNegative.push({
+                type: "column",
+                color: model.WaterfallStacked.GetColor("Negative", d.title),
+                data: putItemOnIndex(Math.abs(d.value), index),
+                width: 1,
+                markers: { visible: false },
+                tooltip: {
+                    visible: true,
+                    template: d.title + ": #: kendo.format('{0:N2}', " + d.value + ") #"
+                },
+            });
+
+            seriesBankedSavingNegativeTotal += d.value;
+        });
+
+        running += seriesBankedSavingNegativeTotal;
+
+        if (seriesBankedSavingNegativeTotal != 0) {
+            series.push({
+                type: "column",
+                color: "transparent",
+                data: putItemOnIndex(running, index),
+                width: 1,
+                border: { opacity: 0 },
+            });
+
+            series = series.concat(seriesBankedSavingNegative);
+            index++;
+            categories.push("Additional Banked\nSavings Opp");
+        }
+
+        // =========================== Banked Savings Positive (+)
+
+        var seriesBankedSavingPositive = [];
+        var seriesBankedSavingPositiveTotal = 0;
+
+        groupedBankedSavingsData.Positive.forEach(function (d, i) {
+            seriesBankedSavingPositive.push({
+                type: "column",
+                color: model.WaterfallStacked.GetColor("Positive", d.title),
+                data: putItemOnIndex(d.value, index),
+                width: 1,
+                markers: { visible: false },
+                tooltip: {
+                    visible: true,
+                    template: d.title + ": #: kendo.format('{0:N2}', " + d.value + ") #"
+                },
+            });
+
+            seriesBankedSavingPositiveTotal += d.value;
+        });
+
+        if (seriesBankedSavingPositiveTotal) {
+            series.push({
+                type: "column",
+                color: "transparent",
+                data: putItemOnIndex(running, index),
+                width: 1,
+                border: { opacity: 0 },
+            });
+
+            series = series.concat(seriesBankedSavingPositive);
+            index++;
+            categories.push("Additional Banked\nSavings Risk");
+        }
+
+        running += seriesBankedSavingPositiveTotal;
+
+        // =========================== LE
+
+        series.push({
+            type: "column",
+            color: "#0070C0",
+            data: putItemOnIndex(LE, index),
+            width: 1,
+            markers: { visible: false },
+            tooltip: {
+                visible: true,
+                template: "LE: #: kendo.format('{0:N2}', value) #"
+            },
+        });
+
+        running = LE;
+        index++;
+        categories.push("LE");
+
+        // =========================== Classifications Not Yet Realized Negative (-)
+
+        var seriesNotYetRealizedNegative = GetClassificationBy("Not Yet Realized", "Negative", index);
+
+        running += seriesNotYetRealizedNegative.total;
+
+        if (seriesNotYetRealizedNegative.total != 0) {
+            series.push({
+                type: "column",
+                color: "transparent",
+                data: putItemOnIndex(running, index),
+                width: 1,
+                border: { opacity: 0 },
+            });
+
+            series = series.concat(seriesNotYetRealizedNegative.data);
+            index++;
+            categories.push("Unrealized\nPIPs Opp");
+        }
+
+        // =========================== Classifications Not Yet Realized Positive (+)
+
+        var seriesNotYetRealizedPositive = GetClassificationBy("Not Yet Realized", "Positive", index);
+
+        if (seriesNotYetRealizedPositive.total != 0) {
+            series.push({
+                type: "column",
+                color: "transparent",
+                data: putItemOnIndex(running, index),
+                width: 1,
+                border: { opacity: 0 },
+            });
+
+            series = series.concat(seriesNotYetRealizedPositive.data);
+            index++;
+            categories.push("Unrealized\nPIPs Risk");
+        }
+
+        running += seriesNotYetRealizedPositive.total;
+
+        // =========================== upside
+
+        if (running != 0) {
+            series.push({
+                type: "column",
+                color: "#333",
+                data: putItemOnIndex(running, index),
+                width: 1,
+                markers: { visible: false },
+            });
+
+            index++;
+            categories.push("Upside");
+        }
+
+        series.forEach(function (d) {
+            d.data.splice(index);
+        });
+
+        return {
+            categories: categories,
+            series: series
+        };
+    };
+
+    model.WaterfallStacked.GenerateChartConfig = function () {
+        var title = "Waterfall Chart - By " + model.WaterfallStacked.ShowBy();
+        var configMeta = model.WaterfallStacked.GenerateChartConfigMeta();
+        var config = {
+            title: title,
+            chartArea: {
+                background: "",
+                height: 400
+            },
+            seriesDefaults: {
+                type: "column",
+                stack: true,
+                overlay: {
+                    gradient: "none"
+                },
+                border: {
+                    opacity: 0.4
+                }
+            },
+            legend: { visible: true, position: "bottom" },
+            valueAxis: {
+                labels: { font: "10x verdana", format: "N2" },
+                majorGridLines: { visible: false }
+            },
+            categoryAxis: {
+                categories: configMeta.categories,
+                labels: { font: "10x verdana" },
+                majorGridLines: { visible: false }
+            },
+            series: configMeta.series,
+        };
+
+        return config;
+    }
+
+    model.WaterfallStacked.Refresh = function () {
+        var config = model.WaterfallStacked.GenerateChartConfig();
+
+        //$(".chart2").replaceWith('<div class="chart2"></div>');
+        $(".chart2").width($(".c-wrapper").width()).height(400);
+        $(".chart2").kendoChart(config);
+    };
+</script>
+
+<div id="chart-container">
+    <div class="ec-panel">
+        <div class="mini-nav bordered-mini-nav" style="width: 830px; margin: 0px auto;">
+            <div class="each-nav checkbox-nav">
+                <div>Show by :</div>
+                <div>
+                    <select data-bind="value: model.WaterfallStacked.ShowBy">
+                        <option value="Cost">Cost</option>
+                        <option value="Days">Days</option>
+                    </select>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="each-nav checkbox-nav no-border-nav">
+                <button class="btn btn-primary btn-xs" onclick="model.WaterfallStacked.Refresh()" style="margin-top: -2px;">Refresh</button>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+
+    <div class="chart2"></div>
+
+    <div class="waterfall-legend">
+        <div class="each">
+            <div class="color" style="background-color: #002060;"></div>
+            <div>OP-14</div>
+            <div class="clearfix"></div>
+        </div>
+        <!-- ko foreach: model.wrmodel().MasterClassifications() -->
+        <div class="each">
+            <div class="color" data-bind="style: { 'background-color': model.WaterfallStacked.GetColor('Negative', $data) }"></div>
+            <div data-bind="text: $data + ' -'"></div>
+            <div class="clearfix"></div>
+            <div style="float: none; margin-bottom: 2px;"></div>
+            <div class="color" data-bind="style: { 'background-color': model.WaterfallStacked.GetColor('Positive', $data) }"></div>
+            <div data-bind="text: $data + ' +'"></div>
+            <div class="clearfix"></div>
+        </div>
+        <!-- /ko -->
+        <div class="each">
+            <div class="color" style="background-color: #0070C0;"></div>
+            <div>LE</div>
+            <div class="clearfix"></div>
+        </div>
+        <div class="each">
+            <div class="color" style="background-color: #333;"></div>
+            <div>Upside</div>
+            <div class="clearfix"></div>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="clearfix"></div>
+</div>

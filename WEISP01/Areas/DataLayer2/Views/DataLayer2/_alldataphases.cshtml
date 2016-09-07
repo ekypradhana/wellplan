@@ -1,0 +1,19 @@
+﻿<style>
+    .no-padding {
+        padding: 0px;
+        margin: 0px;
+    }
+</style>
+
+<div class="col-md-12 no-padding">
+    <button class="btn btn-md btn-warning" onclick="BackToMain()" style="margin-bottom:10px">Back</button>
+    <span class="btn btn-xs btn-info" style="cursor:none;margin-left:35%;padding-top:5px;padding-bottom:5px;padding-left:10px;padding-right:10px"><span data-bind="text:TabInfo"></span></span>
+    <div id="gridalldata"></div>
+</div>
+<script>
+    function BackToMain() {
+        model.VisibleDataPhases(false);
+    }
+</script>
+
+

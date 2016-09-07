@@ -1,0 +1,156 @@
+﻿@{
+    ViewBag.Title = "Project - RFM Table";
+    Layout = "~/Views/Shared/_common_v1.cshtml";
+}
+@using ECIS.Core;
+@using ECIS.Client.WEIS;
+@using MongoDB.Driver;
+@using MongoDB.Driver.Builders;
+@using Newtonsoft.Json;
+@{
+    var projectNames = DataHelper.Populate("WEISProjectNames").Select(d => Convert.ToString(d.GetString("_id"))).OrderBy(d => d);
+    var casegroup = DataHelper.Populate("WEISReferenceFactorModel").Select(d => Convert.ToString(d.GetString("GroupCase"))).Distinct().OrderBy(d => d);
+}
+
+<script>
+    model.PageId("Administration");
+    model.ProjectRFM = {}; var p = model.ProjectRFM; var n = p;
+    p.IsModalProcessing = ko.observable(false);
+
+    p.Project = ko.observableArray([]);
+    p.Projects = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(projectNames)));
+    p.ProjectNames = p.Projects;
+    p.ProjectName = ko.observable('');
+    
+    p.RFM = ko.observableArray([]);
+    p.RFMs = ko.observableArray([]);
+    p.RFMOptions = ko.observableArray(@MvcHtmlString.Create(JsonConvert.SerializeObject(casegroup)));
+    p.GroupCase = p.RFMOptions;
+
+    p.IsOnlyTagged = ko.observable(true);
+    p.IsNotTagged = ko.observable(true);
+
+    p.ShowModal = function (project) {
+        var target = _.find(g.Data(), { Project: project });
+        p.ProjectName(project);
+
+        if (target != undefined) {
+            n.GroupCase().forEach(function (d) {
+                var $input = $(".rfm .key:contains('" + d + "')").next();
+                $input.prop("checked", (target.RFMs.split(', ').indexOf(d) > -1));
+            });
+        }
+
+        $("#modal-link-to-project").modal("show");
+    };
+    p.CallbackFromProjectRFM = function () {
+        p.Refresh();
+    };
+
+    p.Grid = {}; var g = p.Grid;
+    g.Columns = [
+        { title: "Project", field: "Project" },
+        { title: "Reference Factor Models", field: "RFMs" },
+        { title: "", template: "<button class='btn btn-xs btn-custom btn-primary' onclick='p.ShowModal(\"#: Project #\")'><span class='glyphicon glyphicon-edit'></span> Edit</button>", width: 100, attributes: { style: 'text-align: center;' } },
+    ];
+    g.Data = ko.observableArray([]);
+
+    p.Refresh = function () {
+        model.Processing(true);
+
+        var url = "@Url.Action("GetProjectRFMData")";
+        var param = {
+            Projects: p.Project(),
+            RFMs: p.RFM(),
+            IsOnlyTagged: p.IsOnlyTagged(),
+            IsNotTagged: p.IsNotTagged(),
+        };
+
+        ajaxPost(url, param, function (res) {
+            model.GetCalculationStatus();
+
+            if (res.Result != "OK") {
+                alert(res.Message);
+                model.Processing(false);
+                return;
+            }
+
+            model.Processing(false);
+            g.Data(res.Data);
+        });
+    };
+
+    n.CanEdit = ko.observable(true);
+
+    $(function () {
+        p.Refresh();
+
+        $("#modal-link-to-project select.rfms").data("kendoDropDownList").enable(false);
+    });
+</script>
+
+<div class="col-md-12" data-bind="with: model.ProjectRFM">
+    <div class="control">
+        <div class="col-md-4">
+            <div class="col-md-4 align_right">
+                <label>Project :</label>
+            </div>
+            <div class="col-md-8">
+                <input data-bind="kendoMultiSelect: { data: Projects, value: Project, placeholder: 'Project ...',filter: 'contains' }" />
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="col-md-4 align_right">
+                <label>RFM :</label>
+            </div>
+            <div class="col-md-8">
+                <input data-bind="kendoMultiSelect: { data: RFMOptions, value: RFM, placeholder: 'RFM ...',filter: 'contains' }" />
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="col-md-2">&nbsp;</div>
+            <div class="col-md-10" style="margin-top: -8px;">
+                <div style="margin-right: 20px;">
+                    <input type="checkbox" data-bind="checked: IsOnlyTagged" /> Only Tagged
+                </div>
+                <div>
+                    <input type="checkbox" data-bind="checked: IsNotTagged" /> Not Tagged
+                </div>
+            </div>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="control">
+        <div class="col-md-4">
+            <div class="col-md-4">&nbsp;</div>
+            <div class="col-md-8">
+                <button class="btn btn-sm btn-primary btn-custom" data-bind="click: Refresh">
+                    <span class="glyphicon glyphicon-refresh"></span> Refresh
+                </button>
+            </div>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+
+    <div data-bind="visible: IsModalProcessing()">
+        @Html.Partial("_processing")
+    </div>
+
+    <div data-bind="visible: !IsModalProcessing()">
+        <div data-bind="kendoGrid: { columns: Grid.Columns, data: Grid.Data, dataSource: { pageSize: 15 }, pageable: true, filterable: false, resizable: false, sortable: true }"></div>
+    </div>
+</div>
+
+@Html.Partial("../AdministrationInput/_BusPlanCalculationNotifier")
+
+@Html.Partial("_LinkProjectToRFM")
+
+<style>
+    .control {
+        margin-bottom: 10px;
+    }
+    .control .col-md-4 .col-md-4 {
+        padding: 0px;
+        padding-top: 4px;
+    }
+</style>
